@@ -31,12 +31,16 @@
 
 #define GPIO_SWPORTA_DR		0x00
 #define GPIO_SWPORTA_DDR	0x04
+#define GPIO_SWPORTA_CTL	0x08
 #define GPIO_SWPORTB_DR		0x0c
 #define GPIO_SWPORTB_DDR	0x10
+#define GPIO_SWPORTB_CTL	0x14
 #define GPIO_SWPORTC_DR		0x18
 #define GPIO_SWPORTC_DDR	0x1c
+#define GPIO_SWPORTC_CTL	0x20
 #define GPIO_SWPORTD_DR		0x24
 #define GPIO_SWPORTD_DDR	0x28
+#define GPIO_SWPORTD_CTL	0x2c
 #define GPIO_INTEN		0x30
 #define GPIO_INTMASK		0x34
 #define GPIO_INTTYPE_LEVEL	0x38
@@ -55,6 +59,7 @@
 #define GPIO_EXT_PORT_STRIDE	0x04 /* register stride 32 bits */
 #define GPIO_SWPORT_DR_STRIDE	0x0c /* register stride 3*32 bits */
 #define GPIO_SWPORT_DDR_STRIDE	0x0c /* register stride 3*32 bits */
+#define GPIO_SWPORT_CTL_STRIDE	0x0c /* register stride 3*32 bits */
 
 #define GPIO_REG_OFFSET_V2	1
 
@@ -489,6 +494,42 @@ static void dwapb_irq_teardown(struct dwapb_gpio *gpio)
 	gpio->domain = NULL;
 }
 
+int dwapb_gpio_request(struct gpio_chip *gc, unsigned offset)
+{
+	struct dwapb_gpio_port *port = gpiochip_get_data(gc);
+	struct dwapb_gpio *gpio = port->gpio;
+	unsigned ctl;
+	unsigned long value;
+
+	if (offset >= gc->ngpio)
+		return -EINVAL;
+
+	ctl = GPIO_SWPORTA_CTL + (port->idx * GPIO_SWPORT_CTL_STRIDE);
+
+	value = dwapb_read(gpio, ctl);
+	__clear_bit(offset, &value);
+	dwapb_write(gpio, ctl, value);
+
+	return 0;
+}
+
+void dwapb_gpio_free(struct gpio_chip *gc, unsigned offset)
+{
+	struct dwapb_gpio_port *port = gpiochip_get_data(gc);
+	struct dwapb_gpio *gpio = port->gpio;
+	unsigned ctl;
+	unsigned long value;
+
+	if (offset >= gc->ngpio)
+		return;
+
+	ctl = GPIO_SWPORTA_CTL + (port->idx * GPIO_SWPORT_CTL_STRIDE);
+
+	value = dwapb_read(gpio, ctl);
+	__set_bit(offset, &value);
+	dwapb_write(gpio, ctl, value);
+}
+
 static int dwapb_gpio_add_port(struct dwapb_gpio *gpio,
 			       struct dwapb_port_property *pp,
 			       unsigned int offs)
@@ -521,11 +562,16 @@ static int dwapb_gpio_add_port(struct dwapb_gpio *gpio,
 		return err;
 	}
 
+	dwapb_write(gpio, GPIO_SWPORTA_CTL +
+			(pp->idx * GPIO_SWPORT_CTL_STRIDE), ~0UL);
+
 #ifdef CONFIG_OF_GPIO
 	port->gc.of_node = to_of_node(pp->fwnode);
 #endif
 	port->gc.ngpio = pp->ngpio;
 	port->gc.base = pp->gpio_base;
+	port->gc.request = dwapb_gpio_request;
+	port->gc.free = dwapb_gpio_free;
 
 	/* Only port A support debounce */
 	if (pp->idx == 0)
