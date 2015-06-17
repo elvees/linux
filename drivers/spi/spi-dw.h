@@ -34,6 +34,8 @@
 #define DW_SPI_DR			0x60
 #define DW_SPI_CS_OVERRIDE		0xf4
 
+#define DW_SPI_TOGGLE			0xf4
+
 /* Bit fields in CTRLR0 */
 #define SPI_DFS_OFFSET			0
 
