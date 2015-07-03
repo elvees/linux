@@ -240,6 +240,8 @@ static void dwapb_irq_enable(struct irq_data *d)
 	val |= BIT(d->hwirq);
 	dwapb_write(gpio, GPIO_INTEN, val);
 	spin_unlock_irqrestore(&gc->bgpio_lock, flags);
+
+	irq_gc_mask_clr_bit(d);
 }
 
 static void dwapb_irq_disable(struct irq_data *d)
