@@ -29,29 +29,31 @@
 
 #include "arasan_gemac.h"
 
-#define print_reg(reg) \
-netdev_info(pd->dev, "offset 0x%x : value 0x%x\n", reg, arasan_gemac_readl(pd, reg));
+#define print_reg(reg) netdev_info(pd->dev, \
+				   "offset 0x%x : value 0x%x\n", \
+				   reg, \
+				   arasan_gemac_readl(pd, reg))
 
 void arasan_gemac_dump_regs(struct arasan_gemac_pdata *pd)
 {
 	netdev_info(pd->dev, "Arasan GEMAC register dump:\n");
 
-	print_reg(DMA_CONFIGURATION)
-	print_reg(DMA_CONTROL)
-	print_reg(DMA_STATUS_AND_IRQ)
-	print_reg(DMA_INTERRUPT_ENABLE)
-	print_reg(DMA_TRANSMIT_BASE_ADDRESS)
-	print_reg(DMA_CURRENT_TRANSMIT_DESCRIPTOR_POINTER)
-	print_reg(DMA_CURRENT_TRANSMIT_BUFFER_POINTER)
-	print_reg(MAC_GLOBAL_CONTROL)
-	print_reg(MAC_TRANSMIT_CONTROL)
-	print_reg(MAC_RECEIVE_CONTROL)
-	print_reg(MAC_ADDRESS_CONTROL)
-	print_reg(MAC_ADDRESS1_HIGH)
-	print_reg(MAC_ADDRESS1_MED)
-	print_reg(MAC_ADDRESS1_LOW)
-	print_reg(MAC_INTERRUPT)
-	print_reg(MAC_INTERRUPT_ENABLE)
+	print_reg(DMA_CONFIGURATION);
+	print_reg(DMA_CONTROL);
+	print_reg(DMA_STATUS_AND_IRQ);
+	print_reg(DMA_INTERRUPT_ENABLE);
+	print_reg(DMA_TRANSMIT_BASE_ADDRESS);
+	print_reg(DMA_CURRENT_TRANSMIT_DESCRIPTOR_POINTER);
+	print_reg(DMA_CURRENT_TRANSMIT_BUFFER_POINTER);
+	print_reg(MAC_GLOBAL_CONTROL);
+	print_reg(MAC_TRANSMIT_CONTROL);
+	print_reg(MAC_RECEIVE_CONTROL);
+	print_reg(MAC_ADDRESS_CONTROL);
+	print_reg(MAC_ADDRESS1_HIGH);
+	print_reg(MAC_ADDRESS1_MED);
+	print_reg(MAC_ADDRESS1_LOW);
+	print_reg(MAC_INTERRUPT);
+	print_reg(MAC_INTERRUPT_ENABLE);
 }
 
 static void arasan_gemac_set_hwaddr(struct net_device *dev)
@@ -61,16 +63,16 @@ static void arasan_gemac_set_hwaddr(struct net_device *dev)
 	u8 *dev_addr = dev->dev_addr;
 
 	arasan_gemac_writel(pd, MAC_ADDRESS1_LOW,
-		MAC_ADDRESS1_LOW_SIXTH_BYTE(dev_addr[5]) |
-		MAC_ADDRESS1_LOW_FIFTH_BYTE(dev_addr[4]));
+			    MAC_ADDRESS1_LOW_SIXTH_BYTE(dev_addr[5]) |
+			    MAC_ADDRESS1_LOW_FIFTH_BYTE(dev_addr[4]));
 
 	arasan_gemac_writel(pd, MAC_ADDRESS1_MED,
-		MAC_ADDRESS1_MED_FOURTH_BYTE(dev_addr[3]) |
-		MAC_ADDRESS1_MED_THIRD_BYTE(dev_addr[2]));
+			    MAC_ADDRESS1_MED_FOURTH_BYTE(dev_addr[3]) |
+			    MAC_ADDRESS1_MED_THIRD_BYTE(dev_addr[2]));
 
 	arasan_gemac_writel(pd, MAC_ADDRESS1_HIGH,
-		MAC_ADDRESS1_HIGH_SECOND_BYTE(dev_addr[1]) |
-		MAC_ADDRESS1_HIGH_FIRST_BYTE(dev_addr[0]));
+			    MAC_ADDRESS1_HIGH_SECOND_BYTE(dev_addr[1]) |
+			    MAC_ADDRESS1_HIGH_FIRST_BYTE(dev_addr[0]));
 }
 
 static void arasan_gemac_get_hwaddr(struct arasan_gemac_pdata *pd)
@@ -82,11 +84,13 @@ static void arasan_gemac_get_hwaddr(struct arasan_gemac_pdata *pd)
 static void arasan_gemac_dma_soft_reset(struct arasan_gemac_pdata *pd)
 {
 	u32 reg;
+
 	reg = arasan_gemac_readl(pd, DMA_CONFIGURATION);
-	arasan_gemac_writel(pd, DMA_CONFIGURATION, (reg | DMA_CONFIGURATION_SOFT_RESET));
-	/* FIX ME
+	arasan_gemac_writel(pd, DMA_CONFIGURATION,
+			    (reg | DMA_CONFIGURATION_SOFT_RESET));
+	/* FIXME
 	 * mdelay or msleep ?
-	*/
+	 */
 
 	mdelay(10);
 	arasan_gemac_writel(pd, DMA_CONFIGURATION, reg);
@@ -96,7 +100,7 @@ static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 {
 	u32 reg;
 
-	arasan_gemac_writel(pd, MAC_ADDRESS_CONTROL, 0x1);
+	arasan_gemac_writel(pd, MAC_ADDRESS_CONTROL, 1);
 	arasan_gemac_writel(pd, MAC_TRANSMIT_FIFO_ALMOST_FULL, (512 - 8));
 	arasan_gemac_writel(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD, 128);
 	arasan_gemac_writel(pd, MAC_RECEIVE_PACKET_START_THRESHOLD, 64);
@@ -124,7 +128,7 @@ static int arasan_gemac_alloc_rx_buffer(struct arasan_gemac_pdata *pd, int index
 		return -ENOMEM;
 
 	mapping = dma_map_single(&pd->pdev->dev, skb_tail_pointer(skb),
-		PKT_BUF_SZ, DMA_FROM_DEVICE);
+				 PKT_BUF_SZ, DMA_FROM_DEVICE);
 
 	if (dma_mapping_error(&pd->pdev->dev, mapping)) {
 		dev_kfree_skb_any(skb);
@@ -136,6 +140,10 @@ static int arasan_gemac_alloc_rx_buffer(struct arasan_gemac_pdata *pd, int index
 	pd->rx_buffers[index].mapping = mapping;
 	pd->rx_ring[index].buffer1 = mapping + NET_IP_ALIGN;
 	pd->rx_ring[index].status = DMA_RDES0_OWN_BIT;
+
+	/* FIXME
+	 * Do we really need wmb here ?
+	 */
 	wmb();
 
 	return 0;
@@ -155,14 +163,19 @@ static void arasan_gemac_free_rx_ring(struct arasan_gemac_pdata *pd)
 			dev_kfree_skb_any(pd->rx_buffers[i].skb);
 
 		if (pd->rx_buffers[i].mapping)
-			dma_unmap_single(&pd->pdev->dev, pd->rx_buffers[i].mapping,
-				PKT_BUF_SZ, DMA_FROM_DEVICE);
+			dma_unmap_single(&pd->pdev->dev,
+					 pd->rx_buffers[i].mapping,
+					 PKT_BUF_SZ, DMA_FROM_DEVICE);
 
 		pd->rx_ring[i].status = 0;
 		pd->rx_ring[i].misc = 0;
 		pd->rx_ring[i].buffer1 = 0;
 		pd->rx_ring[i].buffer2 = 0;
 	}
+
+	/* FIXME
+	 * Do we really need wmb here ?
+	 */
 	wmb();
 
 	kfree(pd->rx_buffers);
@@ -229,7 +242,8 @@ static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 	/* now allocate the entire ring of skbs */
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		if (arasan_gemac_alloc_rx_buffer(pd, i)) {
-			netdev_err(pd->dev, "failed to allocate rx skb %d\n", i);
+			netdev_err(pd->dev,
+				   "failed to allocate rx skb %d\n", i);
 			goto out_free_rx_skbs;
 		}
 	}
@@ -288,8 +302,8 @@ static int arasan_gemac_open(struct net_device *dev)
 
 	/* Enable interrupts */
 	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE,
-		DMA_INTERRUPT_ENABLE_RECEIVE_DONE |
-		DMA_INTERRUPT_ENABLE_TRANSMIT_DONE);
+			    DMA_INTERRUPT_ENABLE_RECEIVE_DONE |
+			    DMA_INTERRUPT_ENABLE_TRANSMIT_DONE);
 
 	/* Enable packet transmission */
 	reg = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
@@ -303,15 +317,16 @@ static int arasan_gemac_open(struct net_device *dev)
 
 	/* Start transmit and receive DMA */
 	arasan_gemac_writel(pd, DMA_CONTROL,
-		DMA_CONTROL_START_RECEIVE_DMA |
-		DMA_CONTROL_START_TRANSMIT_DMA);
+			    DMA_CONTROL_START_RECEIVE_DMA |
+			    DMA_CONTROL_START_TRANSMIT_DMA);
 
 	netif_start_queue(dev);
 
 	return 0;
 }
 
-static void arasan_gemac_tx_update_stats(struct net_device *dev, u32 status, u32 length)
+static void arasan_gemac_tx_update_stats(struct net_device *dev,
+					 u32 status, u32 length)
 {
 	if (unlikely(status & 0x7fffffff)) {
 		dev->stats.tx_errors++;
@@ -330,7 +345,11 @@ static void arasan_gemac_complete_tx(struct net_device *dev)
 		int index = pd->tx_ring_tail;
 		u32 status, misc;
 
+		/* FIXME
+		 * Do we really need rmb here ?
+		 */
 		rmb();
+
 		status = pd->tx_ring[index].status;
 		misc = pd->tx_ring[index].misc;
 
@@ -344,7 +363,7 @@ static void arasan_gemac_complete_tx(struct net_device *dev)
 		BUG_ON(!pd->tx_buffers[index].mapping);
 
 		dma_unmap_single(&pd->pdev->dev, pd->tx_buffers[index].mapping,
-			pd->tx_buffers[index].skb->len, DMA_TO_DEVICE);
+				 pd->tx_buffers[index].skb->len, DMA_TO_DEVICE);
 
 		pd->tx_buffers[index].mapping = 0;
 
@@ -352,6 +371,10 @@ static void arasan_gemac_complete_tx(struct net_device *dev)
 		pd->tx_buffers[index].skb = NULL;
 
 		pd->tx_ring[index].buffer1 = 0;
+
+		/* FIXME
+		 * Do we really need wmb here ?
+		 */
 		wmb();
 
 		pd->tx_ring_tail = (pd->tx_ring_tail + 1) % TX_RING_SIZE;
@@ -370,13 +393,17 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	arasan_gemac_complete_tx(dev);
 
+	/* FIXME
+	 * Do we really need rmb here ?
+	 */
 	rmb();
+
 	BUG_ON(pd->tx_ring[index].status & DMA_TDES0_OWN_BIT);
 	BUG_ON(pd->tx_buffers[index].skb);
 	BUG_ON(pd->tx_buffers[index].mapping);
 
 	mapping = dma_map_single(&pd->pdev->dev, skb->data,
-		skb->len, DMA_TO_DEVICE);
+				 skb->len, DMA_TO_DEVICE);
 
 	if (dma_mapping_error(&pd->pdev->dev, mapping)) {
 		netdev_warn(dev, "dma_map_single failed, dropping packet\n");
@@ -398,6 +425,10 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	pd->tx_ring[index].buffer1 = mapping;
 	pd->tx_ring[index].misc = tmp_desc1;
+
+	/* FIXME
+	 * Do we really need wmb here ?
+	 */
 	wmb();
 
 	/* increment head */
@@ -405,6 +436,10 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	/* assign ownership to DMAC */
 	pd->tx_ring[index].status = DMA_TDES0_OWN_BIT;
+
+	/* FIXME
+	 * Do we really need rmb here ?
+	 */
 	wmb();
 
 	skb_tx_timestamp(skb);
@@ -426,7 +461,8 @@ static void arasan_gemac_alloc_new_rx_buffers(struct arasan_gemac_pdata *pd)
 	}
 }
 
-static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd, const int index, const u32 status)
+static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd,
+				    const int index, const u32 status)
 {
 	struct net_device *dev = pd->dev;
 	struct sk_buff *skb;
@@ -438,7 +474,9 @@ static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd, const int ind
 	dev->stats.rx_packets++;
 	dev->stats.rx_bytes += packet_length;
 
-	dma_unmap_single(&pd->pdev->dev, pd->rx_buffers[index].mapping, PKT_BUF_SZ, DMA_FROM_DEVICE);
+	dma_unmap_single(&pd->pdev->dev, pd->rx_buffers[index].mapping,
+			 PKT_BUF_SZ, DMA_FROM_DEVICE);
+
 	pd->rx_buffers[index].mapping = 0;
 
 	skb = pd->rx_buffers[index].skb;
@@ -454,19 +492,26 @@ static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd, const int ind
 
 static void arasan_gemac_rx_count_stats(struct net_device *dev, u32 desc_status)
 {
-	if (unlikely(!((desc_status & DMA_RDES0_FD) && (desc_status & DMA_RDES0_LD))))
+	if (unlikely(!((desc_status & DMA_RDES0_FD) &&
+		       (desc_status & DMA_RDES0_LD))))
 		dev->stats.rx_length_errors++;
 }
 
 static int arasan_gemac_rx_poll(struct napi_struct *napi, int budget)
 {
-	struct arasan_gemac_pdata *pd = container_of(napi, struct arasan_gemac_pdata, napi);
+	struct arasan_gemac_pdata *pd =
+		container_of(napi, struct arasan_gemac_pdata, napi);
+
 	struct net_device *dev = pd->dev;
 	u32 drop_frame_cnt, dma_intr_ena, status;
 	int work_done;
 
 	for (work_done = 0; work_done < budget; work_done++) {
+		/* FIXME
+		 * Do we really need rmb here ?
+		 */
 		rmb();
+
 		status = pd->rx_ring[pd->rx_ring_head].status;
 
 		/* stop if DMAC owns this dma descriptor */
@@ -542,16 +587,18 @@ static int arasan_gemac_stop_tx(struct net_device *dev)
 
 	/* Wait max 10ms for transmit process to stop */
 	while (--timeout) {
-		if (!DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE(arasan_gemac_readl(pd, DMA_STATUS_AND_IRQ)))
+		dmac_control = arasan_gemac_readl(pd, DMA_STATUS_AND_IRQ);
+		if (!DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE(dmac_control))
 			break;
-		udelay(10);
+		usleep_range(10, 20);
 	}
 
 	if (!timeout)
 		netdev_warn(pd->dev, "TX DMAC failed to stop\n");
 
 	/* ACK Tx DMAC stop bit */
-	arasan_gemac_writel(pd, DMA_STATUS_AND_IRQ, DMA_STATUS_AND_IRQ_TX_DMA_STOPPED);
+	arasan_gemac_writel(pd, DMA_STATUS_AND_IRQ,
+			    DMA_STATUS_AND_IRQ_TX_DMA_STOPPED);
 
 	/* mask TX DMAC interrupts */
 	dma_intr_ena = arasan_gemac_readl(pd, DMA_INTERRUPT_ENABLE);
@@ -593,10 +640,10 @@ static void arasan_gemac_reset_phy(struct platform_device *pdev)
 		return;
 	}
 
-	/* FIX ME
+	/* FIXME
 	 * 20 msec is actually too much for phy resetting. But if we set
 	 * the reset time less than 20 msec check patch script is failed.
-	*/
+	 */
 
 	msleep(20);
 	gpio_set_value(phy_reset, 1);
@@ -608,10 +655,10 @@ static int arasan_gemac_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 	int value;
 
 	arasan_gemac_writel(pd, MAC_MDIO_CONTROL,
-		MAC_MDIO_CONTROL_READ_WRITE(1) |
-		MAC_MDIO_CONTROL_REG_ADDR(regnum) |
-		MAC_MDIO_CONTROL_PHY_ADDR(mii_id) |
-		MAC_MDIO_CONTROL_START_FRAME(1));
+			    MAC_MDIO_CONTROL_READ_WRITE(1) |
+			    MAC_MDIO_CONTROL_REG_ADDR(regnum) |
+			    MAC_MDIO_CONTROL_PHY_ADDR(mii_id) |
+			    MAC_MDIO_CONTROL_START_FRAME(1));
 
 	/* wait for end of transfer */
 	while ((arasan_gemac_readl(pd, MAC_MDIO_CONTROL) >> 15))
@@ -622,18 +669,18 @@ static int arasan_gemac_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 	return value;
 }
 
-static int arasan_gemac_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
-			u16 value)
+static int arasan_gemac_mdio_write(struct mii_bus *bus, int mii_id,
+				   int regnum, u16 value)
 {
 	struct arasan_gemac_pdata *pd = bus->priv;
 
 	arasan_gemac_writel(pd, MAC_MDIO_DATA, value);
 
 	arasan_gemac_writel(pd, MAC_MDIO_CONTROL,
-		MAC_MDIO_CONTROL_START_FRAME(1) |
-		MAC_MDIO_CONTROL_PHY_ADDR(mii_id) |
-		MAC_MDIO_CONTROL_REG_ADDR(regnum) |
-		MAC_MDIO_CONTROL_READ_WRITE(0));
+			    MAC_MDIO_CONTROL_START_FRAME(1) |
+			    MAC_MDIO_CONTROL_PHY_ADDR(mii_id) |
+			    MAC_MDIO_CONTROL_REG_ADDR(regnum) |
+			    MAC_MDIO_CONTROL_READ_WRITE(0));
 
 	/* wait for end of transfer */
 	while ((arasan_gemac_readl(pd, MAC_MDIO_CONTROL) >> 15))
@@ -652,25 +699,25 @@ static void arasan_gemac_handle_link_change(struct net_device *dev)
 
 	spin_lock_irqsave(&pd->lock, flags);
 
-	if (phydev->link) {
-		if ((pd->speed != phydev->speed) ||
-			(pd->duplex != phydev->duplex)) {
-			u32 reg;
-			reg = arasan_gemac_readl(pd, MAC_GLOBAL_CONTROL);
-			reg &= ~(MAC_GLOBAL_CONTROL_SPEED(3) |
-				MAC_GLOBAL_CONTROL_DUPLEX_MODE(1));
+	if ((phydev->link) &&
+	    ((pd->speed != phydev->speed) || (pd->duplex != phydev->duplex))) {
+		u32 reg;
 
-			if (phydev->duplex)
-				reg |= MAC_GLOBAL_CONTROL_DUPLEX_MODE(phydev->duplex);
-			if (phydev->speed == SPEED_100)
-				reg |= MAC_GLOBAL_CONTROL_SPEED(1);
+		reg = arasan_gemac_readl(pd, MAC_GLOBAL_CONTROL);
+		reg &= ~(MAC_GLOBAL_CONTROL_SPEED(3) |
+			 MAC_GLOBAL_CONTROL_DUPLEX_MODE(1));
 
-			arasan_gemac_writel(pd, MAC_GLOBAL_CONTROL, reg);
+		if (phydev->duplex)
+			reg |= MAC_GLOBAL_CONTROL_DUPLEX_MODE(phydev->duplex);
 
-			pd->speed = phydev->speed;
-			pd->duplex = phydev->duplex;
-			status_change = 1;
-		}
+		if (phydev->speed == SPEED_100)
+			reg |= MAC_GLOBAL_CONTROL_SPEED(1);
+
+		arasan_gemac_writel(pd, MAC_GLOBAL_CONTROL, reg);
+
+		pd->speed = phydev->speed;
+		pd->duplex = phydev->duplex;
+		status_change = 1;
 	}
 
 	if (phydev->link != pd->link) {
@@ -689,9 +736,9 @@ static void arasan_gemac_handle_link_change(struct net_device *dev)
 		if (phydev->link) {
 			netif_carrier_on(dev);
 			netdev_info(dev, "link up (%d/%s)\n",
-				phydev->speed,
-				phydev->duplex == DUPLEX_FULL ?
-				"Full" : "Half");
+				    phydev->speed,
+				    phydev->duplex == DUPLEX_FULL ?
+				    "Full" : "Half");
 		} else {
 			netif_carrier_off(dev);
 			netdev_info(dev, "link down\n");
@@ -711,15 +758,17 @@ static int arasan_gemac_mii_probe(struct net_device *dev)
 	}
 
 	phydev = phy_connect(dev, dev_name(&phydev->dev),
-		arasan_gemac_handle_link_change, pd->phy_interface);
+			     arasan_gemac_handle_link_change,
+			     pd->phy_interface);
 
 	if (IS_ERR(phydev)) {
 		netdev_err(dev, "Could not attach to PHY\n");
 		return PTR_ERR(phydev);
 	}
 
-	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
-		phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
+	netdev_info(dev,
+		    "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
 
 	phydev->supported &= PHY_BASIC_FEATURES;
 
@@ -740,7 +789,7 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 	int err = -ENXIO;
 
 	pd->mii_bus = mdiobus_alloc();
-	if (pd->mii_bus == NULL) {
+	if (!pd->mii_bus) {
 		err = -ENOMEM;
 		goto err_out;
 	}
@@ -750,7 +799,7 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 	pd->mii_bus->write = &arasan_gemac_mdio_write;
 
 	snprintf(pd->mii_bus->id, MII_BUS_ID_SIZE, "%s-0x%x",
-		pd->pdev->name, pd->pdev->id);
+		 pd->pdev->name, pd->pdev->id);
 
 	pd->mii_bus->priv = pd;
 	pd->mii_bus->parent = &pd->dev->dev;
@@ -765,7 +814,9 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 		err = of_mdiobus_register(pd->mii_bus, np);
 
 		if (err) {
-			netdev_err(dev, "Failed to register mdio bus, error: %d\n", err);
+			netdev_err(dev,
+				   "Failed to register mdio bus, error: %d\n",
+				   err);
 			goto err_out_free_mdiobus;
 		}
 	} else {
@@ -847,7 +898,8 @@ static int __init arasan_gemac_probe(struct platform_device *pdev)
 
 	/* Install the interrupt handler */
 	dev->irq = platform_get_irq(pdev, 0);
-	res = devm_request_irq(&pdev->dev, dev->irq, arasan_gemac_interrupt, 0, dev->name, dev);
+	res = devm_request_irq(&pdev->dev, dev->irq, arasan_gemac_interrupt,
+			       0, dev->name, dev);
 	if (res)
 		goto err_free_dev;
 
@@ -867,7 +919,7 @@ static int __init arasan_gemac_probe(struct platform_device *pdev)
 
 	mac = of_get_mac_address(pdev->dev.of_node);
 	if (mac)
-		memcpy(pd->dev->dev_addr, mac, ETH_ALEN);
+		ether_addr_copy(pd->dev->dev_addr, mac);
 	else
 		arasan_gemac_get_hwaddr(pd);
 
@@ -886,7 +938,7 @@ static int __init arasan_gemac_probe(struct platform_device *pdev)
 
 	/* Display ethernet banner */
 	netdev_info(dev, "Arasan GEMAC ethernet at 0x%08lx int=%d (%pM)\n",
-		dev->base_addr, dev->irq, dev->dev_addr);
+		    dev->base_addr, dev->irq, dev->dev_addr);
 
 	return 0;
 
@@ -894,7 +946,8 @@ err_out_unregister_netdev:
 	unregister_netdev(dev);
 err_free_dev:
 	free_netdev(dev);
-    return res;
+
+	return res;
 }
 
 static struct platform_driver arasan_gemac_driver = {

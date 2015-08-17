@@ -79,26 +79,26 @@
 
 /* Arasan GEMAC register fields */
 
-#define DMA_CONFIGURATION_SOFT_RESET                  (1 << 0)
-#define DMA_CONFIGURATION_WAIT_FOR_DONE               (1 << 16)
+#define DMA_CONFIGURATION_SOFT_RESET                  BIT(0)
+#define DMA_CONFIGURATION_WAIT_FOR_DONE               BIT(16)
 
-#define DMA_CONTROL_START_TRANSMIT_DMA                (1 << 0)
-#define DMA_CONTROL_START_RECEIVE_DMA                 (1 << 1)
+#define DMA_CONTROL_START_TRANSMIT_DMA                BIT(0)
+#define DMA_CONTROL_START_RECEIVE_DMA                 BIT(1)
 
-#define DMA_STATUS_AND_IRQ_TRANSFER_DONE              (1 << 0)
-#define DMA_STATUS_AND_IRQ_TRANS_DESC_UNVAIL          (1 << 1)
-#define DMA_STATUS_AND_IRQ_TX_DMA_STOPPED             (1 << 2)
-#define DMA_STATUS_AND_IRQ_RECEIVE_DONE               (1 << 4)
-#define DMA_STATUS_AND_IRQ_MAC_INTERRUPT              (1 << 11)
+#define DMA_STATUS_AND_IRQ_TRANSFER_DONE              BIT(0)
+#define DMA_STATUS_AND_IRQ_TRANS_DESC_UNVAIL          BIT(1)
+#define DMA_STATUS_AND_IRQ_TX_DMA_STOPPED             BIT(2)
+#define DMA_STATUS_AND_IRQ_RECEIVE_DONE               BIT(4)
+#define DMA_STATUS_AND_IRQ_MAC_INTERRUPT              BIT(11)
 #define DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE(VAL)    (((VAL) & 0x7000) >> 16)
 
-#define DMA_INTERRUPT_ENABLE_TRANSMIT_DONE            (1 << 0)
-#define DMA_INTERRUPT_ENABLE_RECEIVE_DONE             (1 << 4)
+#define DMA_INTERRUPT_ENABLE_TRANSMIT_DONE            BIT(0)
+#define DMA_INTERRUPT_ENABLE_RECEIVE_DONE             BIT(4)
 
 #define MAC_GLOBAL_CONTROL_SPEED(VAL)                 ((VAL) << 0)
 #define MAC_GLOBAL_CONTROL_DUPLEX_MODE(VAL)           ((VAL) << 2)
 
-#define MAC_RECEIVE_CONTROL_STORE_AND_FORWARD         (1 << 3)
+#define MAC_RECEIVE_CONTROL_STORE_AND_FORWARD         BIT(3)
 
 #define MAC_ADDRESS1_LOW_SIXTH_BYTE(VAL)              ((VAL) << 8)
 #define MAC_ADDRESS1_LOW_FIFTH_BYTE(VAL)              ((VAL) << 0)
@@ -114,20 +114,21 @@
 
 /* DMA descriptor fields */
 
-#define DMA_RDES0_OWN_BIT      (1 << 31)
-#define DMA_RDES0_FD           (1 << 30)
-#define DMA_RDES0_LD           (1 << 29)
+#define DMA_RDES0_OWN_BIT      BIT(31)
+#define DMA_RDES0_FD           BIT(30)
+#define DMA_RDES0_LD           BIT(29)
 
-#define DMA_RDES1_EOR          (1 << 26)
+#define DMA_RDES1_EOR          BIT(26)
 
-#define DMA_TDES0_OWN_BIT      (1 << 31)
-#define DMA_TDES1_IOC          (1 << 31)
-#define DMA_TDES1_LS           (1 << 30)
-#define DMA_TDES1_FS           (1 << 29)
-#define DMA_TDES1_EOR          (1 << 26)
+#define DMA_TDES0_OWN_BIT      BIT(31)
+#define DMA_TDES1_IOC          BIT(31)
+#define DMA_TDES1_LS           BIT(30)
+#define DMA_TDES1_FS           BIT(29)
+#define DMA_TDES1_EOR          BIT(26)
 
 #define arasan_gemac_readl(port, reg) __raw_readl((port)->regs + reg)
-#define arasan_gemac_writel(port, reg, value) __raw_writel((value), (port)->regs + reg)
+#define arasan_gemac_writel(port, reg, value) \
+	__raw_writel((value), (port)->regs + reg)
 
 struct arasan_gemac_dma_desc {
 	u32 status;
@@ -147,6 +148,7 @@ struct arasan_gemac_pdata {
 	struct platform_device *pdev;
 	struct net_device      *dev;
 
+	/* driver lock */
 	spinlock_t lock;
 
 	struct arasan_gemac_dma_desc  *rx_ring;
