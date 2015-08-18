@@ -579,7 +579,7 @@ static irqreturn_t arasan_gemac_interrupt(int irq, void *dev_id)
 	}
 
 	if (ints_to_clear)
-		arasan_gemac_writel(pd, DMA_STATUS_AND_IRQ, int_sts);
+		arasan_gemac_writel(pd, DMA_STATUS_AND_IRQ, ints_to_clear);
 
 	return IRQ_HANDLED;
 }
