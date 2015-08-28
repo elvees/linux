@@ -159,6 +159,42 @@ static int arasan_gemac_alloc_rx_buffer(struct arasan_gemac_pdata *pd, int index
 	return 0;
 }
 
+static void arasan_gemac_free_tx_ring(struct arasan_gemac_pdata *pd)
+{
+	int i;
+
+	if (!pd->tx_buffers)
+		return;
+
+	for (i = 0; i < TX_RING_SIZE; i++) {
+		struct sk_buff *skb = pd->tx_buffers[i].skb;
+
+		if (skb) {
+			WARN_ON(!pd->tx_buffers[i].mapping);
+			dma_unmap_single(&pd->pdev->dev,
+					 pd->tx_buffers[i].mapping,
+					 skb->len, DMA_TO_DEVICE);
+			dev_kfree_skb_any(skb);
+		}
+
+		pd->tx_ring[i].status = 0;
+		pd->tx_ring[i].misc = 0;
+		pd->tx_ring[i].buffer1 = 0;
+		pd->tx_ring[i].buffer2 = 0;
+	}
+
+	/* FIXME
+	 * Do we really need wmb here ?
+	 */
+	wmb();
+
+	kfree(pd->tx_buffers);
+	pd->tx_buffers = NULL;
+
+	pd->tx_ring_head = 0;
+	pd->tx_ring_tail = 0;
+}
+
 static void arasan_gemac_free_rx_ring(struct arasan_gemac_pdata *pd)
 {
 	int i;
@@ -311,12 +347,12 @@ static int arasan_gemac_open(struct net_device *dev)
 
 	/* Enable packet transmission */
 	reg = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
-	reg |= 0x1;
+	reg |= MAC_TRANSMIT_CONTROL_TRANSMIT_ENABLE;
 	arasan_gemac_writel(pd, MAC_TRANSMIT_CONTROL, reg);
 
 	/* Enable packet reception */
 	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
-	reg |= 0x1;
+	reg |= MAC_RECEIVE_CONTROL_RECEIVE_ENABLE;
 	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
 
 	/* Start transmit and receive DMA */
@@ -575,21 +611,20 @@ static irqreturn_t arasan_gemac_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int arasan_gemac_stop_tx(struct net_device *dev)
+static void arasan_gemac_stop_tx(struct arasan_gemac_pdata *pd)
 {
-	struct arasan_gemac_pdata *pd = netdev_priv(dev);
-	u32 dmac_control, mac_cr, dma_intr_ena;
+	u32 reg;
 	int timeout = 1000;
 
 	/* disable TX DMAC */
-	dmac_control = arasan_gemac_readl(pd, DMA_CONTROL);
-	dmac_control &= (~DMA_CONTROL_START_TRANSMIT_DMA);
-	arasan_gemac_writel(pd, DMA_CONTROL, dmac_control);
+	reg = arasan_gemac_readl(pd, DMA_CONTROL);
+	reg &= ~DMA_CONTROL_START_TRANSMIT_DMA;
+	arasan_gemac_writel(pd, DMA_CONTROL, reg);
 
-	/* Wait max 10ms for transmit process to stop */
+	/* Wait max 20 ms for transmit process to stop */
 	while (--timeout) {
-		dmac_control = arasan_gemac_readl(pd, DMA_STATUS_AND_IRQ);
-		if (!DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE(dmac_control))
+		reg = arasan_gemac_readl(pd, DMA_STATUS_AND_IRQ);
+		if (!DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE(reg))
 			break;
 		usleep_range(10, 20);
 	}
@@ -602,14 +637,94 @@ static int arasan_gemac_stop_tx(struct net_device *dev)
 			    DMA_STATUS_AND_IRQ_TX_DMA_STOPPED);
 
 	/* mask TX DMAC interrupts */
-	dma_intr_ena = arasan_gemac_readl(pd, DMA_INTERRUPT_ENABLE);
-	dma_intr_ena &= ~(DMA_INTERRUPT_ENABLE_TRANSMIT_DONE);
-	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, dma_intr_ena);
+	reg = arasan_gemac_readl(pd, DMA_INTERRUPT_ENABLE);
+	reg &= ~DMA_INTERRUPT_ENABLE_TRANSMIT_DONE;
+	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, reg);
+
+	/* We must guarantee that interrupts will be masked
+	 * before stoping MAC TX
+	 */
+	wmb();
 
 	/* stop MAC TX */
-	mac_cr = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
-	mac_cr &= 1;
-	arasan_gemac_writel(pd, MAC_TRANSMIT_CONTROL, mac_cr);
+	reg = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
+	reg &= ~MAC_TRANSMIT_CONTROL_TRANSMIT_ENABLE;
+	arasan_gemac_writel(pd, MAC_TRANSMIT_CONTROL, reg);
+}
+
+static void arasan_gemac_stop_rx(struct arasan_gemac_pdata *pd)
+{
+	int timeout = 1000;
+	u32 reg;
+
+	/* mask RX DMAC interrupts */
+	reg = arasan_gemac_readl(pd, DMA_INTERRUPT_ENABLE);
+	reg &= ~DMA_INTERRUPT_ENABLE_RECEIVE_DONE;
+	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, reg);
+
+	/* We must guarantee that interrupts will be masked
+	 * before stoping RX MAC
+	 */
+	wmb();
+
+	/* stop RX MAC */
+	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
+	reg &= ~MAC_RECEIVE_CONTROL_RECEIVE_ENABLE;
+	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
+
+	/* We must guarantee that RX MAC will be stopped
+	 * before stoping DMA
+	 */
+	wmb();
+
+	/* stop RX DMAC */
+	reg = arasan_gemac_readl(pd, DMA_CONTROL);
+	reg &= ~DMA_CONTROL_START_RECEIVE_DMA;
+	arasan_gemac_writel(pd, DMA_CONTROL, reg);
+
+	/* Wait max 20 ms for receive process to stop */
+	while (--timeout) {
+		reg = arasan_gemac_readl(pd, DMA_STATUS_AND_IRQ);
+		if (!DMA_STATUS_AND_IRQ_RECEIVE_DMA_STATE(reg))
+			break;
+		usleep_range(10, 20);
+	}
+
+	if (!timeout)
+		netdev_warn(pd->dev, "RX DMAC failed to stop\n");
+
+	/* ACK the Rx DMAC stop bit */
+	arasan_gemac_writel(pd, DMA_STATUS_AND_IRQ,
+			    DMA_STATUS_AND_IRQ_RX_DMA_STOPPED);
+}
+
+static int arasan_gemac_stop(struct net_device *dev)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	netif_tx_disable(dev);
+	napi_disable(&pd->napi);
+
+	arasan_gemac_stop_tx(pd);
+	arasan_gemac_free_tx_ring(pd);
+
+	arasan_gemac_stop_rx(pd);
+	arasan_gemac_free_rx_ring(pd);
+
+	arasan_gemac_dma_soft_reset(pd);
+
+	phy_stop(pd->phy_dev);
+	/* TODO: We should somehow power down PHY */
+
+	dma_free_coherent(&pd->pdev->dev,
+			  RX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc),
+			  pd->rx_ring, pd->rx_dma_addr);
+	pd->rx_ring = NULL;
+
+	dma_free_coherent(&pd->pdev->dev,
+			  TX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc),
+			  pd->tx_ring, pd->tx_dma_addr);
+	pd->tx_ring = NULL;
 
 	return 0;
 }
@@ -852,7 +967,7 @@ static void arasan_gemac_poll_controller(struct net_device *dev)
 
 static const struct net_device_ops arasan_gemac_netdev_ops = {
 	.ndo_open       = arasan_gemac_open,
-	.ndo_stop       = arasan_gemac_stop_tx,
+	.ndo_stop       = arasan_gemac_stop,
 	.ndo_start_xmit = arasan_gemac_start_xmit,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = arasan_gemac_poll_controller,
