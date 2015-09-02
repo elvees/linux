@@ -131,8 +131,8 @@ static int arasan_gemac_alloc_rx_buffer(struct arasan_gemac_pdata *pd, int index
 	struct sk_buff *skb = netdev_alloc_skb(pd->dev, PKT_BUF_SZ);
 	dma_addr_t mapping;
 
-	BUG_ON(pd->rx_buffers[index].skb);
-	BUG_ON(pd->rx_buffers[index].mapping);
+	WARN_ON(pd->rx_buffers[index].skb);
+	WARN_ON(pd->rx_buffers[index].mapping);
 
 	if (unlikely(!skb))
 		return -ENOMEM;
@@ -162,8 +162,6 @@ static int arasan_gemac_alloc_rx_buffer(struct arasan_gemac_pdata *pd, int index
 static void arasan_gemac_free_rx_ring(struct arasan_gemac_pdata *pd)
 {
 	int i;
-
-	BUG_ON(!pd->rx_ring);
 
 	if (!pd->rx_buffers)
 		return;
@@ -199,8 +197,6 @@ static int arasan_gemac_alloc_tx_ring(struct arasan_gemac_pdata *pd)
 {
 	int i;
 
-	BUG_ON(!pd->tx_ring);
-
 	pd->tx_buffers = kmalloc_array(TX_RING_SIZE,
 		sizeof(struct arasan_gemac_ring_info), GFP_KERNEL);
 
@@ -230,8 +226,6 @@ static int arasan_gemac_alloc_tx_ring(struct arasan_gemac_pdata *pd)
 static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 {
 	int i;
-
-	BUG_ON(!pd->rx_ring);
 
 	pd->rx_buffers = kmalloc_array(RX_RING_SIZE,
 		sizeof(struct arasan_gemac_ring_info), GFP_KERNEL);
@@ -293,14 +287,14 @@ static int arasan_gemac_open(struct net_device *dev)
 
 	result = arasan_gemac_alloc_tx_ring(pd);
 	if (result) {
-		netdev_warn(pd->dev, "Failed to Initialize tx dma ring\n");
-		return -ENOMEM;
+		netdev_err(pd->dev, "Failed to Initialize tx dma ring\n");
+		return result;
 	}
 
 	result = arasan_gemac_alloc_rx_ring(pd);
 	if (result) {
-		netdev_warn(pd->dev, "Failed to Initialize rx dma ring\n");
-		return -ENOMEM;
+		netdev_err(pd->dev, "Failed to Initialize rx dma ring\n");
+		return result;
 	}
 
 	arasan_gemac_init(pd);
@@ -369,8 +363,8 @@ static void arasan_gemac_complete_tx(struct net_device *dev)
 
 		arasan_gemac_tx_update_stats(dev, status, misc);
 
-		BUG_ON(!pd->tx_buffers[index].skb);
-		BUG_ON(!pd->tx_buffers[index].mapping);
+		WARN_ON(!pd->tx_buffers[index].skb);
+		WARN_ON(!pd->tx_buffers[index].mapping);
 
 		dma_unmap_single(&pd->pdev->dev, pd->tx_buffers[index].mapping,
 				 pd->tx_buffers[index].skb->len, DMA_TO_DEVICE);
@@ -408,9 +402,9 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	 */
 	rmb();
 
-	BUG_ON(pd->tx_ring[index].status & DMA_TDES0_OWN_BIT);
-	BUG_ON(pd->tx_buffers[index].skb);
-	BUG_ON(pd->tx_buffers[index].mapping);
+	WARN_ON(pd->tx_ring[index].status & DMA_TDES0_OWN_BIT);
+	WARN_ON(pd->tx_buffers[index].skb);
+	WARN_ON(pd->tx_buffers[index].mapping);
 
 	mapping = dma_map_single(&pd->pdev->dev, skb->data,
 				 skb->len, DMA_TO_DEVICE);
@@ -555,9 +549,6 @@ static irqreturn_t arasan_gemac_interrupt(int irq, void *dev_id)
 	struct net_device *dev = dev_id;
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 	u32 int_sts, ints_to_clear;
-
-	BUG_ON(!pd);
-	BUG_ON(!pd->regs);
 
 	int_sts = arasan_gemac_readl(pd, DMA_STATUS_AND_IRQ);
 
