@@ -11,7 +11,11 @@
 #define _ARASAN_GEMAC_H
 
 #define PKT_BUF_SZ (VLAN_ETH_FRAME_LEN + NET_IP_ALIGN + 4)
-#define TX_RING_SIZE (32)
+
+/* HACK: Set TX descriptor ring size to 8
+ * to workaround low TX speed problem
+ */
+#define TX_RING_SIZE (8)
 #define RX_RING_SIZE (128)
 #define NAPI_WEIGHT (64)
 
