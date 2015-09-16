@@ -1077,4 +1077,4 @@ module_platform_driver_probe(arasan_gemac_driver, arasan_gemac_probe);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Arasan GEMAC ethernet driver");
-MODULE_AUTHOR("Dmitriy Zagrebin");
+MODULE_AUTHOR("Dmitriy Zagrebin <dzagrebin@elvees.com>");
