@@ -1067,8 +1067,8 @@ err_free_dev:
 }
 
 static struct platform_driver arasan_gemac_driver = {
-	.driver     = {
-		.name   = "arasan-gemac",
+	.driver = {
+		.name = "arasan-gemac",
 		.of_match_table = of_match_ptr(arasan_gemac_dt_ids),
 	},
 };
