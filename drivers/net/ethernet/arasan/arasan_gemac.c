@@ -954,6 +954,18 @@ err_out:
 	return err;
 }
 
+static int arasan_gemac_set_mac_address(struct net_device *dev, void *addr)
+{
+	if (netif_running(dev))
+		return -EBUSY;
+
+	/* sa_family is validated by calling code */
+	ether_addr_copy(dev->dev_addr, ((struct sockaddr *)addr)->sa_data);
+	arasan_gemac_set_hwaddr(dev);
+
+	return 0;
+}
+
 #ifdef CONFIG_NET_POLL_CONTROLLER
 static void arasan_gemac_poll_controller(struct net_device *dev)
 {
@@ -969,6 +981,7 @@ static const struct net_device_ops arasan_gemac_netdev_ops = {
 	.ndo_open       = arasan_gemac_open,
 	.ndo_stop       = arasan_gemac_stop,
 	.ndo_start_xmit = arasan_gemac_start_xmit,
+	.ndo_set_mac_address = arasan_gemac_set_mac_address,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = arasan_gemac_poll_controller,
 #endif
