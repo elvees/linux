@@ -160,6 +160,8 @@ struct arasan_gemac_pdata {
 	/* driver lock */
 	spinlock_t lock;
 
+	struct clk *hclk;
+
 	struct arasan_gemac_dma_desc  *rx_ring;
 	struct arasan_gemac_dma_desc  *tx_ring;
 	struct arasan_gemac_ring_info *tx_buffers;

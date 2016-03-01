@@ -26,6 +26,7 @@
 #include <linux/if_vlan.h>
 #include <linux/of_mdio.h>
 #include <linux/of_gpio.h>
+#include <linux/clk.h>
 
 #include "arasan_gemac.h"
 
@@ -1017,12 +1018,28 @@ static int __init arasan_gemac_probe(struct platform_device *pdev)
 	pd->dev = dev;
 	spin_lock_init(&pd->lock);
 
+	/* Try to get and enable Arasan GEMAC hclk */
+	pd->hclk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(pd->hclk)) {
+		res = PTR_ERR(pd->hclk);
+		dev_err(&pdev->dev,
+			"failed to get Arasan GEMAC hclk (%u)\n", res);
+		goto err_free_dev;
+	}
+
+	res = clk_prepare_enable(pd->hclk);
+	if (res) {
+		dev_err(&pdev->dev,
+			"failed to enable Arasan GEMAC hclk (%u)\n", res);
+		goto err_free_dev;
+	}
+
 	/* physical base address */
 	dev->base_addr = regs->start;
 	pd->regs = devm_ioremap(&pdev->dev, regs->start, resource_size(regs));
 	if (!pd->regs) {
 		res = -ENOMEM;
-		goto err_free_dev;
+		goto err_disable_clocks;
 	}
 
 	/* Install the interrupt handler */
@@ -1030,7 +1047,7 @@ static int __init arasan_gemac_probe(struct platform_device *pdev)
 	res = devm_request_irq(&pdev->dev, dev->irq, arasan_gemac_interrupt,
 			       0, dev->name, dev);
 	if (res)
-		goto err_free_dev;
+		goto err_disable_clocks;
 
 	arasan_gemac_reset_phy(pdev);
 
@@ -1055,7 +1072,7 @@ static int __init arasan_gemac_probe(struct platform_device *pdev)
 	/* Register the network interface */
 	res = register_netdev(dev);
 	if (res)
-		goto err_free_dev;
+		goto err_disable_clocks;
 
 	netif_carrier_off(dev);
 
@@ -1073,6 +1090,8 @@ static int __init arasan_gemac_probe(struct platform_device *pdev)
 
 err_out_unregister_netdev:
 	unregister_netdev(dev);
+err_disable_clocks:
+	clk_disable_unprepare(pd->hclk);
 err_free_dev:
 	free_netdev(dev);
 
