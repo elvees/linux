@@ -996,7 +996,7 @@ static const struct of_device_id arasan_gemac_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, arasan_gemac_dt_ids);
 #endif
 
-static int __init arasan_gemac_probe(struct platform_device *pdev)
+static int arasan_gemac_probe(struct platform_device *pdev)
 {
 	struct resource *regs;
 	struct net_device *dev;
@@ -1098,14 +1098,40 @@ err_free_dev:
 	return res;
 }
 
+static int arasan_gemac_remove(struct platform_device *pdev)
+{
+	struct net_device *dev;
+	struct arasan_gemac_pdata *pd;
+
+	dev = platform_get_drvdata(pdev);
+	if (!dev)
+		return 0;
+
+	pd = netdev_priv(dev);
+
+	if (pd->phy_dev)
+		phy_disconnect(pd->phy_dev);
+
+	mdiobus_unregister(pd->mii_bus);
+	mdiobus_free(pd->mii_bus);
+
+	unregister_netdev(dev);
+	clk_disable_unprepare(pd->hclk);
+	free_netdev(dev);
+
+	return 0;
+}
+
 static struct platform_driver arasan_gemac_driver = {
 	.driver = {
 		.name = "arasan-gemac",
 		.of_match_table = of_match_ptr(arasan_gemac_dt_ids),
 	},
+	.probe = arasan_gemac_probe,
+	.remove = arasan_gemac_remove,
 };
 
-module_platform_driver_probe(arasan_gemac_driver, arasan_gemac_probe);
+module_platform_driver(arasan_gemac_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Arasan GEMAC ethernet driver");
