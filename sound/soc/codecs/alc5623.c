@@ -207,7 +207,7 @@ SOC_DAPM_SINGLE("MonoMixer Capture Switch", ALC5623_ADC_REC_MIXER, 0, 1, 1),
 };
 
 static const char *alc5623_spk_n_sour_sel[] = {
-		"RN/-R", "RP/+R", "LN/-R", "Vmid" };
+		"RN/-R", "RP/+R", "LN/-R", "Vmid"};
 static const char *alc5623_hpl_out_input_sel[] = {
 		"Vmid", "HP Left Mix"};
 static const char *alc5623_hpr_out_input_sel[] = {
@@ -331,19 +331,23 @@ SND_SOC_DAPM_INPUT("MIC2"),
 SND_SOC_DAPM_VMID("Vmid"),
 };
 
-static const char *alc5623_amp_names[] = {"AB Amp", "D Amp"};
-static SOC_ENUM_SINGLE_DECL(alc5623_amp_enum,
+static const char *alc5621_amp_names[] = {"AB Amp", "D Amp"};
+static SOC_ENUM_SINGLE_DECL(alc5621_amp_enum,
 			    ALC5623_OUTPUT_MIXER_CTRL, 13,
-			    alc5623_amp_names);
-static const struct snd_kcontrol_new alc5623_amp_mux_controls =
-	SOC_DAPM_ENUM("Route", alc5623_amp_enum);
+			    alc5621_amp_names);
+static const struct snd_kcontrol_new alc5621_amp_mux_controls =
+	SOC_DAPM_ENUM("Route", alc5621_amp_enum);
 
-static const struct snd_soc_dapm_widget alc5623_dapm_amp_widgets[] = {
+static const struct snd_soc_dapm_widget alc5621_dapm_amp_widgets[] = {
 SND_SOC_DAPM_PGA_E("D Amp", ALC5623_PWR_MANAG_ADD2, 14, 0, NULL, 0,
 	amp_mixer_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 SND_SOC_DAPM_PGA("AB Amp", ALC5623_PWR_MANAG_ADD2, 15, 0, NULL, 0),
 SND_SOC_DAPM_MUX("AB-D Amp Mux", SND_SOC_NOPM, 0, 0,
-	&alc5623_amp_mux_controls),
+	&alc5621_amp_mux_controls),
+};
+
+static const struct snd_soc_dapm_widget alc5623_dapm_amp_widgets[] = {
+SND_SOC_DAPM_PGA("LineOut Amp", ALC5623_PWR_MANAG_ADD2, 15, 0, NULL, 0),
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
@@ -456,7 +460,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 };
 
 static const struct snd_soc_dapm_route intercon_spk[] = {
-	{"SpeakerOut", NULL,				"SpeakerOut Mux"},
+	{"LineOut Amp", NULL,				"SpeakerOut Mux"},
+	{"SpeakerOut", NULL,				"LineOut Amp"},
 };
 
 static const struct snd_soc_dapm_route intercon_amp_spk[] = {
@@ -934,12 +939,14 @@ static int alc5623_probe(struct snd_soc_component *component)
 	switch (alc5623->id) {
 	case 0x21:
 	case 0x22:
-		snd_soc_dapm_new_controls(dapm, alc5623_dapm_amp_widgets,
-					ARRAY_SIZE(alc5623_dapm_amp_widgets));
+		snd_soc_dapm_new_controls(dapm, alc5621_dapm_amp_widgets,
+					ARRAY_SIZE(alc5621_dapm_amp_widgets));
 		snd_soc_dapm_add_routes(dapm, intercon_amp_spk,
 					ARRAY_SIZE(intercon_amp_spk));
 		break;
 	case 0x23:
+		snd_soc_dapm_new_controls(dapm, alc5623_dapm_amp_widgets,
+					ARRAY_SIZE(alc5623_dapm_amp_widgets));
 		snd_soc_dapm_add_routes(dapm, intercon_spk,
 					ARRAY_SIZE(intercon_spk));
 		break;
