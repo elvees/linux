@@ -6,3 +6,9 @@ config SND_SOC_ELVEES_TRUSTPHONE_WM8998
 	help
 	  Say Y or M if you want to add support for ELVEES Trustphone WM8998
 	  soundcard.
+
+config SND_SOC_ELVEES_MFBSP
+	tristate "ELVEES MFBSP support"
+	help
+	  Say Y or M if you want to add ELVEES Multi-Functional Buffered Serial
+	  Port (MFBSP) configured as i2s slave.

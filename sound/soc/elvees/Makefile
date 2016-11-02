@@ -3,3 +3,6 @@
 snd-soc-trustphone-wm8998-objs := trustphone-wm8998.o
 
 obj-$(CONFIG_SND_SOC_ELVEES_TRUSTPHONE_WM8998) += snd-soc-trustphone-wm8998.o
+
+snd-soc-elvees-mfbsp-objs := mfbsp-i2s.o mfbsp-pcm.o
+obj-$(CONFIG_SND_SOC_ELVEES_MFBSP) += snd-soc-elvees-mfbsp.o
