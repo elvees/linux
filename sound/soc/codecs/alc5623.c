@@ -213,9 +213,9 @@ static const char *alc5623_hpl_out_input_sel[] = {
 static const char *alc5623_hpr_out_input_sel[] = {
 		"Vmid", "HP Right Mix"};
 static const char *alc5623_spkout_input_sel[] = {
-		"Vmid", "HPOut Mix", "Speaker Mix", "Mono Mix"};
+		"Vmid", "HP Mix", "Speaker Mix", "Mono Mix"};
 static const char *alc5623_aux_out_input_sel[] = {
-		"Vmid", "HPOut Mix", "Speaker Mix", "Mono Mix"};
+		"Vmid", "HP Mix", "Speaker Mix", "Mono Mix"};
 
 /* auxout output mux */
 static SOC_ENUM_SINGLE_DECL(alc5623_aux_out_input_enum,
@@ -275,7 +275,6 @@ SND_SOC_DAPM_MIXER("HPR Mix", ALC5623_PWR_MANAG_ADD2, 4, 0,
 SND_SOC_DAPM_MIXER("HPL Mix", ALC5623_PWR_MANAG_ADD2, 5, 0,
 	&alc5623_hpl_mixer_controls[0],
 	ARRAY_SIZE(alc5623_hpl_mixer_controls)),
-SND_SOC_DAPM_MIXER("HPOut Mix", SND_SOC_NOPM, 0, 0, NULL, 0),
 SND_SOC_DAPM_MIXER("Mono Mix", ALC5623_PWR_MANAG_ADD2, 2, 0,
 	&alc5623_mono_mixer_controls[0],
 	ARRAY_SIZE(alc5623_mono_mixer_controls)),
@@ -413,13 +412,13 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* speaker out mux */
 	{"SpeakerOut Mux", "Vmid",			"Vmid"},
-	{"SpeakerOut Mux", "HPOut Mix",			"HPOut Mix"},
+	{"SpeakerOut Mux", "HP Mix",			"HP Mix"},
 	{"SpeakerOut Mux", "Speaker Mix",		"Speaker Mix"},
 	{"SpeakerOut Mux", "Mono Mix",			"Mono Mix"},
 
 	/* Mono/Aux Out mux */
 	{"AuxOut Mux", "Vmid",				"Vmid"},
-	{"AuxOut Mux", "HPOut Mix",			"HPOut Mix"},
+	{"AuxOut Mux", "HP Mix",			"HP Mix"},
 	{"AuxOut Mux", "Speaker Mix",			"Speaker Mix"},
 	{"AuxOut Mux", "Mono Mix",			"Mono Mix"},
 
