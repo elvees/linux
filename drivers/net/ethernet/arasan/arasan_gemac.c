@@ -113,7 +113,6 @@ static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 
 	arasan_gemac_writel(pd, MAC_ADDRESS_CONTROL, 1);
 	arasan_gemac_writel(pd, MAC_TRANSMIT_FIFO_ALMOST_FULL, (512 - 8));
-	arasan_gemac_writel(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD, 128);
 	arasan_gemac_writel(pd, MAC_RECEIVE_PACKET_START_THRESHOLD, 64);
 
 	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
@@ -839,6 +838,8 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 		if (gpio_is_valid(pd->txclk_125en))
 			gpio_set_value(pd->txclk_125en, 0);
 
+		arasan_gemac_writel(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD,
+				    128);
 		break;
 	case SPEED_1000:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(2);
@@ -846,6 +847,8 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 		if (gpio_is_valid(pd->txclk_125en))
 			gpio_set_value(pd->txclk_125en, 1);
 
+		arasan_gemac_writel(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD,
+				    1024);
 		break;
 	default:
 		netdev_err(dev, "Unknown speed (%d)\n", phydev->speed);
