@@ -923,8 +923,6 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 
 	pd->mii_bus->irq = pd->phy_irq;
 
-	arasan_gemac_mdio_write(pd->mii_bus, 7, 18, 0x67);
-
 	np = pd->pdev->dev.of_node;
 	if (np) {
 		/* try dt phy registration */
