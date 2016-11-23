@@ -806,6 +806,43 @@ static int arasan_gemac_mdio_write(struct mii_bus *bus, int mii_id,
 	return 0;
 }
 
+/* Reconfigure Arasan GEMAC according to speed and duplex value */
+static void arasan_gemac_reconfigure(struct net_device *dev)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+	struct phy_device *phydev = pd->phy_dev;
+	u32 reg;
+
+	reg = arasan_gemac_readl(pd, MAC_GLOBAL_CONTROL);
+	reg &= ~(MAC_GLOBAL_CONTROL_SPEED(3) |
+		 MAC_GLOBAL_CONTROL_DUPLEX_MODE(1));
+
+	switch (phydev->duplex) {
+	case DUPLEX_HALF:
+		break;
+	case DUPLEX_FULL:
+		reg |= MAC_GLOBAL_CONTROL_DUPLEX_MODE(DUPLEX_FULL);
+		break;
+	default:
+		netdev_err(dev, "Unknown duplex (%d)\n", phydev->duplex);
+		return;
+	}
+
+	switch (phydev->speed) {
+	case SPEED_100:
+		reg |= MAC_GLOBAL_CONTROL_SPEED(1);
+		break;
+	case SPEED_1000:
+		reg |= MAC_GLOBAL_CONTROL_SPEED(2);
+		break;
+	default:
+		netdev_err(dev, "Unknown speed (%d)\n", phydev->speed);
+		return;
+	}
+
+	arasan_gemac_writel(pd, MAC_GLOBAL_CONTROL, reg);
+}
+
 static void arasan_gemac_handle_link_change(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
@@ -818,20 +855,7 @@ static void arasan_gemac_handle_link_change(struct net_device *dev)
 
 	if ((phydev->link) &&
 	    ((pd->speed != phydev->speed) || (pd->duplex != phydev->duplex))) {
-		u32 reg;
-
-		reg = arasan_gemac_readl(pd, MAC_GLOBAL_CONTROL);
-		reg &= ~(MAC_GLOBAL_CONTROL_SPEED(3) |
-			 MAC_GLOBAL_CONTROL_DUPLEX_MODE(1));
-
-		if (phydev->duplex)
-			reg |= MAC_GLOBAL_CONTROL_DUPLEX_MODE(phydev->duplex);
-
-		if (phydev->speed == SPEED_100)
-			reg |= MAC_GLOBAL_CONTROL_SPEED(1);
-
-		arasan_gemac_writel(pd, MAC_GLOBAL_CONTROL, reg);
-
+		arasan_gemac_reconfigure(dev);
 		pd->speed = phydev->speed;
 		pd->duplex = phydev->duplex;
 		status_change = 1;
@@ -843,7 +867,6 @@ static void arasan_gemac_handle_link_change(struct net_device *dev)
 			pd->duplex = -1;
 		}
 		pd->link = phydev->link;
-
 		status_change = 1;
 	}
 
