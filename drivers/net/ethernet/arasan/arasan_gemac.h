@@ -180,6 +180,7 @@ struct arasan_gemac_pdata {
 	unsigned int        link;
 	unsigned int        speed;
 	unsigned int        duplex;
+	int                 txclk_125en;
 
 	phy_interface_t     phy_interface;
 	int phy_irq[PHY_MAX_ADDR];

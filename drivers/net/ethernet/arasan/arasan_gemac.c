@@ -730,30 +730,34 @@ static int arasan_gemac_stop(struct net_device *dev)
 	return 0;
 }
 
-static void arasan_gemac_reset_phy(struct platform_device *pdev)
+static int arasan_gemac_get_gpio(struct platform_device *pdev, char *name)
 {
-	int err, phy_reset;
+	int rc, gpio;
 	struct device_node *np = pdev->dev.of_node;
 
-	if (!np) {
-		dev_err(&pdev->dev, "failed to get device node\n");
-		return;
-	}
+	if (!np)
+		return -ENODEV;
 
-	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
+	gpio = of_get_named_gpio(np, name, 0);
+	if (!gpio_is_valid(gpio))
+		return gpio;
 
-	if (!gpio_is_valid(phy_reset)) {
-		dev_err(&pdev->dev, "phy-reset-gpios is not valid\n");
-		return;
-	}
+	rc = devm_gpio_request_one(&pdev->dev, gpio,
+				   GPIOF_OUT_INIT_LOW, name);
 
-	err = devm_gpio_request_one(&pdev->dev, phy_reset,
-				    GPIOF_OUT_INIT_LOW, "phy-reset");
+	if (rc)
+		return rc;
 
-	if (err) {
-		dev_err(&pdev->dev,
-			"failed to request gpio %d (phy-reset) : %d\n",
-			phy_reset, err);
+	return gpio;
+}
+
+static void arasan_gemac_reset_phy(struct platform_device *pdev)
+{
+	int gpio;
+
+	gpio = arasan_gemac_get_gpio(pdev, "phy-reset-gpios");
+	if (!gpio_is_valid(gpio)) {
+		dev_warn(&pdev->dev, "Failed to get phy-reset-gpios\n");
 		return;
 	}
 
@@ -763,7 +767,7 @@ static void arasan_gemac_reset_phy(struct platform_device *pdev)
 	 */
 
 	msleep(20);
-	gpio_set_value(phy_reset, 1);
+	gpio_set_value(gpio, 1);
 }
 
 static int arasan_gemac_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
@@ -831,9 +835,17 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 	switch (phydev->speed) {
 	case SPEED_100:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(1);
+
+		if (gpio_is_valid(pd->txclk_125en))
+			gpio_set_value(pd->txclk_125en, 0);
+
 		break;
 	case SPEED_1000:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(2);
+
+		if (gpio_is_valid(pd->txclk_125en))
+			gpio_set_value(pd->txclk_125en, 1);
+
 		break;
 	default:
 		netdev_err(dev, "Unknown speed (%d)\n", phydev->speed);
@@ -937,6 +949,9 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 	pd->mii_bus->name = "arasan-gemac-mii-bus";
 	pd->mii_bus->read = &arasan_gemac_mdio_read;
 	pd->mii_bus->write = &arasan_gemac_mdio_write;
+	/* TODO: pd->mii_bus->reset also should be implemented to allow
+	 * reset of Ethernet PHY from user space (see MII-TOOL utility)
+	 */
 
 	snprintf(pd->mii_bus->id, MII_BUS_ID_SIZE, "%s-0x%x",
 		 pd->pdev->name, pd->pdev->id);
@@ -1069,6 +1084,11 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 			       0, dev->name, dev);
 	if (res)
 		goto err_disable_clocks;
+
+	/* Try to get gpio for txclk frequency control */
+	pd->txclk_125en = arasan_gemac_get_gpio(pdev, "txclk-125en-gpios");
+	if (!gpio_is_valid(pd->txclk_125en))
+		dev_warn(&pdev->dev, "Failed to get txclk-125en-gpios\n");
 
 	arasan_gemac_reset_phy(pdev);
 
