@@ -925,7 +925,7 @@ static int arasan_gemac_mii_probe(struct net_device *dev)
 		    "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
 		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
 
-	phydev->supported &= PHY_BASIC_FEATURES;
+	phydev->supported &= PHY_GBIT_FEATURES;
 
 	phydev->advertising = phydev->supported;
 
