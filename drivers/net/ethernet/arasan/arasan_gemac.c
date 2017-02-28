@@ -930,6 +930,8 @@ static int arasan_gemac_mii_probe(struct net_device *dev)
 		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
 
 	phydev->supported &= ARASAN_GEMAC_FEATURES;
+	if (pd->phy_interface == PHY_INTERFACE_MODE_MII)
+		phydev->supported &= ~PHY_1000BT_FEATURES;
 
 	phydev->advertising = phydev->supported;
 
@@ -1092,11 +1094,6 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	if (res)
 		goto err_disable_clocks;
 
-	/* Try to get gpio for txclk frequency control */
-	pd->txclk_125en = arasan_gemac_get_gpio(pdev, "txclk-125en-gpios");
-	if (!gpio_is_valid(pd->txclk_125en))
-		dev_warn(&pdev->dev, "Failed to get txclk-125en-gpios\n");
-
 	arasan_gemac_reset_phy(pdev);
 
 	dev->netdev_ops = &arasan_gemac_netdev_ops;
@@ -1107,9 +1104,28 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 
 	res = of_get_phy_mode(pdev->dev.of_node);
 	if (res < 0)
-		pd->phy_interface = PHY_INTERFACE_MODE_MII;
-	else
-		pd->phy_interface = res;
+		goto err_disable_clocks;
+
+	if (res != PHY_INTERFACE_MODE_MII && res != PHY_INTERFACE_MODE_GMII) {
+		dev_err(&pdev->dev, "\"%s\" PHY interface is not supported\n",
+			phy_modes(res));
+		res = -ENODEV;
+		goto err_disable_clocks;
+	}
+
+	if (res == PHY_INTERFACE_MODE_GMII) {
+		pd->txclk_125en = arasan_gemac_get_gpio(pdev,
+							"txclk-125en-gpios");
+		if (!gpio_is_valid(pd->txclk_125en)) {
+			dev_warn(&pdev->dev,
+				 "Failed to get txclk-125en-gpios\n");
+			dev_warn(&pdev->dev,
+				 "Reverting PHY interface to MII\n");
+			res = PHY_INTERFACE_MODE_MII;
+		}
+	}
+
+	pd->phy_interface = res;
 
 	mac = of_get_mac_address(pdev->dev.of_node);
 	if (mac)
