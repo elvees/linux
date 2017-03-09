@@ -1,6 +1,7 @@
 /*
- * Copyright 2015 ELVEES NeoTek CJSC
  * Copyright 2007, 2008 SMSC
+ * Copyright 2015 ELVEES NeoTek CJSC
+ * Copyright 2017 RnD Center "ELVEES", JSC
  *
  * Based on the driver for smsc9420
  *
@@ -29,6 +30,9 @@
 #include <linux/clk.h>
 
 #include "arasan_gemac.h"
+
+#define ARASAN_GEMAC_FEATURES (PHY_GBIT_FEATURES | SUPPORTED_FIBRE | \
+			       SUPPORTED_BNC)
 
 #define print_reg(reg) netdev_info(pd->dev, \
 				   "offset 0x%x : value 0x%x\n", \
@@ -925,7 +929,7 @@ static int arasan_gemac_mii_probe(struct net_device *dev)
 		    "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
 		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
 
-	phydev->supported &= PHY_GBIT_FEATURES;
+	phydev->supported &= ARASAN_GEMAC_FEATURES;
 
 	phydev->advertising = phydev->supported;
 
