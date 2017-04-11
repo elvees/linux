@@ -98,17 +98,18 @@ static void arasan_gemac_get_hwaddr(struct arasan_gemac_pdata *pd)
 
 static void arasan_gemac_dma_soft_reset(struct arasan_gemac_pdata *pd)
 {
-	u32 reg;
-
-	reg = arasan_gemac_readl(pd, DMA_CONFIGURATION);
+	/* Reset the DMA controller to the default state */
 	arasan_gemac_writel(pd, DMA_CONFIGURATION,
-			    (reg | DMA_CONFIGURATION_SOFT_RESET));
+			    DMA_CONFIGURATION_SOFT_RESET);
+
 	/* FIXME
 	 * mdelay or msleep ?
 	 */
-
 	mdelay(10);
-	arasan_gemac_writel(pd, DMA_CONFIGURATION, reg);
+
+	/* Write the default value to deassert the reset signal */
+	arasan_gemac_writel(pd, DMA_CONFIGURATION,
+			    DMA_CONFIGURATION_BURST_LENGTH(4));
 }
 
 static void arasan_gemac_init(struct arasan_gemac_pdata *pd)

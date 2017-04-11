@@ -1,5 +1,6 @@
 /*
- *  Copyright 2015 ELVEES NeoTek CJSC
+ * Copyright 2015 ELVEES NeoTek CJSC
+ * Copyright 2017 RnD Center "ELVEES", JSC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -84,6 +85,7 @@
 /* Arasan GEMAC register fields */
 
 #define DMA_CONFIGURATION_SOFT_RESET                  BIT(0)
+#define DMA_CONFIGURATION_BURST_LENGTH(VAL)           ((VAL) << 1)
 #define DMA_CONFIGURATION_WAIT_FOR_DONE               BIT(16)
 
 #define DMA_CONTROL_START_TRANSMIT_DMA                BIT(0)
