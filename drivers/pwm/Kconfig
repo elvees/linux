@@ -264,6 +264,15 @@ config PWM_LPSS_PLATFORM
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-lpss-platform.
 
+config PWM_MCOM
+	tristate "ELVEES MCom-03 PWM support"
+	depends on ARCH_MCOM03
+	help
+	  Generic PWM framework driver for the ELVEES MCom-03 PWM.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-mcom.
+
 config PWM_MESON
 	tristate "Amlogic Meson PWM driver"
 	depends on ARCH_MESON
