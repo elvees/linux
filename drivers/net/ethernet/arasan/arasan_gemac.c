@@ -17,6 +17,7 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
+#include <linux/ethtool.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
@@ -70,6 +71,31 @@ void arasan_gemac_dump_regs(struct arasan_gemac_pdata *pd)
 	print_reg(MAC_INTERRUPT);
 	print_reg(MAC_INTERRUPT_ENABLE);
 }
+
+static int arasan_gemac_get_settings(struct net_device *dev,
+				     struct ethtool_cmd *ecmd)
+{
+	struct arasan_gemac_pdata *priv = netdev_priv(dev);
+
+	if (!priv->phy_dev)
+		return -ENODEV;
+	return phy_ethtool_gset(priv->phy_dev, ecmd);
+}
+
+static int arasan_gemac_set_settings(struct net_device *dev,
+				     struct ethtool_cmd *ecmd)
+{
+	struct arasan_gemac_pdata *priv = netdev_priv(dev);
+
+	if (!priv->phy_dev)
+		return -ENODEV;
+	return phy_ethtool_sset(priv->phy_dev, ecmd);
+}
+
+static const struct ethtool_ops arasan_gemac_ethtool_ops = {
+	.get_settings = arasan_gemac_get_settings,
+	.set_settings = arasan_gemac_set_settings,
+};
 
 static void arasan_gemac_set_hwaddr(struct net_device *dev)
 {
@@ -1098,6 +1124,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	arasan_gemac_reset_phy(pdev);
 
 	dev->netdev_ops = &arasan_gemac_netdev_ops;
+	dev->ethtool_ops = &arasan_gemac_ethtool_ops;
 	platform_set_drvdata(pdev, dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
