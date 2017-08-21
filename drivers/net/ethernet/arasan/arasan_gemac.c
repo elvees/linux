@@ -116,6 +116,16 @@ static void arasan_gemac_set_msglevel(struct net_device *dev, u32 val)
 	pd->msg_enable = val;
 }
 
+static int arasan_gemac_nway_reset(struct net_device *dev)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	if (!pd->phy_dev)
+		return -ENODEV;
+
+	return genphy_restart_aneg(pd->phy_dev);
+}
+
 static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.get_drvinfo = arasan_gemac_get_drvinfo,
 	.get_settings = arasan_gemac_get_settings,
@@ -123,6 +133,7 @@ static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.get_msglevel = arasan_gemac_get_msglevel,
 	.set_msglevel = arasan_gemac_set_msglevel,
 	.get_link = ethtool_op_get_link,
+	.nway_reset = arasan_gemac_nway_reset,
 };
 
 static void arasan_gemac_set_hwaddr(struct net_device *dev)
