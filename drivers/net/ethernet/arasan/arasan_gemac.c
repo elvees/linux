@@ -122,6 +122,7 @@ static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.set_settings = arasan_gemac_set_settings,
 	.get_msglevel = arasan_gemac_get_msglevel,
 	.set_msglevel = arasan_gemac_set_msglevel,
+	.get_link = ethtool_op_get_link,
 };
 
 static void arasan_gemac_set_hwaddr(struct net_device *dev)
