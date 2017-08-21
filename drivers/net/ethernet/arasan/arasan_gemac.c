@@ -102,10 +102,26 @@ static int arasan_gemac_set_settings(struct net_device *dev,
 	return phy_ethtool_sset(priv->phy_dev, ecmd);
 }
 
+static u32 arasan_gemac_get_msglevel(struct net_device *dev)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	return pd->msg_enable;
+}
+
+static void arasan_gemac_set_msglevel(struct net_device *dev, u32 val)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	pd->msg_enable = val;
+}
+
 static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.get_drvinfo = arasan_gemac_get_drvinfo,
 	.get_settings = arasan_gemac_get_settings,
 	.set_settings = arasan_gemac_set_settings,
+	.get_msglevel = arasan_gemac_get_msglevel,
+	.set_msglevel = arasan_gemac_set_msglevel,
 };
 
 static void arasan_gemac_set_hwaddr(struct net_device *dev)

@@ -183,6 +183,7 @@ struct arasan_gemac_pdata {
 	unsigned int        speed;
 	unsigned int        duplex;
 	int                 txclk_125en;
+	u32                 msg_enable;
 
 	phy_interface_t     phy_interface;
 	int phy_irq[PHY_MAX_ADDR];
