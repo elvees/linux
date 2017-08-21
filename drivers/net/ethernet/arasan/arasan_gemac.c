@@ -29,6 +29,7 @@
 #include <linux/of_mdio.h>
 #include <linux/of_gpio.h>
 #include <linux/clk.h>
+#include <generated/utsrelease.h>
 
 #include "arasan_gemac.h"
 
@@ -72,6 +73,15 @@ void arasan_gemac_dump_regs(struct arasan_gemac_pdata *pd)
 	print_reg(MAC_INTERRUPT_ENABLE);
 }
 
+static void arasan_gemac_get_drvinfo(struct net_device *dev,
+				     struct ethtool_drvinfo *info)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	strlcpy(info->driver, pd->pdev->dev.driver->name, sizeof(info->driver));
+	strlcpy(info->version, UTS_RELEASE, sizeof(info->version));
+}
+
 static int arasan_gemac_get_settings(struct net_device *dev,
 				     struct ethtool_cmd *ecmd)
 {
@@ -93,6 +103,7 @@ static int arasan_gemac_set_settings(struct net_device *dev,
 }
 
 static const struct ethtool_ops arasan_gemac_ethtool_ops = {
+	.get_drvinfo = arasan_gemac_get_drvinfo,
 	.get_settings = arasan_gemac_get_settings,
 	.set_settings = arasan_gemac_set_settings,
 };
