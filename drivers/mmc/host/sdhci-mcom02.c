@@ -26,6 +26,13 @@
 #define CLK_CTRL_TIMEOUT_MASK		(0xf << CLK_CTRL_TIMEOUT_SHIFT)
 #define CLK_CTRL_TIMEOUT_MIN_EXP	13
 
+#define CONFIG_SIGNALS_REG1_OFFSET	0x100
+#define CONFIG_SIGNALS_OTAPDLYENA	BIT(20)
+#define CONFIG_SIGNALS_OTAPDLYSEL	GENMASK(24, 21)
+
+#define OTAPDLYSEL_SD_HS		10
+#define OTAPDLYSEL_MMC_HS		8
+
 /**
  * struct sdhci_mcom02_data
  * @clk_ahb:	Pointer to the AHB clock
@@ -49,8 +56,43 @@ static unsigned int sdhci_mcom02_get_timeout_clock(struct sdhci_host *host)
 	return freq;
 }
 
+static inline u32 prep_field(u32 value, u32 mask)
+{
+	return (value << (ffs(mask) - 1)) & mask;
+}
+
+static void sdhci_mcom02_set_tap_delay(struct sdhci_host *host, u8 otapdlysel)
+{
+	u32 tmp;
+
+	tmp = readl(host->ioaddr + CONFIG_SIGNALS_REG1_OFFSET);
+	tmp |= CONFIG_SIGNALS_OTAPDLYENA;
+	tmp |= prep_field(otapdlysel, CONFIG_SIGNALS_OTAPDLYSEL);
+	writel(tmp, host->ioaddr + CONFIG_SIGNALS_REG1_OFFSET);
+}
+
+static void sdhci_mcom02_set_clock(struct sdhci_host *host, unsigned int clock)
+{
+	u8 delay = 0;
+
+	switch (host->timing) {
+	case MMC_TIMING_MMC_HS:
+	case MMC_TIMING_MMC_DDR52:
+		delay = OTAPDLYSEL_MMC_HS;
+		break;
+	case MMC_TIMING_SD_HS:
+		delay = OTAPDLYSEL_SD_HS;
+		break;
+	}
+
+	if (delay)
+		sdhci_mcom02_set_tap_delay(host, delay);
+
+	sdhci_set_clock(host, clock);
+}
+
 static struct sdhci_ops sdhci_mcom02_ops = {
-	.set_clock = sdhci_set_clock,
+	.set_clock = sdhci_mcom02_set_clock,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.get_timeout_clock = sdhci_mcom02_get_timeout_clock,
 	.set_bus_width = sdhci_set_bus_width,
