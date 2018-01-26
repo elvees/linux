@@ -401,6 +401,7 @@ static int dw_i2s_runtime_suspend(struct device *dev)
 
 	if (dw_dev->capability & DW_I2S_MASTER)
 		clk_disable(dw_dev->clk);
+	clk_disable(dev->pclk);
 	return 0;
 }
 
@@ -408,6 +409,7 @@ static int dw_i2s_runtime_resume(struct device *dev)
 {
 	struct dw_i2s_dev *dw_dev = dev_get_drvdata(dev);
 
+	clk_enable(dev->pclk);
 	if (dw_dev->capability & DW_I2S_MASTER)
 		clk_enable(dw_dev->clk);
 	return 0;
@@ -419,6 +421,7 @@ static int dw_i2s_suspend(struct snd_soc_dai *dai)
 
 	if (dev->capability & DW_I2S_MASTER)
 		clk_disable(dev->clk);
+	clk_disable(dev->pclk);
 	return 0;
 }
 
@@ -426,6 +429,7 @@ static int dw_i2s_resume(struct snd_soc_dai *dai)
 {
 	struct dw_i2s_dev *dev = snd_soc_dai_get_drvdata(dai);
 
+	clk_enable(dev->pclk);
 	if (dev->capability & DW_I2S_MASTER)
 		clk_enable(dev->clk);
 
@@ -649,6 +653,16 @@ static int dw_i2s_probe(struct platform_device *pdev)
 		}
 	}
 
+	dev->pclk = devm_clk_get(&pdev->dev, "pclk");
+	if (IS_ERR(dev->pclk)) {
+		dev_err(&pdev->dev, "Can not get pclk clock\n");
+		return PTR_ERR(dev->pclk);
+	}
+
+	ret = clk_prepare_enable(dev->pclk);
+	if (ret < 0)
+		return ret;
+
 	dev->i2s_reg_comp1 = I2S_COMP_PARAM_1;
 	dev->i2s_reg_comp2 = I2S_COMP_PARAM_2;
 	if (pdata) {
@@ -665,24 +679,27 @@ static int dw_i2s_probe(struct platform_device *pdev)
 		ret = dw_configure_dai_by_dt(dev, dw_i2s_dai, res);
 	}
 	if (ret < 0)
-		return ret;
+		goto err_pclk_disable;
 
 	if (dev->capability & DW_I2S_MASTER) {
 		if (pdata) {
 			dev->i2s_clk_cfg = pdata->i2s_clk_cfg;
 			if (!dev->i2s_clk_cfg) {
 				dev_err(&pdev->dev, "no clock configure method\n");
-				return -ENODEV;
+				ret = -ENODEV;
+				goto err_pclk_disable;
 			}
 		}
 		dev->clk = devm_clk_get(&pdev->dev, clk_id);
 
-		if (IS_ERR(dev->clk))
-			return PTR_ERR(dev->clk);
+		if (IS_ERR(dev->clk)) {
+			ret = PTR_ERR(dev->clk);
+			goto err_pclk_disable;
+		}
 
 		ret = clk_prepare_enable(dev->clk);
 		if (ret < 0)
-			return ret;
+			goto err_pclk_disable;
 	}
 
 	dev_set_drvdata(&pdev->dev, dev);
@@ -716,6 +733,8 @@ static int dw_i2s_probe(struct platform_device *pdev)
 err_clk_disable:
 	if (dev->capability & DW_I2S_MASTER)
 		clk_disable_unprepare(dev->clk);
+err_pclk_disable:
+	clk_disable_unprepare(dev->pclk);
 	return ret;
 }
 
@@ -725,6 +744,8 @@ static int dw_i2s_remove(struct platform_device *pdev)
 
 	if (dev->capability & DW_I2S_MASTER)
 		clk_disable_unprepare(dev->clk);
+
+	clk_disable_unprepare(dev->pclk);
 
 	pm_runtime_disable(&pdev->dev);
 	return 0;
