@@ -11,6 +11,7 @@
  */
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/gpio/consumer.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/serial_8250.h>
@@ -63,6 +64,7 @@ struct dw8250_data {
 	struct clk		*clk;
 	struct clk		*pclk;
 	struct reset_control	*rst;
+	struct gpio_desc	*rts_gpio;
 	struct uart_8250_dma	dma;
 
 	unsigned int		skip_autocfg:1;
@@ -103,6 +105,14 @@ static void dw8250_force_idle(struct uart_port *p)
 
 	serial8250_clear_and_reinit_fifos(up);
 	(void)p->serial_in(p, UART_RX);
+}
+
+static inline void dw8250_rts(struct uart_port *p, int value)
+{
+	struct dw8250_data *data = (struct dw8250_data *)p->private_data;
+
+	if (data->rts_gpio)
+		gpiod_set_value(data->rts_gpio, value & UART_MCR_RTS);
 }
 
 static void dw8250_check_lcr(struct uart_port *p, int value)
@@ -181,6 +191,8 @@ static void dw8250_serial_out(struct uart_port *p, int offset, int value)
 
 	if (offset == UART_LCR && !d->uart_16550_compatible)
 		dw8250_check_lcr(p, value);
+	else if (offset == UART_MCR)
+		dw8250_rts(p, value);
 }
 
 static unsigned int dw8250_serial_in(struct uart_port *p, int offset)
@@ -211,6 +223,8 @@ static void dw8250_serial_outq(struct uart_port *p, int offset, int value)
 
 	if (offset == UART_LCR && !d->uart_16550_compatible)
 		dw8250_check_lcr(p, value);
+	else if (offset == UART_MCR)
+		dw8250_rts(p, value);
 }
 #endif /* CONFIG_64BIT */
 
@@ -222,6 +236,8 @@ static void dw8250_serial_out32(struct uart_port *p, int offset, int value)
 
 	if (offset == UART_LCR && !d->uart_16550_compatible)
 		dw8250_check_lcr(p, value);
+	else if (offset == UART_MCR)
+		dw8250_rts(p, value);
 }
 
 static unsigned int dw8250_serial_in32(struct uart_port *p, int offset)
@@ -575,6 +591,8 @@ static int dw8250_probe(struct platform_device *pdev)
 		data->msr_mask_off |= UART_MSR_RI;
 		data->msr_mask_off |= UART_MSR_TERI;
 	}
+
+	data->rts_gpio = devm_gpiod_get_optional(p->dev, "rts", GPIOD_OUT_LOW);
 
 	/* Always ask for fixed clock rate from a property. */
 	device_property_read_u32(dev, "clock-frequency", &p->uartclk);
