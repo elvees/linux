@@ -112,24 +112,30 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
 	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
+	u32 tctr_reg = MFBSP_I2S_TCTR_MBF | MFBSP_I2S_TCTR_CSNEG |
+		       MFBSP_I2S_TCTR_DEL | MFBSP_I2S_TCTR_NEG;
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		u32 tctr_reg = MFBSP_I2S_TCTR_MBF | MFBSP_I2S_TCTR_CSNEG |
-			       MFBSP_I2S_TCTR_DEL | MFBSP_I2S_TCTR_NEG;
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+	case SNDRV_PCM_FORMAT_U16_LE:
+		tctr_reg |= MFBSP_I2S_TCTR_SWAP | MFBSP_I2S_TCTR_PACK;
+		tctr_reg |= MFBSP_I2S_TCTR_WORDLEN(15) |
+			    MFBSP_I2S_TCTR_WORDCNT(0);
+		break;
+	default:
+		return -EINVAL;
+	}
 
-		switch (params_format(params)) {
-		case SNDRV_PCM_FORMAT_S16_LE:
-		case SNDRV_PCM_FORMAT_U16_LE:
-			tctr_reg |= MFBSP_I2S_TCTR_SWAP | MFBSP_I2S_TCTR_PACK;
-			tctr_reg |= MFBSP_I2S_TCTR_WORDLEN(15) |
-				    MFBSP_I2S_TCTR_WORDCNT(0);
-			break;
-		default:
-			return -EINVAL;
-		}
+	/*
+	 * On Salute boards, TWS and TCLK are used both for transmit and
+	 * receive of data. Therefore transmitter should be properly
+	 * configured before receiving data.
+	 *
+	 * TODO: Configure TCTR only when it's required for receiver.
+	 */
+	mfbsp_writel(mfbsp->base, MFBSP_I2S_TCTR, tctr_reg);
 
-		mfbsp_writel(mfbsp->base, MFBSP_I2S_TCTR, tctr_reg);
-	} else {
+	if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK) {
 		u32 rctr_reg = MFBSP_I2S_RCTR_MBF | MFBSP_I2S_RCTR_CSNEG |
 			       MFBSP_I2S_RCTR_DEL | MFBSP_I2S_RCTR_NEG |
 			       MFBSP_I2S_RCTR_CS_CP | MFBSP_I2S_RCTR_CLK_CP;
