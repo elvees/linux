@@ -92,19 +92,7 @@ static int mfbsp_i2s_startup(struct snd_pcm_substream *substream,
 	else
 		snd_soc_dai_set_dma_data(dai, substream, &mfbsp->capture_dma);
 
-	mfbsp_writel(mfbsp->base, MFBSP_I2S_DIR, MFBSP_I2S_DIR_TD);
-
-	mfbsp_writel(mfbsp->base, MFBSP_I2S_CSR, MFBSP_I2S_CSR_EN);
-
 	return 0;
-}
-
-static void mfbsp_i2s_shutdown(struct snd_pcm_substream *substream,
-			       struct snd_soc_dai *dai)
-{
-	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
-
-	mfbsp_writel(mfbsp->base, MFBSP_I2S_CSR, 0);
 }
 
 static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
@@ -112,8 +100,16 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
 	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
-	u32 tctr_reg = MFBSP_I2S_TCTR_MBF | MFBSP_I2S_TCTR_CSNEG |
-		       MFBSP_I2S_TCTR_DEL | MFBSP_I2S_TCTR_NEG;
+	u32 tctr_reg = mfbsp_readl(mfbsp->base, MFBSP_I2S_TCTR);
+
+	/*
+	 * EN bit is changed by hardware when we write in TSTART register for
+	 * playback stream. Because TCTR register is changed for both
+	 * playback and capture, we need to save EN bit unchanged.
+	 */
+	tctr_reg &= MFBSP_I2S_TCTR_EN;
+	tctr_reg |= MFBSP_I2S_TCTR_MBF | MFBSP_I2S_TCTR_CSNEG |
+		    MFBSP_I2S_TCTR_DEL | MFBSP_I2S_TCTR_NEG;
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
@@ -179,7 +175,6 @@ static int mfbsp_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 static const struct snd_soc_dai_ops mfbsp_i2s_dai_ops = {
 	.set_fmt	= mfbsp_i2s_set_fmt,
 	.startup	= mfbsp_i2s_startup,
-	.shutdown	= mfbsp_i2s_shutdown,
 	.hw_params	= mfbsp_i2s_hw_params,
 	.trigger	= mfbsp_i2s_trigger,
 };
@@ -260,6 +255,9 @@ static int mfbsp_i2s_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(clk);
 	if (ret != 0)
 		return ret;
+
+	mfbsp_writel(mfbsp->base, MFBSP_I2S_DIR, MFBSP_I2S_DIR_TD);
+	mfbsp_writel(mfbsp->base, MFBSP_I2S_CSR, MFBSP_I2S_CSR_EN);
 
 	dev_set_drvdata(&pdev->dev, mfbsp);
 
