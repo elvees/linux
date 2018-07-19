@@ -1,0 +1,11 @@
+#
+# delcore30m configuration
+#
+
+config DELCORE30M
+	tristate 'delcore30m'
+	select MFD_SYSCON
+	select SRAM
+	depends on HAS_IOMEM
+	help
+	  Provides driver for ELVEES DELcore-30M DSP-cluster.
