@@ -585,7 +585,7 @@ static int dwapb_gpio_add_port(struct dwapb_gpio *gpio,
 	}
 
 	dwapb_write(gpio, GPIO_SWPORTA_CTL +
-			(pp->idx * GPIO_SWPORT_CTL_STRIDE), ~0UL);
+			(pp->idx * GPIO_SWPORT_CTL_STRIDE), ~pp->skip_mask);
 
 #ifdef CONFIG_OF_GPIO
 	port->gc.of_node = to_of_node(pp->fwnode);
@@ -639,6 +639,7 @@ dwapb_gpio_get_pdata(struct device *dev)
 	struct dwapb_platform_data *pdata;
 	struct dwapb_port_property *pp;
 	int nports;
+	int skip_count;
 	int i, j;
 
 	nports = device_get_child_node_count(dev);
@@ -680,6 +681,23 @@ dwapb_gpio_get_pdata(struct device *dev)
 
 		pp->irq_shared	= false;
 		pp->gpio_base	= -1;
+
+		skip_count = of_property_count_elems_of_size(port_np,
+							     "skip-gpios",
+							     sizeof(u32));
+		for (j = 0; j < skip_count; j++) {
+			u32 num;
+
+			if (of_property_read_u32_index(port_np, "skip-gpios",
+						       j, &num)) {
+				dev_err(dev,
+					"failed to get index %d from skip-gpios property (%s)",
+					j, port_np->full_name);
+				return ERR_PTR(-EINVAL);
+			}
+
+			pp->skip_mask |= BIT(num);
+		}
 
 		/*
 		 * Only port A can provide interrupts in all configurations of

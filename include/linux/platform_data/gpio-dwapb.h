@@ -6,6 +6,8 @@
 #ifndef GPIO_DW_APB_H
 #define GPIO_DW_APB_H
 
+#include <linux/types.h>
+
 struct dwapb_port_property {
 	struct fwnode_handle *fwnode;
 	unsigned int	idx;
@@ -13,6 +15,7 @@ struct dwapb_port_property {
 	unsigned int	gpio_base;
 	int		irq[32];
 	bool		has_irq;
+	u32		skip_mask;
 	bool		irq_shared;
 };
 

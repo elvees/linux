@@ -33,7 +33,12 @@ controller.
   use the interrupts-extended property to specify the interrupts and set the
   interrupt controller handle for unused interrupts to 0.
 - snps,nr-gpios : The number of pins in the port, a single cell.
+<<<<<<< HEAD
 - resets : Reset line for the controller.
+||||||| parent of 66130819407e (gpio: dwapb: Add skip-gpios support)
+=======
+- skip-gpios : Array of pins that must not be changed by driver.
+>>>>>>> 66130819407e (gpio: dwapb: Add skip-gpios support)
 
 Example:
 
@@ -61,5 +66,6 @@ gpio: gpio@20000 {
 		#gpio-cells = <2>;
 		snps,nr-gpios = <8>;
 		reg = <1>;
+		skip-gpios = <3 5 6>
 	};
 };
