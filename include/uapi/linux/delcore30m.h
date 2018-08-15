@@ -92,5 +92,7 @@ struct delcore30m_resource {
 	_IOW(ELCIOC_MAGIC, 5, struct delcore30m_buffer *)
 #define ELCIOC_RESOURCE_REQUEST \
 	_IOWR(ELCIOC_MAGIC, 6, struct delcore30m_resource *)
+#define ELCIOC_PRAM_CONFIG \
+	_IOWR(ELCIOC_MAGIC, 7, unsigned long *)
 
 #endif

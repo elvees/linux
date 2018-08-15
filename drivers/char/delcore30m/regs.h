@@ -32,6 +32,7 @@
 #define DELCORE30M_SP				0x138
 /*-------------------------------------*/
 
+#define DELCORE30M_CSR_PMCONFIG(x)		((x) << 0x2)
 #define DELCORE30M_QSTR_STOPPED_MASK		(BIT(3) | BIT(11))
 #define DELCORE30M_QSTR_STOP_OFFSET(x)		(3 + 8 * (x))
 #define DELCORE30M_QSTR_STOPPED_CORE_MASK(x)	BIT(3 + 8 * (x))

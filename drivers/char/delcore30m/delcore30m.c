@@ -999,6 +999,50 @@ err_resource_request:
 	return rc;
 }
 
+static int delcore30m_pram_config(struct delcore30m_private_data *pdata,
+				  void __user *arg)
+{
+	unsigned long size;
+	u32 pmem_ctr;
+	int rc;
+
+	rc = copy_from_user(&size, arg, sizeof(unsigned long));
+	if (rc)
+		return -EACCES;
+
+	switch (DIV_ROUND_UP(size, BANK_SIZE)) {
+	case 0:
+	case 1:
+		pmem_ctr = 0;
+		break;
+	case 2:
+	case 3:
+		pmem_ctr = 2;
+		break;
+	case 4:
+		pmem_ctr = 3;
+		break;
+	default:
+		return -EFAULT;
+	}
+
+	size = (pmem_ctr + 1) * BANK_SIZE;
+
+	/*
+	 * TODO: Add a ban on changing the memory boundary if there is at least
+	 *       one job in the queue.
+	 */
+
+	rc = copy_to_user(arg, &size, sizeof(unsigned long));
+	if (rc)
+		return -EFAULT;
+
+	delcore30m_writel_cmn(pdata, DELCORE30M_CSR_DSP,
+			      DELCORE30M_CSR_PMCONFIG(pmem_ctr));
+
+	return 0;
+}
+
 static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 			     unsigned long arg)
 {
@@ -1016,6 +1060,8 @@ static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 		return delcore30m_job_status(uptr);
 	case ELCIOC_RESOURCE_REQUEST:
 		return delcore30m_resource_request(pdata, uptr);
+	case ELCIOC_PRAM_CONFIG:
+		return delcore30m_pram_config(pdata, uptr);
 	}
 
 	dev_err(pdata->dev, "%d ioctl is not supported\n", cmd);
