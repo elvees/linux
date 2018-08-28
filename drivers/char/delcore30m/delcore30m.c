@@ -119,6 +119,7 @@ struct buf_info {
  * @bufs:  Array of &struct buf_info for buffers.
  * @num_bufs: Buffer number.
  * @cores: Mask of cores.
+ * @wait:  Wait queue.
  * @list:  Job list node.
  */
 struct delcore30m_job_desc {
@@ -130,6 +131,8 @@ struct delcore30m_job_desc {
 	int num_bufs;
 
 	unsigned long cores;
+
+	wait_queue_head_t wait;
 
 	struct list_head list;
 };
@@ -393,8 +396,29 @@ static int delcore30m_job_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static unsigned int delcore30m_job_poll(struct file *file, poll_table *wait)
+{
+	struct delcore30m_job_desc *desc = file->private_data;
+
+	poll_wait(file, &desc->wait, wait);
+	if (desc->job.status != DELCORE30M_JOB_IDLE)
+		return 0;
+
+	switch (desc->job.rc) {
+	case DELCORE30M_JOB_SUCCESS:
+		return POLLIN;
+	case DELCORE30M_JOB_ERROR:
+		return POLLERR;
+	case DELCORE30M_JOB_CANCELLED:
+		return POLLHUP;
+	default:
+		return -EINVAL;
+	}
+}
+
 static const struct file_operations delcore30m_job_fops = {
-	.release = delcore30m_job_release
+	.release = delcore30m_job_release,
+	.poll = delcore30m_job_poll
 };
 
 static int delcore30m_job_create(struct delcore30m_private_data *pdata,
@@ -442,6 +466,7 @@ static int delcore30m_job_create(struct delcore30m_private_data *pdata,
 
 	job_desc->job.fd = ret;
 	job_desc->job.status = DELCORE30M_JOB_IDLE;
+	init_waitqueue_head(&job_desc->wait);
 
 	ret = copy_to_user(arg, &job_desc->job, sizeof(struct delcore30m_job));
 	if (ret) {
@@ -1086,7 +1111,6 @@ static int delcore30m_release(struct inode *inode, struct file *file)
 	if (atomic_dec_and_test(&pdata->count))
 		for (i = 0; i < MAX_CORES; ++i)
 			pdata->fwready[i] = false;
-
 	return 0;
 }
 
@@ -1150,6 +1174,7 @@ static irqreturn_t delcore30m_interrupt(int irq, void *arg)
 			val = delcore30m_readl_cmn(pdata, DELCORE30M_CSR_DSP);
 			val &= ~1;
 			delcore30m_writel_cmn(pdata, DELCORE30M_CSR_DSP, val);
+			wake_up_interruptible(&desc->wait);
 		}
 	}
 
