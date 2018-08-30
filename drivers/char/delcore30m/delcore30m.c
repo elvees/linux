@@ -45,6 +45,7 @@
  * @clocks:   Clocks info.
  * @dev_num:  Device numbers.
  * @cdev:     Char device info.
+ * @hw:       Hardware info struct.
  */
 struct delcore30m_private_data {
 	struct device *dev;
@@ -78,6 +79,7 @@ struct delcore30m_private_data {
 
 	dev_t dev_num;
 	struct cdev cdev;
+	struct delcore30m_hardware hw;
 };
 
 static struct class *class;
@@ -949,30 +951,13 @@ static int delcore30m_resource_mmap(struct file *file,
 	struct delcore30m_resource_desc *res_desc = file->private_data;
 	struct delcore30m_private_data *pdata = res_desc->pdata;
 	unsigned long size;
-	unsigned long pram_size;
 	int ret, core;
 
 	core = vma->vm_pgoff;
 	if (core >= MAX_CORES || ((res_desc->resource.mask >> core) & 1) == 0)
 		return -EINVAL;
 	size = vma->vm_end - vma->vm_start;
-
-	pram_size = delcore30m_readl_cmn(pdata, DELCORE30M_CSR_DSP);
-
-	switch ((pram_size & DELCORE30M_CSR_PMCONFIG_MASK) >> 2) {
-	case 0:
-		pram_size = BANK_SIZE;
-		break;
-	case 1:
-		return -EINVAL;
-	case 2:
-		pram_size = 3 * BANK_SIZE;
-		break;
-	case 3:
-		pram_size = 4 * BANK_SIZE;
-		break;
-	}
-	if (size > pram_size) {
+	if (size > pdata->hw.core_pram_size) {
 		dev_err(pdata->dev, "Failed to map PRAM\n");
 		return -EINVAL;
 	}
@@ -1072,6 +1057,18 @@ err_resource_request:
 	return rc;
 }
 
+static int delcore30m_sys_info(struct delcore30m_private_data *pdata,
+			       void __user *arg)
+{
+	int rc;
+
+	rc = copy_to_user(arg, &pdata->hw, sizeof(struct delcore30m_hardware));
+	if (rc)
+		return -EACCES;
+
+	return 0;
+}
+
 static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 			     unsigned long arg)
 {
@@ -1091,6 +1088,8 @@ static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 		return delcore30m_job_cancel(pdata, uptr);
 	case ELCIOC_RESOURCE_REQUEST:
 		return delcore30m_resource_request(pdata, uptr);
+	case ELCIOC_SYS_INFO:
+		return delcore30m_sys_info(pdata, uptr);
 	}
 
 	dev_err(pdata->dev, "%d ioctl is not supported\n", cmd);
@@ -1242,6 +1241,25 @@ static void delcore30m_clock_destroy(struct delcore30m_private_data *data)
 	kfree(data->clocks[i]);
 }
 
+static int delcore30m_hwinfo_init(struct delcore30m_private_data *pdata,
+				  struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	int ret, ncores;
+
+	ret = of_property_read_u32(np, "ncores", &ncores);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to read \"ncores\" property\n");
+		return ret;
+	}
+
+	pdata->hw.ncores = ncores;
+	pdata->hw.core_pram_size = BANK_SIZE;
+	pdata->hw.xyram_size = ncores * (4 * BANK_SIZE);
+
+	return 0;
+}
+
 static int delcore30m_probe(struct platform_device *pdev)
 {
 	struct delcore30m_private_data *pdata;
@@ -1257,6 +1275,10 @@ static int delcore30m_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pdata->dev = &pdev->dev;
+
+	ret = delcore30m_hwinfo_init(pdata, pdev);
+	if (ret)
+		return ret;
 
 	INIT_LIST_HEAD(&pdata->enqueued);
 	INIT_LIST_HEAD(&pdata->running);

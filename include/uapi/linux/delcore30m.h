@@ -7,6 +7,7 @@
 #define _LINUX_DELCORE30M_H
 
 #include <stddef.h>
+#include <linux/types.h>
 
 #define MAX_CORES 2
 
@@ -80,6 +81,12 @@ struct delcore30m_resource {
 	unsigned long mask;
 };
 
+struct delcore30m_hardware {
+	int ncores;
+	size_t xyram_size;
+	size_t core_pram_size;
+};
+
 #define ELCIOC_MAGIC 'e'
 
 #define ELCIOC_JOB_CREATE \
@@ -94,5 +101,7 @@ struct delcore30m_resource {
 	_IOW(ELCIOC_MAGIC, 5, struct delcore30m_buffer *)
 #define ELCIOC_RESOURCE_REQUEST \
 	_IOWR(ELCIOC_MAGIC, 6, struct delcore30m_resource *)
+#define ELCIOC_SYS_INFO \
+	_IOW(ELCIOC_MAGIC, 8, struct delcore30m_hardware *)
 
 #endif
