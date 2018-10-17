@@ -11,6 +11,8 @@
 
 #define MAX_CORES 2
 
+#define MAX_SDMA_CHANNELS 8
+
 #define MAX_INPUTS 15
 #define MAX_OUTPUTS 15
 
@@ -87,6 +89,81 @@ struct delcore30m_hardware {
 	size_t core_pram_size;
 };
 
+enum sdma_channel_type {
+	SDMA_CHANNEL_INPUT,
+	SDMA_CHANNEL_OUTPUT,
+};
+
+struct sdma_channel {
+	enum sdma_channel_type type;
+	unsigned int num;
+};
+
+/*
+ * @delcore30m_dmachain: SDMA descriptor chain data
+ * @codebuf - descriptor of DDR buffer for SDMA prorgam.
+ * TODO: Make @codebuf private.
+ * @core - DSP that will receive interrupts from SDMA
+ * @external - descriptor of DDR buffer
+ * @internal - array of two XYRAM buffers descriptors.
+ * @chain - descriptor of buffer with SDMA descriptors.
+ * @job - descriptor of job associated with this chain.
+ * @channel - SDMA channel info.
+ */
+struct delcore30m_dmachain {
+	int codebuf;
+	int core;
+	int external;
+	int internal[2];
+	int chain;
+	int job;
+	struct sdma_channel channel;
+};
+
+struct tile_info {
+	__u32 x, y;
+	__u32 width, height;
+	__u32 stride[2];
+};
+
+/*
+ * @sdma_descriptor_type: type of sdma descriptor.
+ * @SDMA_DESCRIPTOR_E1I1 - descriptor waits event and sends interrupt.
+ * @SDMA_DESCRIPTOR_E1I0 - descriptor waits event and doesn't send interrupt.
+ * @SDMA_DESCRIPTOR_E0I0 - descriptor doesn't wait event and doesn't send
+ *                         interrupt.
+ * @SDMA_DESCRIPTOR_E0I1 - descriptor doesn't wait event and sends interrupt.
+ */
+enum sdma_descriptor_type {
+	SDMA_DESCRIPTOR_E1I1,
+	SDMA_DESCRIPTOR_E1I0,
+	SDMA_DESCRIPTOR_E0I0,
+	SDMA_DESCRIPTOR_E0I1,
+};
+
+/*
+ * @sdma_descriptor: sdma descriptor data.
+ * @a0e - offset (in bytes) of external buffer.
+ * @a0i - reserved by driver.
+ * @asize - offset (in bytes) to the next string of buffer (in case of 2D).
+ * @bcnt - string count (in case of 1D buffer bcnt equals 1).
+ * @ccr - SDMA configuration register.
+ * @acnt - string size.
+ * @type - sdma descriptor type.
+ * @a_init - offset (in bytes) to the next sdma descriptor. For the last
+ *           descriptor this field equals zero.
+ */
+struct sdma_descriptor {
+	__u32 a0e;
+	__u32 a0i;
+	__u32 astride;
+	__u32 bcnt;
+	__u32 ccr;
+	__u32 asize;
+	enum sdma_descriptor_type type;
+	__u32 a_init;
+};
+
 #define ELCIOC_MAGIC 'e'
 
 #define ELCIOC_JOB_CREATE \
@@ -103,5 +180,7 @@ struct delcore30m_hardware {
 	_IOWR(ELCIOC_MAGIC, 6, struct delcore30m_resource *)
 #define ELCIOC_SYS_INFO \
 	_IOW(ELCIOC_MAGIC, 8, struct delcore30m_hardware *)
+#define ELCIOC_DMACHAIN_SETUP \
+	_IOWR(ELCIOC_MAGIC, 9, struct delcore30m_dmachain *)
 
 #endif

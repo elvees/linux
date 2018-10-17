@@ -8,10 +8,12 @@
 #include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
+#include <linux/dmaengine.h>
 #include <linux/fs.h>
 #include <linux/genalloc.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/iopoll.h>
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/mfd/syscon.h>
@@ -30,6 +32,8 @@
  * @dev:      Device info.
  * @cmn_regs: Virtual (kernel address space) addresses of common registers.
  * @dsp_regs: Virtual (kernel address space) addresses of DSP registers.
+ * @spinlock: Virtual (kernel address space) addresses of spinlock registers.
+ * @sdma:     Register map for SDMA registers.
  * @xyram_pool: General pool for XYRAM.
  * @pram:     PRAM resource and firmware size.
  * @count:    Driver's users count.
@@ -37,6 +41,7 @@
  * @enqueued: List of enqueued jobs.
  * @running:  List of running jobs.
  * @lock:     Lock for jobs.
+ * @sdmas:    Mask of SDMA channels.
  * @cores:    Mask of cores.
  * @reslock:  Lock for resources.
  * @stack:    Physical and virtual (kernel address space) addresses
@@ -52,6 +57,9 @@ struct delcore30m_private_data {
 
 	void __iomem *cmn_regs;
 	void __iomem *dsp_regs[MAX_CORES];
+	void __iomem *spinlock;
+
+	struct regmap *sdma;
 
 	struct gen_pool *xyram_pool[MAX_CORES];
 
@@ -66,6 +74,7 @@ struct delcore30m_private_data {
 	struct list_head enqueued, running;
 	spinlock_t lock;
 
+	unsigned long sdmas;
 	unsigned long cores;
 	spinlock_t reslock;
 
@@ -121,6 +130,7 @@ struct buf_info {
  * @bufs:  Array of &struct buf_info for buffers.
  * @num_bufs: Buffer number.
  * @cores: Mask of cores.
+ * @sdmas: Mask of SDMA channels.
  * @wait:  Wait queue.
  * @list:  Job list node.
  */
@@ -133,6 +143,7 @@ struct delcore30m_job_desc {
 	int num_bufs;
 
 	unsigned long cores;
+	unsigned long sdmas;
 
 	wait_queue_head_t wait;
 
@@ -147,6 +158,16 @@ struct delcore30m_job_desc {
 struct delcore30m_resource_desc {
 	struct delcore30m_private_data *pdata;
 	struct delcore30m_resource resource;
+};
+
+/**
+ * struct sdma_program_buf - Internal data about SDMA program
+ * @start: Pointer to start of SDMA program buffer.
+ * @pos:   Pointer to current position of SDMA program buffer.
+ * @end:   Pointer to end of SDMA program buffer.
+ */
+struct sdma_program_buf {
+	char *start, *pos, *end;
 };
 
 static const struct file_operations delcore30m_resource_fops;
@@ -459,6 +480,7 @@ void reset_cores(struct delcore30m_job_desc *job_desc)
 		delcore30m_writel(pdata, i, DELCORE30M_LC, 0x0);
 		delcore30m_writel(pdata, i, DELCORE30M_CSH, 0x0);
 		delcore30m_writel(pdata, i, DELCORE30M_SP, 0x0);
+		delcore30m_writel(pdata, i, DELCORE30M_IMASKR, 0x0);
 
 		offset = DELCORE30M_A0;
 
@@ -565,6 +587,13 @@ static int delcore30m_job_create(struct delcore30m_private_data *pdata,
 
 	res_desc = fd.file->private_data;
 	job_desc->cores = res_desc->resource.mask;
+	fdput(fd);
+
+	fd = fdget(job_desc->job.sdmas_fd);
+	if (fd.file && (fd.file->f_op == &delcore30m_resource_fops)) {
+		res_desc = fd.file->private_data;
+		job_desc->sdmas = res_desc->resource.mask;
+	}
 	fdput(fd);
 
 	for_each_set_bit(i, &job_desc->cores, MAX_CORES)
@@ -912,10 +941,28 @@ err_free_buf_desc:
 	return ret;
 }
 
+static int delcore30m_spinlock_try(struct delcore30m_private_data *pdata,
+				   u32 timeout)
+{
+	u8 spinlock_value;
+
+	if (readl_poll_timeout_atomic(pdata->spinlock + SPINLOCK_REG_OFFSET,
+				      spinlock_value, (spinlock_value == 0), 5,
+				      1000))
+		return -EBUSY;
+	return 0;
+}
+
+static void delcore30m_spinlock_unlock(struct delcore30m_private_data *pdata)
+{
+	writeb(0, pdata->spinlock + SPINLOCK_REG_OFFSET);
+}
+
 static int resource_release(struct delcore30m_resource_desc *res)
 {
 	struct delcore30m_private_data *pdata = res->pdata;
-	int i;
+	int i, j, rc;
+	u32 qmaskr0_val, dbg_status, chn_status;
 
 	spin_lock(&pdata->reslock);
 
@@ -924,6 +971,39 @@ static int resource_release(struct delcore30m_resource_desc *res)
 		pdata->cores &= ~res->resource.mask;
 		for_each_set_bit(i, &res->resource.mask, MAX_CORES)
 			pdata->fwready[i] = false;
+		break;
+	case DELCORE30M_SDMA:
+		pdata->sdmas &= ~res->resource.mask;
+		for (j = 0; j < MAX_CORES; ++j) {
+			qmaskr0_val = delcore30m_readl(pdata, j,
+						       DELCORE30M_QMASKR0);
+			qmaskr0_val &= ~(res->resource.mask << 8);
+			delcore30m_writel(pdata, j, DELCORE30M_QMASKR0,
+					  qmaskr0_val);
+		}
+
+		for_each_set_bit(i, &res->resource.mask, MAX_SDMA_CHANNELS) {
+			regmap_read(pdata->sdma, CHANNEL_STATUS(i),
+				    &chn_status);
+			if ((chn_status & 0xF) == 0)
+				continue;
+
+			rc = delcore30m_spinlock_try(pdata, 1000);
+			if (rc)
+				return rc;
+
+			do {
+				regmap_read(pdata->sdma, DBGSTATUS,
+					    &dbg_status);
+			} while (dbg_status & 1);
+
+			regmap_write(pdata->sdma, DBGINST0,
+				     (SDMA_DMAKILL << 16) | (i << 8) | 1);
+			regmap_write(pdata->sdma, DBGINST1, 0);
+			regmap_write(pdata->sdma, DBGCMD, 0);
+
+			delcore30m_spinlock_unlock(pdata);
+		}
 		break;
 	default:
 		spin_unlock(&pdata->reslock);
@@ -953,6 +1033,8 @@ static int delcore30m_resource_mmap(struct file *file,
 	unsigned long size;
 	int ret, core;
 
+	if (res_desc->resource.type == DELCORE30M_SDMA)
+		return -EINVAL;
 	core = vma->vm_pgoff;
 	if (core >= MAX_CORES || ((res_desc->resource.mask >> core) & 1) == 0)
 		return -EINVAL;
@@ -1006,6 +1088,11 @@ static int delcore30m_resource_request(struct delcore30m_private_data *pdata,
 	case DELCORE30M_CORE:
 		array = &pdata->cores;
 		max = MAX_CORES;
+		break;
+	case DELCORE30M_SDMA:
+		array = &pdata->sdmas;
+
+		max = MAX_SDMA_CHANNELS;
 		break;
 	default:
 		rc = -EINVAL;
@@ -1069,6 +1156,248 @@ static int delcore30m_sys_info(struct delcore30m_private_data *pdata,
 	return 0;
 }
 
+static void sdma_command_add(struct sdma_program_buf *buf, u64 command,
+			     size_t commandlen)
+{
+	/* TODO: Remove commandlen arg from this function */
+	while (commandlen-- && buf->pos < buf->end) {
+		*buf->pos++ = command & 0xFF;
+		command >>= 8;
+	}
+}
+
+static struct buf_info *delcore30m_job_get_bufinfo(
+		struct delcore30m_job_desc *desc, int fd)
+{
+	int i;
+
+	for (i = 0; i < desc->job.inum; ++i)
+		if (desc->job.input[i] == fd)
+			return &desc->bufs[i];
+
+	for (i = 0; i < desc->job.onum; ++i)
+		if (desc->job.output[i] == fd)
+			return &desc->bufs[desc->job.inum + i];
+
+	return NULL;
+}
+
+static void sdma_program_tile(struct sdma_program_buf *program_buf,
+			      struct sdma_descriptor sd,
+			      enum sdma_channel_type type, u8 channel)
+{
+	char *loop_start;
+	ptrdiff_t loop_length;
+	const u32 acnt = sd.asize / SDMA_BURST_SIZE(sd.ccr);
+	const u32 trans16_pack = (acnt / 16);
+	const u32 trans_pack = (acnt % 16);
+
+	if (type != SDMA_CHANNEL_OUTPUT || sd.type == SDMA_DESCRIPTOR_E1I0 ||
+	    sd.type == SDMA_DESCRIPTOR_E1I1) {
+		sdma_command_add(program_buf, SDMA_DMAMOVE_SAR, 2);
+		if (type == SDMA_CHANNEL_INPUT)
+			sdma_command_add(program_buf, sd.a0e, 4);
+		else
+			sdma_command_add(program_buf, sd.a0i, 4);
+	}
+
+	if (sd.type == SDMA_DESCRIPTOR_E1I1 ||
+	    sd.type == SDMA_DESCRIPTOR_E1I0) {
+		sdma_command_add(program_buf, SDMA_DMAMOVE_DAR, 2);
+		if (type == SDMA_CHANNEL_INPUT)
+			sdma_command_add(program_buf, sd.a0i, 4);
+		else
+			sdma_command_add(program_buf, sd.a0e, 4);
+		sdma_command_add(program_buf,
+				 SDMA_DMAWFE +
+					((MAX_SDMA_CHANNELS + channel) << 11),
+				 2);
+	}
+	sdma_command_add(program_buf, SDMA_DMALP(0) + ((sd.bcnt-1) << 8), 2);
+
+	loop_start = program_buf->pos;
+	if (trans16_pack) {
+		sdma_command_add(program_buf, SDMA_DMAMOVE_CCR, 2);
+		sdma_command_add(program_buf, sd.ccr | (15 << 18) | (15 << 4),
+				 4);
+
+		sdma_command_add(program_buf,
+				 SDMA_DMALP(1) + ((trans16_pack-1) << 8), 2);
+		sdma_command_add(program_buf, SDMA_DMALD, 1);
+		sdma_command_add(program_buf, SDMA_DMAST, 1);
+		sdma_command_add(program_buf, SDMA_DMALPEND(1) + (2 << 8), 2);
+	}
+
+	if (trans_pack) {
+		sdma_command_add(program_buf, SDMA_DMAMOVE_CCR, 2);
+		sdma_command_add(program_buf,
+			    sd.ccr | (trans_pack-1) << 18 | (trans_pack-1) << 4,
+			    4);
+
+		sdma_command_add(program_buf, SDMA_DMALD, 1);
+		sdma_command_add(program_buf, SDMA_DMAST, 1);
+	}
+
+	if (sd.type == SDMA_DESCRIPTOR_E1I1 ||
+	    sd.type == SDMA_DESCRIPTOR_E0I1) {
+		if (type == SDMA_CHANNEL_INPUT)
+			sdma_command_add(program_buf, SDMA_DMAADDH_SAR +
+						((sd.astride - sd.asize) << 8),
+					 3);
+		else
+			sdma_command_add(program_buf, SDMA_DMAADDH_DAR +
+						((sd.astride - sd.asize) << 8),
+					 3);
+	}
+
+	/* FIXME: Using barrier SDMA_DMARMB or/and SDMA_DMAWMB? */
+
+	loop_length = program_buf->pos - loop_start;
+	sdma_command_add(program_buf, SDMA_DMALPEND(0) + (loop_length << 8), 2);
+
+	if ((sd.type == SDMA_DESCRIPTOR_E0I1) ||
+	    (sd.type == SDMA_DESCRIPTOR_E1I1))
+		sdma_command_add(program_buf, SDMA_DMASEV + (channel << 11), 2);
+}
+
+static int sdma_program(struct delcore30m_dmachain dmachain,
+			dma_addr_t *code_address)
+{
+	int rc = 0, odd = 0;
+	int chainsize;
+	struct sdma_descriptor *sd, temp_sd;
+	struct buf_info *external, *internal[2], *chain, *codebuf;
+	void *sdmaptr;
+	struct file *jobfile;
+	struct delcore30m_job_desc *jobdesc;
+	u8 *code;
+	struct sdma_program_buf program_buf;
+
+	jobfile = fget(dmachain.job);
+	if (!jobfile)
+		return -EBADF;
+
+	if (jobfile->f_op != &delcore30m_job_fops) {
+		fput(jobfile);
+		return -EBADF;
+	}
+
+	jobdesc = jobfile->private_data;
+
+	external = delcore30m_job_get_bufinfo(jobdesc, dmachain.external);
+	internal[0] = delcore30m_job_get_bufinfo(jobdesc, dmachain.internal[0]);
+	internal[1] = delcore30m_job_get_bufinfo(jobdesc, dmachain.internal[1]);
+	chain = delcore30m_job_get_bufinfo(jobdesc, dmachain.chain);
+	codebuf = delcore30m_job_get_bufinfo(jobdesc, dmachain.codebuf);
+
+	chainsize = chain->attach->dmabuf->size;
+	sd = sdmaptr = dma_buf_vmap(chain->attach->dmabuf);
+	code = dma_buf_vmap(codebuf->attach->dmabuf);
+	program_buf.pos = program_buf.start = code;
+	program_buf.end = program_buf.start + codebuf->attach->dmabuf->size;
+
+	do {
+		void *next = sdmaptr + sd->a_init;
+
+		if (next - sdmaptr > chainsize) {
+			rc = -EFAULT;
+			break;
+		}
+
+		if ((sd->type == SDMA_DESCRIPTOR_E0I1) ||
+		    (sd->type == SDMA_DESCRIPTOR_E0I0))
+			odd ^= 1;
+
+		memcpy(&temp_sd, sd, sizeof(struct sdma_descriptor));
+
+		temp_sd.a0e += sg_dma_address(external->sgt->sgl);
+		temp_sd.a0i = sg_dma_address(internal[odd]->sgt->sgl);
+
+		sdma_program_tile(&program_buf, temp_sd,
+				  dmachain.channel.type, dmachain.channel.num);
+
+		odd ^= 1;
+		if (sd->a_init)
+			sd = next;
+		else
+			break;
+	} while (true);
+
+	dma_buf_vunmap(chain->attach->dmabuf, sdmaptr);
+
+	sdma_command_add(&program_buf, SDMA_DMAWMB, 1);
+	sdma_command_add(&program_buf, SDMA_DMAEND, 1);
+
+	dma_buf_vunmap(codebuf->attach->dmabuf, code);
+
+	*code_address = sg_dma_address(codebuf->sgt->sgl);
+
+	fput(jobfile);
+	return rc;
+}
+
+static int delcore30m_dmachain_setup(struct delcore30m_private_data *pdata,
+				     void __user *arg)
+{
+	int rc;
+	struct delcore30m_dmachain dmachain;
+	dma_addr_t code_addr;
+	u32 channel_status, inten_value;
+	u32 dbg_status, qmaskr0_val;
+	u8 core_id;
+
+	rc = copy_from_user(&dmachain, arg,
+			    sizeof(struct delcore30m_dmachain));
+	if (rc)
+		return -EACCES;
+
+	if (dmachain.channel.num >= MAX_SDMA_CHANNELS)
+		return -EINVAL;
+
+	regmap_read(pdata->sdma, CHANNEL_STATUS(dmachain.channel.num),
+		    &channel_status);
+	if (channel_status & 0xF)
+		return -EBUSY;
+
+	rc = sdma_program(dmachain, &code_addr);
+	if (rc)
+		return rc;
+	core_id = dmachain.core;
+
+	/* TODO: Move DSP registers setup to try_run() */
+
+	/* FIXME: interrupt handler address */
+	delcore30m_writel(pdata, core_id, DELCORE30M_INVAR,
+			  addr2delcore30m(0x0C));
+
+	regmap_read(pdata->sdma, INTEN, &inten_value);
+	inten_value |= 1 << dmachain.channel.num;
+	regmap_write(pdata->sdma, INTEN, inten_value);
+
+	delcore30m_writel(pdata, core_id, DELCORE30M_IMASKR, (1 << 30));
+
+	qmaskr0_val = delcore30m_readl(pdata, core_id, DELCORE30M_QMASKR0);
+	qmaskr0_val |= 1 << (8 + dmachain.channel.num);
+	delcore30m_writel(pdata, core_id, DELCORE30M_QMASKR0, qmaskr0_val);
+
+	rc = delcore30m_spinlock_try(pdata, 1000);
+	if (rc)
+		return rc;
+
+	do {
+		regmap_read(pdata->sdma, DBGSTATUS, &dbg_status);
+	} while (dbg_status & 1);
+
+	regmap_write(pdata->sdma, DBGINST0,
+		     (0xA0 << 16) | (dmachain.channel.num << 8) |
+		     (dmachain.channel.num << 24));
+	regmap_write(pdata->sdma, DBGINST1, code_addr);
+	regmap_write(pdata->sdma, DBGCMD, 0);
+
+	delcore30m_spinlock_unlock(pdata);
+	return 0;
+}
+
 static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 			     unsigned long arg)
 {
@@ -1090,6 +1419,8 @@ static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 		return delcore30m_resource_request(pdata, uptr);
 	case ELCIOC_SYS_INFO:
 		return delcore30m_sys_info(pdata, uptr);
+	case ELCIOC_DMACHAIN_SETUP:
+		return delcore30m_dmachain_setup(pdata, uptr);
 	}
 
 	dev_err(pdata->dev, "%d ioctl is not supported\n", cmd);
@@ -1268,6 +1599,8 @@ static int delcore30m_probe(struct platform_device *pdev)
 	char device_name[50], dsp_pram_name[50];
 	static int device_count;
 	int irq, ret, i;
+	dma_cap_mask_t mask;
+	struct dma_chan *chan;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(struct delcore30m_private_data),
 			     GFP_KERNEL);
@@ -1340,6 +1673,23 @@ static int delcore30m_probe(struct platform_device *pdev)
 	if (IS_ERR(pdata->cmn_regs))
 		return PTR_ERR(pdata->cmn_regs);
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spinlock");
+	if (!res) {
+		dev_err(&pdev->dev, "Failed to get spinlock resource\n");
+		return -ENOENT;
+	}
+
+	pdata->spinlock = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(pdata->spinlock))
+		return PTR_ERR(pdata->spinlock);
+
+	pdata->sdma = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+						      "sdma");
+	if (IS_ERR(pdata->sdma)) {
+		dev_err(&pdev->dev, "Failed to get SDMA regmap\n");
+		return -ENOENT;
+	}
+
 	ret = alloc_chrdev_region(&pdata->dev_num, 0, 1, "delcore");
 	if (ret < 0) {
 		dev_err(&pdev->dev,
@@ -1383,6 +1733,17 @@ static int delcore30m_probe(struct platform_device *pdev)
 			ret = -ENOMEM;
 			goto free_stack;
 		}
+	}
+
+	/* TODO: This code can find channel of another DMA controller */
+	dma_cap_zero(mask);
+	dma_cap_set(0, mask);
+	chan = dma_request_channel(mask, NULL, NULL);
+	if (chan) {
+		ret = -EACCES;
+		dma_release_channel(chan);
+		dev_err(pdata->dev, "pl330 must be unloaded");
+		goto free_stack;
 	}
 
 	return 0;
