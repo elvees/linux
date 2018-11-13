@@ -1,5 +1,5 @@
 /*
- *  Copyright 2017 RnD Center "ELVEES", JSC
+ *  Copyright 2017-2019 RnD Center "ELVEES", JSC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -78,5 +78,7 @@ extern char mcom02_secondary_trampoline_end;
 
 extern unsigned long mcom02_secondary_boot_vector;
 extern void mcom02_secondary_startup(void);
+
+int mcom02_init_pmctr(void);
 
 #endif
