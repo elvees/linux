@@ -7,6 +7,7 @@
  * (at your option) any later version.
  */
 
+#include <asm/io.h>
 #include <linux/cdev.h>
 #include <linux/clk.h>
 #include <linux/fs.h>
@@ -14,6 +15,9 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/of_device.h>
+
+#include "regs.h"
+#include "elvees-swic.h"
 
 #define ELVEES_SWIC_MAX_DEVICES		2
 
@@ -33,8 +37,94 @@ struct elvees_swic_private_data {
 	struct cdev cdev;
 };
 
+static u32 swic_readl(struct elvees_swic_private_data *pdata, u32 reg)
+{
+	return readl(pdata->regs + reg);
+}
+
+static void swic_writel(struct elvees_swic_private_data *pdata, u32 reg,
+			u32 value)
+{
+	 writel(value, pdata->regs + reg);
+}
+
+static void elvees_swic_reset(struct elvees_swic_private_data *pdata)
+{
+	swic_writel(pdata, SWIC_MODE_CR, SWIC_MODE_CR_LINK_DISABLE |
+		    SWIC_MODE_CR_LINK_RST);
+
+	swic_writel(pdata, SWIC_TX_SPEED, 0);
+
+	swic_writel(pdata, SWIC_CNT_RX_PACK, 0);
+}
+
+static int elvees_swic_open(struct inode *inode, struct file *file)
+{
+	struct elvees_swic_private_data *pdata;
+
+	pdata = container_of(inode->i_cdev, struct elvees_swic_private_data,
+			     cdev);
+
+	file->private_data = pdata;
+
+	return 0;
+}
+
+static int elvees_swic_release(struct inode *inode, struct file *file)
+{
+	struct elvees_swic_private_data *pdata = file->private_data;
+
+	elvees_swic_reset(pdata);
+
+	return 0;
+}
+
+static int elvees_swic_set_link(struct elvees_swic_private_data *pdata)
+{
+	u32 reg;
+	unsigned long rate;
+
+	elvees_swic_reset(pdata);
+
+	reg = SWIC_MODE_CR_LINK_START | SWIC_MODE_CR_LINK_MASK |
+	      SWIC_MODE_CR_ERR_MASK | SWIC_MODE_CR_COEFF_10_WR;
+
+	swic_writel(pdata, SWIC_MODE_CR, reg);
+
+	rate = clk_get_rate(pdata->aclk);
+	rate = DIV_ROUND_UP(rate, 10000000);
+	reg = SET_FIELD(SWIC_TX_SPEED_COEFF_10, rate);
+
+	/*
+	 * Field TX_SPEED is set to 0x0(4.8 Mbit/s).
+	 * This is required to establish link.
+	 */
+	swic_writel(pdata, SWIC_TX_SPEED, SWIC_TX_SPEED_PLL_TX_EN |
+		    SWIC_TX_SPEED_LVDS_EN | reg);
+
+	return 0;
+}
+
+static long elvees_swic_ioctl(struct file *file,
+			      unsigned int cmd,
+			      unsigned long arg)
+{
+	struct elvees_swic_private_data *pdata =
+		(struct elvees_swic_private_data *)file->private_data;
+
+	switch (cmd) {
+	case SWICIOC_SET_LINK:
+		return elvees_swic_set_link(pdata);
+	}
+
+	return -ENOTTY;
+}
+
 static const struct file_operations elvees_swic_fops = {
 	.owner = THIS_MODULE,
+	.open = elvees_swic_open,
+	.release = elvees_swic_release,
+	.unlocked_ioctl = elvees_swic_ioctl,
 };
 
 static int elvees_swic_dev_register(struct elvees_swic_private_data *pdata)
@@ -116,6 +206,38 @@ static irqreturn_t elvees_swic_dma_tx_data_ih(int irq, void *data)
 
 static irqreturn_t elvees_swic_ih(int irq, void *data)
 {
+	u32 reg;
+	struct elvees_swic_private_data *pdata = data;
+
+	reg = swic_readl(pdata, SWIC_STATUS);
+
+	if (reg & SWIC_STATUS_CONNECTED) {
+		reg |= SWIC_STATUS_GOT_FIRST_BIT;
+		dev_dbg(pdata->dev, "Connection is set\n");
+	}
+
+	if (reg & SWIC_STATUS_DC_ERR) {
+		reg |= SWIC_STATUS_DC_ERR;
+		dev_dbg(pdata->dev, "Disconnection error\n");
+	}
+
+	if (reg & SWIC_STATUS_P_ERR) {
+		reg |= SWIC_STATUS_P_ERR;
+		dev_dbg(pdata->dev, "Parity error\n");
+	}
+
+	if (reg & SWIC_STATUS_ESC_ERR) {
+		reg |= SWIC_STATUS_ESC_ERR;
+		dev_dbg(pdata->dev, "ESC sequence error\n");
+	}
+
+	if (reg & SWIC_STATUS_CREDIT_ERR) {
+		reg |= SWIC_STATUS_CREDIT_ERR;
+		dev_dbg(pdata->dev, "Credit error\n");
+	}
+
+	swic_writel(pdata, SWIC_STATUS, reg);
+
 	return IRQ_HANDLED;
 }
 
