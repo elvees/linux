@@ -664,6 +664,51 @@ void reset_cores(struct delcore30m_job_desc *job_desc)
 	}
 }
 
+static int delcore30m_job_cancel(struct delcore30m_private_data *pdata,
+				 void __user *arg)
+{
+	struct delcore30m_job job;
+	struct delcore30m_job_desc *job_desc;
+	struct fd fd;
+	unsigned long flags;
+	int ret;
+
+	ret = copy_from_user(&job, arg, sizeof(struct delcore30m_job));
+	if (ret)
+		return -EACCES;
+
+	fd = fdget(job.fd);
+	if (!fd.file || fd.file->f_op != &delcore30m_job_fops) {
+		ret = -EBADFD;
+		goto done;
+	}
+
+	job_desc = fd.file->private_data;
+
+	spin_lock_irqsave(&pdata->lock, flags);
+	if (job_desc->job.status == DELCORE30M_JOB_IDLE) {
+		spin_unlock_irqrestore(&pdata->lock, flags);
+		goto done;
+	}
+
+	if (job_desc->job.status == DELCORE30M_JOB_RUNNING)
+		reset_cores(job_desc);
+
+	job_desc->job.rc = DELCORE30M_JOB_CANCELLED;
+	job_desc->job.status = DELCORE30M_JOB_IDLE;
+
+	list_del(&job_desc->list);
+
+	if (!list_empty(&pdata->enqueued))
+		delcore30m_try_run(pdata);
+
+	spin_unlock_irqrestore(&pdata->lock, flags);
+	wake_up_interruptible(&job_desc->wait);
+done:
+	fdput(fd);
+	return ret;
+}
+
 static struct sg_table *delcore30m_dmabuf_map(struct dma_buf_attachment *attach,
 					      enum dma_data_direction dir)
 {
@@ -1080,6 +1125,8 @@ static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 		return delcore30m_buf_alloc(pdata, uptr);
 	case ELCIOC_JOB_STATUS:
 		return delcore30m_job_status(uptr);
+	case ELCIOC_JOB_CANCEL:
+		return delcore30m_job_cancel(pdata, uptr);
 	case ELCIOC_RESOURCE_REQUEST:
 		return delcore30m_resource_request(pdata, uptr);
 	case ELCIOC_PRAM_CONFIG:

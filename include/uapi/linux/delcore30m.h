@@ -88,6 +88,8 @@ struct delcore30m_resource {
 	_IOW(ELCIOC_MAGIC, 2, struct delcore30m_job *)
 #define ELCIOC_JOB_STATUS \
 	_IOWR(ELCIOC_MAGIC, 3, struct delcore30m_job *)
+#define ELCIOC_JOB_CANCEL \
+	_IOWR(ELCIOC_MAGIC, 4, struct delcore30m_job *)
 #define ELCIOC_BUF_ALLOC \
 	_IOW(ELCIOC_MAGIC, 5, struct delcore30m_buffer *)
 #define ELCIOC_RESOURCE_REQUEST \
