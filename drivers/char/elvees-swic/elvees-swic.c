@@ -7,6 +7,7 @@
  * (at your option) any later version.
  */
 
+#include <asm/uaccess.h>
 #include <asm/io.h>
 #include <linux/cdev.h>
 #include <linux/clk.h>
@@ -105,6 +106,36 @@ static int elvees_swic_set_link(struct elvees_swic_private_data *pdata)
 	return 0;
 }
 
+static int elvees_swic_get_link_state(struct elvees_swic_private_data *pdata,
+				      void __user *arg)
+{
+	enum swic_link_state state;
+
+	switch (swic_readl(pdata, SWIC_STATUS) & SWIC_STATUS_LINK_STATE) {
+	case SWIC_STATUS_LINK_STATE_RESET:
+		state = LINK_ERROR_RESET;
+		break;
+	case SWIC_STATUS_LINK_STATE_WAIT:
+		state = LINK_ERROR_WAIT;
+		break;
+	case SWIC_STATUS_LINK_STATE_STARTED:
+		state = LINK_STARTED;
+		break;
+	case SWIC_STATUS_LINK_STATE_READY:
+		state = LINK_READY;
+		break;
+	case SWIC_STATUS_LINK_STATE_CONNECTING:
+		state = LINK_CONNECTING;
+		break;
+	case SWIC_STATUS_LINK_STATE_RUN:
+		state = LINK_RUN;
+		break;
+	}
+
+	return copy_to_user(arg, &state,
+			    sizeof(enum swic_link_state));
+}
+
 static long elvees_swic_ioctl(struct file *file,
 			      unsigned int cmd,
 			      unsigned long arg)
@@ -112,9 +143,13 @@ static long elvees_swic_ioctl(struct file *file,
 	struct elvees_swic_private_data *pdata =
 		(struct elvees_swic_private_data *)file->private_data;
 
+	void __user *const uptr = (void __user *)arg;
+
 	switch (cmd) {
 	case SWICIOC_SET_LINK:
 		return elvees_swic_set_link(pdata);
+	case SWICIOC_GET_LINK_STATE:
+		return elvees_swic_get_link_state(pdata, uptr);
 	}
 
 	return -ENOTTY;
