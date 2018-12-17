@@ -1411,6 +1411,22 @@ static int delcore30m_dmachain_setup(struct delcore30m_private_data *pdata,
 	return 0;
 }
 
+static int delcore30m_get_caps(struct delcore30m_private_data *pdata,
+			       void __user *arg)
+{
+	struct elcore_caps elcore_caps;
+	int ret;
+
+	strcpy(elcore_caps.drvname, pdata->dev->driver->name);
+	elcore_caps.hw_id = delcore30m_readw(pdata, 0, DELCORE30M_IDR);
+
+	ret = copy_to_user(arg, &elcore_caps, sizeof(struct elcore_caps));
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 			     unsigned long arg)
 {
@@ -1434,6 +1450,8 @@ static long delcore30m_ioctl(struct file *file, unsigned int cmd,
 		return delcore30m_sys_info(pdata, uptr);
 	case ELCIOC_DMACHAIN_SETUP:
 		return delcore30m_dmachain_setup(pdata, uptr);
+	case ELCIOC_GET_CAPS:
+		return delcore30m_get_caps(pdata, uptr);
 	}
 
 	dev_err(pdata->dev, "%d ioctl is not supported\n", cmd);

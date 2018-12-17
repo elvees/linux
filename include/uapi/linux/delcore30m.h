@@ -164,6 +164,11 @@ struct sdma_descriptor {
 	__u32 a_init;
 };
 
+struct elcore_caps {
+	char drvname[32];
+	__u32 hw_id;
+};
+
 #define ELCIOC_MAGIC 'e'
 
 #define ELCIOC_JOB_CREATE \
@@ -182,5 +187,6 @@ struct sdma_descriptor {
 	_IOW(ELCIOC_MAGIC, 8, struct delcore30m_hardware *)
 #define ELCIOC_DMACHAIN_SETUP \
 	_IOWR(ELCIOC_MAGIC, 9, struct delcore30m_dmachain *)
+#define ELCIOC_GET_CAPS _IOR(ELCIOC_MAGIC, 255, struct elcore_caps *)
 
 #endif
