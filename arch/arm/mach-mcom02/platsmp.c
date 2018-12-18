@@ -25,7 +25,7 @@ static void __iomem *pmctr_base_addr;
 static void __iomem *smctr_base_addr;
 static void __iomem *scu_base_addr;
 
-static void __init mcom_map_device(char *compatible, void **base_addr)
+static void __init mcom02_map_device(char *compatible, void **base_addr)
 {
 	struct device_node *node;
 
@@ -43,7 +43,7 @@ static void __init mcom_map_device(char *compatible, void **base_addr)
 	}
 }
 
-static int mcom_boot_secondary(unsigned int cpu, struct task_struct *idle)
+static int mcom02_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	if (!smctr_base_addr) {
 		pr_err("%s: SMCTR is not mapped\n", __func__);
@@ -65,26 +65,26 @@ static int mcom_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	return 0;
 }
 
-static void __init mcom_smp_prepare_cpus(unsigned int max_cpus)
+static void __init mcom02_smp_prepare_cpus(unsigned int max_cpus)
 {
-	u32 trampoline_sz = &mcom_secondary_trampoline_end -
-			    &mcom_secondary_trampoline;
+	u32 trampoline_sz = &mcom02_secondary_trampoline_end -
+			    &mcom02_secondary_trampoline;
 
-	mcom_map_device("elvees,mcom-spram", &spram_base_addr);
+	mcom02_map_device("elvees,mcom-spram", &spram_base_addr);
 
 	if (!spram_base_addr) {
 		pr_err("%s: SPRAM is not mapped\n", __func__);
 		return;
 	}
 
-	mcom_secondary_boot_vector = virt_to_phys(mcom_secondary_startup);
+	mcom02_secondary_boot_vector = virt_to_phys(mcom02_secondary_startup);
 
-	memcpy(spram_base_addr, &mcom_secondary_trampoline, trampoline_sz);
+	memcpy(spram_base_addr, &mcom02_secondary_trampoline, trampoline_sz);
 	flush_cache_all();
 	outer_clean_range(0, trampoline_sz);
 
-	mcom_map_device("elvees,mcom-pmctr", &pmctr_base_addr);
-	mcom_map_device("elvees,mcom-smctr", &smctr_base_addr);
+	mcom02_map_device("elvees,mcom-pmctr", &pmctr_base_addr);
+	mcom02_map_device("elvees,mcom-smctr", &smctr_base_addr);
 
 	scu_base_addr = ioremap(scu_a9_get_base(), SZ_4K);
 
@@ -92,7 +92,7 @@ static void __init mcom_smp_prepare_cpus(unsigned int max_cpus)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
-static int mcom_cpu_kill(unsigned int cpu)
+static int mcom02_cpu_kill(unsigned int cpu)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(50);
 
@@ -103,7 +103,7 @@ static int mcom_cpu_kill(unsigned int cpu)
 	return 1;
 }
 
-static void mcom_cpu_die(unsigned int cpu)
+static void mcom02_cpu_die(unsigned int cpu)
 {
 	scu_power_mode(scu_base_addr, SCU_PM_POWEROFF);
 	while (1)
@@ -111,12 +111,12 @@ static void mcom_cpu_die(unsigned int cpu)
 }
 #endif
 
-static struct smp_operations mcom_smp_ops __initdata = {
-	.smp_prepare_cpus	= mcom_smp_prepare_cpus,
-	.smp_boot_secondary	= mcom_boot_secondary,
+static struct smp_operations mcom02_smp_ops __initdata = {
+	.smp_prepare_cpus	= mcom02_smp_prepare_cpus,
+	.smp_boot_secondary	= mcom02_boot_secondary,
 #ifdef CONFIG_HOTPLUG_CPU
-	.cpu_kill		= mcom_cpu_kill,
-	.cpu_die		= mcom_cpu_die,
+	.cpu_kill		= mcom02_cpu_kill,
+	.cpu_die		= mcom02_cpu_die,
 #endif
 };
-CPU_METHOD_OF_DECLARE(mcom_smp, "elvees,mcom-smp", &mcom_smp_ops);
+CPU_METHOD_OF_DECLARE(mcom02_smp, "elvees,mcom-smp", &mcom02_smp_ops);

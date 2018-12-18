@@ -857,7 +857,6 @@ source "arch/arm/mach-keystone/Kconfig"
 source "arch/arm/mach-ks8695/Kconfig"
 
 source "arch/arm/mach-mcom02/Kconfig"
-source "arch/arm/plat-mcom/Kconfig"
 
 source "arch/arm/mach-meson/Kconfig"
 
