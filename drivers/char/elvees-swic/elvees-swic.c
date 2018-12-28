@@ -136,6 +136,22 @@ static int elvees_swic_get_link_state(struct elvees_swic_private_data *pdata,
 			    sizeof(enum swic_link_state));
 }
 
+static int elvees_swic_set_speed(struct elvees_swic_private_data *pdata,
+				 unsigned long arg)
+{
+	u32 reg;
+
+	if (arg != TX_SPEED_2P4 && arg > TX_SPEED_408)
+		return -EINVAL;
+
+	reg = swic_readl(pdata, SWIC_TX_SPEED);
+	reg &= ~SWIC_TX_SPEED_TX_SPEED;
+	reg |= SET_FIELD(SWIC_TX_SPEED_TX_SPEED, arg);
+	swic_writel(pdata, SWIC_TX_SPEED, reg);
+
+	return 0;
+}
+
 static long elvees_swic_ioctl(struct file *file,
 			      unsigned int cmd,
 			      unsigned long arg)
@@ -150,6 +166,8 @@ static long elvees_swic_ioctl(struct file *file,
 		return elvees_swic_set_link(pdata);
 	case SWICIOC_GET_LINK_STATE:
 		return elvees_swic_get_link_state(pdata, uptr);
+	case SWICIOC_SET_TX_SPEED:
+		return elvees_swic_set_speed(pdata, arg);
 	}
 
 	return -ENOTTY;

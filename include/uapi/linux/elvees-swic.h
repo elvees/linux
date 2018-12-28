@@ -19,6 +19,19 @@ enum swic_link_state {
 	LINK_RUN
 };
 
+enum swic_tx_speed {
+	TX_SPEED_2P4 = 255,
+	TX_SPEED_4P8 = 0,
+	TX_SPEED_72 = 1,
+	TX_SPEED_120 = 2,
+	TX_SPEED_168 = 3,
+	TX_SPEED_216 = 4,
+	TX_SPEED_264 = 5,
+	TX_SPEED_312 = 6,
+	TX_SPEED_360 = 7,
+	TX_SPEED_408 = 8
+};
+
 #define SWICIOC_MAGIC 'w'
 
 #define SWICIOC_SET_LINK \
@@ -26,5 +39,8 @@ enum swic_link_state {
 
 #define SWICIOC_GET_LINK_STATE \
 	_IOR(SWICIOC_MAGIC, 2, enum swic_link_state *)
+
+#define SWICIOC_SET_TX_SPEED \
+	_IOW(SWICIOC_MAGIC, 3, enum swic_tx_speed)
 
 #endif
