@@ -1,0 +1,8 @@
+#
+# ELVEES SWIC configuration
+#
+
+config ELVEES_SWIC
+	tristate 'ELVEES SWIC'
+	help
+	  Provides support for ELVEES SpaceWire interface controller.

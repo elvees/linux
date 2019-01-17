@@ -763,9 +763,9 @@ static irqreturn_t avico_irq(int irq, void *data)
 	/* Swap active buffers */
 	ctx->bounce_active ^= 1;
 	avico_dma_write(ctx->bounceref[ctx->bounce_active], ctx, 2,
-			AVICO_VDMA_CHANNEL_AECUR);
+			AVICO_VDMA_CHANNEL_A0E);
 	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, 3,
-			AVICO_VDMA_CHANNEL_AECUR);
+			AVICO_VDMA_CHANNEL_A0E);
 
 	/* If not last row then run next row */
 	if (!eof) {
