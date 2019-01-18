@@ -1347,32 +1347,39 @@ static void avico_stop_streaming(struct vb2_queue *q)
 	struct avico_ctx *ctx = vb2_get_drv_priv(q);
 	struct vb2_v4l2_buffer *vbuf;
 	unsigned long flags;
+	bool stop = ctx->outon && ctx->capon;
 
-	for (;;) {
-		if (V4L2_TYPE_IS_OUTPUT(q->type))
-			vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
-		else
-			vbuf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
-		if (vbuf == NULL)
-			break;
-		spin_lock_irqsave(&ctx->dev->irqlock, flags);
-		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
-		spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
+	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
+		ctx->outon = 0;
+		while ((vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx))) {
+			/*
+			 * stop_streaming() could be called asynchronously to
+			 * avico_dma_out_callback() so spinlock ensures buffer
+			 * isn't added to the done buffers list twice.
+			 */
+			spin_lock_irqsave(&ctx->dev->irqlock, flags);
+			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
+			spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
+		}
+	} else {
+		ctx->capon = 0;
+		while ((vbuf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx))) {
+			spin_lock_irqsave(&ctx->dev->irqlock, flags);
+			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
+			spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
+		}
 	}
 
-	if (ctx->vref) {
-		/* \todo Check return value */
-		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
-				  ctx->vref, ctx->dmaref);
-		ctx->vref = NULL;
-		/* \bug This code is not thread safe. To test it one should
-		 * write test that simultaneously stops capture and output
-		 * streams. */
-	}
+	if (stop) {
+		if (ctx->vref) {
+			/* \todo Check return value */
+			dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
+					  ctx->vref, ctx->dmaref);
+			ctx->vref = NULL;
+		}
 
-	/* \bug Only one should be zeroed */
-	ctx->capon = ctx->outon = 0;
-	avico_grab_controls(ctx, false);
+		avico_grab_controls(ctx, false);
+	}
 }
 
 static struct vb2_ops avico_qops = {
