@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 RnD Center "ELVEES", JSC
+ * Copyright 2018-2019 RnD Center "ELVEES", JSC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,10 @@
 
 #define ELVEES_SWIC_MAX_DEVICES		2
 
+#define ELVEES_SWIC_MTU_DEFAULT		SZ_16K
+
+#define ELVEES_SWIC_MAX_PACKET_SIZE	(SZ_32M - 1)
+
 static u32 swic_major;
 
 static DECLARE_BITMAP(swic_dev, ELVEES_SWIC_MAX_DEVICES);
@@ -30,6 +34,8 @@ static struct class *swic_class;
 
 struct elvees_swic_private_data {
 	void __iomem *regs;
+
+	unsigned long mtu;
 
 	struct clk *aclk;
 	struct clk *txclk;
@@ -152,6 +158,17 @@ static int elvees_swic_set_speed(struct elvees_swic_private_data *pdata,
 	return 0;
 }
 
+static int elvees_swic_set_mtu(struct elvees_swic_private_data *pdata,
+			       unsigned long arg)
+{
+	if (arg == 0 || arg > ELVEES_SWIC_MAX_PACKET_SIZE)
+		return -EINVAL;
+
+	pdata->mtu = arg;
+
+	return 0;
+}
+
 static long elvees_swic_ioctl(struct file *file,
 			      unsigned int cmd,
 			      unsigned long arg)
@@ -168,6 +185,8 @@ static long elvees_swic_ioctl(struct file *file,
 		return elvees_swic_get_link_state(pdata, uptr);
 	case SWICIOC_SET_TX_SPEED:
 		return elvees_swic_set_speed(pdata, arg);
+	case SWICIOC_SET_MTU:
+		return elvees_swic_set_mtu(pdata, arg);
 	}
 
 	return -ENOTTY;
@@ -382,6 +401,8 @@ static int elvees_swic_probe(struct platform_device *pdev)
 		goto disable_aclk;
 
 	platform_set_drvdata(pdev, pdata);
+
+	pdata->mtu = ELVEES_SWIC_MTU_DEFAULT;
 
 	dev_info(&pdev->dev, "ELVEES SWIC @ 0x%p\n", pdata->regs);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 RnD Center "ELVEES", JSC
+ * Copyright 2018-2019 RnD Center "ELVEES", JSC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,5 +42,8 @@ enum swic_tx_speed {
 
 #define SWICIOC_SET_TX_SPEED \
 	_IOW(SWICIOC_MAGIC, 3, enum swic_tx_speed)
+
+#define SWICIOC_SET_MTU \
+	_IOW(SWICIOC_MAGIC, 4, unsigned long)
 
 #endif
