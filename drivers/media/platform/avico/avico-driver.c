@@ -362,6 +362,22 @@ void avico_dma_configure_reconstructured(struct avico_ctx *ctx,
 	avico_dma_write(cfg.val, ctx, channel, AVICO_VDMA_CHANNEL_CFG);
 }
 
+void avico_dma_configure_bounceout(struct avico_ctx *ctx,
+				   unsigned const channel)
+{
+	union vdma_acnt acnt;
+	union vdma_hvecnt hvecnt = { .val = 0 };
+
+	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, channel,
+			AVICO_VDMA_CHANNEL_A0E);
+
+	acnt.arld = acnt.acnt = (DMA_CBS_LEN >> ctx->vdma_trans_size_m1) - 1;
+	avico_dma_write(acnt.val, ctx, channel, AVICO_VDMA_CHANNEL_ACNT);
+
+	hvecnt.hecnt = hvecnt.herld = (BOUNCE_BUF_SIZE / DMA_CBS_LEN) - 1;
+	avico_dma_write(hvecnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVECNT);
+}
+
 /*
  * VDMA transfers data blocks from CBS buffer to bounce buffer, where each
  * data block has size DMA_CBS_LEN.
@@ -369,16 +385,12 @@ void avico_dma_configure_reconstructured(struct avico_ctx *ctx,
 void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 {
 	union adr adr;
-	union vdma_acnt acnt;
-	union vdma_hvecnt hvecnt = { .val = 0 };
 	union vdma_hvicnt hvicnt = { .val = 0 };
 	union vdma_cfg cfg = { .val = 0 };
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
 
-	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, channel,
-			AVICO_VDMA_CHANNEL_A0E);
 	avico_dma_write(ctx->dev->vram + (adr.ares + 1) * 0x0800, ctx,
 			channel, AVICO_VDMA_CHANNEL_A0I);
 
@@ -391,16 +403,10 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_HIIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_VIIDX);
 
-	acnt.arld = acnt.acnt = (DMA_CBS_LEN >> ctx->vdma_trans_size_m1) - 1;
-	avico_dma_write(acnt.val, ctx, channel, AVICO_VDMA_CHANNEL_ACNT);
-
-	/* \todo bitstream_size */
-
-	hvecnt.hecnt = hvecnt.herld = (ctx->bitstream_size / DMA_CBS_LEN) - 1;
-	avico_dma_write(hvecnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVECNT);
-
 	hvicnt.hicnt = hvicnt.hirld = 2 - 1;
 	avico_dma_write(hvicnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVICNT);
+
+	avico_dma_configure_bounceout(ctx, channel);
 
 	avico_dma_write(1, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_DONE);
@@ -765,8 +771,7 @@ static irqreturn_t avico_irq(int irq, void *data)
 	ctx->bounce_active ^= 1;
 	avico_dma_write(ctx->bounceref[ctx->bounce_active], ctx, 2,
 			AVICO_VDMA_CHANNEL_A0E);
-	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, 3,
-			AVICO_VDMA_CHANNEL_A0E);
+	avico_dma_configure_bounceout(ctx, 3);
 
 	/* If not last row then run next row */
 	if (!eof) {
