@@ -369,8 +369,6 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 
 	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, channel,
 			AVICO_VDMA_CHANNEL_A0E);
-	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, channel,
-			AVICO_VDMA_CHANNEL_AECUR);
 	avico_dma_write(ctx->dev->vram + (adr.ares + 1) * 0x0800, ctx,
 			channel, AVICO_VDMA_CHANNEL_A0I);
 	avico_dma_write(ctx->dev->vram + (adr.ares + 1) * 0x0800, ctx,
