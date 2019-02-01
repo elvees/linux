@@ -55,6 +55,8 @@ struct delcore30m_buffer {
 	size_t size;
 };
 
+#define DELCORE30M_PROFILE (1 << 0)
+
 struct delcore30m_job {
 	int fd;
 
@@ -69,6 +71,8 @@ struct delcore30m_job {
 
 	enum delcore30m_job_status status;
 	enum delcore30m_job_rc rc;
+
+	__u32 flags;
 };
 
 enum delcore30m_resource_type {

@@ -10,6 +10,7 @@
 #define DELCORE30M_MASKR_DSP			0x000
 #define DELCORE30M_QSTR_DSP			0x004
 #define DELCORE30M_CSR_DSP			0x008
+#define DELCORE30M_TOTAL_CLK_CNTR		0x00C
 /*-----------------------------------*/
 
 /*---------private registers-----------*/

@@ -127,6 +127,7 @@ struct buf_info {
  * struct delcore30m_job_desc - Internal data about created job
  * @pdata: Pointer to driver private data.
  * @job:   Embedded user-visible job data.
+ * @profilebuf: Buffers for performance data.
  * @bufs:  Array of &struct buf_info for buffers.
  * @num_bufs: Buffer number.
  * @cores: Mask of cores.
@@ -138,6 +139,7 @@ struct delcore30m_job_desc {
 	struct delcore30m_private_data *pdata;
 
 	struct delcore30m_job job;
+	struct delcore30m_buffer_desc profilebuf[MAX_CORES];
 
 	struct buf_info bufs[MAX_INPUTS + MAX_OUTPUTS];
 	int num_bufs;
@@ -168,6 +170,17 @@ struct delcore30m_resource_desc {
  */
 struct sdma_program_buf {
 	char *start, *pos, *end;
+};
+
+/**
+ * struct timestamp - Internal data about profile buffer entry
+ * @tag:  Identifier of entry.
+ * @time: Value of TOTAL_CLK_CNTR for this entry.
+ */
+
+struct timestamp {
+	u32 tag;
+	u32 time;
 };
 
 #define phys_to_xyram(x) ((x) & 0xFFFFF)
@@ -269,6 +282,11 @@ static void delcore30m_mem_free(struct delcore30m_buffer_desc *buf_desc)
 static u32 cpu_to_delcore30m(dma_addr_t address)
 {
 	return address >> 2;
+}
+
+static dma_addr_t delcore30m_to_cpu(u32 address)
+{
+	return address << 2;
 }
 
 static void write_arg_regs(struct delcore30m_job_desc *desc,
@@ -442,6 +460,14 @@ static void delcore30m_run_job(struct delcore30m_job_desc *desc)
 		delcore30m_writew(pdata, i, DELCORE30M_PC,
 				  cpu_to_delcore30m(phys_to_xyram(reg_value)));
 
+		if (desc->job.flags & DELCORE30M_PROFILE) {
+			reg_value = desc->profilebuf[i].paddr;
+			delcore30m_writel(pdata, i, DELCORE30M_A5,
+					  cpu_to_delcore30m(reg_value));
+			delcore30m_writel_cmn(pdata, DELCORE30M_TOTAL_CLK_CNTR,
+					      0);
+		}
+
 		reg_value = delcore30m_readl_cmn(pdata, DELCORE30M_MASKR_DSP);
 		reg_value |= DELCORE30M_QSTR_CORE_MASK(i);
 		delcore30m_writel_cmn(pdata, DELCORE30M_MASKR_DSP, reg_value);
@@ -535,8 +561,16 @@ static void job_cancel(struct delcore30m_job_desc *job_desc)
 static int delcore30m_job_release(struct inode *inode, struct file *file)
 {
 	struct delcore30m_job_desc *desc = file->private_data;
+	int i;
 
 	job_cancel(desc);
+
+	if (desc->job.flags & DELCORE30M_PROFILE)
+		for_each_set_bit(i, &desc->cores, MAX_CORES)
+			dma_free_coherent(desc->pdata->dev,
+					desc->profilebuf[i].buf.size,
+					desc->profilebuf[i].vaddr,
+					desc->profilebuf[i].paddr);
 
 	unmap_buffers(desc);
 	detach_buffers(desc);
@@ -658,7 +692,26 @@ static int delcore30m_job_create(struct delcore30m_private_data *pdata,
 		goto detach_buffers;
 	}
 
+	if (job_desc->job.flags & DELCORE30M_PROFILE) {
+		for_each_set_bit(i, &job_desc->cores, MAX_CORES) {
+			job_desc->profilebuf[i].buf.size = SZ_32K;
+			job_desc->profilebuf[i].vaddr = dma_alloc_coherent(
+					job_desc->pdata->dev,
+					job_desc->profilebuf[i].buf.size,
+					&job_desc->profilebuf[i].paddr,
+					GFP_KERNEL);
+			if (!job_desc->profilebuf[i].vaddr) {
+				dev_err(job_desc->pdata->dev,
+					"Failed to allocate buffer for profile\n");
+				ret = -ENOMEM;
+				goto unmap_buffers;
+			}
+		}
+	}
+
 	return 0;
+unmap_buffers:
+	unmap_buffers(job_desc);
 detach_buffers:
 	detach_buffers(job_desc);
 err_fd:
@@ -667,7 +720,6 @@ err_desc:
 	kfree(job_desc);
 	return ret;
 }
-
 
 static int delcore30m_job_enqueue(struct delcore30m_private_data *pdata,
 				  void __user *arg)
@@ -1491,6 +1543,72 @@ static const struct file_operations delcore30m_fops = {
 	.unlocked_ioctl = delcore30m_ioctl
 };
 
+static void search_pair_tags(struct device *dev, struct timestamp *timestamps,
+			     u32 tag, size_t i, size_t nstamps)
+{
+	int j;
+	u32 diff, calls = 0, max = 0, min = U32_MAX;
+	u64 sum = 0;
+
+	while (i < nstamps) {
+		/* Find second tag of a pair */
+		for (j = i + 1; j < nstamps && timestamps[j].tag != tag; ++j)
+			continue;
+
+		if (j == nstamps) {
+			dev_warn(dev, "Unpaired profile tag %x\n", tag);
+			break;
+		}
+
+		diff = timestamps[j].time - timestamps[i].time;
+		max = max(diff, max);
+		min = min(diff, min);
+		sum += diff;
+		calls++;
+
+		timestamps[i].tag = 0;
+		timestamps[j].tag = 0;
+
+		/* Find first tag of the next pair */
+		for (i = j + 1; i < nstamps && timestamps[i].tag != tag; ++i)
+			continue;
+	}
+
+	if (calls)
+		dev_info(dev, "Tag %x: calls = %u, min/max/avg = %u/%u/%llu\n",
+			 tag, calls, min, max, div_u64(sum, calls));
+}
+
+static void parse_profilebuf(struct delcore30m_job_desc *desc)
+{
+	struct timestamp *timestamps;
+	int core, i;
+	size_t size, nstamps;
+
+	for_each_set_bit(core, &desc->cores, MAX_CORES) {
+		size = delcore30m_to_cpu(delcore30m_readl(desc->pdata, core,
+							  DELCORE30M_A5)) -
+				desc->profilebuf[core].paddr;
+
+		if (size == 0)
+			continue;
+
+		timestamps = kmalloc(size, GFP_KERNEL);
+		memcpy(timestamps, desc->profilebuf[core].vaddr, size);
+
+		nstamps = size / sizeof(struct timestamp);
+
+		for (i = 0; i < nstamps; ++i) {
+			if (timestamps[i].tag == 0)
+				continue;
+
+			search_pair_tags(desc->pdata->dev, timestamps,
+					 timestamps[i].tag, i, nstamps);
+		}
+		kfree(timestamps);
+	}
+}
+
 static enum delcore30m_job_rc delcore30m_job_rc(struct delcore30m_private_data
 						*pdata,
 						const unsigned long mask)
@@ -1538,6 +1656,9 @@ static irqreturn_t delcore30m_interrupt(int irq, void *arg)
 			list_del(&desc->list);
 			desc->job.rc = delcore30m_job_rc(pdata, desc->cores);
 			desc->job.status = DELCORE30M_JOB_IDLE;
+
+			if (desc->job.flags & DELCORE30M_PROFILE)
+				parse_profilebuf(desc);
 
 			reset_cores(desc);
 
