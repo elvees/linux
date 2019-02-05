@@ -488,6 +488,7 @@ static int dwapb_gpio_add_port(struct dwapb_gpio *gpio,
 {
 	struct dwapb_gpio_port *port;
 	void __iomem *dat, *set, *dirout;
+	u32 reg;
 	int err;
 
 	port = &gpio->ports[offs];
@@ -513,8 +514,11 @@ static int dwapb_gpio_add_port(struct dwapb_gpio *gpio,
 		return err;
 	}
 
+	reg = dwapb_read(gpio, GPIO_SWPORTA_CTL +
+			       (pp->idx * GPIO_SWPORT_CTL_SIZE));
+	reg |= ~pp->skip_mask;
 	dwapb_write(gpio, GPIO_SWPORTA_CTL +
-			(pp->idx * GPIO_SWPORT_CTL_SIZE), ~pp->skip_mask);
+			  (pp->idx * GPIO_SWPORT_CTL_SIZE), reg);
 
 #ifdef CONFIG_OF_GPIO
 	port->bgc.gc.of_node = pp->node;
