@@ -51,9 +51,9 @@
 /* Size of macroblock in bytes */
 #define MB_SIZE (16 * 16 * 3 / 2)
 /* Length of data block VDMA transfers. Should be multiple of 16 bytes. */
-#define DMA_CBS_LEN (32 * 8 * 16)
+#define DMA_CBS_LEN (40 * 8 * 16)
 /* Size of a buffer for encoded data in VRAM. Should be multiple of 16 bytes. */
-#define SIZE_CBS (64 * 8 * 16)
+#define SIZE_CBS (80 * 8 * 16)
 /*
  * We need 4 bounce buffers BOUNCE_BUF_SIZE each (2 buffers for reconstructed
  * frame and 2 buffers for datastream).
