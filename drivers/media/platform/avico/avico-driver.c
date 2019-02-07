@@ -382,8 +382,6 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 			AVICO_VDMA_CHANNEL_A0E);
 	avico_dma_write(ctx->dev->vram + (adr.ares + 1) * 0x0800, ctx,
 			channel, AVICO_VDMA_CHANNEL_A0I);
-	avico_dma_write(ctx->dev->vram + (adr.ares + 1) * 0x0800, ctx,
-			channel, AVICO_VDMA_CHANNEL_AICUR);
 
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_BEIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_CEIDX);
