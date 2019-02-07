@@ -370,9 +370,8 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 {
 	union adr adr;
 	union vdma_acnt acnt;
-	union vdma_bccnt bccnt;
-	union vdma_hvecnt hvecnt;
-	union vdma_hvicnt hvicnt;
+	union vdma_hvecnt hvecnt = { .val = 0 };
+	union vdma_hvicnt hvicnt = { .val = 0 };
 	union vdma_cfg cfg = { .val = 0 };
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
@@ -395,17 +394,12 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 	acnt.arld = acnt.acnt = (DMA_CBS_LEN >> ctx->vdma_trans_size_m1) - 1;
 	avico_dma_write(acnt.val, ctx, channel, AVICO_VDMA_CHANNEL_ACNT);
 
-	bccnt.bcnt = bccnt.brld = bccnt.ccnt = bccnt.crld = 1 - 1;
-	avico_dma_write(bccnt.val, ctx, channel, AVICO_VDMA_CHANNEL_BCCNT);
-
 	/* \todo bitstream_size */
 
 	hvecnt.hecnt = hvecnt.herld = (ctx->bitstream_size / DMA_CBS_LEN) - 1;
-	hvecnt.vecnt = hvecnt.verld = 1 - 1;
 	avico_dma_write(hvecnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVECNT);
 
 	hvicnt.hicnt = hvicnt.hirld = 2 - 1;
-	hvicnt.vicnt = hvicnt.virld = 1 - 1;
 	avico_dma_write(hvicnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVICNT);
 
 	avico_dma_write(1, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
@@ -413,7 +407,7 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_IMRDY);
 
 	cfg.dir = 1;
-	cfg.dim = 1;
+	cfg.dim = 0;
 	cfg.cycle = 1;
 	cfg.prt = channel;
 	cfg.brst_ae = 1;
