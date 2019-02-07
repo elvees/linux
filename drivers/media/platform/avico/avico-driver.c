@@ -54,9 +54,15 @@
 #define DMA_CBS_LEN (32 * 8 * 16)
 /* Size of a buffer for encoded data in VRAM. Should be multiple of 16 bytes. */
 #define SIZE_CBS (64 * 8 * 16)
-/* We need 4 bounce buffers BOUNCE_BUF_SIZE each (2 buffers for reconstructed
- * frame and 2 buffers for datastream) */
-#define BOUNCE_BUF_SIZE (1920 / 16 * MB_SIZE)
+/*
+ * We need 4 bounce buffers BOUNCE_BUF_SIZE each (2 buffers for reconstructed
+ * frame and 2 buffers for datastream).
+ * Bounce buffer for reconstructed frame should be able to store up to one row
+ * of macroblocks.
+ * Bounce buffer for datastream should be able to store encoded data whose size
+ * is multiple of DMA_CBS_LEN so BOUNCE_BUF_SIZE is rounded up if necessary.
+ */
+#define BOUNCE_BUF_SIZE roundup(1920 / 16 * MB_SIZE, DMA_CBS_LEN)
 
 static inline void avico_write(u32 const value,
 			       struct avico_ctx const *const ctx,
