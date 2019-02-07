@@ -50,6 +50,10 @@
 #define BOUNCE_BUF_BASE XYRAM_BASE
 /* Size of macroblock in bytes */
 #define MB_SIZE (16 * 16 * 3 / 2)
+/* Length of data block VDMA transfers. Should be multiple of 16 bytes. */
+#define DMA_CBS_LEN (32 * 8 * 16)
+/* Size of a buffer for encoded data in VRAM. Should be multiple of 16 bytes. */
+#define SIZE_CBS (64 * 8 * 16)
 /* We need 4 bounce buffers BOUNCE_BUF_SIZE each (2 buffers for reconstructed
  * frame and 2 buffers for datastream) */
 #define BOUNCE_BUF_SIZE (1920 / 16 * MB_SIZE)
@@ -352,6 +356,10 @@ void avico_dma_configure_reconstructured(struct avico_ctx *ctx,
 	avico_dma_write(cfg.val, ctx, channel, AVICO_VDMA_CHANNEL_CFG);
 }
 
+/*
+ * VDMA transfers data blocks from CBS buffer to bounce buffer, where each
+ * data block has size DMA_CBS_LEN.
+ */
 void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 {
 	union adr adr;
@@ -360,9 +368,6 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 	union vdma_hvecnt hvecnt;
 	union vdma_hvicnt hvicnt;
 	union vdma_cfg cfg = { .val = 0 };
-
-	/* \todo I do not understand this */
-	uint32_t const dma_cbs_len = ctx->dma_cbs_len << 4;
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
@@ -383,7 +388,7 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_HIIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_VIIDX);
 
-	acnt.arld = acnt.acnt = (dma_cbs_len >> ctx->vdma_trans_size_m1) - 1;
+	acnt.arld = acnt.acnt = (DMA_CBS_LEN >> ctx->vdma_trans_size_m1) - 1;
 	avico_dma_write(acnt.val, ctx, channel, AVICO_VDMA_CHANNEL_ACNT);
 
 	bccnt.bcnt = bccnt.brld = bccnt.ccnt = bccnt.crld = 1 - 1;
@@ -391,7 +396,7 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 
 	/* \todo bitstream_size */
 
-	hvecnt.hecnt = hvecnt.herld = (ctx->bitstream_size / dma_cbs_len) - 1;
+	hvecnt.hecnt = hvecnt.herld = (ctx->bitstream_size / DMA_CBS_LEN) - 1;
 	hvecnt.vecnt = hvecnt.verld = 1 - 1;
 	avico_dma_write(hvecnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVECNT);
 
@@ -1223,10 +1228,10 @@ static void avico_ec_init(struct avico_ctx *ctx)
 {
 	union ecd_task ecd_task;
 
-	avico_write(ctx->size_cbs, ctx, AVICO_EC_BASE(ctx->id) +
+	avico_write(SIZE_CBS / 16, ctx, AVICO_EC_BASE(ctx->id) +
 			AVICO_EC_VRAMCTRC + AVICO_VRAMCTRC_SIZE_CBS);
 
-	avico_write(ctx->dma_cbs_len, ctx, AVICO_EC_BASE(ctx->id) +
+	avico_write(DMA_CBS_LEN / 16, ctx, AVICO_EC_BASE(ctx->id) +
 			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_DMALEN);
 
 	avico_write(ECD_CS_CAVLC, ctx, AVICO_EC_BASE(ctx->id) +
@@ -1285,8 +1290,6 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	ctx->maxframe = 16;
 	ctx->gop = 250;
 	ctx->i_period = 0;
-	ctx->size_cbs = 64 * 8;
-	ctx->dma_cbs_len = 32 * 8;
 	ctx->poc_type = 2;
 	ctx->vdma_trans_size_m1 = 3;
 

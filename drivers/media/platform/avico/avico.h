@@ -551,9 +551,6 @@ struct avico_ctx {
 	uint32_t ref_ptr_off, out_ptr_off;  /* Offsets for new data */
 	int bounce_active;  /* Active bounce buffer */
 
-	uint16_t size_cbs;
-	uint16_t dma_cbs_len;
-
 	enum v4l2_colorspace colorspace;
 	unsigned int width, height;
 	unsigned int capfmt, outfmt;
