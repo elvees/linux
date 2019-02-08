@@ -529,7 +529,6 @@ void m6pos_enable(struct avico_ctx *const ctx, const bool enable)
 static void avico_run(void *priv)
 {
 	struct avico_ctx *ctx = priv;
-	struct avico_dev *dev = ctx->dev;
 	struct vb2_buffer *src, *dst;
 	uint8_t *out;
 	/* Line of half-MBs reserve above fr_ref */
@@ -547,9 +546,6 @@ static void avico_run(void *priv)
 	ctx->dmainp = vb2_dma_contig_plane_dma_addr(src, 0);
 	ctx->dmaout = vb2_dma_contig_plane_dma_addr(dst, 0);
 
-	WARN_ON(ctx->dmainp == 0);
-	WARN_ON(ctx->dmaout == 0);
-
 	/* Enable stop by SMBPOS */
 	if (ctx->mby > 1) {
 		m6pos_enable(ctx, true);
@@ -562,12 +558,6 @@ static void avico_run(void *priv)
 	}
 
 	avico_bitstream_init(ctx, out, vb2_plane_size(dst, 0));
-
-	if (!ctx->dmainp || !ctx->dmaout) {
-		v4l2_err(&dev->v4l2_dev,
-			 "Acquiring kernel pointers to buffers failed\n");
-		return;
-	}
 
 	/*if (vb2_plane_size(src, 0) > vb2_plane_size(dst, 0)) {
 		v4l2_err(&dev->v4l2_dev, "Output buffer is too small\n");
