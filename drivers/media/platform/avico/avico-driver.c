@@ -1280,6 +1280,8 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
 	unsigned int reserve;
 	unsigned int channel;
+	struct vb2_v4l2_buffer *buf;
+	int ret = 0;
 
 	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
 		ctx->outseq = 0;
@@ -1321,7 +1323,9 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 				       &ctx->dmaref, GFP_KERNEL);
 	if (!ctx->vref) {
 		v4l2_err(&ctx->dev->v4l2_dev,
-			 "Can not allocate memory for reference frame");
+			 "Can not allocate memory for reference frame\n");
+		ret = -ENOMEM;
+		goto err_ret_bufs;
 	}
 
 	for (channel = ctx->id * 4; channel <= ctx->id * 4 + 4; channel++) {
@@ -1334,7 +1338,18 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	avico_ec_init(ctx);
 
-	return 0;
+	return ret;
+
+err_ret_bufs:
+	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
+		while ((buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx)))
+			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_QUEUED);
+	} else {
+		while ((buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx)))
+			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_QUEUED);
+	}
+
+	return ret;
 }
 
 static void avico_stop_streaming(struct vb2_queue *q)
