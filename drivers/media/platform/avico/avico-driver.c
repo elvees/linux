@@ -793,6 +793,18 @@ static uint32_t avico_copy_bounce(struct avico_ctx *ctx,
 
 static void avico_prepare_to_finish(struct avico_ctx *ctx)
 {
+	unsigned int channel;
+
+	/*
+	 * Clear RUN registers to ensure VDMA channels are switched off. EVENTS
+	 * register depends on DONE registers so we clear them before clearing
+	 * of EVENTS.
+	 */
+	for (channel = ctx->id * 4; channel < ctx->id * 4 + 4; channel++) {
+		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
+		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_DONE);
+	}
+
 	/* \bug Will not work for several threads
 	 * We should gaurantee, that others will not overwrite MSK_EV. */
 	avico_write(0xff << (ctx->id * 8), ctx,
@@ -1312,7 +1324,6 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
 	unsigned int reserve;
-	unsigned int channel;
 	struct vb2_v4l2_buffer *buf;
 	int ret = 0;
 
@@ -1356,12 +1367,6 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 			 "Can not allocate memory for reference frame\n");
 		ret = -ENOMEM;
 		goto err_ret_bufs;
-	}
-
-	for (channel = ctx->id * 4; channel < ctx->id * 4 + 4; channel++) {
-		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
-		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_DONE);
-		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_IMRDY);
 	}
 
 	/* \todo Configure MD */
