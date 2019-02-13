@@ -530,6 +530,41 @@ void m6pos_enable(struct avico_ctx *const ctx, const bool enable)
 				   AVICO_THREAD_TASK);
 }
 
+static void avico_thread_init(struct avico_ctx *ctx)
+{
+	union mbpos mbpos = {
+		.nx = DIV_ROUND_UP(ctx->width, 16),
+		.ny = DIV_ROUND_UP(ctx->height, 16)
+	};
+
+	union adr adr = {
+		.acur = ctx->id * 0x0100,
+		.aref = ctx->id * 0x0100 + mbpos.nx,
+		.ares = ctx->id * 0x0080 + mbpos.nx
+	};
+
+	union task task = {
+		.std = VE_STD_H264,
+		.qpy = ctx->qpy,
+		.qpc = ctx->qpc,
+		.m6eof = 1,
+		.m7eof = 1
+	};
+
+	union frmn frmn = {
+		.gop = ctx->gop
+	};
+
+	avico_write(mbpos.val, ctx, AVICO_THREAD_BASE(ctx->id) +
+		    AVICO_THREAD_MBPOS);
+	avico_write(adr.val, ctx, AVICO_THREAD_BASE(ctx->id) +
+		    AVICO_THREAD_ADR);
+	avico_write(task.val, ctx, AVICO_THREAD_BASE(ctx->id) +
+		    AVICO_THREAD_TASK);
+	avico_write(frmn.val, ctx, AVICO_THREAD_BASE(ctx->id) +
+		    AVICO_THREAD_FRMN);
+}
+
 /*
  * avico_run() - prepares and starts VPU
  */
@@ -554,6 +589,12 @@ static void avico_run(void *priv)
 	ctx->dmaout = vb2_dma_contig_plane_dma_addr(dst, 0);
 
 	ctx->error = false;
+
+	/*
+	 * TODO: Optimization: don't call if the same SW context is run on the
+	 * same HW context
+	 */
+	avico_thread_init(ctx);
 
 	/* Enable stop by SMBPOS */
 	if (ctx->mby > 1) {
@@ -1231,41 +1272,6 @@ static void avico_buf_queue(struct vb2_buffer *vb)
 	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 }
 
-static void avico_thread_init(struct avico_ctx *ctx)
-{
-	union mbpos mbpos = {
-		.nx = DIV_ROUND_UP(ctx->width, 16),
-		.ny = DIV_ROUND_UP(ctx->height, 16)
-	};
-
-	union adr adr = {
-		.acur = ctx->id * 0x0100,
-		.aref = ctx->id * 0x0100 + mbpos.nx,
-		.ares = ctx->id * 0x0080 + mbpos.nx
-	};
-
-	union task task = {
-		.std = VE_STD_H264,
-		.qpy = ctx->qpy,
-		.qpc = ctx->qpc,
-		.m6eof = 1,
-		.m7eof = 1
-	};
-
-	union frmn frmn = {
-		.gop = ctx->gop
-	};
-
-	avico_write(mbpos.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_MBPOS);
-	avico_write(adr.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_ADR);
-	avico_write(task.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_TASK);
-	avico_write(frmn.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_FRMN);
-}
-
 static void avico_ec_init(struct avico_ctx *ctx)
 {
 	union ecd_task ecd_task;
@@ -1335,7 +1341,6 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	ctx->thread = ctx->dev->regs + AVICO_THREAD_BASE(ctx->id);
 
 	avico_grab_controls(ctx, true);
-	avico_thread_init(ctx);
 
 	/* \todo Maybe be do not need padding */
 	reserve = ctx->mbx * 16 * 12; /* From Rolschikov's code */
