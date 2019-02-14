@@ -568,6 +568,34 @@ static void avico_thread_init(struct avico_ctx *ctx)
 		    AVICO_THREAD_FRMN);
 }
 
+static void avico_ec_init(struct avico_ctx *ctx)
+{
+	union ecd_task ecd_task;
+
+	avico_write(SIZE_CBS / 16, ctx, AVICO_EC_BASE(ctx->id) +
+			AVICO_EC_VRAMCTRC + AVICO_VRAMCTRC_SIZE_CBS);
+
+	avico_write(DMA_CBS_LEN / 16, ctx, AVICO_EC_BASE(ctx->id) +
+			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_DMALEN);
+
+	avico_write(ECD_CS_CAVLC, ctx, AVICO_EC_BASE(ctx->id) +
+			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_CS);
+
+	ecd_task.val = avico_read(ctx, AVICO_EC_BASE(ctx->id) +
+				  AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
+	ecd_task.id = ECD_TASK_H264_ENC_RESET;
+	ecd_task.rep = 1;
+	ecd_task.run = 1;
+	ecd_task.repn = 0;
+	avico_write(ecd_task.val, ctx, AVICO_EC_BASE(ctx->id) +
+		    AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
+
+	do {
+		ecd_task.val = avico_read(ctx, AVICO_EC_BASE(ctx->id) +
+				AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
+	} while (ecd_task.ready == 0);
+}
+
 /*
  * avico_run() - prepares and starts VPU
  */
@@ -598,6 +626,10 @@ static void avico_run(void *priv)
 	 * same HW context
 	 */
 	avico_thread_init(ctx);
+
+	/* \todo Configure MD */
+
+	avico_ec_init(ctx);
 
 	/* Enable stop by SMBPOS */
 	if (ctx->mby > 1) {
@@ -1282,34 +1314,6 @@ static void avico_buf_queue(struct vb2_buffer *vb)
 	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 }
 
-static void avico_ec_init(struct avico_ctx *ctx)
-{
-	union ecd_task ecd_task;
-
-	avico_write(SIZE_CBS / 16, ctx, AVICO_EC_BASE(ctx->id) +
-			AVICO_EC_VRAMCTRC + AVICO_VRAMCTRC_SIZE_CBS);
-
-	avico_write(DMA_CBS_LEN / 16, ctx, AVICO_EC_BASE(ctx->id) +
-			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_DMALEN);
-
-	avico_write(ECD_CS_CAVLC, ctx, AVICO_EC_BASE(ctx->id) +
-			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_CS);
-
-	ecd_task.val = avico_read(ctx, AVICO_EC_BASE(ctx->id) +
-				  AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
-	ecd_task.id = ECD_TASK_H264_ENC_RESET;
-	ecd_task.rep = 1;
-	ecd_task.run = 1;
-	ecd_task.repn = 0;
-	avico_write(ecd_task.val, ctx, AVICO_EC_BASE(ctx->id) +
-		    AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
-
-	do {
-		ecd_task.val = avico_read(ctx, AVICO_EC_BASE(ctx->id) +
-				AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
-	} while (ecd_task.ready == 0);
-}
-
 static void avico_grab_controls(struct avico_ctx *ctx, bool grab)
 {
 	v4l2_ctrl_grab(ctx->ctrl_qp, grab);
@@ -1363,10 +1367,6 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 		ret = -ENOMEM;
 		goto err_ret_bufs;
 	}
-
-	/* \todo Configure MD */
-
-	avico_ec_init(ctx);
 
 	return ret;
 
