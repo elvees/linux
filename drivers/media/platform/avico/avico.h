@@ -541,6 +541,8 @@ struct avico_ctx {
 	unsigned int i_period;
 	unsigned int bitstream_size;
 
+	bool error;
+
 	struct bitstream bs;
 
 	unsigned int id; /* Hardware thread ID */

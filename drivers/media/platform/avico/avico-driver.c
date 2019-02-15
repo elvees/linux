@@ -97,12 +97,19 @@ static inline u32 avico_dma_read(struct avico_ctx const *const ctx,
  */
 static int avico_ready(void *priv)
 {
+	struct avico_ctx *ctx = priv;
+
+	if (ctx->aborting)
+		return 0;
+
 	return 1;
 }
 
 static void avico_abort(void *priv)
 {
-	/* Required function */
+	struct avico_ctx *ctx = priv;
+
+	ctx->aborting = 1;
 }
 
 void avico_thread_configure(struct avico_ctx *ctx)
@@ -546,6 +553,8 @@ static void avico_run(void *priv)
 	ctx->dmainp = vb2_dma_contig_plane_dma_addr(src, 0);
 	ctx->dmaout = vb2_dma_contig_plane_dma_addr(dst, 0);
 
+	ctx->error = false;
+
 	/* Enable stop by SMBPOS */
 	if (ctx->mby > 1) {
 		m6pos_enable(ctx, true);
@@ -629,7 +638,7 @@ static void avico_dma_out_callback(void *data)
 	struct vb2_v4l2_buffer *src, *dst;
 	unsigned long flags;
 	uint32_t encoded;
-	bool error = false;
+	bool error = ctx->error;
 
 	src = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 	dst = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
@@ -732,6 +741,26 @@ static void avico_copy_bounce(struct avico_ctx *ctx,
 	dma_async_issue_pending(ctx->dev->dma_ch);
 }
 
+static void avico_prepare_to_finish(struct avico_ctx *ctx)
+{
+	/* \bug Will not work for several threads
+	 * We should gaurantee, that others will not overwrite MSK_EV. */
+	avico_write(0xff << (ctx->id * 8), ctx,
+		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
+	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
+
+	/* BUG: We do not know how correctly clean events flag before
+	 * exit from IRQ handler. If we exit immediately after cleaning
+	 * events flag then IRQ handler can be called again. To
+	 * prevent this we run DMA channels after cleaning event and
+	 * use memory barrier. */
+	wmb();
+
+	/* \todo Move to context allocation */
+	/* \bug Will not work for several threads */
+	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
+}
+
 static irqreturn_t avico_irq(int irq, void *data)
 {
 	struct avico_dev *dev = (struct avico_dev *)data;
@@ -768,6 +797,14 @@ static irqreturn_t avico_irq(int irq, void *data)
 				AVICO_VDMA_CHANNEL_RUN);
 		avico_dma_write(0, ctx, ctx->id * 4 + 3,
 				AVICO_VDMA_CHANNEL_RUN);
+	}
+
+	if (ctx->aborting) {
+		ctx->error = true;
+		avico_prepare_to_finish(ctx);
+		avico_dma_out_callback(ctx);
+
+		return IRQ_HANDLED;
 	}
 
 	avico_copy_bounce(ctx, eof ? avico_dma_out_callback : NULL);
@@ -821,22 +858,8 @@ static irqreturn_t avico_irq(int irq, void *data)
 
 		return IRQ_HANDLED;
 	}
-	/* \bug Will not work for several threads
-	 * We should gaurantee, that others will not overwrite MSK_EV. */
-	avico_write(0xff << (ctx->id * 8), ctx,
-		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
-	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
 
-	/* BUG: We do not know how correctly clean events flag before
-	 * exit from IRQ handler. If we exit immediately after cleaning
-	 * events flag then IRQ handler can be called again. To
-	 * prevent this we run DMA channels after cleaning event and
-	 * use memory barrier. */
-	wmb();
-
-	/* \todo Move to context allocation */
-	/* \bug Will not work for several threads */
-	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
+	avico_prepare_to_finish(ctx);
 
 	return IRQ_HANDLED;
 }
@@ -1379,6 +1402,7 @@ static void avico_stop_streaming(struct vb2_queue *q)
 		}
 
 		avico_grab_controls(ctx, false);
+		ctx->aborting = 0;
 	}
 }
 
