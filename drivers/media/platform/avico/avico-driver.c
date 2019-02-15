@@ -1557,10 +1557,10 @@ static int avico_release(struct file *file)
 	struct avico_ctx *ctx = container_of(file->private_data,
 					     struct avico_ctx, fh);
 
-	avico_ctrls_delete(ctx);
 	mutex_lock(&dev->mutex);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 	mutex_unlock(&dev->mutex);
+	avico_ctrls_delete(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	kfree(ctx);
