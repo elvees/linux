@@ -639,6 +639,7 @@ static void avico_dma_out_callback(void *data)
 	struct vb2_v4l2_buffer *src, *dst;
 	unsigned long flags;
 	uint32_t encoded;
+	bool error = false;
 
 	src = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 	dst = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
@@ -648,6 +649,19 @@ static void avico_dma_out_callback(void *data)
 	WARN_ON(encoded % 8 != 0);
 	ctx->bs.p += encoded / 8;
 	vb2_set_plane_payload(&dst->vb2_buf, 0, ctx->bs.p - ctx->bs.start);
+
+	/*
+	 * If offset in output buffer calculated from bounce-to-DDR DMA
+	 * transfers differs from size of encoded data from VPU (rounded to
+	 * minimal VRAM-to-bounce DMA transfer size), that means that
+	 * bounce buffer was overflowed at least once and data is corrupted.
+	 */
+	if (ctx->out_ptr_off != roundup(encoded / 8, DMA_CBS_LEN)) {
+		v4l2_err(&ctx->dev->v4l2_dev,
+			 "frame %u: insufficient data in capture buffer\n",
+			 ctx->capseq);
+		error = true;
+	}
 
 	dst->sequence = ctx->capseq++;
 	src->sequence = ctx->outseq++;
@@ -665,7 +679,8 @@ static void avico_dma_out_callback(void *data)
 	/* \todo Do not understand why we need irqlock here */
 	spin_lock_irqsave(&dev->irqlock, flags);
 	v4l2_m2m_buf_done(src, VB2_BUF_STATE_DONE);
-	v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
+	v4l2_m2m_buf_done(dst, error ? VB2_BUF_STATE_ERROR :
+			       VB2_BUF_STATE_DONE);
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
 	if (++ctx->frame >= ctx->maxframe)
