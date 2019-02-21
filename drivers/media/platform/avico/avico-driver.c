@@ -547,6 +547,7 @@ static void avico_thread_init(struct avico_ctx *ctx)
 		.std = VE_STD_H264,
 		.qpy = ctx->qpy,
 		.qpc = ctx->qpc,
+		.dbf = ctx->dbf,
 		.m6eof = 1,
 		.m7eof = 1
 	};
