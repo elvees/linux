@@ -689,7 +689,7 @@ static void avico_dma_out_callback(void *data)
 }
 
 /* Setup and start DMA for copy data from bounce buffer to DDR */
-static void avico_copy_bounce(struct avico_ctx *ctx,
+static uint32_t avico_copy_bounce(struct avico_ctx *ctx,
 			      dma_async_tx_callback callback)
 {
 	uint32_t frame_size;
@@ -739,6 +739,8 @@ static void avico_copy_bounce(struct avico_ctx *ctx,
 		ctx->ref_ptr_off += ref_size;
 	}
 	dma_async_issue_pending(ctx->dev->dma_ch);
+
+	return out_size;
 }
 
 static void avico_prepare_to_finish(struct avico_ctx *ctx)
@@ -768,6 +770,7 @@ static irqreturn_t avico_irq(int irq, void *data)
 	u32 events;
 	bool eof;
 	int i;
+	uint32_t out_size;
 
 	/* \todo How does this will work for several HW threads? */
 	ctx = v4l2_m2m_get_curr_priv(dev->m2m_dev);
@@ -799,15 +802,12 @@ static irqreturn_t avico_irq(int irq, void *data)
 				AVICO_VDMA_CHANNEL_RUN);
 	}
 
-	if (ctx->aborting) {
-		ctx->error = true;
-		avico_prepare_to_finish(ctx);
-		avico_dma_out_callback(ctx);
+	if (ctx->aborting)
+		goto err;
 
-		return IRQ_HANDLED;
-	}
-
-	avico_copy_bounce(ctx, eof ? avico_dma_out_callback : NULL);
+	out_size = avico_copy_bounce(ctx, eof ? avico_dma_out_callback : NULL);
+	if (eof && out_size == 0)
+		goto err;
 
 	/* Swap active buffers */
 	ctx->bounce_active ^= 1;
@@ -860,6 +860,13 @@ static irqreturn_t avico_irq(int irq, void *data)
 	}
 
 	avico_prepare_to_finish(ctx);
+
+	return IRQ_HANDLED;
+
+err:
+	ctx->error = true;
+	avico_prepare_to_finish(ctx);
+	avico_dma_out_callback(ctx);
 
 	return IRQ_HANDLED;
 }
