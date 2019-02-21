@@ -1323,8 +1323,6 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	ctx->thread = ctx->dev->regs + AVICO_THREAD_BASE(ctx->id);
 
-	avico_write(0UL, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
-
 	avico_grab_controls(ctx, true);
 	avico_thread_init(ctx);
 
