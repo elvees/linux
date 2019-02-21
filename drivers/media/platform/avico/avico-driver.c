@@ -699,6 +699,10 @@ static uint32_t avico_copy_bounce(struct avico_ctx *ctx,
 	ref_size = ctx->mbx * MB_SIZE; /* We are working by row of MB */
 	out_size = avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_AECUR) -
 					  ctx->bounceout[ctx->bounce_active];
+	/* If out_size is zero and DONE is 1 then AECUR is wrapped to A0E */
+	if (out_size == 0 && avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_DONE))
+		out_size = BOUNCE_BUF_SIZE;
+	avico_dma_write(0, ctx, 3, AVICO_VDMA_CHANNEL_DONE);
 
 	/* Bitstream redy not for all rows. We can not run DMA without
 	 * buffer length */
