@@ -1281,17 +1281,12 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	unsigned int reserve;
 	unsigned int channel;
 
-	switch (vq->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
 		ctx->outseq = 0;
 		ctx->outon = 1;
-		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	} else {
 		ctx->capseq = 0;
 		ctx->capon = 1;
-		break;
-	default:
-		return -EINVAL;
 	}
 
 	if (ctx->outon != 1 || ctx->capon != 1)
