@@ -1346,7 +1346,7 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	/* \todo Make configurable.
 	 * This should correlate with log2_max_frame_num_minus4 */
 	ctx->maxframe = 16;
-	ctx->gop = 250;
+	ctx->gop = 60;
 	ctx->i_period = 0;
 	ctx->poc_type = 2;
 	ctx->vdma_trans_size_m1 = 3;
