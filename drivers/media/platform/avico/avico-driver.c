@@ -246,7 +246,7 @@ void avico_dma_configure_input(struct avico_ctx *ctx, unsigned const channel)
 				channel, AVICO_VDMA_CHANNEL_AICUR);
 	} else { /* swap_lines => + one MB line */
 		avico_dma_write(ctx->dev->vram + adr.acur * 0x0400 +
-				MB_REF_SIZE * ctx->mbx, ctx, channel,
+				MB_CUR_SIZE * ctx->mbx, ctx, channel,
 				AVICO_VDMA_CHANNEL_AICUR);
 	}
 
@@ -258,9 +258,9 @@ void avico_dma_configure_input(struct avico_ctx *ctx, unsigned const channel)
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_VEIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_BIIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_CIIDX);
-	avico_dma_write(MB_REF_SIZE - 16 * 24, ctx, channel,
+	avico_dma_write(MB_CUR_SIZE - 16 * 24, ctx, channel,
 			AVICO_VDMA_CHANNEL_HIIDX);
-	avico_dma_write(MB_REF_SIZE - 16 * 24, ctx, channel,
+	avico_dma_write(MB_CUR_SIZE - 16 * 24, ctx, channel,
 			AVICO_VDMA_CHANNEL_VIIDX);
 
 	acnt.arld = acnt.acnt = (16 >> ctx->vdma_trans_size_m1) - 1;
