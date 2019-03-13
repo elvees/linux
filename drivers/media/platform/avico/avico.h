@@ -46,11 +46,16 @@
 #define AVICO_THREAD_STATUS 0x20
 #define AVICO_THREAD_SMBPOS 0x28
 
-#define AVICO_MD_BASE 0x2000
-#define AVICO_MD_CFG (AVICO_MD_BASE + 0x00)
-#define AVICO_MD_CHANNEL_BASE(i) (AVICO_MD_BASE + 0x80 + 0x20 * (i))
-#define AVICO_MD_MBPOS(i) (AVICO_MD_CHANNEL_BASE(i) + 0x00)
-#define AVICO_MD_FRMN(i)  (AVICO_MD_CHANNEL_BASE(i) + 0x04)
+#define AVICO_MD_SYS_BASE 0x2000
+#define AVICO_MD_SYS_CFG    0x00
+
+#define AVICO_MD_BASE(i) (AVICO_MD_SYS_BASE + 0x80 + 0x20 * (i))
+#define AVICO_MD_MBPOS  0x00
+#define AVICO_MD_FRMN   0x04
+
+#define AVICO_TQ_BASE(i) (0x3000 + 0x40 * (i))
+#define AVICO_TQ_MBPOS  0x00
+#define AVICO_TQ_FRMN   0x04
 
 #define AVICO_VDMA_BASE 0x5000
 

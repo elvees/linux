@@ -47,9 +47,25 @@ void avico_regs_thread_dump(void __iomem *const base)
 	dump("thread.smbpos", base, AVICO_THREAD_SMBPOS);
 }
 
+void avico_regs_md_sys_dump(void __iomem *const base)
+{
+	dump("md.sys.md_cfg", base, AVICO_MD_SYS_CFG);
+}
+
+void avico_regs_md_dump(void __iomem *const base)
+{
+	dump("md.mbpos_md  ", base, AVICO_MD_MBPOS);
+	dump("md.frmn_md   ", base, AVICO_MD_FRMN);
+}
+
+void avico_regs_tq_dump(void __iomem *const base)
+{
+	dump("tq.mbpos_tq  ", base, AVICO_TQ_MBPOS);
+	dump("tq.frmn_tq   ", base, AVICO_TQ_FRMN);
+}
+
 void avico_regs_vdma_sys_dump(void __iomem *const base)
 {
-	dump("vdma.sys.run   ", base, AVICO_VDMA_SYS_RUN);
 	dump("vdma.sys.run   ", base, AVICO_VDMA_SYS_RUN);
 	dump("vdma.sys.busy  ", base, AVICO_VDMA_SYS_BUSY);
 	dump("vdma.sys.active", base, AVICO_VDMA_SYS_ACTV);
@@ -178,6 +194,9 @@ void avico_regs_dump(void __iomem *const base, const unsigned int thread)
 {
 	avico_regs_ctrl_dump(base + AVICO_CTRL_BASE);
 	avico_regs_thread_dump(base + AVICO_THREAD_BASE(thread));
+	avico_regs_md_sys_dump(base + AVICO_MD_SYS_BASE);
+	avico_regs_md_dump(base + AVICO_MD_BASE(thread));
+	avico_regs_tq_dump(base + AVICO_TQ_BASE(thread));
 	avico_regs_vdma_dump(base + AVICO_VDMA_BASE, thread * 4);
 	avico_regs_ec_dump(base + AVICO_EC_BASE(thread));
 }
