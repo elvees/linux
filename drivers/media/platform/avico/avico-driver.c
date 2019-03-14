@@ -1322,7 +1322,6 @@ static void avico_grab_controls(struct avico_ctx *ctx, bool grab)
 static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
-	unsigned int reserve;
 	struct vb2_v4l2_buffer *buf;
 	int ret = 0;
 
@@ -1355,9 +1354,7 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	avico_grab_controls(ctx, true);
 
-	/* \todo Maybe be do not need padding */
-	reserve = ctx->mbx * 16 * 12; /* From Rolschikov's code */
-	ctx->refsize = ctx->mbx * ctx->mby * (256 + 128) + reserve;
+	ctx->refsize = ctx->mbx * ctx->mby * (256 + 128);
 
 	ctx->vref = dma_alloc_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
 				       &ctx->dmaref, GFP_KERNEL);
