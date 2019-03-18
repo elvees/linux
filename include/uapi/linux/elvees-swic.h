@@ -10,6 +10,8 @@
 #ifndef ELVEES_SWIC_H
 #define ELVEES_SWIC_H
 
+#define ELVEES_SWIC_MAX_PACKET_SIZE (1024*1024)
+
 enum swic_link_state {
 	LINK_ERROR_RESET,
 	LINK_ERROR_WAIT,

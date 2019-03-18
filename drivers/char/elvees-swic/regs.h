@@ -10,6 +10,8 @@
 #ifndef _REGS_H_
 #define _REGS_H_
 
+#define SWIC_DMA_RX_DESC			0x1000
+#define SWIC_DMA_RX_DATA			0x1040
 #define SWIC_DMA_TX_DESC			0x1080
 #define SWIC_DMA_TX_DATA			0x10C0
 
