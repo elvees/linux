@@ -165,19 +165,19 @@ void avico_regs_ec_packer_dump(void __iomem *const base)
 
 void avico_regs_ec_regc_dump(void __iomem *const base)
 {
-	uint8_t buf[0x200];
+	uint8_t buf[AVICO_REGC_CBS - AVICO_REGC_CP0 + AVICO_REGC_CBS_SIZE];
 
-	memcpy_fromio(buf, base, 0x200 / 4);
+	memcpy_fromio(buf, base, sizeof(buf));
 
-	dumphex("ec.regc.cp0", buf, 0x00, 0x10);
-	dumphex("ec.regc.cp1", buf, 0x10, 0x10);
-	dumphex("ec.regc.cp2", buf, 0x20, 0x10);
-	dumphex("ec.regc.cp3", buf, 0x30, 0x10);
-	dumphex("ec.regc.cpn", buf, 0x40, 0x10);
-	dumphex("ec.regc.cpa", buf, 0x50, 0x10);
-	dumphex("ec.regc.cpb", buf, 0x60, 0x10);
-	dumphex("ec.regc.cqc", buf, 0x80, 0x80);
-	dumphex("ec.regc.cbs", buf, 0x100, 0x100);
+	dumphex("ec.regc.cp0", buf, AVICO_REGC_CP0, AVICO_REGC_CP0_SIZE);
+	dumphex("ec.regc.cp1", buf, AVICO_REGC_CP1, AVICO_REGC_CP1_SIZE);
+	dumphex("ec.regc.cp2", buf, AVICO_REGC_CP2, AVICO_REGC_CP2_SIZE);
+	dumphex("ec.regc.cp3", buf, AVICO_REGC_CP3, AVICO_REGC_CP3_SIZE);
+	dumphex("ec.regc.cpn", buf, AVICO_REGC_CPN, AVICO_REGC_CPN_SIZE);
+	dumphex("ec.regc.cpa", buf, AVICO_REGC_CPA, AVICO_REGC_CPA_SIZE);
+	dumphex("ec.regc.cpb", buf, AVICO_REGC_CPB, AVICO_REGC_CPB_SIZE);
+	dumphex("ec.regc.cqc", buf, AVICO_REGC_CQC, AVICO_REGC_CQC_SIZE);
+	dumphex("ec.regc.cbs", buf, AVICO_REGC_CBS, AVICO_REGC_CBS_SIZE);
 }
 
 void avico_regs_ec_dump(void __iomem *const base)
