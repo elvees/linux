@@ -236,10 +236,6 @@ static int elvees_swic_open(struct inode *inode, struct file *file)
 
 static int elvees_swic_release(struct inode *inode, struct file *file)
 {
-	struct elvees_swic_private_data *pdata = file->private_data;
-
-	elvees_swic_reset(pdata);
-
 	return 0;
 }
 
@@ -256,12 +252,16 @@ static void elvees_swic_start_dma(struct elvees_swic_private_data *pdata,
 	swic_writel(pdata, base_addr + SWIC_DMA_RUN, SWIC_DMA_CSR_RUN);
 }
 
-static int elvees_swic_set_link(struct elvees_swic_private_data *pdata)
+static int elvees_swic_set_link(struct elvees_swic_private_data *pdata,
+				unsigned int arg)
 {
 	u32 reg;
 	unsigned long rate;
 
 	elvees_swic_reset(pdata);
+
+	if (arg == 0)
+		return 0;
 
 	reg = SWIC_MODE_CR_LINK_START | SWIC_MODE_CR_LINK_MASK |
 	      SWIC_MODE_CR_ERR_MASK | SWIC_MODE_CR_COEFF_10_WR;
@@ -359,7 +359,7 @@ static long elvees_swic_ioctl(struct file *file,
 
 	switch (cmd) {
 	case SWICIOC_SET_LINK:
-		return elvees_swic_set_link(pdata);
+		return elvees_swic_set_link(pdata, arg);
 	case SWICIOC_GET_LINK_STATE:
 		return elvees_swic_get_link_state(pdata, uptr);
 	case SWICIOC_SET_TX_SPEED:

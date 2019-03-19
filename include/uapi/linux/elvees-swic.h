@@ -37,7 +37,7 @@ enum swic_tx_speed {
 #define SWICIOC_MAGIC 'w'
 
 #define SWICIOC_SET_LINK \
-	_IO(SWICIOC_MAGIC, 1)
+	_IOW(SWICIOC_MAGIC, 1, unsigned int)
 
 #define SWICIOC_GET_LINK_STATE \
 	_IOR(SWICIOC_MAGIC, 2, enum swic_link_state *)
