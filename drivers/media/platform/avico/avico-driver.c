@@ -1358,7 +1358,7 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 		goto err_ret_bufs;
 	}
 
-	for (channel = ctx->id * 4; channel <= ctx->id * 4 + 4; channel++) {
+	for (channel = ctx->id * 4; channel < ctx->id * 4 + 4; channel++) {
 		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
 		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_DONE);
 		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_IMRDY);
