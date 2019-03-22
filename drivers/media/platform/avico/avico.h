@@ -537,6 +537,8 @@ struct avico_ctx {
 	/* Abort requested by m2m */
 	int aborting;
 
+	unsigned long state;
+
 	uint16_t sps;
 	uint16_t pps;
 	uint16_t gop;
@@ -567,6 +569,10 @@ struct avico_ctx {
 	dma_addr_t bounceref[2], bounceout[2];
 	uint32_t ref_ptr_off, out_ptr_off;  /* Offsets for new data */
 	int bounce_active;  /* Active bounce buffer */
+
+	void *vmbref, *vmbcur;
+	dma_addr_t dmambref, dmambcur;
+	unsigned int mbrefsize, mbcursize;
 
 	enum v4l2_colorspace colorspace;
 	unsigned int width, height;
