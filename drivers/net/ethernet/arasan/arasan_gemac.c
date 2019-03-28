@@ -177,6 +177,22 @@ static void arasan_gemac_dma_soft_reset(struct arasan_gemac_pdata *pd)
 			    DMA_CONFIGURATION_BURST_LENGTH(4));
 }
 
+static void arasan_gemac_setup_frame_limits(struct arasan_gemac_pdata *pd,
+					    int mtu)
+{
+	/* FIXME: extra_sz = 12 for 3 VLAN TAG ??? */
+	const int extra_sz = 0;
+	int sz = mtu_to_frame_sz(mtu);
+	/* Frame length violation is set if received frame exceed max */
+	arasan_gemac_writel(pd, MAC_MAXIMUM_FRAME_SIZE, sz + extra_sz);
+
+	/* Jabber error is set if received frame exceeds jabber size */
+	arasan_gemac_writel(pd, MAC_RECEIVE_JABBER_SIZE, sz + extra_sz);
+
+	/* EOP will be sent if transmitted frame exceeds jabber size */
+	arasan_gemac_writel(pd, MAC_TRANSMIT_JABBER_SIZE, sz + extra_sz);
+}
+
 static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 {
 	u32 reg;
@@ -188,6 +204,8 @@ static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
 	reg |= MAC_RECEIVE_CONTROL_STORE_AND_FORWARD;
 	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
+
+	arasan_gemac_setup_frame_limits(pd, pd->dev->mtu);
 
 	arasan_gemac_set_hwaddr(pd->dev);
 }
@@ -764,7 +782,7 @@ static void arasan_gemac_start_tx(struct arasan_gemac_pdata *pd)
 	arasan_gemac_start_tx_dma(pd);
 }
 
-static int arasan_gemac_stop(struct net_device *dev)
+static void arasan_gemac_stop_mac(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 
@@ -778,6 +796,13 @@ static int arasan_gemac_stop(struct net_device *dev)
 	arasan_gemac_free_rx_ring(pd);
 
 	arasan_gemac_dma_soft_reset(pd);
+}
+
+static int arasan_gemac_stop(struct net_device *dev)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	arasan_gemac_stop_mac(dev);
 
 	phy_stop(pd->phy_dev);
 	/* TODO: We should somehow power down PHY */
@@ -1057,11 +1082,10 @@ err_out:
 	return err;
 }
 
-/* Open the Ethernet interface */
-static int arasan_gemac_open(struct net_device *dev)
+int arasan_gemac_start_mac(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
-	u32 result;
+	int result;
 
 	result = arasan_gemac_alloc_tx_ring(pd);
 	if (result) {
@@ -1076,9 +1100,6 @@ static int arasan_gemac_open(struct net_device *dev)
 	}
 
 	arasan_gemac_init(pd);
-
-	/* schedule a link state check */
-	phy_start(pd->phy_dev);
 
 	napi_enable(&pd->napi);
 
@@ -1103,6 +1124,22 @@ err:
 	return result;
 }
 
+/* Open the Ethernet interface */
+static int arasan_gemac_open(struct net_device *dev)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+	int res;
+
+	res = arasan_gemac_start_mac(dev);
+	if (res)
+		return res;
+
+	/* schedule a link state check */
+	phy_start(pd->phy_dev);
+
+	return 0;
+}
+
 static int arasan_gemac_set_mac_address(struct net_device *dev, void *addr)
 {
 	if (netif_running(dev))
@@ -1111,6 +1148,22 @@ static int arasan_gemac_set_mac_address(struct net_device *dev, void *addr)
 	/* sa_family is validated by calling code */
 	ether_addr_copy(dev->dev_addr, ((struct sockaddr *)addr)->sa_data);
 	arasan_gemac_set_hwaddr(dev);
+
+	return 0;
+}
+
+static int arasan_gemac_change_mtu(struct net_device *dev, int new_mtu)
+{
+	if (new_mtu > ARASAN_JUMBO_MTU || new_mtu < 68)
+		return -EINVAL;
+
+	if (netif_running(dev))
+		arasan_gemac_stop_mac(dev);
+
+	dev->mtu = new_mtu;
+
+	if (netif_running(dev))
+		arasan_gemac_start_mac(dev);
 
 	return 0;
 }
@@ -1131,6 +1184,7 @@ static const struct net_device_ops arasan_gemac_netdev_ops = {
 	.ndo_stop       = arasan_gemac_stop,
 	.ndo_start_xmit = arasan_gemac_start_xmit,
 	.ndo_set_mac_address = arasan_gemac_set_mac_address,
+	.ndo_change_mtu = arasan_gemac_change_mtu,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = arasan_gemac_poll_controller,
 #endif

@@ -11,6 +11,11 @@
 #ifndef _ARASAN_GEMAC_H
 #define _ARASAN_GEMAC_H
 
+/* GEMAC TX descriptor can describe 4K buffer.
+ * But currently some unexplored bugs are observed if we set Jumbo frame
+ * more than 3500 bytes. This bugs lead to lack of transmission. */
+#define ARASAN_JUMBO_MTU 3500U
+
 #define mtu_to_frame_sz(x) ((x) + VLAN_ETH_HLEN)
 #define mtu_to_buf_sz(x) (mtu_to_frame_sz(x) + NET_IP_ALIGN + 4)
 
