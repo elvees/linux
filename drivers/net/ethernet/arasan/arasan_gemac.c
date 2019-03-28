@@ -189,10 +189,6 @@ static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 	reg |= MAC_RECEIVE_CONTROL_STORE_AND_FORWARD;
 	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
 
-	reg = arasan_gemac_readl(pd, DMA_CONFIGURATION);
-	reg |= DMA_CONFIGURATION_WAIT_FOR_DONE;
-	arasan_gemac_writel(pd, DMA_CONFIGURATION, reg);
-
 	arasan_gemac_set_hwaddr(pd->dev);
 }
 
