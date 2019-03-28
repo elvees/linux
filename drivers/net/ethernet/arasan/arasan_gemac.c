@@ -382,19 +382,32 @@ static inline void arasan_gemac_tx_update_stats(struct net_device *dev,
 }
 
 /* Check for completed dma transfers, update stats and free skbs */
-static void arasan_gemac_complete_tx(struct net_device *dev)
+static bool arasan_gemac_try_complete_tx(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+	int freed = 0;
+	unsigned long flags;
 
-	while (pd->tx_ring_tail != pd->tx_ring_head) {
-		int index = pd->tx_ring_tail;
+	/* try_complete_tx() can be called in IRQ handler or start_xmit() */
+	if (!spin_trylock_irqsave(&pd->tx_freelock, flags))
+		return false;
+
+	do {
 		u32 status, misc;
+
+		int tail = pd->tx_ring_tail;
+
+		/* synchronize with start_xmit() */
+		int head = smp_load_acquire(&pd->tx_ring_head);
+
+		if (tail == head)
+			break;
 
 		/* ensures that CPU sees actual state */
 		dma_rmb();
 
-		status = pd->tx_ring[index].status;
-		misc = pd->tx_ring[index].misc;
+		status = pd->tx_ring[tail].status;
+		misc = pd->tx_ring[tail].misc;
 
 		/* Check if DMA still owns this descriptor */
 		if (unlikely(DMA_TDES0_OWN_BIT & status))
@@ -402,10 +415,15 @@ static void arasan_gemac_complete_tx(struct net_device *dev)
 
 		arasan_gemac_tx_update_stats(dev, status, misc);
 
-		arasan_gemac_free_tx_desc(pd, index);
+		arasan_gemac_free_tx_desc(pd, tail);
+		freed++;
 
-		pd->tx_ring_tail = (pd->tx_ring_tail + 1) % TX_RING_SIZE;
-	}
+		/* synchronize for start_xmit() */
+		smp_store_release(&pd->tx_ring_tail, (tail + 1) % TX_RING_SIZE);
+	} while (true);
+
+	spin_unlock_irqrestore(&pd->tx_freelock, flags);
+	return freed > 0;
 }
 
 /* Transmit packet */
@@ -413,14 +431,17 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 	dma_addr_t mapping;
-	int index = pd->tx_ring_head;
+	int head, tail;
 	u32 tmp_desc1;
-	bool about_to_take_last_desc =
-		(((pd->tx_ring_head + 2) % TX_RING_SIZE) == pd->tx_ring_tail);
 
-	arasan_gemac_complete_tx(dev);
+	arasan_gemac_try_complete_tx(dev);
 
-	WARN_ON(pd->tx_ring[index].status & DMA_TDES0_OWN_BIT);
+	head = pd->tx_ring_head;
+
+	/* synchronize with complete_tx() */
+	tail = smp_load_acquire(&pd->tx_ring_tail);
+
+	WARN_ON(pd->tx_ring[head].status & DMA_TDES0_OWN_BIT);
 
 	mapping = dma_map_single(&pd->pdev->dev, skb->data,
 				 skb->len, DMA_TO_DEVICE);
@@ -430,32 +451,36 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_BUSY;
 	}
 
-	pd->tx_buffers[index].skb = skb;
-	pd->tx_buffers[index].mapping = mapping;
+	/* skb_tx_timestamp() should be called before
+	 * preparing the descriptor, because at this time the DMA can work
+	 * without kicking.
+	 */
+
+	skb_tx_timestamp(skb);
+
+	pd->tx_buffers[head].skb = skb;
+	pd->tx_buffers[head].mapping = mapping;
+
+	if (unlikely(((head + 2) % TX_RING_SIZE) == tail))
+		netif_stop_queue(pd->dev);
 
 	tmp_desc1 = (DMA_TDES1_LS | DMA_TDES1_FS | ((u32)skb->len & 0xFFF));
-	if (unlikely(about_to_take_last_desc)) {
-		tmp_desc1 |= DMA_TDES1_IOC;
-		netif_stop_queue(pd->dev);
-	}
 
 	/* check if we are at the last descriptor and need to set EOR */
-	if (unlikely(index == (TX_RING_SIZE - 1)))
+	if (unlikely(head == (TX_RING_SIZE - 1)))
 		tmp_desc1 |= DMA_TDES1_EOR;
 
-	pd->tx_ring[index].buffer1 = mapping;
-	pd->tx_ring[index].misc = tmp_desc1;
+	pd->tx_ring[head].buffer1 = mapping;
+	pd->tx_ring[head].misc = tmp_desc1;
 
 	/* ensures that descriptor has been initialized */
 	dma_wmb();
 
-	/* increment head */
-	pd->tx_ring_head = (pd->tx_ring_head + 1) % TX_RING_SIZE;
-
 	/* assign ownership to DMAC */
-	pd->tx_ring[index].status = DMA_TDES0_OWN_BIT;
+	pd->tx_ring[head].status = DMA_TDES0_OWN_BIT;
 
-	skb_tx_timestamp(skb);
+	/* synchronize head for complete_tx() */
+	smp_store_release(&pd->tx_ring_head, (head + 1)  % TX_RING_SIZE);
 
 	/* Memory barrier is required here and is provided by writel().
 	 * kick the DMA
@@ -567,9 +592,11 @@ static irqreturn_t arasan_gemac_interrupt(int irq, void *dev_id)
 
 	ints_to_clear = 0;
 
-	if (int_sts & DMA_STATUS_AND_IRQ_TRANSMIT_DONE) {
-		ints_to_clear |= DMA_STATUS_AND_IRQ_TRANSMIT_DONE;
-		netif_wake_queue(pd->dev);
+	if (int_sts & DMA_STATUS_AND_IRQ_TRANS_DESC_UNAVAIL) {
+		ints_to_clear |= DMA_STATUS_AND_IRQ_TRANS_DESC_UNAVAIL;
+
+		if (arasan_gemac_try_complete_tx(dev))
+			netif_wake_queue(pd->dev);
 	}
 
 	if (int_sts & DMA_STATUS_AND_IRQ_RECEIVE_DONE) {
@@ -1058,7 +1085,7 @@ static int arasan_gemac_open(struct net_device *dev)
 	/* Enable interrupts */
 	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE,
 			    DMA_INTERRUPT_ENABLE_RECEIVE_DONE |
-			    DMA_INTERRUPT_ENABLE_TRANSMIT_DONE);
+			    DMA_INTERRUPT_ENABLE_TRANS_DESC_UNAVAIL);
 
 	/* Enable packet transmission */
 	arasan_gemac_start_tx(pd);

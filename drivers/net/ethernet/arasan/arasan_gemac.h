@@ -14,10 +14,7 @@
 #define mtu_to_frame_sz(x) ((x) + VLAN_ETH_HLEN)
 #define mtu_to_buf_sz(x) (mtu_to_frame_sz(x) + NET_IP_ALIGN + 4)
 
-/* HACK: Set TX descriptor ring size to 8
- * to workaround low TX speed problem
- */
-#define TX_RING_SIZE (8)
+#define TX_RING_SIZE (128)
 #define RX_RING_SIZE (128)
 #define NAPI_WEIGHT (64)
 
@@ -102,6 +99,7 @@
 #define DMA_STATUS_AND_IRQ_RECEIVE_DMA_STATE(VAL)     (((VAL) & 0xf0000) >> 20)
 
 #define DMA_INTERRUPT_ENABLE_TRANSMIT_DONE            BIT(0)
+#define DMA_INTERRUPT_ENABLE_TRANS_DESC_UNAVAIL       BIT(1)
 #define DMA_INTERRUPT_ENABLE_RECEIVE_DONE             BIT(4)
 
 #define MAC_GLOBAL_CONTROL_SPEED(VAL)                 ((VAL) << 0)
@@ -172,6 +170,8 @@ struct arasan_gemac_pdata {
 	dma_addr_t rx_dma_addr;
 	dma_addr_t tx_dma_addr;
 
+	/* lock for descriptor completion */
+	spinlock_t tx_freelock;
 	int tx_ring_head, tx_ring_tail;
 	int rx_ring_head, rx_ring_tail;
 
