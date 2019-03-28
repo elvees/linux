@@ -64,6 +64,8 @@
  */
 #define BOUNCE_BUF_SIZE roundup(1920 / 16 * MB_SIZE, DMA_CBS_LEN)
 
+static const char *clknames[NCLKS] = { "pclk", "aclk", "sclk", "dsp_aclk" };
+
 static inline void avico_write(u32 const value,
 			       struct avico_ctx const *const ctx,
 			       off_t const reg)
@@ -1625,70 +1627,44 @@ static struct video_device const avico_video_device = {
 	.release = video_device_release_empty
 };
 
-static int avico_clk_init(struct avico_dev *dev, struct platform_device *pdev)
+static int avico_clk_init(struct avico_dev *dev)
 {
-	int err;
+	int i;
 
-	dev->pclk = devm_clk_get(&pdev->dev, "pclk");
-	if (IS_ERR(dev->pclk)) {
-		err = PTR_ERR(dev->pclk);
-		dev_err(&pdev->dev,
-			"failed to get pclk (%u)\n", err);
-		return err;
+	for (i = 0; i < NCLKS; i++) {
+		dev->clk[i] = devm_clk_get(dev->dev, clknames[i]);
+		if (IS_ERR(dev->clk[i])) {
+			int rc = PTR_ERR(dev->clk[i]);
+
+			dev_err(dev->dev, "Failed to get clock %s (%u)\n",
+				clknames[i], rc);
+
+			return rc;
+		}
 	}
 
-	dev->aclk = devm_clk_get(&pdev->dev, "aclk");
-	if (IS_ERR(dev->aclk)) {
-		err = PTR_ERR(dev->aclk);
-		dev_err(&pdev->dev,
-			"failed to get aclk (%u)\n", err);
-		return err;
-	}
+	for (i = 0; i < NCLKS; i++) {
+		int rc = clk_prepare_enable(dev->clk[i]);
 
-	dev->sclk = devm_clk_get(&pdev->dev, "sclk");
-	if (IS_ERR(dev->sclk)) {
-		err = PTR_ERR(dev->sclk);
-		dev_err(&pdev->dev,
-			"failed to get sclk (%u)\n", err);
-		return err;
-	}
+		if (rc) {
+			dev_err(dev->dev, "Failed to enable clock %s (%u)\n",
+				clknames[i], rc);
 
-	err = clk_prepare_enable(dev->pclk);
-	if (err) {
-		dev_err(&pdev->dev,
-			"failed to enable pclk (%u)\n", err);
-		return err;
-	}
+			while (--i >= 0)
+				clk_disable_unprepare(dev->clk[i]);
 
-	err = clk_prepare_enable(dev->aclk);
-	if (err) {
-		dev_err(&pdev->dev,
-			"failed to enable aclk (%u)\n", err);
-		goto disable_pclk;
-	}
-
-	err = clk_prepare_enable(dev->sclk);
-	if (err) {
-		dev_err(&pdev->dev,
-			"failed to enable sclk (%u)\n", err);
-		goto disable_aclk;
+			return rc;
+		}
 	}
 
 	return 0;
-
-disable_aclk:
-	clk_disable_unprepare(dev->aclk);
-disable_pclk:
-	clk_disable_unprepare(dev->pclk);
-
-	return err;
 }
 
 static int avico_probe(struct platform_device *pdev)
 {
 	struct avico_dev *dev;
 	struct resource *res;
-	int ret, irq;
+	int i, ret, irq;
 	dma_cap_mask_t mask;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
@@ -1703,7 +1679,7 @@ static int avico_probe(struct platform_device *pdev)
 	}
 
 	/* Try to get and enable clocks */
-	ret = avico_clk_init(dev, pdev);
+	ret = avico_clk_init(dev);
 	if (ret)
 		return ret;
 
@@ -1793,15 +1769,17 @@ err_m2m:
 disable_clks:
 	if (dev->dma_ch)
 		dma_release_channel(dev->dma_ch);
-	clk_disable_unprepare(dev->pclk);
-	clk_disable_unprepare(dev->aclk);
-	clk_disable_unprepare(dev->sclk);
+
+	/* Clocks must be disabled in reverse order by common sense */
+	for (i = NCLKS - 1; i >= 0; i--)
+		clk_disable_unprepare(dev->clk[i]);
 
 	return ret;
 }
 
 static int avico_remove(struct platform_device *pdev)
 {
+	int i;
 	struct avico_dev *dev = (struct avico_dev *)platform_get_drvdata(pdev);
 
 	v4l2_info(&dev->v4l2_dev, "Removing " MODULE_NAME "\n");
@@ -1811,9 +1789,9 @@ static int avico_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&dev->v4l2_dev);
 	dma_release_channel(dev->dma_ch);
 
-	clk_disable_unprepare(dev->pclk);
-	clk_disable_unprepare(dev->aclk);
-	clk_disable_unprepare(dev->sclk);
+	/* Clocks must be disabled in reverse order by common sense */
+	for (i = NCLKS - 1; i >= 0; i--)
+		clk_disable_unprepare(dev->clk[i]);
 
 	return 0;
 }

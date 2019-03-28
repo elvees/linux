@@ -24,6 +24,8 @@
 
 #include "avico-bitstream.h"
 
+#define NCLKS 4
+
 #define AVICO_CTRL_BASE     0x00
 #define AVICO_CTRL_EVENTS   0x00
 #define AVICO_CTRL_MSKI_CPU 0x04
@@ -412,9 +414,7 @@ struct avico_dev {
 
 	struct dma_chan *dma_ch;
 
-	struct clk *pclk;
-	struct clk *aclk;
-	struct clk *sclk;
+	struct clk *clk[NCLKS];
 
 	spinlock_t irqlock;
 	struct mutex mutex;
