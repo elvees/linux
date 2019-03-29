@@ -26,6 +26,7 @@
 #include <linux/irqreturn.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
+#include <linux/pm_runtime.h>
 
 #include <media/v4l2-mem2mem.h>
 #include <media/v4l2-device.h>
@@ -1325,6 +1326,12 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vb2_v4l2_buffer *buf;
 	int ret = 0;
 
+	ret = pm_runtime_get_sync(ctx->dev->dev);
+	if (ret < 0) {
+		v4l2_err(&ctx->dev->v4l2_dev, "Failed to set runtime PM\n");
+		goto err_ret_bufs;
+	}
+
 	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
 		ctx->outseq = 0;
 		ctx->outon = 1;
@@ -1365,7 +1372,7 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 		goto err_ret_bufs;
 	}
 
-	return ret;
+	return 0;
 
 err_ret_bufs:
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
@@ -1418,6 +1425,8 @@ static void avico_stop_streaming(struct vb2_queue *q)
 		avico_grab_controls(ctx, false);
 		ctx->aborting = 0;
 	}
+
+	pm_runtime_put(ctx->dev->dev);
 }
 
 static struct vb2_ops avico_qops = {
@@ -1624,7 +1633,7 @@ static struct video_device const avico_video_device = {
 	.release = video_device_release_empty
 };
 
-static int avico_clk_init(struct avico_dev *dev)
+static int avico_clk_get(struct avico_dev *dev)
 {
 	int i;
 
@@ -1640,20 +1649,6 @@ static int avico_clk_init(struct avico_dev *dev)
 		}
 	}
 
-	for (i = 0; i < NCLKS; i++) {
-		int rc = clk_prepare_enable(dev->clk[i]);
-
-		if (rc) {
-			dev_err(dev->dev, "Failed to enable clock %s (%u)\n",
-				clknames[i], rc);
-
-			while (--i >= 0)
-				clk_disable_unprepare(dev->clk[i]);
-
-			return rc;
-		}
-	}
-
 	return 0;
 }
 
@@ -1661,7 +1656,7 @@ static int avico_probe(struct platform_device *pdev)
 {
 	struct avico_dev *dev;
 	struct resource *res;
-	int i, ret, irq;
+	int ret, irq;
 	dma_cap_mask_t mask;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
@@ -1675,24 +1670,22 @@ static int avico_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	/* Try to get and enable clocks */
-	ret = avico_clk_init(dev);
+	/* Try to get clocks */
+	ret = avico_clk_get(dev);
 	if (ret)
 		return ret;
 
 	dev->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (!dev->regs) {
 		dev_err(&pdev->dev, "Can not map memory region\n");
-		ret = -ENXIO;
-		goto disable_clks;
+		return -ENXIO;
 	}
 
 	/* VRAM address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
 		dev_err(&pdev->dev, "Failed to get VRAM resource\n");
-		ret = -ENXIO;
-		goto disable_clks;
+		return -ENXIO;
 	}
 
 	dev->vram = res->start;
@@ -1702,26 +1695,25 @@ static int avico_probe(struct platform_device *pdev)
 	dev->dma_ch = dma_request_channel(mask, NULL, NULL);
 	if (!dev->dma_ch) {
 		dev_err(&pdev->dev, "Failed to request DMA channel\n");
-		ret = -ENXIO;
-		goto disable_clks;
+		return -ENXIO;
 	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "Failed to get IRQ resource\n");
 		ret = irq; /* -ENXIO */
-		goto disable_clks;
+		goto dma_release;
 	}
 
 	ret = devm_request_irq(&pdev->dev, irq, avico_irq, 0, pdev->name, dev);
 	if (ret)
-		goto disable_clks;
+		goto dma_release;
 
 	/* \todo Request and enable clock */
 
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret)
-		goto disable_clks;
+		goto dma_release;
 
 	spin_lock_init(&dev->irqlock);
 	mutex_init(&dev->mutex);
@@ -1744,6 +1736,8 @@ static int avico_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+
 	ret = video_register_device(&dev->vfd, VFL_TYPE_GRABBER, -1);
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
@@ -1759,39 +1753,92 @@ static int avico_probe(struct platform_device *pdev)
 
 unreg_dev:
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+	pm_runtime_disable(&pdev->dev);
 err_alloc:
 	v4l2_m2m_release(dev->m2m_dev);
 err_m2m:
 	v4l2_device_unregister(&dev->v4l2_dev);
-disable_clks:
-	if (dev->dma_ch)
-		dma_release_channel(dev->dma_ch);
-
-	/* Clocks must be disabled in reverse order by common sense */
-	for (i = NCLKS - 1; i >= 0; i--)
-		clk_disable_unprepare(dev->clk[i]);
+dma_release:
+	dma_release_channel(dev->dma_ch);
 
 	return ret;
 }
 
 static int avico_remove(struct platform_device *pdev)
 {
-	int i;
 	struct avico_dev *dev = (struct avico_dev *)platform_get_drvdata(pdev);
 
 	v4l2_info(&dev->v4l2_dev, "Removing " MODULE_NAME "\n");
 	video_unregister_device(&dev->vfd);
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 	v4l2_m2m_release(dev->m2m_dev);
+	pm_runtime_disable(&pdev->dev);
 	v4l2_device_unregister(&dev->v4l2_dev);
 	dma_release_channel(dev->dma_ch);
 
+	return 0;
+}
+
+static int __maybe_unused avico_runtime_suspend(struct device *dev)
+{
+	int i;
+	struct v4l2_device *v4l2_dev = dev_get_drvdata(dev);
+	struct avico_dev *adev = container_of(v4l2_dev, struct avico_dev,
+					      v4l2_dev);
+
 	/* Clocks must be disabled in reverse order by common sense */
 	for (i = NCLKS - 1; i >= 0; i--)
-		clk_disable_unprepare(dev->clk[i]);
+		clk_disable_unprepare(adev->clk[i]);
 
 	return 0;
 }
+
+static int __maybe_unused avico_runtime_resume(struct device *dev)
+{
+	int i, rc;
+	struct v4l2_device *v4l2_dev = dev_get_drvdata(dev);
+	struct avico_dev *adev = container_of(v4l2_dev, struct avico_dev,
+					      v4l2_dev);
+
+	for (i = 0; i < NCLKS; i++) {
+		rc = clk_prepare_enable(adev->clk[i]);
+		if (rc) {
+			dev_err(dev, "Failed to enable clock %s (%u)\n",
+				clknames[i], rc);
+
+			while (--i >= 0)
+				clk_disable_unprepare(adev->clk[i]);
+
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+/* BUG: System Sleep callbacks must not be executed when the driver is in use.
+ * Otherwise the proccess will get stuck and the driver will become unavailable
+ * after resuming. */
+static int __maybe_unused avico_suspend(struct device *dev)
+{
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	return avico_runtime_suspend(dev);
+}
+
+static int __maybe_unused avico_resume(struct device *dev)
+{
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	return avico_runtime_resume(dev);
+}
+
+static const struct dev_pm_ops avico_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(avico_suspend, avico_resume)
+	SET_RUNTIME_PM_OPS(avico_runtime_suspend, avico_runtime_resume, NULL)
+};
 
 static struct platform_device_id avico_platform_ids[] = {
 	{ .name = "avico", .driver_data = 0 },
@@ -1813,6 +1860,7 @@ static struct platform_driver avico_driver = {
 	.driver = {
 		.name = MODULE_NAME,
 		.owner = THIS_MODULE,
+		.pm = &avico_pm_ops,
 		.of_match_table = of_match_ptr(avico_dt_ids)
 	},
 	.id_table = avico_platform_ids
