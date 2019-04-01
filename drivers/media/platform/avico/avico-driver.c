@@ -657,11 +657,6 @@ static void avico_run(void *priv)
 
 	avico_dma_configure(ctx);
 
-	/* @bug Will not work for several threads
-	 * We should gaurantee, that others will not overwrite MSK_EV. */
-	avico_write(0xc0 << (ctx->id * 8), ctx,
-		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
-	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
 	/* @bug Following will not work for several threads */
 	avico_write(0xc0 << (ctx->id * 8), ctx,
 		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
