@@ -7,8 +7,8 @@
  * (at your option) any later version.
  */
 
-#ifndef __ARCH_MCOM_SUSPEND_H
-#define __ARCH_MCOM_SUSPEND_H
+#ifndef __ARCH_MCOM02_SUSPEND_H
+#define __ARCH_MCOM02_SUSPEND_H
 
 #ifdef CONFIG_SUSPEND
 int __init mcom02_suspend_init(void);

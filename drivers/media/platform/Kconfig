@@ -274,7 +274,7 @@ config VIDEO_TI_VPE_DEBUG
 
 config VIDEO_ELVEES_AVICO
 	tristate "ELVEES Avico driver"
-	depends on PLAT_MCOM || COMPILE_TEST
+	depends on ARCH_MCOM02 || COMPILE_TEST
 	select VIDEOBUF2_DMA_CONTIG
 	select V4L2_MEM2MEM_DEV
 	---help---

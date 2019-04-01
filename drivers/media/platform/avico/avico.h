@@ -24,6 +24,8 @@
 
 #include "avico-bitstream.h"
 
+#define NCLKS 4
+
 #define AVICO_CTRL_BASE     0x00
 #define AVICO_CTRL_EVENTS   0x00
 #define AVICO_CTRL_MSKI_CPU 0x04
@@ -412,9 +414,7 @@ struct avico_dev {
 
 	struct dma_chan *dma_ch;
 
-	struct clk *pclk;
-	struct clk *aclk;
-	struct clk *sclk;
+	struct clk *clk[NCLKS];
 
 	spinlock_t irqlock;
 	struct mutex mutex;
@@ -541,6 +541,8 @@ struct avico_ctx {
 	unsigned int i_period;
 	unsigned int bitstream_size;
 
+	bool error;
+
 	struct bitstream bs;
 
 	unsigned int id; /* Hardware thread ID */
@@ -550,9 +552,6 @@ struct avico_ctx {
 	dma_addr_t bounceref[2], bounceout[2];
 	uint32_t ref_ptr_off, out_ptr_off;  /* Offsets for new data */
 	int bounce_active;  /* Active bounce buffer */
-
-	uint16_t size_cbs;
-	uint16_t dma_cbs_len;
 
 	enum v4l2_colorspace colorspace;
 	unsigned int width, height;

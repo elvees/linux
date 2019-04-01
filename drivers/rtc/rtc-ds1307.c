@@ -348,6 +348,20 @@ out:
 
 /*----------------------------------------------------------------------*/
 
+/* convert kernel weekday to RTC weekday */
+static inline int rtc_weekday(int weekday)
+{
+	return weekday == 0 ? 7 : weekday;
+}
+
+/* convert RTC weekday to kernel weekday */
+static inline int krn_weekday(int weekday)
+{
+	return weekday == 7 ? 0 : weekday;
+}
+
+/*----------------------------------------------------------------------*/
+
 static int ds1307_get_time(struct device *dev, struct rtc_time *t)
 {
 	struct ds1307	*ds1307 = dev_get_drvdata(dev);
@@ -367,7 +381,7 @@ static int ds1307_get_time(struct device *dev, struct rtc_time *t)
 	t->tm_min = bcd2bin(ds1307->regs[DS1307_REG_MIN] & 0x7f);
 	tmp = ds1307->regs[DS1307_REG_HOUR] & 0x3f;
 	t->tm_hour = bcd2bin(tmp);
-	t->tm_wday = bcd2bin(ds1307->regs[DS1307_REG_WDAY] & 0x07) - 1;
+	t->tm_wday = krn_weekday(ds1307->regs[DS1307_REG_WDAY] & 0x07);
 	t->tm_mday = bcd2bin(ds1307->regs[DS1307_REG_MDAY] & 0x3f);
 	tmp = ds1307->regs[DS1307_REG_MONTH] & 0x1f;
 	t->tm_mon = bcd2bin(tmp) - 1;
@@ -401,7 +415,7 @@ static int ds1307_set_time(struct device *dev, struct rtc_time *t)
 	buf[DS1307_REG_SECS] = bin2bcd(t->tm_sec);
 	buf[DS1307_REG_MIN] = bin2bcd(t->tm_min);
 	buf[DS1307_REG_HOUR] = bin2bcd(t->tm_hour);
-	buf[DS1307_REG_WDAY] = bin2bcd(t->tm_wday + 1);
+	buf[DS1307_REG_WDAY] = rtc_weekday(t->tm_wday);
 	buf[DS1307_REG_MDAY] = bin2bcd(t->tm_mday);
 	buf[DS1307_REG_MONTH] = bin2bcd(t->tm_mon + 1);
 
@@ -671,7 +685,7 @@ static int mcp794xx_read_alarm(struct device *dev, struct rtc_wkalrm *t)
 	t->time.tm_sec = bcd2bin(ds1307->regs[3] & 0x7f);
 	t->time.tm_min = bcd2bin(ds1307->regs[4] & 0x7f);
 	t->time.tm_hour = bcd2bin(ds1307->regs[5] & 0x3f);
-	t->time.tm_wday = bcd2bin(ds1307->regs[6] & 0x7) - 1;
+	t->time.tm_wday = krn_weekday(ds1307->regs[6] & 0x7);
 	t->time.tm_mday = bcd2bin(ds1307->regs[7] & 0x3f);
 	t->time.tm_mon = bcd2bin(ds1307->regs[8] & 0x1f) - 1;
 	t->time.tm_year = -1;
@@ -714,7 +728,7 @@ static int mcp794xx_set_alarm(struct device *dev, struct rtc_wkalrm *t)
 	regs[3] = bin2bcd(t->time.tm_sec);
 	regs[4] = bin2bcd(t->time.tm_min);
 	regs[5] = bin2bcd(t->time.tm_hour);
-	regs[6] = bin2bcd(t->time.tm_wday + 1);
+	regs[6] = rtc_weekday(t->time.tm_wday);
 	regs[7] = bin2bcd(t->time.tm_mday);
 	regs[8] = bin2bcd(t->time.tm_mon + 1);
 

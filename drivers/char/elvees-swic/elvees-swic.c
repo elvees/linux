@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 RnD Center "ELVEES", JSC
+ * Copyright 2018-2019 RnD Center "ELVEES", JSC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,16 +11,27 @@
 #include <asm/io.h>
 #include <linux/cdev.h>
 #include <linux/clk.h>
+#include <linux/device.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/of_device.h>
+#include <uapi/linux/elvees-swic.h>
 
 #include "regs.h"
-#include "elvees-swic.h"
 
 #define ELVEES_SWIC_MAX_DEVICES		2
+
+#define ELVEES_SWIC_MTU_DEFAULT		SZ_16K
+#define ELVEES_SWIC_TX_BUF_SIZE		SZ_16K
+#define ELVEES_SWIC_MAX_PACKET_SIZE	SZ_1M
+
+#define ELVEES_SWIC_DMA_CSR_WN		3
+#define ELVEES_SWIC_EOP			0x01
+#define ELVEES_SWIC_EEP			0x10
 
 static u32 swic_major;
 
@@ -28,8 +39,30 @@ static DECLARE_BITMAP(swic_dev, ELVEES_SWIC_MAX_DEVICES);
 
 static struct class *swic_class;
 
+struct elvees_swic_packet_desc {
+	unsigned size     : 25;
+	unsigned padding0 : 4;
+	unsigned type     : 2;
+	unsigned valid    : 1;
+	u32 padding1;
+} __aligned(8);
+
 struct elvees_swic_private_data {
 	void __iomem *regs;
+
+	unsigned long mtu;
+
+	struct dma_pool *desc_pool;
+	struct elvees_swic_packet_desc *tx_desc;
+
+	u8 *tx_data;
+	bool tx_data_done;
+
+	wait_queue_head_t write_wq;
+	struct mutex swic_write_lock;
+
+	dma_addr_t tx_desc_dma_addr;
+	dma_addr_t tx_data_dma_addr;
 
 	struct clk *aclk;
 	struct clk *txclk;
@@ -78,6 +111,38 @@ static int elvees_swic_release(struct inode *inode, struct file *file)
 	elvees_swic_reset(pdata);
 
 	return 0;
+}
+
+static void elvees_swic_start_dma(struct elvees_swic_private_data *pdata,
+				  u32 base_addr, u32 ir, u32 csr_wn,
+				  u32 csr_wcx)
+{
+	u32 reg = SET_FIELD(SWIC_DMA_CSR_WN, csr_wn) |
+		  SET_FIELD(SWIC_DMA_CSR_WCX, csr_wcx);
+
+	swic_writel(pdata, base_addr + SWIC_DMA_CSR, reg);
+	swic_writel(pdata, base_addr + SWIC_DMA_IR, ir);
+
+	swic_writel(pdata, base_addr + SWIC_DMA_RUN, SWIC_DMA_CSR_RUN);
+}
+
+static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
+				 u32 base_addr)
+{
+	u32 reg;
+
+	swic_writel(pdata, base_addr + SWIC_DMA_RUN, 0);
+
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_RDY_MODE |
+		    SWIC_MODE_CR_LINK_DISABLE);
+
+	while (swic_readl(pdata, base_addr + SWIC_DMA_RUN) &
+	       SWIC_DMA_CSR_RUN) {
+	}
+
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_RDY_MODE));
 }
 
 static int elvees_swic_set_link(struct elvees_swic_private_data *pdata)
@@ -152,6 +217,17 @@ static int elvees_swic_set_speed(struct elvees_swic_private_data *pdata,
 	return 0;
 }
 
+static int elvees_swic_set_mtu(struct elvees_swic_private_data *pdata,
+			       unsigned long arg)
+{
+	if (arg == 0 || arg > ELVEES_SWIC_MAX_PACKET_SIZE)
+		return -EINVAL;
+
+	pdata->mtu = arg;
+
+	return 0;
+}
+
 static long elvees_swic_ioctl(struct file *file,
 			      unsigned int cmd,
 			      unsigned long arg)
@@ -168,9 +244,113 @@ static long elvees_swic_ioctl(struct file *file,
 		return elvees_swic_get_link_state(pdata, uptr);
 	case SWICIOC_SET_TX_SPEED:
 		return elvees_swic_set_speed(pdata, arg);
+	case SWICIOC_SET_MTU:
+		return elvees_swic_set_mtu(pdata, arg);
 	}
 
 	return -ENOTTY;
+}
+
+static bool elvees_swic_check_link(struct elvees_swic_private_data *pdata)
+{
+	u32 reg = swic_readl(pdata, SWIC_STATUS) & SWIC_STATUS_LINK_STATE;
+
+	if (reg == SWIC_STATUS_LINK_STATE_RUN)
+		return true;
+
+	return false;
+}
+
+static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
+				char __user *buf, size_t size,
+				size_t *transmitted)
+{
+	size_t chunk, chunk_aligned;
+	int ret;
+	u32 dma_copied;
+
+	pdata->tx_desc->valid = 1;
+	pdata->tx_desc->size = size;
+	pdata->tx_desc->type = ELVEES_SWIC_EOP;
+
+	elvees_swic_start_dma(pdata, SWIC_DMA_TX_DESC,
+			      pdata->tx_desc_dma_addr, 0, 0);
+
+	while (size > 0) {
+		pdata->tx_data_done = false;
+
+		chunk = min_t(size_t, size, ELVEES_SWIC_TX_BUF_SIZE);
+
+		/*
+		 * This is required because DMA can only transmit
+		 * a data which is a multiple of 8 bytes
+		 */
+		chunk_aligned = ALIGN(chunk, 8);
+
+		ret = copy_from_user(pdata->tx_data, buf, chunk);
+		if (ret)
+			goto stop_desc_dma;
+
+		elvees_swic_start_dma(pdata, SWIC_DMA_TX_DATA,
+				      pdata->tx_data_dma_addr,
+				      ELVEES_SWIC_DMA_CSR_WN,
+				      (chunk_aligned / 8) - 1);
+
+		ret = wait_event_interruptible(pdata->write_wq,
+					       pdata->tx_data_done);
+		if (ret == -ERESTARTSYS)
+			goto stop_data_dma;
+
+		buf += chunk;
+		*transmitted += chunk;
+		size -= chunk;
+	}
+
+	return 0;
+
+stop_data_dma:
+	elvees_swic_stop_dma(pdata, SWIC_DMA_TX_DATA);
+
+	dma_copied = swic_readl(pdata, SWIC_DMA_TX_DATA + SWIC_DMA_CSR);
+	dma_copied = GET_FIELD(dma_copied, SWIC_DMA_CSR_WCX);
+	dma_copied = chunk_aligned - ((dma_copied + 1) * 8);
+	*transmitted += dma_copied;
+
+stop_desc_dma:
+	elvees_swic_stop_dma(pdata, SWIC_DMA_TX_DESC);
+	return ret;
+}
+
+static ssize_t elvees_swic_write(struct file *file, const char __user *buf,
+				 size_t size, loff_t *ppos)
+{
+	struct elvees_swic_private_data *pdata = file->private_data;
+	size_t packet_size, transmitted = 0;
+	int ret;
+
+	mutex_lock(&pdata->swic_write_lock);
+
+	if (!elvees_swic_check_link(pdata)) {
+		mutex_unlock(&pdata->swic_write_lock);
+		return -ENOLINK;
+	}
+
+	while (size > 0) {
+		packet_size = min_t(size_t, size, pdata->mtu);
+
+		ret = swic_transmit_packet(pdata, (char __user *)buf +
+					   transmitted, packet_size,
+					   &transmitted);
+		if (ret)
+			goto exit;
+
+		size -= packet_size;
+	}
+
+exit:
+	mutex_unlock(&pdata->swic_write_lock);
+
+	return transmitted;
 }
 
 static const struct file_operations elvees_swic_fops = {
@@ -178,6 +358,7 @@ static const struct file_operations elvees_swic_fops = {
 	.open = elvees_swic_open,
 	.release = elvees_swic_release,
 	.unlocked_ioctl = elvees_swic_ioctl,
+	.write = elvees_swic_write,
 };
 
 static int elvees_swic_dev_register(struct elvees_swic_private_data *pdata)
@@ -249,11 +430,22 @@ static irqreturn_t elvees_swic_dma_rx_data_ih(int irq, void *data)
 
 static irqreturn_t elvees_swic_dma_tx_desc_ih(int irq, void *data)
 {
+	struct elvees_swic_private_data *pdata = data;
+
+	swic_readl(pdata, SWIC_DMA_TX_DESC + SWIC_DMA_CSR);
+
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t elvees_swic_dma_tx_data_ih(int irq, void *data)
 {
+	struct elvees_swic_private_data *pdata = data;
+
+	swic_readl(pdata, SWIC_DMA_TX_DATA + SWIC_DMA_CSR);
+
+	pdata->tx_data_done = true;
+	wake_up_interruptible(&pdata->write_wq);
+
 	return IRQ_HANDLED;
 }
 
@@ -341,24 +533,48 @@ static int elvees_swic_probe(struct platform_device *pdev)
 	if (!pdata)
 		return -ENOMEM;
 
+	pdata->desc_pool = dma_pool_create("swic-desc-pool", &pdev->dev,
+					sizeof(struct elvees_swic_packet_desc),
+					64, 0);
+	if (!pdata->desc_pool)
+		return -ENOMEM;
+
+	pdata->tx_data = dma_alloc_coherent(pdata->dev,
+					    ELVEES_SWIC_TX_BUF_SIZE,
+					    &pdata->tx_data_dma_addr,
+					    GFP_KERNEL);
+	if (!pdata->tx_data) {
+		ret = -ENOMEM;
+		goto dma_pool_destroy;
+	}
+
+	pdata->tx_desc = dma_pool_alloc(pdata->desc_pool, GFP_KERNEL,
+					&pdata->tx_desc_dma_addr);
+	if (!pdata->tx_desc) {
+		ret = -ENOMEM;
+		goto tx_data_free;
+	}
+
 	pdata->dev = &pdev->dev;
 
 	pdata->txclk = devm_clk_get(&pdev->dev, "txclk");
 	if (IS_ERR(pdata->txclk)) {
 		dev_err(&pdev->dev, "Failed to found txclk\n");
-		return PTR_ERR(pdata->txclk);
+		ret = PTR_ERR(pdata->txclk);
+		goto tx_desc_free;
 	}
 
 	pdata->aclk = devm_clk_get(&pdev->dev, "aclk");
 	if (IS_ERR(pdata->aclk)) {
 		dev_err(&pdev->dev, "Failed to found aclk\n");
-		return PTR_ERR(pdata->aclk);
+		ret = PTR_ERR(pdata->aclk);
+		goto tx_desc_free;
 	}
 
 	ret = clk_prepare_enable(pdata->txclk);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to enable txclk\n");
-		return ret;
+		goto tx_desc_free;
 	}
 
 	ret = clk_prepare_enable(pdata->aclk);
@@ -383,6 +599,12 @@ static int elvees_swic_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pdata);
 
+	mutex_init(&pdata->swic_write_lock);
+
+	init_waitqueue_head(&pdata->write_wq);
+
+	pdata->mtu = ELVEES_SWIC_MTU_DEFAULT;
+
 	dev_info(&pdev->dev, "ELVEES SWIC @ 0x%p\n", pdata->regs);
 
 	return 0;
@@ -392,12 +614,30 @@ disable_aclk:
 
 disable_txclk:
 	clk_disable_unprepare(pdata->txclk);
+
+tx_desc_free:
+	dma_pool_free(pdata->desc_pool, pdata->tx_desc,
+		      pdata->tx_desc_dma_addr);
+
+tx_data_free:
+	dma_free_coherent(pdata->dev, ELVEES_SWIC_TX_BUF_SIZE,
+			  pdata->tx_data, pdata->tx_data_dma_addr);
+dma_pool_destroy:
+	dma_pool_destroy(pdata->desc_pool);
 	return ret;
 }
 
 static int elvees_swic_remove(struct platform_device *pdev)
 {
 	struct elvees_swic_private_data *pdata = platform_get_drvdata(pdev);
+
+	dma_pool_free(pdata->desc_pool, pdata->tx_desc,
+		      pdata->tx_desc_dma_addr);
+
+	dma_free_coherent(pdata->dev, ELVEES_SWIC_TX_BUF_SIZE,
+			  pdata->tx_data, pdata->tx_data_dma_addr);
+
+	dma_pool_destroy(pdata->desc_pool);
 
 	clk_disable_unprepare(pdata->txclk);
 	clk_disable_unprepare(pdata->aclk);

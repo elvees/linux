@@ -1,5 +1,5 @@
 /*
- *  Copyright 2017 RnD Center "ELVEES", JSC
+ *  Copyright 2017-2019 RnD Center "ELVEES", JSC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -7,8 +7,8 @@
  * (at your option) any later version.
  */
 
-#ifndef __PLAT_MCOM_COMMON_H__
-#define __PLAT_MCOM_COMMON_H__
+#ifndef __ARCH_MCOM02_COMMON_H__
+#define __ARCH_MCOM02_COMMON_H__
 
 #define PMCTR_SYS_PWR_UP      0x00
 #define PMCTR_SYS_PWR_DOWN    0x04
@@ -73,10 +73,12 @@
 #define SMCTR_IOPULL_CTR          0x40
 #define SMCTR_COMM_DCLOCK         0x44
 
-extern char mcom_secondary_trampoline;
-extern char mcom_secondary_trampoline_end;
+extern char mcom02_secondary_trampoline;
+extern char mcom02_secondary_trampoline_end;
 
-extern unsigned long mcom_secondary_boot_vector;
-extern void mcom_secondary_startup(void);
+extern unsigned long mcom02_secondary_boot_vector;
+extern void mcom02_secondary_startup(void);
+
+int mcom02_init_pmctr(void);
 
 #endif

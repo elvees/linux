@@ -10,7 +10,7 @@
 #include <linux/linkage.h>
 #include <linux/init.h>
 
-ENTRY(mcom_secondary_startup)
+ENTRY(mcom02_secondary_startup)
 	ldr	r0, =0x38096000		@ SMCTR base address
 	mov	r1, #0
 	str	r1, [r0, #4]		@ remap BOOT to NORMPORT
@@ -26,13 +26,13 @@ ENTRY(mcom_secondary_startup)
 
 	bl	v7_invalidate_l1
 	b	secondary_startup
-ENDPROC(mcom_secondary_startup)
+ENDPROC(mcom02_secondary_startup)
 
-ENTRY(mcom_secondary_trampoline)
+ENTRY(mcom02_secondary_trampoline)
 	ldr	pc, 1f
-ENDPROC(mcom_secondary_trampoline)
-	.globl	mcom_secondary_boot_vector
-mcom_secondary_boot_vector:
+ENDPROC(mcom02_secondary_trampoline)
+	.globl	mcom02_secondary_boot_vector
+mcom02_secondary_boot_vector:
 1:	.space	4
 
-ENTRY(mcom_secondary_trampoline_end)
+ENTRY(mcom02_secondary_trampoline_end)

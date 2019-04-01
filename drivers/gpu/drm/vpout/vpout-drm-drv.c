@@ -324,7 +324,8 @@ static const struct file_operations fops = {
 };
 
 static struct drm_driver vpout_drm_driver = {
-	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET,
+	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET |
+			      DRIVER_PRIME,
 	.load               = vpout_drm_load,
 	.unload             = vpout_drm_unload,
 	.lastclose          = vpout_drm_lastclose,
@@ -334,6 +335,15 @@ static struct drm_driver vpout_drm_driver = {
 	.enable_vblank      = vpout_drm_enable_vblank,
 	.disable_vblank     = vpout_drm_disable_vblank,
 	.gem_free_object    = drm_gem_cma_free_object,
+	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+	.gem_prime_import   = drm_gem_prime_import,
+	.gem_prime_export   = drm_gem_prime_export,
+	.gem_prime_get_sg_table    = drm_gem_cma_prime_get_sg_table,
+	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
+	.gem_prime_vmap     = drm_gem_cma_prime_vmap,
+	.gem_prime_vunmap   = drm_gem_cma_prime_vunmap,
+	.gem_prime_mmap     = drm_gem_cma_prime_mmap,
 	.gem_vm_ops         = &drm_gem_cma_vm_ops,
 	.dumb_create        = drm_gem_cma_dumb_create,
 	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,

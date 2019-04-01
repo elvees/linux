@@ -2,4 +2,4 @@
 # Elvees Clock specific Makefile
 #
 
-obj-$(CONFIG_PLAT_MCOM) += clk-mcom.o
+obj-$(CONFIG_ARCH_MCOM02) += clk-mcom.o
