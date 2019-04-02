@@ -193,17 +193,36 @@ static void arasan_gemac_setup_frame_limits(struct arasan_gemac_pdata *pd,
 	arasan_gemac_writel(pd, MAC_TRANSMIT_JABBER_SIZE, sz + extra_sz);
 }
 
+static void arasan_gemac_setup_fifo_thresholds(struct arasan_gemac_pdata *pd)
+{
+	/* limitation required by vendor */
+	const int max = ARASAN_FIFO_SZ - 8;
+
+	/* FIXME: It can damp difference between DMA and GEMAC speed.
+	 * DMA has been stopped if it crosses full threshold.
+	 * At this time GEMAC still transmit data to a link and
+	 * DMA can be resumed when GEMAC crosses empty threshold.
+	 * Because GEMAC still transmits it can flush FIFO before DMA
+	 * brings new data, thus packet will be dropped.
+	 * This scenario hasn't been confirmed. */
+	const int min = 8;
+
+	/* each location is 32 bits */
+	arasan_gemac_writel(pd, MAC_TRANSMIT_FIFO_ALMOST_FULL, max);
+	arasan_gemac_writel(pd, MAC_TRANSMIT_FIFO_ALMOST_EMPTY_THRESHOLD, min);
+}
+
 static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 {
 	u32 reg;
 
 	arasan_gemac_writel(pd, MAC_ADDRESS_CONTROL, 1);
-	arasan_gemac_writel(pd, MAC_TRANSMIT_FIFO_ALMOST_FULL, (512 - 8));
-	arasan_gemac_writel(pd, MAC_RECEIVE_PACKET_START_THRESHOLD, 64);
 
 	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
 	reg |= MAC_RECEIVE_CONTROL_STORE_AND_FORWARD;
 	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
+
+	arasan_gemac_setup_fifo_thresholds(pd);
 
 	arasan_gemac_setup_frame_limits(pd, pd->dev->mtu);
 
@@ -600,6 +619,76 @@ static int arasan_gemac_rx_poll(struct napi_struct *napi, int budget)
 	return work_done;
 }
 
+static int arasan_gemac_try_up_tx_threshold(struct arasan_gemac_pdata *pd)
+{
+	int threshold;
+	/* if threshold is equal max threshold that GEMAC will work
+	 * in Store and Forward mode. */
+	const int maxthreshold = 1518;
+
+	/* get current threshold */
+	threshold = arasan_gemac_readl(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD);
+
+	if (threshold >= maxthreshold)
+		return false;
+
+	threshold = min(maxthreshold, threshold + 32);
+
+	arasan_gemac_writel(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD, threshold);
+	return true;
+}
+
+static void arasan_gemac_set_threshold(struct arasan_gemac_pdata *pd)
+{
+	int tx_tr, rx_tr;
+
+	/* set initial TX threshold recommended by vendor */
+	switch (pd->phy_dev->speed) {
+	case SPEED_10:
+		tx_tr = 64;
+		break;
+	case SPEED_100:
+		tx_tr = 128;
+		break;
+	case SPEED_1000:
+	default:
+		tx_tr = 1024;
+	}
+
+	/* no obvious rules for RX threshold */
+	rx_tr = 64;
+
+	arasan_gemac_writel(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD, tx_tr);
+	arasan_gemac_writel(pd, MAC_RECEIVE_PACKET_START_THRESHOLD, rx_tr);
+
+	/* Underrun interrupt is enabled to adjust TX threshold
+	 * if underrun condition occurs */
+	arasan_gemac_writel(pd, MAC_INTERRUPT_ENABLE,
+			    MAC_INTERRUPT_ENABLE_UNDERRUN);
+}
+
+void arasan_gemac_mac_interrupt(struct arasan_gemac_pdata *pd)
+{
+	u32 sts, irq, clr = 0;
+
+	sts = arasan_gemac_readl(pd, MAC_INTERRUPT_STATUS);
+
+	if (sts & MAC_IRQ_STATUS_UNDERRUN) {
+		clr |= MAC_IRQ_STATUS_UNDERRUN;
+		/* Underrun condition occurs when DMA doesn't have time
+		 * for deliver rest part of packet to FIFO. We can increase
+		 * GEMAC start transmitting threshold.
+		 * TODO: Inform upper layer that packet has been dropped. */
+		if (!arasan_gemac_try_up_tx_threshold(pd)) {
+			irq = arasan_gemac_readl(pd, MAC_INTERRUPT_ENABLE);
+			irq &= ~MAC_INTERRUPT_ENABLE_UNDERRUN;
+			arasan_gemac_writel(pd, MAC_INTERRUPT_ENABLE, irq);
+		}
+	}
+
+	arasan_gemac_writel(pd, MAC_INTERRUPT_STATUS, clr);
+}
+
 static irqreturn_t arasan_gemac_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
@@ -626,6 +715,11 @@ static irqreturn_t arasan_gemac_interrupt(int irq, void *dev_id)
 
 		ints_to_clear |= DMA_STATUS_AND_IRQ_RECEIVE_DONE;
 		napi_schedule(&pd->napi);
+	}
+
+	if (int_sts & DMA_STATUS_AND_IRQ_MAC) {
+		ints_to_clear |= DMA_STATUS_AND_IRQ_MAC;
+		arasan_gemac_mac_interrupt(pd);
 	}
 
 	if (ints_to_clear)
@@ -918,23 +1012,18 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 
 		if (gpio_is_valid(pd->txclk_125en))
 			gpio_set_value(pd->txclk_125en, 0);
-
-		arasan_gemac_writel(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD,
-				    128);
 		break;
 	case SPEED_1000:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(2);
 
 		if (gpio_is_valid(pd->txclk_125en))
 			gpio_set_value(pd->txclk_125en, 1);
-
-		arasan_gemac_writel(pd, MAC_TRANSMIT_PACKET_START_THRESHOLD,
-				    1024);
 		break;
 	default:
 		netdev_err(dev, "Unknown speed (%d)\n", phydev->speed);
 		return;
 	}
+	arasan_gemac_set_threshold(pd);
 
 	arasan_gemac_writel(pd, MAC_GLOBAL_CONTROL, reg);
 }
@@ -1106,7 +1195,8 @@ int arasan_gemac_start_mac(struct net_device *dev)
 	/* Enable interrupts */
 	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE,
 			    DMA_INTERRUPT_ENABLE_RECEIVE_DONE |
-			    DMA_INTERRUPT_ENABLE_TRANS_DESC_UNAVAIL);
+			    DMA_INTERRUPT_ENABLE_TRANS_DESC_UNAVAIL |
+			    DMA_INTERRUPT_ENABLE_MAC);
 
 	/* Enable packet transmission */
 	arasan_gemac_start_tx(pd);

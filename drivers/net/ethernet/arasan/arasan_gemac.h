@@ -16,6 +16,9 @@
  * more than 3500 bytes. This bugs lead to lack of transmission. */
 #define ARASAN_JUMBO_MTU 3500U
 
+/* GEMAC FIFO depth in 32 bit words */
+#define ARASAN_FIFO_SZ 1024
+
 #define mtu_to_frame_sz(x) ((x) + VLAN_ETH_HLEN)
 #define mtu_to_buf_sz(x) (mtu_to_frame_sz(x) + NET_IP_ALIGN + 4)
 
@@ -107,6 +110,9 @@
 #define DMA_INTERRUPT_ENABLE_TRANS_DESC_UNAVAIL       BIT(1)
 #define DMA_INTERRUPT_ENABLE_RECEIVE_DONE             BIT(4)
 
+#define DMA_INTERRUPT_ENABLE_MAC                      BIT(8)
+#define DMA_STATUS_AND_IRQ_MAC                        BIT(8)
+
 #define MAC_GLOBAL_CONTROL_SPEED(VAL)                 ((VAL) << 0)
 #define MAC_GLOBAL_CONTROL_DUPLEX_MODE(VAL)           ((VAL) << 2)
 
@@ -126,6 +132,9 @@
 #define MAC_MDIO_CONTROL_REG_ADDR(VAL)                ((VAL) << 5)
 #define MAC_MDIO_CONTROL_PHY_ADDR(VAL)                ((VAL) << 0)
 #define MAC_MDIO_CONTROL_START_FRAME(VAL)             ((VAL) << 15)
+
+#define MAC_INTERRUPT_ENABLE_UNDERRUN                 BIT(0)
+#define MAC_IRQ_STATUS_UNDERRUN                       BIT(0)
 
 /* DMA descriptor fields */
 
