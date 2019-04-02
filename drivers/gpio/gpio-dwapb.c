@@ -645,6 +645,7 @@ dwapb_gpio_get_pdata(struct device *dev)
 	int nports;
 	int skip_count;
 	int i, j;
+	u32 skip_list[32];
 
 	nports = device_get_child_node_count(dev);
 	if (nports == 0)
@@ -686,22 +687,20 @@ dwapb_gpio_get_pdata(struct device *dev)
 		pp->irq_shared	= false;
 		pp->gpio_base	= -1;
 
-		skip_count = of_property_count_elems_of_size(port_np,
-							     "skip-gpios",
-							     sizeof(u32));
-		for (j = 0; j < skip_count; j++) {
-			u32 num;
+		skip_count = fwnode_property_count_u32(fwnode,
+						       "skip-gpio-list");
 
-			if (of_property_read_u32_index(port_np, "skip-gpios",
-						       j, &num)) {
-				dev_err(dev,
-					"failed to get index %d from skip-gpios property (%s)",
-					j, port_np->full_name);
-				return ERR_PTR(-EINVAL);
-			}
+		if (skip_count < 0)
+			skip_count = 0;
+		if (skip_count > ARRAY_SIZE(skip_list))
+			dev_warn(dev, "Too many elements in skip-gpio-list\n");
+		skip_count = min(skip_count, (int)ARRAY_SIZE(skip_list));
 
-			pp->skip_mask |= BIT(num);
-		}
+		fwnode_property_read_u32_array(fwnode, "skip-gpio-list",
+					       skip_list, skip_count);
+
+		for (j = 0; j < skip_count; j++)
+			pp->skip_mask |= BIT(skip_list[j]);
 
 		/*
 		 * Only port A can provide interrupts in all configurations of
