@@ -2,7 +2,7 @@
 /*
  * MCOM02 Secure Digital Host Controller Interface.
  *
- * Copyright 2017 RnD Center "ELVEES", JSC
+ * Copyright 2017 - 2019 RnD Center "ELVEES", JSC
  * Copyright 2011 - 2012 Michal Simek <monstr@monstr.eu>
  * Copyright 2012 Wind River Systems, Inc.
  * Copyright 2013 Pengutronix e.K.
@@ -67,6 +67,7 @@ static void sdhci_mcom02_set_tap_delay(struct sdhci_host *host, u8 otapdlysel)
 
 	tmp = readl(host->ioaddr + CONFIG_SIGNALS_REG1_OFFSET);
 	tmp |= CONFIG_SIGNALS_OTAPDLYENA;
+	tmp &= ~CONFIG_SIGNALS_OTAPDLYSEL;
 	tmp |= prep_field(otapdlysel, CONFIG_SIGNALS_OTAPDLYSEL);
 	writel(tmp, host->ioaddr + CONFIG_SIGNALS_REG1_OFFSET);
 }
