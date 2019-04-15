@@ -760,17 +760,14 @@ static void avico_dma_out_callback(void *data)
 	v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
 }
 
-/* Setup and start DMA for copy data from bounce buffer to DDR */
-static uint32_t avico_copy_bounce(struct avico_ctx *ctx,
-			      dma_async_tx_callback callback)
+/* Setup DMA to copy encoded data from bounce buffer to DDR */
+static uint32_t avico_setup_bounceout(struct avico_ctx *ctx,
+				      dma_async_tx_callback callback)
 {
-	uint32_t frame_size;
-	uint32_t ref_size, out_size;
+	uint32_t out_size = avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_AECUR) -
+			    ctx->bounceout[ctx->bounce_active];
 	struct dma_async_tx_descriptor *tx;
 
-	ref_size = ctx->mbx * MB_SIZE; /* We are working by row of MB */
-	out_size = avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_AECUR) -
-					  ctx->bounceout[ctx->bounce_active];
 	/* If out_size is zero and DONE is 1 then AECUR is wrapped to A0E */
 	if (out_size == 0 && avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_DONE))
 		out_size = BOUNCE_BUF_SIZE;
@@ -785,10 +782,21 @@ static uint32_t avico_copy_bounce(struct avico_ctx *ctx,
 		tx->callback_param = ctx;
 		tx->callback = callback;
 		dmaengine_submit(tx);
+
 		ctx->out_ptr_off += out_size;
 	}
 
-	frame_size = ctx->mbx * ctx->mby * MB_SIZE;
+	return out_size;
+}
+
+/* Setup DMA to copy reconstructed data from bounce buffer to DDR */
+static void avico_setup_bounceref(struct avico_ctx *ctx,
+				  dma_async_tx_callback callback)
+{
+	uint32_t frame_size = ctx->mbx * ctx->mby * MB_SIZE;
+	uint32_t ref_size = ctx->mbx * MB_SIZE; /* We work by row of MB */
+	struct dma_async_tx_descriptor *tx;
+
 	if (ctx->ref_ptr_off + ref_size > frame_size) {
 		/* First half of last row should be written to end of the frame.
 		 * Second half should be written to the beginning of the
@@ -803,6 +811,8 @@ static uint32_t avico_copy_bounce(struct avico_ctx *ctx,
 			ctx->dev->dma_ch, ctx->dmaref,
 			ctx->bounceref[ctx->bounce_active] + end_part_size,
 			ref_size - end_part_size, 0);
+		tx->callback_param = ctx;
+		tx->callback = callback;
 		dmaengine_submit(tx);
 
 		ctx->ref_ptr_off = ref_size - end_part_size;
@@ -810,13 +820,40 @@ static uint32_t avico_copy_bounce(struct avico_ctx *ctx,
 		tx = ctx->dev->dma_ch->device->device_prep_dma_memcpy(
 			ctx->dev->dma_ch, ctx->dmaref + ctx->ref_ptr_off,
 			ctx->bounceref[ctx->bounce_active], ref_size, 0);
+		tx->callback_param = ctx;
+		tx->callback = callback;
 		dmaengine_submit(tx);
 
 		ctx->ref_ptr_off += ref_size;
 	}
+}
+
+/* Setup and start DMA to copy data from bounce buffer to DDR */
+static int avico_copy_bounce(struct avico_ctx *ctx, bool eof)
+{
+	uint32_t out_size = avico_setup_bounceout(ctx, eof ?
+						       avico_dma_out_callback :
+						       NULL);
+
+	/*
+	 * Don't wait for the end of copying of encoded data when there is no
+	 * encoded data. We expect out_size isn't zero for last row in frame so
+	 * if it is zero we return error. We don't terminate SDMA activity in
+	 * that case because we wait for the end of copying of reconstructed
+	 * frame.
+	 */
+	if (eof && out_size == 0) {
+		avico_setup_bounceref(ctx, avico_dma_out_callback);
+		dma_async_issue_pending(ctx->dev->dma_ch);
+
+		return -EFAULT;
+	}
+
+	avico_setup_bounceref(ctx, NULL);
+
 	dma_async_issue_pending(ctx->dev->dma_ch);
 
-	return out_size;
+	return 0;
 }
 
 static void avico_prepare_to_finish(struct avico_ctx *ctx)
@@ -858,7 +895,6 @@ static irqreturn_t avico_irq(int irq, void *data)
 	u32 events;
 	bool eof;
 	int i;
-	uint32_t out_size;
 
 	/* \todo How does this will work for several HW threads? */
 	ctx = v4l2_m2m_get_curr_priv(dev->m2m_dev);
@@ -893,8 +929,7 @@ static irqreturn_t avico_irq(int irq, void *data)
 	if (ctx->aborting)
 		goto err;
 
-	out_size = avico_copy_bounce(ctx, eof ? avico_dma_out_callback : NULL);
-	if (eof && out_size == 0)
+	if (avico_copy_bounce(ctx, eof))
 		goto err;
 
 	/* Swap active buffers */
@@ -954,7 +989,8 @@ static irqreturn_t avico_irq(int irq, void *data)
 err:
 	ctx->error = true;
 	avico_prepare_to_finish(ctx);
-	avico_dma_out_callback(ctx);
+	if (ctx->aborting)
+		avico_dma_out_callback(ctx);
 
 	return IRQ_HANDLED;
 }
