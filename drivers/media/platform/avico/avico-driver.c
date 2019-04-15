@@ -926,8 +926,10 @@ static irqreturn_t avico_irq(int irq, void *data)
 				AVICO_VDMA_CHANNEL_RUN);
 	}
 
-	if (ctx->aborting)
+	if (ctx->aborting) {
+		dmaengine_terminate_all(ctx->dev->dma_ch);
 		goto err;
+	}
 
 	if (avico_copy_bounce(ctx, eof))
 		goto err;
