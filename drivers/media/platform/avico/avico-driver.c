@@ -724,6 +724,8 @@ static void avico_start(struct avico_ctx *ctx)
 	int8_t qpc_offset;
 	struct avico_frame_params *par = &ctx->par;
 
+	ctx->bounce_count = 0;
+
 	src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	dst = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 
@@ -853,8 +855,11 @@ static void avico_run(void *priv)
 	avico_restore(ctx);
 }
 
-/* This function will call by DMA after coping last output data in frame */
-static void avico_dma_out_callback(void *data)
+/*
+ * This function will be called by SDMA after frame's last encoded and
+ * reconstructed data was copied to DDR
+ */
+static void avico_eof_sdma_callback(void *data)
 {
 	struct avico_ctx *ctx = (struct avico_ctx *)data;
 	struct avico_dev *dev = ctx->dev;
@@ -888,8 +893,7 @@ static void avico_dma_out_callback(void *data)
 	dst->sequence = ctx->capseq++;
 	src->sequence = ctx->outseq++;
 
-	memcpy(&dst->timestamp, &src->timestamp,
-	       sizeof(struct timeval));
+	memcpy(&dst->timestamp, &src->timestamp, sizeof(struct timeval));
 	if (src->flags & V4L2_BUF_FLAG_TIMECODE) {
 		memcpy(&dst->timecode, &src->timecode,
 		       sizeof(struct v4l2_timecode));
@@ -911,9 +915,72 @@ static void avico_dma_out_callback(void *data)
 		ctx->par.frame = 0;
 }
 
-/* Setup DMA to copy encoded data from bounce buffer to DDR */
-static uint32_t avico_setup_bounceout(struct avico_ctx *ctx,
-				      dma_async_tx_callback callback)
+static void avico_vdma_next_bounce(struct avico_ctx *ctx)
+{
+	union smbpos smbpos;
+	u32 msk_int;
+
+	/* Swap active buffers */
+	ctx->bounce_active ^= 1;
+	avico_dma_write(ctx->bounceref[ctx->bounce_active], ctx, 2,
+			AVICO_VDMA_CHANNEL_A0E);
+	avico_dma_configure_bounceout(ctx, 3);
+
+	smbpos.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
+				     AVICO_THREAD_SMBPOS);
+	smbpos.y6++;  /* Set next stop position */
+
+	/* If next row is last then M6POS will not stop and we
+	 * need to enable M6EOF bit */
+	if (smbpos.y6 >= ctx->mby) {
+		msk_int = 0x80;
+		m6pos_enable(ctx, false);
+	} else {
+		msk_int = 0x40;
+		avico_write(smbpos.val, ctx,
+			    AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_SMBPOS);
+	}
+
+	/* In M6POS mode before continue we need to OFF and ON thread */
+	/* \todo Add reference to the section in manual. */
+	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_OFF);
+	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_ON);
+
+	avico_write(0x40 << (ctx->id * 8), ctx,
+		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
+	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
+
+	/* BUG: We do not know how correctly clean events flag before
+	 * exit from IRQ handler. If we exit immediately after cleaning
+	 * events flag then IRQ handler can be called again. To
+	 * prevent this we run DMA channels after cleaning event and
+	 * use memory barrier. */
+	wmb();
+
+	/* If next row isn't last then enable interrupt by EV6 */
+	avico_write(msk_int, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
+
+	avico_dma_write(1, ctx, ctx->id * 4 + 2, AVICO_VDMA_CHANNEL_RUN);
+	avico_dma_write(1, ctx, ctx->id * 4 + 3, AVICO_VDMA_CHANNEL_RUN);
+}
+
+/*
+ * This function will be called by SDMA after intermediate encoded and
+ * reconstructed data was copied to DDR
+ */
+static void avico_sdma_callback(void *data)
+{
+	struct avico_ctx *ctx = (struct avico_ctx *)data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctx->bounce_lock, flags);
+	if (ctx->bounce_count-- >= 2)
+		avico_vdma_next_bounce(ctx);
+	spin_unlock_irqrestore(&ctx->bounce_lock, flags);
+}
+
+/* Setup SDMA to copy encoded data from bounce buffer to DDR */
+static uint32_t avico_setup_bounceout(struct avico_ctx *ctx)
 {
 	uint32_t out_size = avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_AECUR) -
 			    ctx->bounceout[ctx->bounce_active];
@@ -924,14 +991,15 @@ static uint32_t avico_setup_bounceout(struct avico_ctx *ctx,
 		out_size = BOUNCE_BUF_SIZE;
 	avico_dma_write(0, ctx, 3, AVICO_VDMA_CHANNEL_DONE);
 
-	/* Bitstream redy not for all rows. We can not run DMA without
-	 * buffer length */
+	/*
+	 * Bitstream could not to be ready for some rows (for the last row it is
+	 * only possible due to error) so we can't run SDMA when out_size is
+	 * zero.
+	 */
 	if (out_size) {
 		tx = ctx->dev->dma_ch->device->device_prep_dma_memcpy(
 			ctx->dev->dma_ch, ctx->dmaout + ctx->out_ptr_off,
 			ctx->bounceout[ctx->bounce_active], out_size, 0);
-		tx->callback_param = ctx;
-		tx->callback = callback;
 		dmaengine_submit(tx);
 
 		ctx->out_ptr_off += out_size;
@@ -940,7 +1008,7 @@ static uint32_t avico_setup_bounceout(struct avico_ctx *ctx,
 	return out_size;
 }
 
-/* Setup DMA to copy reconstructed data from bounce buffer to DDR */
+/* Setup SDMA to copy reconstructed data from bounce buffer to DDR */
 static void avico_setup_bounceref(struct avico_ctx *ctx,
 				  dma_async_tx_callback callback)
 {
@@ -979,30 +1047,25 @@ static void avico_setup_bounceref(struct avico_ctx *ctx,
 	}
 }
 
-/* Setup and start DMA to copy data from bounce buffer to DDR */
+/* Setup SDMA to copy data from bounce buffer to DDR */
 static int avico_copy_bounce(struct avico_ctx *ctx, bool eof)
 {
-	uint32_t out_size = avico_setup_bounceout(ctx, eof ?
-						       avico_dma_out_callback :
-						       NULL);
+	uint32_t out_size = avico_setup_bounceout(ctx);
 
-	/*
-	 * Don't wait for the end of copying of encoded data when there is no
-	 * encoded data. We expect out_size isn't zero for last row in frame so
-	 * if it is zero we return error. We don't terminate SDMA activity in
-	 * that case because we wait for the end of copying of reconstructed
-	 * frame.
-	 */
-	if (eof && out_size == 0) {
-		avico_setup_bounceref(ctx, avico_dma_out_callback);
-		dma_async_issue_pending(ctx->dev->dma_ch);
-
-		return -EFAULT;
-	}
-
-	avico_setup_bounceref(ctx, NULL);
+	if (!eof)
+		avico_setup_bounceref(ctx, avico_sdma_callback);
+	else
+		avico_setup_bounceref(ctx, avico_eof_sdma_callback);
 
 	dma_async_issue_pending(ctx->dev->dma_ch);
+
+	/*
+	 * We expect out_size isn't zero for last row in frame so if it is zero
+	 * we return error. We don't terminate SDMA activity in that case
+	 * because we wait for the end of copying of reconstructed frame.
+	 */
+	if (eof && out_size == 0)
+		return -EFAULT;
 
 	return 0;
 }
@@ -1057,48 +1120,6 @@ static void avico_wait_for_mb_flush(struct avico_ctx *ctx)
 		events = avico_read(ctx, AVICO_CTRL_EVENTS);
 }
 
-static void avico_vdma_proceed(struct avico_ctx *ctx)
-{
-	union smbpos smbpos;
-
-	/* Swap active buffers */
-	ctx->bounce_active ^= 1;
-	avico_dma_write(ctx->bounceref[ctx->bounce_active], ctx, 2,
-			AVICO_VDMA_CHANNEL_A0E);
-	avico_dma_configure_bounceout(ctx, 3);
-
-	smbpos.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
-				     AVICO_THREAD_SMBPOS);
-	smbpos.y6++;  /* Set next stop position */
-
-	/* If next row is last then M6POS will not stop and we
-	 * need to enable M6EOF bit */
-	if (smbpos.y6 >= ctx->mby) {
-		avico_write(0x80, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
-		m6pos_enable(ctx, false);
-	} else
-		avico_write(smbpos.val, ctx,
-			    AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_SMBPOS);
-
-	/* In M6POS mode before continue we need to OFF and ON thread */
-	/* \todo Add reference to the section in manual. */
-	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_OFF);
-	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_ON);
-
-	avico_write(0x40 << (ctx->id * 8), ctx,
-		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
-	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
-	/* BUG: We do not know how correctly clean events flag before
-	 * exit from IRQ handler. If we exit immediately after cleaning
-	 * events flag then IRQ handler can be called again. To
-	 * prevent this we run DMA channels after cleaning event and
-	 * use memory barrier. */
-	wmb();
-
-	avico_dma_write(1, ctx, ctx->id * 4 + 2, AVICO_VDMA_CHANNEL_RUN);
-	avico_dma_write(1, ctx, ctx->id * 4 + 3, AVICO_VDMA_CHANNEL_RUN);
-}
-
 static irqreturn_t avico_irq(int irq, void *data)
 {
 	struct avico_dev *dev = (struct avico_dev *)data;
@@ -1119,23 +1140,31 @@ static irqreturn_t avico_irq(int irq, void *data)
 
 	switch (ctx->state) {
 	case AVICO_ST_ENCODING:
-		if (!eof) { /* If it isn't last row then run next row */
+		if (!eof) {
 			avico_wait_for_mb_flush(ctx);
 			avico_dma_write(0, ctx, ctx->id * 4 + 2,
 					AVICO_VDMA_CHANNEL_RUN);
 			avico_dma_write(0, ctx, ctx->id * 4 + 3,
 					AVICO_VDMA_CHANNEL_RUN);
+		}
 
-			if (ctx->aborting || avico_copy_bounce(ctx, eof) < 0)
-				goto err;
+		if (ctx->aborting || avico_copy_bounce(ctx, eof) < 0)
+			goto err;
 
-			avico_vdma_proceed(ctx);
-		} else { /* Last part of frame has been encoded */
-			if (ctx->aborting || avico_copy_bounce(ctx, eof) < 0)
-				goto err;
-
+		/* If it isn't last row then run next row */
+		if (!eof) {
+			spin_lock(&ctx->bounce_lock);
+			/* Run VDMA for the next buffer if there is no SDMA */
+			if (++ctx->bounce_count < 2)
+				avico_vdma_next_bounce(ctx);
+			else
+				avico_write(0, ctx, AVICO_CTRL_BASE +
+						    AVICO_CTRL_MSK_INT);
+			spin_unlock(&ctx->bounce_lock);
+		} else {
 			avico_clear_disable_events(ctx);
 		}
+
 		break;
 	case AVICO_ST_RESTORING:
 	case AVICO_ST_SAVING:
@@ -1168,7 +1197,7 @@ err:
 	avico_clear_disable_events(ctx);
 	if (ctx->aborting) {
 		dmaengine_terminate_all(ctx->dev->dma_ch);
-		avico_dma_out_callback(ctx);
+		avico_eof_sdma_callback(ctx);
 	}
 
 	return IRQ_HANDLED;
@@ -1812,6 +1841,7 @@ static int avico_open(struct file *file)
 		ctx->bounceref[i] = BOUNCE_BUF_BASE + BOUNCE_BUF_SIZE * i;
 		ctx->bounceout[i] = BOUNCE_BUF_BASE + BOUNCE_BUF_SIZE * (2 + i);
 	}
+	spin_lock_init(&ctx->bounce_lock);
 
 	pr_devel("Initializing M2M context...\n");
 	ctx->fh.m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx, &queue_init);
