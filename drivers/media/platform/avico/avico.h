@@ -550,7 +550,8 @@ struct avico_ctx {
 	uint8_t vdma_trans_size_m1;
 
 	uint8_t mbx, mby;
-	int8_t qpy, qpc;
+	uint8_t qp_i, qp_p, pps_qp;
+	int8_t qpc_offset;
 	int dbf;
 	enum frame_type frame_type;
 	bool idr, outon, capon;
@@ -580,8 +581,9 @@ struct avico_ctx {
 	unsigned int outsize, capsize, refsize;
 	unsigned int outseq, capseq;
 
+	struct v4l2_ctrl	*ctrl_qp_i;
+	struct v4l2_ctrl	*ctrl_qp_p;
 	struct v4l2_ctrl_handler ctrl_handler;
-	struct v4l2_ctrl *ctrl_qp;
 };
 
 #define MAX_RBSP_LENGTH 0x0ffffc

@@ -555,10 +555,11 @@ static void avico_thread_init(struct avico_ctx *ctx)
 		.ares = ctx->id * 0x0080 + mbpos.nx
 	};
 
+	uint8_t qp = ctx->frame_type == VE_FR_I ? ctx->qp_i : ctx->qp_p;
 	union task task = {
 		.std = VE_STD_H264,
-		.qpy = ctx->qpy,
-		.qpc = ctx->qpc,
+		.qpy = qp,
+		.qpc = clamp(qp + ctx->qpc_offset, 0, 51),
 		.dbf = ctx->dbf,
 		.m6eof = 1,
 		.m7eof = 1
@@ -731,6 +732,26 @@ static void avico_start(struct avico_ctx *ctx)
 	ctx->error = false;
 
 	/*
+	 * We can't take ctx->ctrl_handler.lock in this function because
+	 * it can be called in atomic context so we don't support atomic
+	 * reading of controls.
+	 */
+	ctx->qp_i = ctx->ctrl_qp_i->cur.val;
+	ctx->qp_p = ctx->ctrl_qp_p->cur.val;
+
+	if (ctx->frame % ctx->gop == 0) {
+		ctx->frame_type = VE_FR_I;
+		ctx->idr = true;
+		ctx->frame = 0;
+	} else if (ctx->i_period > 0 && ctx->frame % ctx->i_period == 0) {
+		ctx->frame_type = VE_FR_I;
+		ctx->idr = false;
+	} else {
+		ctx->frame_type  = VE_FR_P;
+		ctx->idr = false;
+	}
+
+	/*
 	 * TODO: Optimization: don't call if the same SW context is run on the
 	 * same HW context
 	 */
@@ -758,21 +779,8 @@ static void avico_start(struct avico_ctx *ctx)
 		return;
 	}*/
 
-	if (ctx->frame % ctx->gop == 0) {
-		ctx->frame_type = VE_FR_I;
-		ctx->idr = true;
-	} else if (ctx->i_period > 0 && ctx->frame % ctx->i_period == 0) {
-		ctx->frame_type = VE_FR_I;
-		ctx->idr = false;
-	} else {
-		ctx->frame_type  = VE_FR_P;
-		ctx->idr = false;
-	}
-
-	if (ctx->frame_type == VE_FR_I && ctx->idr) {
-		ctx->frame = 0;
+	if (ctx->idr)
 		avico_bitstream_write_sps_pps(ctx);
-	}
 
 	avico_bitstream_write_slice_header(ctx);
 
@@ -1506,11 +1514,6 @@ static void avico_buf_queue(struct vb2_buffer *vb)
 	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 }
 
-static void avico_grab_controls(struct avico_ctx *ctx, bool grab)
-{
-	v4l2_ctrl_grab(ctx->ctrl_qp, grab);
-}
-
 static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
@@ -1549,8 +1552,6 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	ctx->vdma_trans_size_m1 = 3;
 
 	ctx->thread = ctx->dev->regs + AVICO_THREAD_BASE(ctx->id);
-
-	avico_grab_controls(ctx, true);
 
 	ctx->refsize = ctx->mbx * ctx->mby * (256 + 128);
 
@@ -1637,7 +1638,6 @@ static void avico_stop_streaming(struct vb2_queue *q)
 		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->mbcursize,
 				  ctx->vmbcur, ctx->dmambcur);
 
-		avico_grab_controls(ctx, false);
 		ctx->aborting = 0;
 	}
 
@@ -1686,15 +1686,6 @@ static int queue_init(void *priv, struct vb2_queue *src, struct vb2_queue *dst)
 
 static int avico_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct avico_ctx *ctx = container_of(ctrl->handler, struct avico_ctx,
-					     ctrl_handler);
-
-	switch (ctrl->id) {
-	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP:
-		ctx->qpy = ctx->qpc = ctrl->val;
-		break;
-	}
-
 	return 0;
 }
 
@@ -1706,11 +1697,14 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 {
 	struct avico_dev *dev = ctx->dev;
 
-	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 1);
+	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 2);
 
-	ctx->ctrl_qp = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
-					 V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
-					 0, 51, 1, 28);
+	ctx->ctrl_qp_i = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+					   V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
+					   0, 51, 1, 28);
+	ctx->ctrl_qp_p = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+					   V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP,
+					   0, 51, 1, 28);
 
 	if (ctx->ctrl_handler.error) {
 		int err = ctx->ctrl_handler.error;

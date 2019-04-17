@@ -263,9 +263,11 @@ void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
 	writeue(bs, 0);   /* num_ref_idx_l1_default_active - 1 */
 	writeu(bs, 1, 0); /* weighted_pred_flag */
 	writeu(bs, 2, 0); /* weighted_bipred_idc */
-	writese(bs, ctx->qpy - 26);       /* pic_init_qp - 26 */
-	writese(bs, ctx->qpy - 26);       /* pic_init_qs - 26 */
-	writese(bs, ctx->qpc - ctx->qpy); /* chroma_qp_index_offset */
+
+	ctx->pps_qp = ctx->qp_i;
+	writese(bs, ctx->pps_qp - 26); /* pic_init_qp - 26 */
+	writese(bs, ctx->pps_qp - 26); /* pic_init_qs - 26 */
+	writese(bs, ctx->qpc_offset); /* chroma_qp_index_offset */
 
 	/* \todo DBF should depend on off_a and off_b (see Rolschikov's code */
 	writeu(bs, 1, !ctx->dbf);  /* dbf_control_present_flag */
@@ -314,7 +316,10 @@ void avico_bitstream_write_slice_header(struct avico_ctx *ctx)
 		writeu(bs, 1, 0); /* adaptive_ref_pic_buffering_flag */
 	}
 
-	writese(bs, 0); /* slice_qp_delta */
+	if (ctx->frame_type == VE_FR_I)
+		writese(bs, ctx->qp_i - ctx->pps_qp); /* slice_qp_delta */
+	else
+		writese(bs, ctx->qp_p - ctx->pps_qp); /* slice_qp_delta */
 
 	/* \todo DBF should depend on off_a and off_b (see Rolschikov's code */
 	if (!ctx->dbf)
