@@ -304,7 +304,7 @@ void avico_bitstream_write_slice_header(struct avico_ctx *ctx)
 	writeu(bs, 4, ctx->frame); /* frame_num */
 
 	if (ctx->idr)
-		writeue(bs, ctx->frame & 0x01); /* idr_pic_id */
+		writeue(bs, ctx->idr_id); /* idr_pic_id */
 
 	/* POC type is always 2 */
 	/* \todo Support different POC types */

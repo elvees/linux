@@ -555,6 +555,8 @@ struct avico_ctx {
 	int dbf;
 	enum frame_type frame_type;
 	bool idr, outon, capon;
+	uint16_t idr_id;
+	bool force_key;
 	unsigned int frame, maxframe;
 	unsigned int i_period;
 	unsigned int bitstream_size;

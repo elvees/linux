@@ -733,6 +733,8 @@ static void avico_start(struct avico_ctx *ctx)
 
 	ctx->error = false;
 
+	ctx->idr = (ctx->frame % ctx->gop) == 0;
+
 	/*
 	 * We can't take ctx->ctrl_handler.lock in this function because
 	 * it can be called in atomic context so we don't support atomic
@@ -741,18 +743,20 @@ static void avico_start(struct avico_ctx *ctx)
 	ctx->qp_i = ctx->ctrl_qp_i->cur.val;
 	ctx->qp_p = ctx->ctrl_qp_p->cur.val;
 	qpc_offset = ctx->ctrl_qpc_off->cur.val;
-
-	if (ctx->frame % ctx->gop == 0) {
-		ctx->frame_type = VE_FR_I;
+	if (ctx->force_key) {
+		ctx->force_key = false;
 		ctx->idr = true;
+	}
+
+	if (ctx->idr) {
+		ctx->frame_type = VE_FR_I;
+		ctx->idr_id++;
 		ctx->frame = 0;
 		write_pps = true;
 	} else if (ctx->i_period > 0 && ctx->frame % ctx->i_period == 0) {
 		ctx->frame_type = VE_FR_I;
-		ctx->idr = false;
 	} else {
 		ctx->frame_type  = VE_FR_P;
-		ctx->idr = false;
 	}
 
 	/*
@@ -1703,6 +1707,15 @@ static int queue_init(void *priv, struct vb2_queue *src, struct vb2_queue *dst)
 
 static int avico_s_ctrl(struct v4l2_ctrl *ctrl)
 {
+	struct avico_ctx *ctx = container_of(ctrl->handler, struct avico_ctx,
+					     ctrl_handler);
+
+	switch (ctrl->id) {
+	case V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME:
+		ctx->force_key = true;
+		break;
+	}
+
 	return 0;
 }
 
@@ -1714,7 +1727,7 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 {
 	struct avico_dev *dev = ctx->dev;
 
-	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 3);
+	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 4);
 
 	ctx->ctrl_qp_i = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
 					   V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
@@ -1726,6 +1739,8 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 					      &avico_ctrl_ops,
 				V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET,
 					      -12, 12, 1, 0);
+	v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME, 0, 0, 0, 0);
 
 	if (ctx->ctrl_handler.error) {
 		int err = ctx->ctrl_handler.error;
