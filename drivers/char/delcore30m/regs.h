@@ -15,6 +15,7 @@
 /*---------private registers-----------*/
 #define DELCORE30M_A0				0x080
 #define DELCORE30M_A1				0x084
+#define DELCORE30M_A5				0x094
 #define DELCORE30M_A6				0x098
 #define DELCORE30M_A7				0x09C
 

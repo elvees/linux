@@ -620,9 +620,8 @@ done:
 void reset_cores(struct delcore30m_job_desc *job_desc)
 {
 	struct delcore30m_private_data *pdata = job_desc->pdata;
-	u32 qstr_val, i;
-
-	qstr_val = delcore30m_readl_cmn(pdata, DELCORE30M_QSTR_DSP);
+	u32 i;
+	off_t offset;
 
 	for_each_set_bit(i, &job_desc->cores, MAX_CORES) {
 		delcore30m_writel(pdata, i, DELCORE30M_DCSR, 0x0);
@@ -633,13 +632,11 @@ void reset_cores(struct delcore30m_job_desc *job_desc)
 		delcore30m_writel(pdata, i, DELCORE30M_CSH, 0x0);
 		delcore30m_writel(pdata, i, DELCORE30M_SP, 0x0);
 
-		delcore30m_writel(pdata, i, DELCORE30M_A0, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_A1, 0x0);
+		offset = DELCORE30M_A0;
 
-		qstr_val &= ~DELCORE30M_QSTR_MASK(i);
+		for (; offset <= DELCORE30M_A5; offset += 4)
+			delcore30m_writel(pdata, i, offset, 0x0);
 	}
-
-	delcore30m_writel_cmn(pdata, DELCORE30M_QSTR_DSP, qstr_val);
 }
 
 static struct sg_table *delcore30m_dmabuf_map(struct dma_buf_attachment *attach,
