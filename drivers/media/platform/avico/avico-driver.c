@@ -719,6 +719,8 @@ static void avico_start(struct avico_ctx *ctx)
 	uint32_t const fr_ref_reserve_offset = (ctx->mbx * 16) * 12;
 	uint32_t const fr_size_ram = (ctx->mbx * 16) * (ctx->mby * 16) * 3 / 2;
 	union smbpos smbpos;
+	bool write_pps = false;
+	int8_t qpc_offset;
 
 	src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	dst = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
@@ -738,17 +740,29 @@ static void avico_start(struct avico_ctx *ctx)
 	 */
 	ctx->qp_i = ctx->ctrl_qp_i->cur.val;
 	ctx->qp_p = ctx->ctrl_qp_p->cur.val;
+	qpc_offset = ctx->ctrl_qpc_off->cur.val;
 
 	if (ctx->frame % ctx->gop == 0) {
 		ctx->frame_type = VE_FR_I;
 		ctx->idr = true;
 		ctx->frame = 0;
+		write_pps = true;
 	} else if (ctx->i_period > 0 && ctx->frame % ctx->i_period == 0) {
 		ctx->frame_type = VE_FR_I;
 		ctx->idr = false;
 	} else {
 		ctx->frame_type  = VE_FR_P;
 		ctx->idr = false;
+	}
+
+	/*
+	 * Write PPS if chroma_qp_index_offset has been changed. qpc_offset is
+	 * used instead of ctx->ctrl_qpc_off->cur.val to read control
+	 * atomically.
+	 */
+	if (ctx->qpc_offset != qpc_offset) {
+		write_pps = true;
+		ctx->qpc_offset = qpc_offset;
 	}
 
 	/*
@@ -780,7 +794,10 @@ static void avico_start(struct avico_ctx *ctx)
 	}*/
 
 	if (ctx->idr)
-		avico_bitstream_write_sps_pps(ctx);
+		avico_bitstream_write_sps(ctx);
+
+	if (write_pps)
+		avico_bitstream_write_pps(ctx);
 
 	avico_bitstream_write_slice_header(ctx);
 
@@ -1697,7 +1714,7 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 {
 	struct avico_dev *dev = ctx->dev;
 
-	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 2);
+	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 3);
 
 	ctx->ctrl_qp_i = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
 					   V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
@@ -1705,6 +1722,10 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 	ctx->ctrl_qp_p = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
 					   V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP,
 					   0, 51, 1, 28);
+	ctx->ctrl_qpc_off = v4l2_ctrl_new_std(&ctx->ctrl_handler,
+					      &avico_ctrl_ops,
+				V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET,
+					      -12, 12, 1, 0);
 
 	if (ctx->ctrl_handler.error) {
 		int err = ctx->ctrl_handler.error;

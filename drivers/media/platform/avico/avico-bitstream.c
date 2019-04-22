@@ -150,7 +150,7 @@ struct syntax_element {
 	uint32_t value;
 };
 
-void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
+void avico_bitstream_write_sps(struct avico_ctx *ctx)
 {
 	int i;
 	struct bitstream *const bs = &ctx->bs;
@@ -246,6 +246,11 @@ void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
 	}
 
 	write_trailing_bits(bs);
+}
+
+void avico_bitstream_write_pps(struct avico_ctx *ctx)
+{
+	struct bitstream *const bs = &ctx->bs;
 
 	/* Write PPS */
 	write_delimiter(bs);
@@ -267,7 +272,7 @@ void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
 	ctx->pps_qp = ctx->qp_i;
 	writese(bs, ctx->pps_qp - 26); /* pic_init_qp - 26 */
 	writese(bs, ctx->pps_qp - 26); /* pic_init_qs - 26 */
-	writese(bs, ctx->qpc_offset); /* chroma_qp_index_offset */
+	writese(bs, ctx->qpc_offset);  /* chroma_qp_index_offset */
 
 	/* \todo DBF should depend on off_a and off_b (see Rolschikov's code */
 	writeu(bs, 1, !ctx->dbf);  /* dbf_control_present_flag */

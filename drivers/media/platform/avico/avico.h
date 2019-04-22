@@ -539,8 +539,8 @@ struct avico_ctx {
 
 	unsigned long state;
 
-	uint16_t sps;
-	uint16_t pps;
+	uint8_t sps;
+	uint8_t pps;
 	uint16_t gop;
 	/* \todo Crop */
 	/* \todo MD configuration */
@@ -583,6 +583,7 @@ struct avico_ctx {
 
 	struct v4l2_ctrl	*ctrl_qp_i;
 	struct v4l2_ctrl	*ctrl_qp_p;
+	struct v4l2_ctrl	*ctrl_qpc_off;
 	struct v4l2_ctrl_handler ctrl_handler;
 };
 
