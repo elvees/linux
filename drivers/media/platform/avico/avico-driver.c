@@ -127,14 +127,14 @@ static void avico_abort(void *priv)
 void avico_thread_configure(struct avico_ctx *ctx)
 {
 	union frmn frmn = {
-		.frmn = ctx->frame,
-		.gop = ctx->gop,
-		.idr = ctx->idr,
-		.ftype = ctx->frame_type != VE_FR_I
+		.frmn = ctx->par.frame,
+		.gop = ctx->par.gop,
+		.idr = ctx->par.idr,
+		.ftype = ctx->par.frame_type != VE_FR_I
 	};
 
 	union cfg cfg = {
-		.slice_type = ctx->frame_type,
+		.slice_type = ctx->par.frame_type,
 		.num_ref = 0,
 		.auto_trailing = 1,
 		.auto_flush = 1,
@@ -161,7 +161,7 @@ void avico_dma_configure_reference(struct avico_ctx *ctx,
 	union vdma_hvicnt hvicnt;
 	union vdma_cfg cfg = { .val = 0 };
 
-	bool const swap_lines = (ctx->frame % 2) && (ctx->mby % 2);
+	bool const swap_lines = (ctx->par.frame % 2) && (ctx->mby % 2);
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
@@ -239,7 +239,7 @@ void avico_dma_configure_input(struct avico_ctx *ctx, unsigned const channel)
 	union vdma_hvicnt hvicnt;
 	union vdma_cfg cfg = { .val = 0 };
 
-	bool const swap_lines = (ctx->frame % 2) && (ctx->mby % 2);
+	bool const swap_lines = (ctx->par.frame % 2) && (ctx->mby % 2);
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
@@ -313,7 +313,7 @@ void avico_dma_configure_reconstructured(struct avico_ctx *ctx,
 	union vdma_hvicnt hvicnt;
 	union vdma_cfg cfg = { .val = 0 };
 
-	bool const swap_lines = (ctx->frame % 2) && (ctx->mby % 2);
+	bool const swap_lines = (ctx->par.frame % 2) && (ctx->mby % 2);
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
@@ -544,6 +544,7 @@ void m6pos_enable(struct avico_ctx *const ctx, const bool enable)
 
 static void avico_thread_init(struct avico_ctx *ctx)
 {
+	struct avico_frame_params *par = &ctx->par;
 	union mbpos mbpos = {
 		.nx = DIV_ROUND_UP(ctx->width, 16),
 		.ny = DIV_ROUND_UP(ctx->height, 16)
@@ -555,18 +556,18 @@ static void avico_thread_init(struct avico_ctx *ctx)
 		.ares = ctx->id * 0x0080 + mbpos.nx
 	};
 
-	uint8_t qp = ctx->frame_type == VE_FR_I ? ctx->qp_i : ctx->qp_p;
+	uint8_t qp = par->frame_type == VE_FR_I ? par->qp_i : par->qp_p;
 	union task task = {
 		.std = VE_STD_H264,
 		.qpy = qp,
-		.qpc = clamp(qp + ctx->qpc_offset, 0, 51),
-		.dbf = ctx->dbf,
+		.qpc = clamp(qp + par->qpc_offset, 0, 51),
+		.dbf = par->dbf,
 		.m6eof = 1,
 		.m7eof = 1
 	};
 
 	union frmn frmn = {
-		.gop = ctx->gop
+		.gop = par->gop
 	};
 
 	avico_write(mbpos.val, ctx, AVICO_THREAD_BASE(ctx->id) +
@@ -721,6 +722,7 @@ static void avico_start(struct avico_ctx *ctx)
 	union smbpos smbpos;
 	bool write_pps = false;
 	int8_t qpc_offset;
+	struct avico_frame_params *par = &ctx->par;
 
 	src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	dst = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
@@ -733,30 +735,30 @@ static void avico_start(struct avico_ctx *ctx)
 
 	ctx->error = false;
 
-	ctx->idr = (ctx->frame % ctx->gop) == 0;
+	par->idr = (par->frame % par->gop) == 0;
 
 	/*
 	 * We can't take ctx->ctrl_handler.lock in this function because
 	 * it can be called in atomic context so we don't support atomic
 	 * reading of controls.
 	 */
-	ctx->qp_i = ctx->ctrl_qp_i->cur.val;
-	ctx->qp_p = ctx->ctrl_qp_p->cur.val;
+	par->qp_i = ctx->ctrl_qp_i->cur.val;
+	par->qp_p = ctx->ctrl_qp_p->cur.val;
 	qpc_offset = ctx->ctrl_qpc_off->cur.val;
 	if (ctx->force_key) {
 		ctx->force_key = false;
-		ctx->idr = true;
+		par->idr = true;
 	}
 
-	if (ctx->idr) {
-		ctx->frame_type = VE_FR_I;
-		ctx->idr_id++;
-		ctx->frame = 0;
+	if (par->idr) {
+		par->frame_type = VE_FR_I;
+		par->idr_id++;
+		par->frame = 0;
 		write_pps = true;
-	} else if (ctx->i_period > 0 && ctx->frame % ctx->i_period == 0) {
-		ctx->frame_type = VE_FR_I;
+	} else if (par->i_period > 0 && par->frame % par->i_period == 0) {
+		par->frame_type = VE_FR_I;
 	} else {
-		ctx->frame_type  = VE_FR_P;
+		par->frame_type  = VE_FR_P;
 	}
 
 	/*
@@ -764,9 +766,9 @@ static void avico_start(struct avico_ctx *ctx)
 	 * used instead of ctx->ctrl_qpc_off->cur.val to read control
 	 * atomically.
 	 */
-	if (ctx->qpc_offset != qpc_offset) {
+	if (par->qpc_offset != qpc_offset) {
 		write_pps = true;
-		ctx->qpc_offset = qpc_offset;
+		par->qpc_offset = qpc_offset;
 	}
 
 	/*
@@ -797,7 +799,7 @@ static void avico_start(struct avico_ctx *ctx)
 		return;
 	}*/
 
-	if (ctx->idr)
+	if (par->idr)
 		avico_bitstream_write_sps(ctx);
 
 	if (write_pps)
@@ -905,8 +907,8 @@ static void avico_dma_out_callback(void *data)
 			       VB2_BUF_STATE_DONE);
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
-	if (++ctx->frame >= ctx->maxframe)
-		ctx->frame = 0;
+	if (++ctx->par.frame >= ctx->par.maxframe)
+		ctx->par.frame = 0;
 }
 
 /* Setup DMA to copy encoded data from bounce buffer to DDR */
@@ -1540,6 +1542,7 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
 	struct vb2_v4l2_buffer *buf;
 	int ret = 0;
+	struct avico_frame_params *par = &ctx->par;
 
 	ret = pm_runtime_get_sync(ctx->dev->dev);
 	if (ret < 0) {
@@ -1561,15 +1564,15 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	/* \todo Assert that width and height < 4096 */
 	ctx->mbx = DIV_ROUND_UP(ctx->width, 16);
 	ctx->mby = DIV_ROUND_UP(ctx->height, 16);
-	ctx->dbf = 0;
+	par->dbf = 0;
 
-	ctx->frame = 0;
+	par->frame = 0;
 	/* \todo Make configurable.
 	 * This should correlate with log2_max_frame_num_minus4 */
-	ctx->maxframe = 16;
-	ctx->gop = 60;
-	ctx->i_period = 0;
-	ctx->poc_type = 2;
+	par->maxframe = 16;
+	par->gop = 60;
+	par->i_period = 0;
+	par->poc_type = 2;
 	ctx->vdma_trans_size_m1 = 3;
 
 	ctx->thread = ctx->dev->regs + AVICO_THREAD_BASE(ctx->id);

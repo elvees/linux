@@ -530,6 +530,21 @@ struct avico_enc_params {
 	struct cdc_h264_cfg cdc_h264_cfg;
 };
 
+struct avico_frame_params {
+	uint8_t sps;
+	uint8_t pps;
+	uint16_t gop;
+	uint8_t poc_type;
+	uint8_t qp_i, qp_p, pps_qp;
+	int8_t qpc_offset;
+	int dbf;
+	enum frame_type frame_type;
+	bool idr;
+	uint16_t idr_id;
+	unsigned int frame, maxframe;
+	unsigned int i_period;
+};
+
 struct avico_ctx {
 	struct v4l2_fh fh;
 	struct avico_dev *dev;
@@ -539,26 +554,17 @@ struct avico_ctx {
 
 	unsigned long state;
 
-	uint8_t sps;
-	uint8_t pps;
-	uint16_t gop;
+	struct avico_frame_params par;
+
 	/* \todo Crop */
 	/* \todo MD configuration */
 
 	struct v4l2_fract timeperframe;
-	uint8_t poc_type;
 	uint8_t vdma_trans_size_m1;
 
 	uint8_t mbx, mby;
-	uint8_t qp_i, qp_p, pps_qp;
-	int8_t qpc_offset;
-	int dbf;
-	enum frame_type frame_type;
-	bool idr, outon, capon;
-	uint16_t idr_id;
+	bool outon, capon;
 	bool force_key;
-	unsigned int frame, maxframe;
-	unsigned int i_period;
 	unsigned int bitstream_size;
 
 	bool error;
