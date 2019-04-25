@@ -510,7 +510,7 @@ static void delcore30m_run_job(struct delcore30m_job_desc *desc)
 				  addr2delcore30m(reg_value));
 
 		reg_value = delcore30m_readl_cmn(pdata, DELCORE30M_MASKR_DSP);
-		reg_value |= DELCORE30M_QSTR_STOPPED_CORE_MASK(i);
+		reg_value |= DELCORE30M_QSTR_CORE_MASK(i);
 		delcore30m_writel_cmn(pdata, DELCORE30M_MASKR_DSP, reg_value);
 
 		/* Sequential cores start */
@@ -1097,6 +1097,23 @@ static const struct file_operations delcore30m_fops = {
 	.unlocked_ioctl = delcore30m_ioctl
 };
 
+static enum delcore30m_job_rc delcore30m_job_rc(struct delcore30m_private_data
+						*pdata,
+						const unsigned long mask)
+{
+	int i;
+
+	for_each_set_bit(i, &mask, MAX_CORES) {
+		u32 val = delcore30m_readl(pdata, i, DELCORE30M_DCSR);
+
+		if (val & (DELCORE30M_DCSR_PI | DELCORE30M_DCSR_SE |
+			   DELCORE30M_DCSR_BRK))
+			return DELCORE30M_JOB_ERROR;
+	}
+
+	return DELCORE30M_JOB_SUCCESS;
+}
+
 static irqreturn_t delcore30m_interrupt(int irq, void *arg)
 {
 	struct delcore30m_private_data *pdata = arg;
@@ -1110,22 +1127,22 @@ static irqreturn_t delcore30m_interrupt(int irq, void *arg)
 
 	stopped_cores = 0;
 	for (i = 0; i < MAX_CORES; ++i)
-		stopped_cores |= (val & DELCORE30M_QSTR_STOPPED_CORE_MASK(i))
-				  >> (DELCORE30M_QSTR_STOP_OFFSET(i) - i);
+		if (val & DELCORE30M_QSTR_CORE_MASK(i))
+			stopped_cores |= BIT(i);
 
 	if (!stopped_cores)
 		return IRQ_NONE;
 
 	maskr_dsp = delcore30m_readl_cmn(pdata, DELCORE30M_MASKR_DSP);
 
-	maskr_dsp &= ~DELCORE30M_QSTR_STOPPED_CORES(val);
+	maskr_dsp &= ~(val & DELCORE30M_QSTR_MASK);
 	delcore30m_writel_cmn(pdata, DELCORE30M_MASKR_DSP, maskr_dsp);
 	spin_lock(&pdata->lock);
 
 	list_for_each_entry_safe(desc, next, &pdata->running, list) {
 		if ((desc->cores & stopped_cores) == desc->cores) {
 			list_del(&desc->list);
-			desc->job.rc = DELCORE30M_JOB_SUCCESS;
+			desc->job.rc = delcore30m_job_rc(pdata, desc->cores);
 			desc->job.status = DELCORE30M_JOB_IDLE;
 
 			reset_cores(desc);
