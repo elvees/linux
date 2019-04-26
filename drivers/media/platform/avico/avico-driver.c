@@ -1006,78 +1006,27 @@ static void avico_clear_disable_events(struct avico_ctx *ctx)
 	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
 }
 
-static irqreturn_t avico_irq(int irq, void *data)
+static void avico_wait_for_mb_flush(struct avico_ctx *ctx)
 {
-	struct avico_dev *dev = (struct avico_dev *)data;
-	struct avico_ctx *ctx;
-	u32 events;
-	bool eof;
 	int i;
+	u32 events = avico_read(ctx, AVICO_CTRL_EVENTS);
 
-	/* \todo How does this will work for several HW threads? */
-	ctx = v4l2_m2m_get_curr_priv(dev->m2m_dev);
+	/* Wait for EV_0, EV_1 */
+	while ((events & EV_0) == 0 || (events & EV_1) == 0)
+		events = avico_read(ctx, AVICO_CTRL_EVENTS);
 
-	if (ctx == NULL) {
-		pr_err("Instance released before the end of transaction\n");
-		return IRQ_HANDLED;
-	}
+	/* \bug Need delay: rf#2003 */
+	for (i = 0; i < 80; i++)
+		events = avico_read(ctx, AVICO_CTRL_EVENTS);
 
-	events = avico_read(ctx, AVICO_CTRL_EVENTS);
-	eof = events & EV_7;
+	/* Wait for flush of previous MB data */
+	while (events != (EV_0 | EV_1 | EV_6))
+		events = avico_read(ctx, AVICO_CTRL_EVENTS);
+}
 
-	/*
-	 * VDMA has loaded new MB from external memory to VRAM or VDMA has
-	 * saved/restored mb_cur structures.
-	 */
-	if (events & EV_1) {
-		if (ctx->state == AVICO_ST_RESTORING) {
-			while ((events & EV_0) == 0)
-				events = avico_read(ctx, AVICO_CTRL_EVENTS);
-
-			avico_clear_disable_events(ctx);
-
-			avico_start(ctx);
-
-			return IRQ_HANDLED;
-		} else if (ctx->state == AVICO_ST_SAVING) {
-			while ((events & EV_0) == 0)
-				events = avico_read(ctx, AVICO_CTRL_EVENTS);
-
-			avico_clear_disable_events(ctx);
-
-			ctx->state = AVICO_ST_NONE;
-			v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
-
-			return IRQ_HANDLED;
-		}
-	}
-
-	if (!eof) {
-		/* Wait for EV_0, EV_1 */
-		while ((events & EV_0) == 0 || (events & EV_1) == 0)
-			events = avico_read(ctx, AVICO_CTRL_EVENTS);
-
-		/* \bug Need delay: rf#2003 */
-		for (i = 0; i < 80; i++)
-			events = avico_read(ctx, AVICO_CTRL_EVENTS);
-
-		/* Wait for flush of previous MB data */
-		while (events != (EV_0 | EV_1 | EV_6))
-			events = avico_read(ctx, AVICO_CTRL_EVENTS);
-
-		avico_dma_write(0, ctx, ctx->id * 4 + 2,
-				AVICO_VDMA_CHANNEL_RUN);
-		avico_dma_write(0, ctx, ctx->id * 4 + 3,
-				AVICO_VDMA_CHANNEL_RUN);
-	}
-
-	if (ctx->aborting) {
-		dmaengine_terminate_all(ctx->dev->dma_ch);
-		goto err;
-	}
-
-	if (avico_copy_bounce(ctx, eof))
-		goto err;
+static void avico_vdma_proceed(struct avico_ctx *ctx)
+{
+	union smbpos smbpos;
 
 	/* Swap active buffers */
 	ctx->bounce_active ^= 1;
@@ -1085,59 +1034,109 @@ static irqreturn_t avico_irq(int irq, void *data)
 			AVICO_VDMA_CHANNEL_A0E);
 	avico_dma_configure_bounceout(ctx, 3);
 
-	/* If not last row then run next row */
-	if (!eof) {
-		union smbpos smbpos;
+	smbpos.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
+				     AVICO_THREAD_SMBPOS);
+	smbpos.y6++;  /* Set next stop position */
 
-		smbpos.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
-					     AVICO_THREAD_SMBPOS);
-		smbpos.y6++;  /* Set next stop position */
+	/* If next row is last then M6POS will not stop and we
+	 * need to enable M6EOF bit */
+	if (smbpos.y6 >= ctx->mby) {
+		avico_write(0x80, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
+		m6pos_enable(ctx, false);
+	} else
+		avico_write(smbpos.val, ctx,
+			    AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_SMBPOS);
 
-		/* If next row is last then M6POS will not stop and we
-		 * need to enable M6EOF bit */
-		if (smbpos.y6 >= ctx->mby) {
-			avico_write(0x80,
-				    ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
-			m6pos_enable(ctx, false);
-		} else
-			avico_write(smbpos.val, ctx,
-				    AVICO_THREAD_BASE(ctx->id) +
-				    AVICO_THREAD_SMBPOS);
+	/* In M6POS mode before continue we need to OFF and ON thread */
+	/* \todo Add reference to the section in manual. */
+	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_OFF);
+	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_ON);
 
-		/* In M6POS mode before continue we need to OFF and ON thread */
-		/* \todo Add reference to the section in manual. */
-		avico_write(1, ctx,
-			    AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_OFF);
-		avico_write(1, ctx,
-			    AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_ON);
+	avico_write(0x40 << (ctx->id * 8), ctx,
+		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
+	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
+	/* BUG: We do not know how correctly clean events flag before
+	 * exit from IRQ handler. If we exit immediately after cleaning
+	 * events flag then IRQ handler can be called again. To
+	 * prevent this we run DMA channels after cleaning event and
+	 * use memory barrier. */
+	wmb();
 
-		avico_write(0x40 << (ctx->id * 8), ctx,
-			    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
-		avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
-		/* BUG: We do not know how correctly clean events flag before
-		 * exit from IRQ handler. If we exit immediately after cleaning
-		 * events flag then IRQ handler can be called again. To
-		 * prevent this we run DMA channels after cleaning event and
-		 * use memory barrier. */
-		wmb();
+	avico_dma_write(1, ctx, ctx->id * 4 + 2, AVICO_VDMA_CHANNEL_RUN);
+	avico_dma_write(1, ctx, ctx->id * 4 + 3, AVICO_VDMA_CHANNEL_RUN);
+}
 
-		avico_dma_write(1, ctx, ctx->id * 4 + 2,
-				AVICO_VDMA_CHANNEL_RUN);
-		avico_dma_write(1, ctx, ctx->id * 4 + 3,
-				AVICO_VDMA_CHANNEL_RUN);
+static irqreturn_t avico_irq(int irq, void *data)
+{
+	struct avico_dev *dev = (struct avico_dev *)data;
+	struct avico_ctx *ctx;
+	u32 events;
+	bool eof;
+
+	/* \todo How does this will work for several HW threads? */
+	ctx = v4l2_m2m_get_curr_priv(dev->m2m_dev);
+	if (ctx == NULL) {
+		pr_err("Instance released before the end of transaction\n");
 
 		return IRQ_HANDLED;
 	}
 
-	avico_clear_disable_events(ctx);
+	events = avico_read(ctx, AVICO_CTRL_EVENTS);
+	eof = events & EV_7;
+
+	switch (ctx->state) {
+	case AVICO_ST_ENCODING:
+		if (!eof) { /* If it isn't last row then run next row */
+			avico_wait_for_mb_flush(ctx);
+			avico_dma_write(0, ctx, ctx->id * 4 + 2,
+					AVICO_VDMA_CHANNEL_RUN);
+			avico_dma_write(0, ctx, ctx->id * 4 + 3,
+					AVICO_VDMA_CHANNEL_RUN);
+
+			if (ctx->aborting || avico_copy_bounce(ctx, eof) < 0)
+				goto err;
+
+			avico_vdma_proceed(ctx);
+		} else { /* Last part of frame has been encoded */
+			if (ctx->aborting || avico_copy_bounce(ctx, eof) < 0)
+				goto err;
+
+			avico_clear_disable_events(ctx);
+		}
+		break;
+	case AVICO_ST_RESTORING:
+	case AVICO_ST_SAVING:
+		/*
+		 * Wait for the end of saving/restoring of mb_cur and mb_ref
+		 * structures.
+		 */
+		WARN_ON((events & EV_1) == 0);
+		while ((events & EV_0) == 0)
+			events = avico_read(ctx, AVICO_CTRL_EVENTS);
+
+		avico_clear_disable_events(ctx);
+
+		if (ctx->state == AVICO_ST_RESTORING) {
+			avico_start(ctx);
+		} else {
+			ctx->state = AVICO_ST_NONE;
+			v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
+		}
+		break;
+	default:
+		v4l2_err(&dev->v4l2_dev, "Invalid state\n");
+		break;
+	}
 
 	return IRQ_HANDLED;
 
 err:
 	ctx->error = true;
 	avico_clear_disable_events(ctx);
-	if (ctx->aborting)
+	if (ctx->aborting) {
+		dmaengine_terminate_all(ctx->dev->dma_ch);
 		avico_dma_out_callback(ctx);
+	}
 
 	return IRQ_HANDLED;
 }
