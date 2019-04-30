@@ -15,6 +15,7 @@
 /*---------private registers-----------*/
 #define DELCORE30M_A0				0x080
 #define DELCORE30M_A1				0x084
+#define DELCORE30M_A5				0x094
 #define DELCORE30M_A6				0x098
 #define DELCORE30M_A7				0x09C
 
@@ -32,12 +33,12 @@
 #define DELCORE30M_SP				0x138
 /*-------------------------------------*/
 
-#define DELCORE30M_QSTR_STOPPED_MASK		(BIT(3) | BIT(11))
-#define DELCORE30M_QSTR_STOP_OFFSET(x)		(3 + 8 * (x))
-#define DELCORE30M_QSTR_STOPPED_CORE_MASK(x)	BIT(3 + 8 * (x))
-#define DELCORE30M_QSTR_STOPPED_CORES(x)	((x) & \
-						 DELCORE30M_QSTR_STOPPED_MASK)
-#define DELCORE30M_QSTR_MASK(x)			(0xF << (8 * (x)))
+#define DELCORE30M_CSR_PMCONFIG(x)		((x) << 0x2)
+#define DELCORE30M_QSTR_MASK			(GENMASK(3, 0) | GENMASK(11, 8))
+#define DELCORE30M_QSTR_CORE_MASK(x)		(0xF << (8 * (x)))
+#define DELCORE30M_DCSR_PI			BIT(0)
+#define DELCORE30M_DCSR_SE			BIT(1)
+#define DELCORE30M_DCSR_BRK			BIT(2)
 #define DELCORE30M_DCSR_RUN			BIT(14)
 #define DELCORE30M_CSR_SYNSTART			BIT(0)
 #define DELCORE30M_CSR_PMCONFIG_MASK		GENMASK(3, 2)
