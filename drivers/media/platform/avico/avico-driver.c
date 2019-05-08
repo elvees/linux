@@ -1244,7 +1244,7 @@ static struct v4l2_fmtdesc capture_formats[] = {
 static int avico_enum_fmt_output(struct file *file, void *priv,
 				 struct v4l2_fmtdesc *f)
 {
-	if (f->index > ARRAY_SIZE(output_formats))
+	if (f->index >= ARRAY_SIZE(output_formats))
 		return -EINVAL;
 	*f = output_formats[f->index];
 
