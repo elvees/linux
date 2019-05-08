@@ -62,8 +62,13 @@ enum avico_flags {
 #define DMA_CBS_LEN (40 * 8 * 16)
 /* Size of a buffer for encoded data in VRAM. Should be multiple of 16 bytes. */
 #define SIZE_CBS (80 * 8 * 16)
-/* Max width of frame. Should be multiple of 16. */
-#define AVICO_MAX_WIDTH 1920
+/* Frame bounds */
+#define AVICO_WALIGN 4 /* multiple of 2 */
+#define AVICO_HALIGN 4 /* multiple of 2 */
+#define AVICO_WMAX 1920
+#define AVICO_WMIN 16
+#define AVICO_HMAX 4096
+#define AVICO_HMIN 16
 /*
  * We need 4 bounce buffers BOUNCE_BUF_SIZE each (2 buffers for reconstructed
  * frame and 2 buffers for datastream).
@@ -72,7 +77,7 @@ enum avico_flags {
  * Bounce buffer for datastream should be able to store encoded data whose size
  * is multiple of DMA_CBS_LEN so BOUNCE_BUF_SIZE is rounded up if necessary.
  */
-#define BOUNCE_BUF_SIZE roundup(AVICO_MAX_WIDTH / 16 * MB_SIZE, DMA_CBS_LEN)
+#define BOUNCE_BUF_SIZE roundup(AVICO_WMAX / 16 * MB_SIZE, DMA_CBS_LEN)
 
 static const char *clknames[NCLKS] = { "pclk", "aclk", "sclk", "dsp_aclk" };
 
@@ -1310,15 +1315,13 @@ static int avico_s_fmt_output(struct file *file, void *priv,
 	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
 	unsigned int fmt = 0;
 
-	if (f->fmt.pix.width > AVICO_MAX_WIDTH) {
-		ctx->width = AVICO_MAX_WIDTH;
-		v4l2_warn(&ctx->dev->v4l2_dev,
-			  "Requested width %u exceeds maximum %u, setting to maximum\n",
-			  f->fmt.pix.width, ctx->width);
-	} else {
-		ctx->width = round_up(f->fmt.pix.width, 16);
-	}
-	ctx->height = round_up(f->fmt.pix.height, 16);
+	v4l_bound_align_image(&f->fmt.pix.width, AVICO_WMIN,
+			      AVICO_WMAX, AVICO_WALIGN,
+			      &f->fmt.pix.height, AVICO_HMIN,
+			      AVICO_HMAX, AVICO_HALIGN, 0);
+	ctx->width = f->fmt.pix.width;
+	ctx->height = f->fmt.pix.height;
+
 	ctx->outsize = ctx->width * ctx->height / 2 * 3;
 	ctx->capsize = ctx->width * ctx->height * 2;
 
