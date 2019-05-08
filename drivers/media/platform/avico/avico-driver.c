@@ -1266,45 +1266,114 @@ static int avico_enum_fmt_capture(struct file *file, void *priv,
 	return 0;
 }
 
-static int avico_g_fmt_output(struct file *file, void *priv,
-			      struct v4l2_format *f)
+static int avico_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
+	unsigned int fmt;
 
 	f->fmt.pix.width = ctx->width;
 	f->fmt.pix.height = ctx->height;
-	f->fmt.pix.pixelformat = output_formats[ctx->outfmt].pixelformat;
 	f->fmt.pix.field = V4L2_FIELD_NONE;
 
-	switch (f->fmt.pix.pixelformat) {
-	case V4L2_PIX_FMT_M420:
-		f->fmt.pix.bytesperline = ctx->width;
-		f->fmt.pix.sizeimage = ctx->outsize;
+	switch (f->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		fmt = ctx->outfmt;
+		f->fmt.pix.pixelformat = output_formats[fmt].pixelformat;
+		f->fmt.pix.flags = output_formats[fmt].flags;
+		switch (f->fmt.pix.pixelformat) {
+		case V4L2_PIX_FMT_M420:
+			f->fmt.pix.bytesperline = ctx->width;
+			f->fmt.pix.sizeimage = ctx->outsize;
+			break;
+		default:
+			/* We don't support other pixel formats */
+			__WARN();
+		}
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		fmt = ctx->capfmt;
+		f->fmt.pix.pixelformat = capture_formats[fmt].pixelformat;
+		f->fmt.pix.flags = capture_formats[fmt].flags;
+		f->fmt.pix.bytesperline = 0;
+		/* TODO: Think how to specify sizeimage more intellegently */
+		f->fmt.pix.sizeimage = ctx->capsize;
 		break;
 	default:
-		/* We don't support other pixel formats */
-		__WARN();
+		return -EINVAL;
 	}
-	f->fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
-	f->fmt.pix.flags = output_formats[ctx->outfmt].flags;
+
+	f->fmt.pix.colorspace = ctx->colorspace;
 
 	return 0;
 }
 
-static int avico_g_fmt_capture(struct file *file, void *priv,
-			       struct v4l2_format *f)
+static unsigned int avico_outfmt(u32 pixelformat)
 {
-	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
+	unsigned int fmt = 0;
 
-	f->fmt.pix.width = ctx->width;
-	f->fmt.pix.height = ctx->height;
-	f->fmt.pix.pixelformat = capture_formats[ctx->capfmt].pixelformat;
+	while (fmt < ARRAY_SIZE(output_formats) &&
+	       pixelformat != output_formats[fmt].pixelformat)
+		fmt++;
+
+	if (fmt >= ARRAY_SIZE(output_formats))
+		fmt = 0;
+
+	return fmt;
+}
+
+static unsigned int avico_capfmt(u32 pixelformat)
+{
+	unsigned int fmt = 0;
+
+	while (fmt < ARRAY_SIZE(capture_formats) &&
+	       pixelformat != capture_formats[fmt].pixelformat)
+		fmt++;
+
+	if (fmt >= ARRAY_SIZE(capture_formats))
+		fmt = 0;
+
+	return fmt;
+}
+
+static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
+{
+	unsigned int fmt;
+
+	v4l_bound_align_image(&f->fmt.pix.width, AVICO_WMIN,
+			      AVICO_WMAX, AVICO_WALIGN,
+			      &f->fmt.pix.height, AVICO_HMIN,
+			      AVICO_HMAX, AVICO_HALIGN, 0);
 	f->fmt.pix.field = V4L2_FIELD_NONE;
-	f->fmt.pix.bytesperline = 0;
-	/* TODO: Think how to specify sizeimage more intellegently */
-	f->fmt.pix.sizeimage = ctx->capsize;
+
+	switch (f->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		fmt = avico_outfmt(f->fmt.pix.pixelformat);
+		f->fmt.pix.pixelformat = output_formats[fmt].pixelformat;
+		f->fmt.pix.flags = output_formats[fmt].flags;
+		switch (f->fmt.pix.pixelformat) {
+		case V4L2_PIX_FMT_M420:
+			f->fmt.pix.bytesperline = f->fmt.pix.width;
+			f->fmt.pix.sizeimage = f->fmt.pix.width *
+					       f->fmt.pix.height / 2 * 3;
+			break;
+		default:
+			/* We don't support other pixel formats */
+			__WARN();
+		}
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		fmt = avico_capfmt(f->fmt.pix.pixelformat);
+		f->fmt.pix.pixelformat = capture_formats[fmt].pixelformat;
+		f->fmt.pix.flags = capture_formats[fmt].flags;
+		f->fmt.pix.bytesperline = 0;
+		/* TODO: Think how to specify sizeimage more intellegently */
+		f->fmt.pix.sizeimage = f->fmt.pix.width * f->fmt.pix.height * 2;
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	f->fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
-	f->fmt.pix.flags = capture_formats[ctx->capfmt].flags;
 
 	return 0;
 }
@@ -1313,48 +1382,36 @@ static int avico_s_fmt_output(struct file *file, void *priv,
 			      struct v4l2_format *f)
 {
 	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
-	unsigned int fmt = 0;
+	int ret = avico_try_fmt(file, priv, f);
 
-	v4l_bound_align_image(&f->fmt.pix.width, AVICO_WMIN,
-			      AVICO_WMAX, AVICO_WALIGN,
-			      &f->fmt.pix.height, AVICO_HMIN,
-			      AVICO_HMAX, AVICO_HALIGN, 0);
+	if (ret)
+		return ret;
+
 	ctx->width = f->fmt.pix.width;
 	ctx->height = f->fmt.pix.height;
 
-	ctx->outsize = ctx->width * ctx->height / 2 * 3;
+	ctx->outsize = f->fmt.pix.sizeimage;
 	ctx->capsize = ctx->width * ctx->height * 2;
 
-	while (fmt < ARRAY_SIZE(output_formats) &&
-	       f->fmt.pix.pixelformat != output_formats[fmt].pixelformat)
-		fmt++;
+	ctx->outfmt = avico_outfmt(f->fmt.pix.pixelformat);
 
-	if (fmt >= ARRAY_SIZE(output_formats))
-		fmt = 0;
-
-	ctx->outfmt = fmt;
-
-	return avico_g_fmt_output(file, priv, f);
+	return avico_g_fmt(file, priv, f);
 }
 
 static int avico_s_fmt_capture(struct file *file, void *priv,
 			       struct v4l2_format *f)
 {
 	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
-	unsigned int fmt = 0;
+	int ret = avico_try_fmt(file, priv, f);
+
+	if (ret)
+		return ret;
 
 	/* Ignore width & height. They are only set for output end. */
 
-	while (fmt < ARRAY_SIZE(capture_formats) &&
-	       f->fmt.pix.pixelformat != capture_formats[fmt].pixelformat)
-		fmt++;
+	ctx->capfmt = avico_capfmt(f->fmt.pix.pixelformat);
 
-	if (fmt >= ARRAY_SIZE(capture_formats))
-		fmt = 0;
-
-	ctx->capfmt = fmt;
-
-	return avico_g_fmt_capture(file, priv, f);
+	return avico_g_fmt(file, priv, f);
 }
 
 static bool validate_timeperframe(struct v4l2_fract const fract)
@@ -1471,12 +1528,14 @@ static const struct v4l2_ioctl_ops avico_ioctl_ops = {
 	.vidioc_querycap = avico_querycap,
 
 	.vidioc_enum_fmt_vid_out = avico_enum_fmt_output,
-	.vidioc_g_fmt_vid_out    = avico_g_fmt_output,
+	.vidioc_g_fmt_vid_out    = avico_g_fmt,
 	.vidioc_s_fmt_vid_out    = avico_s_fmt_output,
+	.vidioc_try_fmt_vid_out  = avico_try_fmt,
 
 	.vidioc_enum_fmt_vid_cap = avico_enum_fmt_capture,
-	.vidioc_g_fmt_vid_cap    = avico_g_fmt_capture,
+	.vidioc_g_fmt_vid_cap    = avico_g_fmt,
 	.vidioc_s_fmt_vid_cap    = avico_s_fmt_capture,
+	.vidioc_try_fmt_vid_cap  = avico_try_fmt,
 
 	.vidioc_g_parm    = avico_g_parm,
 	.vidioc_s_parm    = avico_s_parm,
