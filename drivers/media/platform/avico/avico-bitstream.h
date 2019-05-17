@@ -53,7 +53,8 @@ struct bitstream {
 struct avico_ctx;
 
 void avico_bitstream_init(struct avico_ctx *ctx, void *ptr, unsigned int size);
-void avico_bitstream_write_sps_pps(struct avico_ctx *ctx);
+void avico_bitstream_write_sps(struct avico_ctx *ctx);
+void avico_bitstream_write_pps(struct avico_ctx *ctx);
 void avico_bitstream_write_slice_header(struct avico_ctx *ctx);
 void avico_bitstream_get64(struct avico_ctx *ctx, uint32_t data[2],
 			   unsigned int bits[2]);

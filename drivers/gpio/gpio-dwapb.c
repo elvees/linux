@@ -602,15 +602,16 @@ dwapb_gpio_get_pdata_of(struct device *dev)
 		}
 
 		skip_count = of_property_count_elems_of_size(port_np,
-							     "skip-gpios",
+							     "skip-gpio-list",
 							     sizeof(u32));
 		for (j = 0; j < skip_count; j++) {
 			u32 num;
 
-			if (of_property_read_u32_index(port_np, "skip-gpios",
-						       j, &num)) {
+			if (of_property_read_u32_index(port_np,
+						       "skip-gpio-list", j,
+						       &num)) {
 				dev_err(dev,
-					"failed to get index %d from skip-gpios property (%s)",
+					"failed to get index %d from skip-gpio-list property (%s)",
 					j, port_np->full_name);
 				return ERR_PTR(-EINVAL);
 			}

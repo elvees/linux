@@ -150,10 +150,11 @@ struct syntax_element {
 	uint32_t value;
 };
 
-void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
+void avico_bitstream_write_sps(struct avico_ctx *ctx)
 {
 	int i;
 	struct bitstream *const bs = &ctx->bs;
+	struct avico_frame_params *par = &ctx->par;
 
 	/* \bug On the stack. Bad idea. */
 	struct syntax_element sps_elements[] = {
@@ -178,9 +179,9 @@ void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
 		SYNTAX_ELEMENT_U("level_idc",            1, 8, 40),
 
 		/* \todo Missing unessential elements */
-		SYNTAX_ELEMENT_UE("seq_parameter_set_id", 1, ctx->sps),
+		SYNTAX_ELEMENT_UE("seq_parameter_set_id", 1, par->sps),
 		SYNTAX_ELEMENT_UE("log2_max_frame_num_minus4", 1, 0),
-		SYNTAX_ELEMENT_UE("pic_order_cnt_type",   1, ctx->poc_type),
+		SYNTAX_ELEMENT_UE("pic_order_cnt_type",   1, par->poc_type),
 		/* \todo Missing unessential elements */
 		SYNTAX_ELEMENT_UE("num_ref_frames",       1, 1),
 		SYNTAX_ELEMENT_U("gaps_in_frame_num_value_allowed_flag", 1, 1,
@@ -246,6 +247,12 @@ void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
 	}
 
 	write_trailing_bits(bs);
+}
+
+void avico_bitstream_write_pps(struct avico_ctx *ctx)
+{
+	struct bitstream *const bs = &ctx->bs;
+	struct avico_frame_params *par = &ctx->par;
 
 	/* Write PPS */
 	write_delimiter(bs);
@@ -253,8 +260,8 @@ void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
 	writeu(bs, 2, NALU_PRIOR_HIGHEST);
 	writeu(bs, 5, NALU_PPS);
 
-	writeue(bs, ctx->pps); /* pic_parameter_set_id */
-	writeue(bs, ctx->sps); /* seq_parameter_set_id */
+	writeue(bs, par->pps); /* pic_parameter_set_id */
+	writeue(bs, par->sps); /* seq_parameter_set_id */
 	writeu(bs, 1, 0); /* entropy_coding_mode_flag. 0 for CAVLC */
 	writeu(bs, 1, 0); /* bottom_field_pic_order_in_frame_present_flag */
 	writeue(bs, 0);   /* num_slice_groups - 1 */
@@ -263,12 +270,14 @@ void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
 	writeue(bs, 0);   /* num_ref_idx_l1_default_active - 1 */
 	writeu(bs, 1, 0); /* weighted_pred_flag */
 	writeu(bs, 2, 0); /* weighted_bipred_idc */
-	writese(bs, ctx->qpy - 26);       /* pic_init_qp - 26 */
-	writese(bs, ctx->qpy - 26);       /* pic_init_qs - 26 */
-	writese(bs, ctx->qpc - ctx->qpy); /* chroma_qp_index_offset */
+
+	par->pps_qp = par->qp_i;
+	writese(bs, par->pps_qp - 26); /* pic_init_qp - 26 */
+	writese(bs, par->pps_qp - 26); /* pic_init_qs - 26 */
+	writese(bs, par->qpc_offset);  /* chroma_qp_index_offset */
 
 	/* \todo DBF should depend on off_a and off_b (see Rolschikov's code */
-	writeu(bs, 1, !ctx->dbf);  /* dbf_control_present_flag */
+	writeu(bs, 1, !par->dbf);  /* dbf_control_present_flag */
 	writeu(bs, 1, 0); /* constrained_intra_pred_flag */
 	writeu(bs, 1, 0); /* redundant_pic_cnt_present_flag */
 
@@ -278,6 +287,7 @@ void avico_bitstream_write_sps_pps(struct avico_ctx *ctx)
 void avico_bitstream_write_slice_header(struct avico_ctx *ctx)
 {
 	struct bitstream *bs;
+	struct avico_frame_params *par = &ctx->par;
 
 	WARN_ON(ctx == NULL);
 	bs = &ctx->bs;
@@ -288,37 +298,40 @@ void avico_bitstream_write_slice_header(struct avico_ctx *ctx)
 
 	write_delimiter(bs);
 	writeu(bs, 1, 0); /* forbidden_zero_bit */
-	writeu(bs, 2, ctx->idr ? NALU_PRIOR_HIGHEST : NALU_PRIOR_HIGH);
-	writeu(bs, 5, ctx->idr ? NALU_IDR : NALU_SLICE);
+	writeu(bs, 2, par->idr ? NALU_PRIOR_HIGHEST : NALU_PRIOR_HIGH);
+	writeu(bs, 5, par->idr ? NALU_IDR : NALU_SLICE);
 
 	writeue(bs, 0); /* first_mb_addr_in_slice */
-	writeue(bs, ctx->frame_type); /* frame_type */
-	writeue(bs, ctx->pps);        /* pps_id */
-	writeu(bs, 4, ctx->frame); /* frame_num */
+	writeue(bs, par->frame_type); /* frame_type */
+	writeue(bs, par->pps);        /* pps_id */
+	writeu(bs, 4, par->frame); /* frame_num */
 
-	if (ctx->idr)
-		writeue(bs, ctx->frame & 0x01); /* idr_pic_id */
+	if (par->idr)
+		writeue(bs, par->idr_id); /* idr_pic_id */
 
 	/* POC type is always 2 */
 	/* \todo Support different POC types */
 
-	if (ctx->frame_type == VE_FR_P) {
+	if (par->frame_type == VE_FR_P) {
 		writeu(bs, 1, 0); /* num_ref_idx_active_override_flag */
 		writeu(bs, 1, 0); /* ref_pic_list_l0_reordering_flag */
 	}
 
-	if (ctx->idr) {
+	if (par->idr) {
 		writeu(bs, 1, 0); /* no_output_of_prior_pics_flag */
 		writeu(bs, 1, 0); /* long_term_reference_flag */
 	} else {
 		writeu(bs, 1, 0); /* adaptive_ref_pic_buffering_flag */
 	}
 
-	writese(bs, 0); /* slice_qp_delta */
+	if (par->frame_type == VE_FR_I)
+		writese(bs, par->qp_i - par->pps_qp); /* slice_qp_delta */
+	else
+		writese(bs, par->qp_p - par->pps_qp); /* slice_qp_delta */
 
 	/* \todo DBF should depend on off_a and off_b (see Rolschikov's code */
-	if (!ctx->dbf)
-		writeue(bs, ctx->dbf ? 0 : 1); /* disable_dbf_flag */
+	if (!par->dbf)
+		writeue(bs, par->dbf ? 0 : 1); /* disable_dbf_flag */
 }
 
 void avico_bitstream_get64(struct avico_ctx *ctx, uint32_t data[2],
