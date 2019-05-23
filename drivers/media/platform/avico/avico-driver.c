@@ -1628,29 +1628,12 @@ static void avico_buf_queue(struct vb2_buffer *vb)
 	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 }
 
-static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
+static int avico_init_streaming(struct avico_ctx *ctx)
 {
-	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
-	struct vb2_v4l2_buffer *buf;
-	int ret = 0;
 	struct avico_frame_params *par = &ctx->par;
+	int ret = 0;
 
-	ret = pm_runtime_get_sync(ctx->dev->dev);
-	if (ret < 0) {
-		v4l2_err(&ctx->dev->v4l2_dev, "Failed to set runtime PM\n");
-		goto err_ret_bufs;
-	}
-
-	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
-		ctx->outseq = 0;
-		ctx->outon = 1;
-	} else {
-		ctx->capseq = 0;
-		ctx->capon = 1;
-	}
-
-	if (ctx->outon != 1 || ctx->capon != 1)
-		return 0;
+	ctx->outseq = ctx->capseq = 0;
 
 	/* \todo Assert that width and height < 4096 */
 	ctx->mbx = DIV_ROUND_UP(ctx->width, 16);
@@ -1675,8 +1658,8 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (!ctx->vref) {
 		v4l2_err(&ctx->dev->v4l2_dev,
 			 "Can not allocate memory for reference frame\n");
-		ret = -ENOMEM;
-		goto err_ret_bufs;
+
+		return -ENOMEM;
 	}
 
 	ctx->mbrefsize = MB_REF_SIZE * ctx->mbx * 2;
@@ -1703,6 +1686,41 @@ free_mbref:
 free_ref:
 	dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize, ctx->vref,
 			  ctx->dmaref);
+
+	return ret;
+}
+
+static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
+{
+	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
+	struct vb2_v4l2_buffer *buf;
+	int ret = 0;
+	struct vb2_queue *opp_vq;
+
+	if (V4L2_TYPE_IS_OUTPUT(vq->type))
+		opp_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+					 V4L2_BUF_TYPE_VIDEO_CAPTURE);
+	else
+		opp_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+					 V4L2_BUF_TYPE_VIDEO_OUTPUT);
+
+	/* TODO: Move to avico_open() */
+	ret = pm_runtime_get_sync(ctx->dev->dev);
+	if (ret < 0) {
+		v4l2_err(&ctx->dev->v4l2_dev, "Failed to set runtime PM\n");
+		goto err_ret_bufs;
+	}
+
+	if (vb2_is_streaming(opp_vq)) {
+		ret = avico_init_streaming(ctx);
+		if (ret)
+			goto pm_put;
+	}
+
+	return 0;
+
+pm_put:
+	pm_runtime_put(ctx->dev->dev);
 err_ret_bufs:
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
 		while ((buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx)))
@@ -1720,10 +1738,11 @@ static void avico_stop_streaming(struct vb2_queue *q)
 	struct avico_ctx *ctx = vb2_get_drv_priv(q);
 	struct vb2_v4l2_buffer *vbuf;
 	unsigned long flags;
-	bool stop = ctx->outon && ctx->capon;
+	struct vb2_queue *opp_vq;
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
-		ctx->outon = 0;
+		opp_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+					 V4L2_BUF_TYPE_VIDEO_CAPTURE);
 		while ((vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx))) {
 			/*
 			 * stop_streaming() could be called asynchronously to
@@ -1735,7 +1754,8 @@ static void avico_stop_streaming(struct vb2_queue *q)
 			spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
 		}
 	} else {
-		ctx->capon = 0;
+		opp_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+					 V4L2_BUF_TYPE_VIDEO_OUTPUT);
 		while ((vbuf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx))) {
 			spin_lock_irqsave(&ctx->dev->irqlock, flags);
 			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
@@ -1743,7 +1763,7 @@ static void avico_stop_streaming(struct vb2_queue *q)
 		}
 	}
 
-	if (stop) {
+	if (!vb2_is_streaming(opp_vq)) {
 		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
 				  ctx->vref, ctx->dmaref);
 

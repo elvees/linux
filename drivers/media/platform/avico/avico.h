@@ -563,7 +563,6 @@ struct avico_ctx {
 	uint8_t vdma_trans_size_m1;
 
 	uint8_t mbx, mby;
-	bool outon, capon;
 	bool force_key;
 	unsigned int bitstream_size;
 
