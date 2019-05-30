@@ -34,6 +34,11 @@ enum swic_tx_speed {
 	TX_SPEED_408 = 8
 };
 
+struct elvees_swic_speed {
+	unsigned int rx;
+	unsigned int tx;
+};
+
 #define SWICIOC_MAGIC 'w'
 
 #define SWICIOC_SET_LINK \
@@ -45,7 +50,10 @@ enum swic_tx_speed {
 #define SWICIOC_SET_TX_SPEED \
 	_IOW(SWICIOC_MAGIC, 3, enum swic_tx_speed)
 
+#define SWICIOC_GET_SPEED \
+	_IOR(SWICIOC_MAGIC, 4, struct elvees_swic_speed *)
+
 #define SWICIOC_SET_MTU \
-	_IOW(SWICIOC_MAGIC, 4, unsigned long)
+	_IOW(SWICIOC_MAGIC, 5, unsigned long)
 
 #endif

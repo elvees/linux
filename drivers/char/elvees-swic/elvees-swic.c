@@ -321,6 +321,40 @@ static int elvees_swic_get_link_state(struct elvees_swic_private_data *pdata,
 			    sizeof(enum swic_link_state));
 }
 
+static u32 get_rx_speed_kbps(struct elvees_swic_private_data *pdata)
+{
+	u32 reg = swic_readl(pdata, SWIC_RX_SPEED);
+	int aclk_khz = clk_get_rate(pdata->aclk) / 1000;
+
+	return reg * aclk_khz / 100;
+}
+
+static u32 get_tx_speed_kbps(struct elvees_swic_private_data *pdata)
+{
+	u32 reg = swic_readl(pdata, SWIC_TX_SPEED);
+
+	reg = GET_FIELD(reg, SWIC_TX_SPEED_TX_SPEED);
+
+	if (reg == TX_SPEED_2P4)
+		return 2400;
+	else if (reg == TX_SPEED_4P8)
+		return 4800;
+	else
+		return 48000 * (reg - 1) + 72000;
+}
+
+static u32 elvees_swic_get_speed(struct elvees_swic_private_data *pdata,
+				 void __user *arg
+)
+{
+	struct elvees_swic_speed speed;
+
+	speed.rx = get_rx_speed_kbps(pdata);
+	speed.tx = get_tx_speed_kbps(pdata);
+
+	return copy_to_user(arg, &speed, sizeof(struct elvees_swic_speed));
+}
+
 static int elvees_swic_set_speed(struct elvees_swic_private_data *pdata,
 				 unsigned long arg)
 {
@@ -362,6 +396,8 @@ static long elvees_swic_ioctl(struct file *file,
 		return elvees_swic_set_link(pdata, arg);
 	case SWICIOC_GET_LINK_STATE:
 		return elvees_swic_get_link_state(pdata, uptr);
+	case SWICIOC_GET_SPEED:
+		return elvees_swic_get_speed(pdata, uptr);
 	case SWICIOC_SET_TX_SPEED:
 		return elvees_swic_set_speed(pdata, arg);
 	case SWICIOC_SET_MTU:

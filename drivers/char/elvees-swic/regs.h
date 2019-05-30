@@ -60,6 +60,8 @@
 #define SWIC_TX_SPEED_LVDS_EN			BIT(9)
 #define SWIC_TX_SPEED_COEFF_10			GENMASK(28, 20)
 
+#define SWIC_RX_SPEED				0x18
+
 #define SWIC_CNT_RX_PACK			0x20
 
 #define SET_FIELD(mask, val) (((val) << (ffs(mask) - 1)) & (mask))
