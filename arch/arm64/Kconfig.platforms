@@ -141,6 +141,12 @@ config ARCH_KEEMBAY
 	help
 	  This enables support for Intel Movidius SoC code-named Keem Bay.
 
+config ARCH_MCOM03
+	bool "ELVEES MCom-03 SoC"
+	select DW_APB_TIMER_OF
+	help
+	  This enables support for ELVEES MCom-03 SoC
+
 config ARCH_MEDIATEK
 	bool "MediaTek SoC Family"
 	select ARM_GIC
