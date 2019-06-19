@@ -1649,8 +1649,6 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 	par->poc_type = 2;
 	ctx->vdma_trans_size_m1 = 3;
 
-	ctx->thread = ctx->dev->regs + AVICO_THREAD_BASE(ctx->id);
-
 	ctx->refsize = ctx->mbx * ctx->mby * (256 + 128);
 
 	ctx->vref = dma_alloc_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,

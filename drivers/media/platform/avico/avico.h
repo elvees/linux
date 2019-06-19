@@ -571,7 +571,6 @@ struct avico_ctx {
 	struct bitstream bs;
 
 	unsigned int id; /* Hardware thread ID */
-	void __iomem *thread;
 	void *vref;
 	dma_addr_t dmaref, dmainp, dmaout;
 	dma_addr_t bounceref[2], bounceout[2];
