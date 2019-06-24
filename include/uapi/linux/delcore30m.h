@@ -25,7 +25,7 @@ enum elcore30m_core {
 struct delcore30m_firmware {
 	unsigned long cores;
 	size_t size;
-	uint8_t *data;
+	__u8 *data;
 };
 
 enum delcore30m_job_status {
