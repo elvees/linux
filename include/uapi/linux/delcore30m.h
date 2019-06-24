@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- *  Copyright 2018 RnD Center "ELVEES", JSC
+ *  Copyright 2018-2019 RnD Center "ELVEES", JSC
  */
 
 #ifndef _LINUX_DELCORE30M_H
@@ -20,7 +20,7 @@ enum elcore30m_core {
 };
 
 #define BANK_SIZE 0x8000
-#define STACK_SIZE SZ_4K
+#define STACK_SIZE 4096
 
 struct delcore30m_firmware {
 	unsigned long cores;
