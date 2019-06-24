@@ -63,8 +63,8 @@ enum avico_flags {
 /* Size of a buffer for encoded data in VRAM. Should be multiple of 16 bytes. */
 #define SIZE_CBS (80 * 8 * 16)
 /* Frame bounds */
-#define AVICO_WALIGN 4 /* multiple of 2 */
-#define AVICO_HALIGN 4 /* multiple of 2 */
+#define AVICO_WALIGN 1 /* power of 2 */
+#define AVICO_HALIGN 1 /* power of 2 */
 #define AVICO_WMAX 1920
 #define AVICO_WMIN 16
 #define AVICO_HMAX 4096
@@ -1282,7 +1282,7 @@ static int avico_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		f->fmt.pix.flags = output_formats[fmt].flags;
 		switch (f->fmt.pix.pixelformat) {
 		case V4L2_PIX_FMT_M420:
-			f->fmt.pix.bytesperline = ctx->width;
+			f->fmt.pix.bytesperline = round_up(ctx->width, 16);
 			f->fmt.pix.sizeimage = ctx->outsize;
 			break;
 		default:
@@ -1352,9 +1352,11 @@ static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		f->fmt.pix.flags = output_formats[fmt].flags;
 		switch (f->fmt.pix.pixelformat) {
 		case V4L2_PIX_FMT_M420:
-			f->fmt.pix.bytesperline = f->fmt.pix.width;
-			f->fmt.pix.sizeimage = f->fmt.pix.width *
-					       f->fmt.pix.height / 2 * 3;
+			f->fmt.pix.bytesperline = round_up(f->fmt.pix.width,
+							   16);
+			f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
+					       round_up(f->fmt.pix.height, 16) /
+					       2 * 3;
 			break;
 		default:
 			/* We don't support other pixel formats */
@@ -1640,6 +1642,11 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 	ctx->mby = DIV_ROUND_UP(ctx->height, 16);
 	par->dbf = 0;
 
+	par->crop.left = 0;
+	par->crop.top = 0;
+	par->crop.right = (ctx->mbx * 16 - ctx->width) / 2;
+	par->crop.bottom = (ctx->mby * 16 - ctx->height) / 2;
+
 	par->frame = 0;
 	/* \todo Make configurable.
 	 * This should correlate with log2_max_frame_num_minus4 */
@@ -1908,7 +1915,8 @@ static int avico_open(struct file *file)
 	ctx->width = 1280;
 	ctx->height = 720;
 
-	ctx->outsize = ctx->width * ctx->height * 3 / 2;
+	ctx->outsize = round_up(ctx->width, 16) * round_up(ctx->height, 16) *
+		       3 / 2;
 	/* \todo Following is surplus */
 	ctx->capsize = round_up(ctx->width * ctx->height * 2, PAGE_SIZE);
 

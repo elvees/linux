@@ -152,99 +152,71 @@ struct syntax_element {
 
 void avico_bitstream_write_sps(struct avico_ctx *ctx)
 {
-	int i;
 	struct bitstream *const bs = &ctx->bs;
 	struct avico_frame_params *par = &ctx->par;
-
-	/* \bug On the stack. Bad idea. */
-	struct syntax_element sps_elements[] = {
-		SYNTAX_ELEMENT_U("forbidden_zero_bit",   1, 1, 0),
-		SYNTAX_ELEMENT_U("nal_ref_idc",          1, 2,
-				 NALU_PRIOR_HIGHEST),
-		SYNTAX_ELEMENT_U("nal_unit_type",        1, 5, NALU_SPS),
-
-		/* H.264 Profile. 66 for (Constrained) Baseline */
-		SYNTAX_ELEMENT_U("profile_idc",          1, 8, 66),
-		SYNTAX_ELEMENT_U("constraint_set0_flag", 1, 1, 0),
-
-		/* Constrained profile */
-		SYNTAX_ELEMENT_U("constraint_set1_flag", 1, 1, 1),
-		SYNTAX_ELEMENT_U("constraint_set2_flag", 1, 1, 0),
-		SYNTAX_ELEMENT_U("constraint_set3_flag", 1, 1, 0),
-		SYNTAX_ELEMENT_U("constraint_set4_flag", 1, 1, 0),
-		SYNTAX_ELEMENT_U("constraint_set5_flag", 1, 1, 0),
-		SYNTAX_ELEMENT_U("reserved_zero_2bits",  1, 2, 0),
-
-		/* H.264 Level 4.0 */
-		SYNTAX_ELEMENT_U("level_idc",            1, 8, 40),
-
-		/* \todo Missing unessential elements */
-		SYNTAX_ELEMENT_UE("seq_parameter_set_id", 1, par->sps),
-		SYNTAX_ELEMENT_UE("log2_max_frame_num_minus4", 1, 0),
-		SYNTAX_ELEMENT_UE("pic_order_cnt_type",   1, par->poc_type),
-		/* \todo Missing unessential elements */
-		SYNTAX_ELEMENT_UE("num_ref_frames",       1, 1),
-		SYNTAX_ELEMENT_U("gaps_in_frame_num_value_allowed_flag", 1, 1,
-				 0),
-		SYNTAX_ELEMENT_UE("pic_width_in_mbs_minus1",        1,
-				  ctx->mbx - 1),
-		SYNTAX_ELEMENT_UE("pic_height_in_map_units_minus1", 1,
-				  ctx->mby - 1),
-		SYNTAX_ELEMENT_U("frame_mbs_only_flag", 1, 1, 1),
-		/* \todo Missing unessential elements */
-		SYNTAX_ELEMENT_U("direct_8x8_inference_flag", 1, 1, 0),
-
-		/* \todo Support crop */
-		SYNTAX_ELEMENT_U("frame_cropping_flag", 1, 1, 0),
-		/* \todo Missing unessential elements */
-
-		SYNTAX_ELEMENT_U("vui_parameters_present_flag",         1, 1,
-				 1),
-		SYNTAX_ELEMENT_U("vui_aspect_ratio_present_flag",       1, 1,
-				 0),
-		SYNTAX_ELEMENT_U("vui_video_signal_type_present_flag",  1, 1,
-				 0),
-		SYNTAX_ELEMENT_U("vui_overscan_info_present_flag",      1, 1,
-				 0),
-		SYNTAX_ELEMENT_U("vui_chroma_loc_info_present_flag",    1, 1,
-				 0),
-		SYNTAX_ELEMENT_U("vui_timing_info_present_flag",        1, 1,
-				 1),
-		SYNTAX_ELEMENT_U("vui_num_units_in_tick",               1, 32,
-				 ctx->timeperframe.numerator),
-		SYNTAX_ELEMENT_U("vui_time_scale",                      1, 32,
-				 ctx->timeperframe.denominator * 2),
-		SYNTAX_ELEMENT_U("vui_fixed_frame_rate_flag",           1, 1,
-				 1),
-		SYNTAX_ELEMENT_U("vui_nal_hrd_parameters_present_flag", 1, 1,
-				 0),
-		SYNTAX_ELEMENT_U("vui_vcl_hrd_parameters_present_flag", 1, 1,
-				 0),
-		SYNTAX_ELEMENT_U("vui_pic_struct_present_flag",         1, 1,
-				 0),
-		SYNTAX_ELEMENT_U("vui_bitstream_restriction_flag",      1, 1, 0)
-	};
 
 	/* Write SPS */
 	write_delimiter(bs);
 
-	for (i = 0; i < ARRAY_SIZE(sps_elements); i++) {
-		/* \todo Error checking */
-		if (!sps_elements[i].enable)
-			continue;
-		switch (sps_elements[i].type) {
-		case SYNTAX_ELEMENT_TYPE_U:
-			writeu(bs, sps_elements[i].width,
-			       sps_elements[i].value);
-			break;
-		case SYNTAX_ELEMENT_TYPE_UE:
-			writeue(bs, sps_elements[i].value);
-			break;
-		default:
-			/* \todo Error */
-			continue;
-		}
+	writeu(bs, 1, 0); /* forbidden_zero_bit */
+	writeu(bs, 2, NALU_PRIOR_HIGHEST); /* nal_ref_idc */
+	writeu(bs, 5, NALU_SPS); /* nal_unit_type */
+
+	/* H.264 Profile. 66 for (Constrained) Baseline */
+	writeu(bs, 8, 66); /* profile_idc */
+	writeu(bs, 1, 0);  /* constraint_set0_flag */
+
+	/* Constrained profile */
+	writeu(bs, 1, 1); /* constraint_set1_flag */
+	writeu(bs, 1, 0); /* constraint_set2_flag */
+	writeu(bs, 1, 0); /* constraint_set3_flag */
+	writeu(bs, 1, 0); /* constraint_set4_flag */
+	writeu(bs, 1, 0); /* constraint_set5_flag */
+	writeu(bs, 2, 0); /* reserved_zero_2bits */
+
+	/* H.264 Level 4.0 */
+	writeu(bs, 8, 40); /* level_idc */
+
+	/* \todo Missing unessential elements */
+	writeue(bs, par->sps); /* seq_parameter_set_id */
+	writeue(bs, 0); /* log2_max_frame_num_minus4 */
+	writeue(bs, par->poc_type); /* pic_order_cnt_type */
+	/* \todo Missing unessential elements */
+	writeue(bs, 1);   /* num_ref_frames */
+	writeu(bs, 1, 0); /* gaps_in_frame_num_value_allowed_flag */
+	writeue(bs, ctx->mbx - 1); /* pic_width_in_mbs_minus1 */
+	writeue(bs, ctx->mby - 1); /* pic_height_in_map_units_minus1 */
+	writeu(bs, 1, 1); /* frame_mbs_only_flag */
+	/* \todo Missing unessential elements */
+	writeu(bs, 1, 0); /* direct_8x8_inference_flag */
+
+	if (par->crop.left || par->crop.right || par->crop.top ||
+	    par->crop.bottom) {
+		writeu(bs, 1, 1); /* frame_cropping_flag */
+		writeue(bs, par->crop.left);   /* frame_crop_left_offset */
+		writeue(bs, par->crop.right);  /* frame_crop_right_offset */
+		writeue(bs, par->crop.top);    /* frame_crop_top_offset */
+		writeue(bs, par->crop.bottom); /* frame_crop_bottom_offset */
+	} else {
+		writeu(bs, 1, 0); /* frame_cropping_flag */
 	}
+
+	/* \todo Missing unessential elements */
+	writeu(bs, 1, 1); /* vui_parameters_present_flag */
+	writeu(bs, 1, 0); /* vui_aspect_ratio_present_flag */
+	writeu(bs, 1, 0); /* vui_overscan_info_present_flag */
+	writeu(bs, 1, 0); /* vui_video_signal_type_present_flag */
+	writeu(bs, 1, 0); /* vui_chroma_loc_info_present_flag */
+
+	writeu(bs, 1, 1); /* vui_timing_info_present_flag */
+	writeu(bs, 32, ctx->timeperframe.numerator); /* vui_num_units_in_tick */
+	writeu(bs, 32, ctx->timeperframe.denominator * 2); /* vui_time_scale */
+	writeu(bs, 1, 1); /* vui_fixed_frame_rate_flag */
+
+	writeu(bs, 1, 0); /* vui_nal_hrd_parameters_present_flag */
+	writeu(bs, 1, 0); /* vui_vcl_hrd_parameters_present_flag */
+	writeu(bs, 1, 0); /* vui_pic_struct_present_flag */
+	writeu(bs, 1, 0); /* vui_bitstream_restriction_flag */
 
 	write_trailing_bits(bs);
 }

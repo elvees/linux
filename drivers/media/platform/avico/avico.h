@@ -543,6 +543,9 @@ struct avico_frame_params {
 	uint16_t idr_id;
 	unsigned int frame, maxframe;
 	unsigned int i_period;
+	struct {
+		uint16_t left, right, top, bottom;
+	} crop;
 };
 
 struct avico_ctx {
