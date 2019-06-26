@@ -179,7 +179,7 @@ void avico_bitstream_write_sps(struct avico_ctx *ctx)
 
 	/* \todo Missing unessential elements */
 	writeue(bs, par->sps); /* seq_parameter_set_id */
-	writeue(bs, 0); /* log2_max_frame_num_minus4 */
+	writeue(bs, par->log2_max_frame - 4); /* log2_max_frame_num_minus4 */
 	writeue(bs, par->poc_type); /* pic_order_cnt_type */
 	/* \todo Missing unessential elements */
 	writeue(bs, 1);   /* num_ref_frames */
@@ -276,7 +276,7 @@ void avico_bitstream_write_slice_header(struct avico_ctx *ctx)
 	writeue(bs, 0); /* first_mb_addr_in_slice */
 	writeue(bs, par->frame_type); /* frame_type */
 	writeue(bs, par->pps);        /* pps_id */
-	writeu(bs, 4, par->frame); /* frame_num */
+	writeu(bs, par->log2_max_frame, par->frame); /* frame_num */
 
 	if (par->idr)
 		writeue(bs, par->idr_id); /* idr_pic_id */

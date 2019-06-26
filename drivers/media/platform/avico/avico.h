@@ -541,7 +541,8 @@ struct avico_frame_params {
 	enum frame_type frame_type;
 	bool idr;
 	uint16_t idr_id;
-	unsigned int frame, maxframe;
+	unsigned int frame;
+	uint8_t log2_max_frame;
 	unsigned int i_period;
 	struct {
 		uint16_t left, right, top, bottom;

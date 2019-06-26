@@ -916,7 +916,7 @@ static void avico_eof_sdma_callback(void *data)
 			       VB2_BUF_STATE_DONE);
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
-	if (++ctx->par.frame >= ctx->par.maxframe)
+	if (++ctx->par.frame >= ctx->par.gop)
 		ctx->par.frame = 0;
 }
 
@@ -1648,10 +1648,8 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 	par->crop.bottom = (ctx->mby * 16 - ctx->height) / 2;
 
 	par->frame = 0;
-	/* \todo Make configurable.
-	 * This should correlate with log2_max_frame_num_minus4 */
-	par->maxframe = 16;
 	par->gop = 60;
+	par->log2_max_frame = order_base_2(par->gop);
 	par->i_period = 0;
 	par->poc_type = 2;
 	ctx->vdma_trans_size_m1 = 3;
