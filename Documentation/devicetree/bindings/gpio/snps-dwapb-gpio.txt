@@ -29,7 +29,7 @@ controller.
 - interrupts : The interrupt to the parent controller raised when GPIOs
   generate the interrupts.
 - snps,nr-gpios : The number of pins in the port, a single cell.
-- skip-gpios : Array of pins that must not be changed by driver.
+- skip-gpio-list : Array of pins that must not be changed by driver.
 
 Example:
 
@@ -57,6 +57,6 @@ gpio: gpio@20000 {
 		#gpio-cells = <2>;
 		snps,nr-gpios = <8>;
 		reg = <1>;
-		skip-gpios = <3 5 6>
+		skip-gpio-list = <3 5 6>
 	};
 };

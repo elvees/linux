@@ -1115,6 +1115,7 @@ static int read_edid_block(void *data, u8 *buf, unsigned int blk, size_t length)
 	struct tda998x_priv *priv = data;
 	u8 offset, segptr;
 	int ret, i;
+	const int delay = 200;
 
 	offset = (blk & 1) ? 128 : 0;
 	segptr = blk / 2;
@@ -1135,13 +1136,13 @@ static int read_edid_block(void *data, u8 *buf, unsigned int blk, size_t length)
 	if (priv->hdmi->irq) {
 		i = wait_event_timeout(priv->wq_edid,
 					!priv->wq_edid_wait,
-					msecs_to_jiffies(100));
+					msecs_to_jiffies(delay));
 		if (i < 0) {
 			dev_err(&priv->hdmi->dev, "read edid wait err %d\n", i);
 			return i;
 		}
 	} else {
-		for (i = 100; i > 0; i--) {
+		for (i = delay; i > 0; i--) {
 			msleep(1);
 			ret = reg_read(priv, REG_INT_FLAGS_2);
 			if (ret < 0)

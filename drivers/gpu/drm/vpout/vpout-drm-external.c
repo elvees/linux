@@ -18,10 +18,7 @@
 #include "vpout-drm-drv.h"
 #include "vpout-drm-external.h"
 
-static const struct vpout_drm_info panel_info_tda998x = {
-	.bpp			= 32,
-	.invert_pxl_clk		= 0,
-};
+#include "vpout-drm-link.h"
 
 static int vpout_drm_external_mode_valid(struct drm_connector *connector,
 					 struct drm_display_mode *mode)
@@ -33,77 +30,108 @@ static int vpout_drm_external_mode_valid(struct drm_connector *connector,
 	if (ret != MODE_OK)
 		return ret;
 
-	for (i = 0; i < priv->num_connectors &&
-	     priv->connectors[i] != connector; i++)
-		;
+	/* forward call to appropriate connector */
+	for (i = 0; i < priv->num_slaves; i++)
+		if (priv->slaves[i].connector == connector)
+			break;
 
-	BUG_ON(priv->connectors[i] != connector);
-	BUG_ON(!priv->connector_funcs[i]);
-
-	if (!IS_ERR(priv->connector_funcs[i]) &&
-	    priv->connector_funcs[i]->mode_valid)
-		return priv->connector_funcs[i]->mode_valid(connector, mode);
+	if (priv->slaves[i].funcs->mode_valid)
+		return priv->slaves[i].funcs->mode_valid(connector, mode);
 
 	return MODE_OK;
 }
 
-static int vpout_drm_add_external_encoder(struct drm_device *drm_dev,
-				int *bpp, struct drm_connector *connector)
+static void discard_all_preferred_modes(struct drm_connector *connector)
 {
+	struct drm_display_mode *mode;
+
+	list_for_each_entry(mode, &connector->probed_modes, head) {
+		mode->type &= ~DRM_MODE_TYPE_PREFERRED;
+	}
+}
+
+static int vpout_drm_external_get_modes(struct drm_connector *connector)
+{
+	struct vpout_drm_private *priv = connector->dev->dev_private;
+	int count = 0;
+	int i;
+
+	/* forward call to appropriate connector */
+	for (i = 0; i < priv->num_slaves; i++)
+		if (priv->slaves[i].connector == connector)
+			break;
+
+	if (priv->slaves[i].funcs->get_modes)
+		count = priv->slaves[i].funcs->get_modes(connector);
+
+	/* Without discarding, a collision between connectors can occur. */
+	discard_all_preferred_modes(connector);
+
+	if (connector->cmdline_mode.specified)
+		drm_set_preferred_mode(connector,
+				       connector->cmdline_mode.xres,
+				       connector->cmdline_mode.yres);
+	return count;
+}
+
+static int
+insert_proxy(struct drm_device *drm_dev, struct drm_connector *connector)
+{
+	struct drm_connector_helper_funcs *proxy_funcs;
+
+	const struct drm_connector_helper_funcs *conn_funcs;
 	struct vpout_drm_private *priv = drm_dev->dev_private;
-	struct drm_connector_helper_funcs *connector_funcs;
+	struct device *dev = drm_dev->dev;
+	int idx = priv->num_slaves;
 
-	priv->connectors[priv->num_connectors] = connector;
-	priv->encoders[priv->num_encoders++] = connector->encoder;
+	conn_funcs = connector->helper_private;
 
-	vpout_drm_crtc_set_panel_info(priv->crtc, &panel_info_tda998x);
-	*bpp = panel_info_tda998x.bpp;
-
-	connector_funcs = devm_kzalloc(drm_dev->dev, sizeof(*connector_funcs),
-				       GFP_KERNEL);
-	if (!connector_funcs)
+	proxy_funcs = devm_kzalloc(dev, sizeof(*proxy_funcs), GFP_KERNEL);
+	if (!proxy_funcs)
 		return -ENOMEM;
 
-	if (connector->helper_private) {
-		priv->connector_funcs[priv->num_connectors] =
-			connector->helper_private;
-		*connector_funcs = *priv->connector_funcs[priv->num_connectors];
-	} else {
-		priv->connector_funcs[priv->num_connectors] = ERR_PTR(-ENOENT);
-	}
-	connector_funcs->mode_valid = vpout_drm_external_mode_valid;
-	drm_connector_helper_add(connector, connector_funcs);
-	priv->num_connectors++;
+	/* save original object for restore in further */
+	priv->slaves[idx].funcs = conn_funcs;
+	priv->slaves[idx].connector = connector;
 
-	dev_dbg(drm_dev->dev, "External encoder '%s' connected\n",
+	*proxy_funcs = *conn_funcs;
+
+	/*
+	 * insert our proxy function.
+	 * This allow check drm pipeline.
+	 * In latest kernel release this is integrated into the kernel.
+	 */
+	proxy_funcs->mode_valid = vpout_drm_external_mode_valid;
+
+	/* This allow to mark cmdline mode as preferred */
+	proxy_funcs->get_modes = vpout_drm_external_get_modes;
+
+	drm_connector_helper_add(connector, proxy_funcs);
+	priv->num_slaves++;
+
+	dev_dbg(dev, "External encoder '%s' connected\n",
 		connector->encoder->name);
 
 	return 0;
 }
 
-int vpout_drm_add_external_encoders(struct drm_device *drm_dev, int *bpp)
+int vpout_drm_add_external_encoders(struct drm_device *drm_dev)
 {
-	struct vpout_drm_private *priv = drm_dev->dev_private;
 	struct drm_connector *connector;
-	int num_internal_connectors = priv->num_connectors;
+	int ret;
 
-	list_for_each_entry(connector, &drm_dev->mode_config.connector_list,
-			    head) {
-		bool found = false;
-		int i, ret;
-
-		for (i = 0; i < num_internal_connectors; i++)
-			if (connector == priv->connectors[i])
-				found = true;
-		if (!found) {
-			ret = vpout_drm_add_external_encoder(drm_dev, bpp,
-							     connector);
-			if (ret)
-				return ret;
+	mutex_lock(&drm_dev->mode_config.mutex);
+	drm_for_each_connector(connector, drm_dev) {
+		ret = insert_proxy(drm_dev, connector);
+		if (ret) {
+			mutex_unlock(&drm_dev->mode_config.mutex);
+			return ret;
 		}
 	}
+	mutex_unlock(&drm_dev->mode_config.mutex);
 
-	return 0;
+	/* link encoders with corresponding remote endpoints */
+	return vpout_drm_link_encoders(drm_dev);
 }
 
 void vpout_drm_remove_external_encoders(struct drm_device *drm_dev)
@@ -111,17 +139,23 @@ void vpout_drm_remove_external_encoders(struct drm_device *drm_dev)
 	struct vpout_drm_private *priv = drm_dev->dev_private;
 	int i;
 
-	for (i = 0; i < priv->num_connectors; i++)
-		if (IS_ERR(priv->connector_funcs[i]))
-			drm_connector_helper_add(priv->connectors[i], NULL);
-		else if (priv->connector_funcs[i])
-			drm_connector_helper_add(priv->connectors[i],
-						 priv->connector_funcs[i]);
+	/* restore original objects */
+	for (i = 0; i < priv->num_slaves; i++)
+		drm_connector_helper_add(priv->slaves[i].connector,
+					 priv->slaves[i].funcs);
+
+	/* destroy links between encoders and endpoints */
+	vpout_drm_unlink_all();
 }
 
 static int dev_match_of(struct device *dev, void *data)
 {
-	return dev->of_node == data;
+	bool matched = dev->of_node == data;
+
+	if (matched)
+		vpout_drm_link_endpoint(dev);
+
+	return matched;
 }
 
 int vpout_drm_get_external_components(struct device *dev,
@@ -146,10 +180,96 @@ int vpout_drm_get_external_components(struct device *dev,
 		count++;
 	}
 
-	if (count > 1) {
-		dev_err(dev, "Only one external encoder is supported\n");
-		return -EINVAL;
-	}
-
 	return count;
+}
+
+static void store_options(struct drm_connector *connector, const char *option)
+{
+	bool ok;
+	struct drm_cmdline_mode *mode = &connector->cmdline_mode;
+
+	ok = drm_mode_parse_command_line_for_connector(option, connector, mode);
+	if (!ok)
+		return;
+	connector->force = mode->force;
+}
+
+static int lookup_label(struct drm_connector *connector)
+{
+	const char *label = NULL;
+	char *new_name = NULL;
+	char *option = NULL;
+
+	label = vpout_drm_get_connector_info(connector)->label;
+
+	/* if label isn't assigned then connector name will not be changed */
+	if (!label)
+		return 0;
+
+	/*
+	 * Create a new connector name.
+	 * New name will consist of an old name and a specified label
+	 * from DTS. The <old_name>-<label> schema provides to link
+	 * temporary DRM connector name and physical device which owns this
+	 * connector.
+	 *
+	 * In some cases we want to set kernel command line options for
+	 * specified device connector. Because between reloads temporary DRM
+	 * connector name can change, we use constant <label>
+	 * for it. So kernel command line option will look like:
+	 *
+	 *  video=<label>:<params>
+	 *
+	 * Previous name schema also available if label isn't used
+	 */
+	new_name = kasprintf(GFP_KERNEL, "%s-%s", connector->name, label);
+	if (unlikely(!new_name))
+		return -ENOMEM;
+
+	kfree(connector->name);
+	connector->name = new_name;
+
+	/* check again if we have parameters in a kernel command line */
+	if (fb_get_options(label, &option) == 0)
+		store_options(connector, option);
+
+	return 0;
+}
+
+int fixup_connectors_names(struct drm_device *drm_dev)
+{
+	struct drm_connector *connector;
+	int ret = 0;
+
+	mutex_lock(&drm_dev->mode_config.mutex);
+	drm_for_each_connector(connector, drm_dev) {
+		/* unregister connector with old name */
+		drm_connector_unregister(connector);
+
+		ret = lookup_label(connector);
+		if (ret)
+			break;
+
+		/* register connector again */
+		ret = drm_connector_register(connector);
+		if (ret)
+			break;
+	}
+	mutex_unlock(&drm_dev->mode_config.mutex);
+
+	return ret;
+}
+
+int vpout_drm_has_preferred_connectors(struct drm_device *drm_dev)
+{
+	struct drm_connector *connector;
+	int prefs = 0;
+
+	mutex_lock(&drm_dev->mode_config.mutex);
+	drm_for_each_connector(connector, drm_dev) {
+		prefs += connector->cmdline_mode.specified;
+	}
+	mutex_unlock(&drm_dev->mode_config.mutex);
+
+	return prefs;
 }

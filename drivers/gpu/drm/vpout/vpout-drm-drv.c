@@ -28,23 +28,7 @@
 
 #include "vpout-drm-drv.h"
 #include "vpout-drm-external.h"
-#include "vpout-drm-panel.h"
-
-static LIST_HEAD(module_list);
-
-void vpout_drm_module_init(struct vpout_drm_module *mod, const char *name,
-			   const struct vpout_drm_module_ops *funcs)
-{
-	mod->name = name;
-	mod->funcs = funcs;
-	INIT_LIST_HEAD(&mod->list);
-	list_add(&mod->list, &module_list);
-}
-
-void vpout_drm_module_cleanup(struct vpout_drm_module *mod)
-{
-	list_del(&mod->list);
-}
+#include "vpout-drm-link.h"
 
 static struct drm_framebuffer *vpout_drm_fb_create(struct drm_device *drm_dev,
 		struct drm_file *file_priv, struct drm_mode_fb_cmd2 *mode_cmd)
@@ -64,26 +48,62 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.output_poll_changed = vpout_drm_fb_output_poll_changed,
 };
 
-static int modeset_init(struct drm_device *drm_dev)
+static int
+of_get_child_count_by_name(struct device_node *parent, const char *name)
 {
-	struct vpout_drm_private *priv = drm_dev->dev_private;
-	struct vpout_drm_module *mod;
+	struct device_node *child;
+	int count = 0;
 
-	drm_mode_config_init(drm_dev);
+	for_each_child_of_node(parent, child)
+		if (child->name && (of_node_cmp(child->name, name) == 0))
+			count++;
 
-	priv->crtc = vpout_drm_crtc_create(drm_dev);
+	return count;
+}
 
-	list_for_each_entry(mod, &module_list, list) {
-		mod->funcs->modeset_init(mod, drm_dev);
+static struct device_node *get_crtc_port(struct device *dev)
+{
+	struct device_node *parent, *ports, *port;
+	int count;
+
+	parent = dev->of_node;
+
+	ports = of_get_child_by_name(parent, "ports");
+	if (ports)
+		parent = ports;
+
+	count = of_get_child_count_by_name(parent, "port");
+
+	if (count > 1) {
+		dev_err(dev,
+			"The CRTC supports only one port for all endpoints\n");
+		of_node_put(ports);
+		return NULL;
 	}
 
-	drm_dev->mode_config.min_width = 0;
-	drm_dev->mode_config.min_height = 0;
-	drm_dev->mode_config.max_width = 2048;
-	drm_dev->mode_config.max_height = 2048;
-	drm_dev->mode_config.funcs = &mode_config_funcs;
+	port = of_get_child_by_name(parent, "port");
 
-	return 0;
+	of_node_put(ports);
+
+	return port;
+}
+
+uint vpout_drm_get_preferred_bpp(struct drm_device *drm_dev)
+{
+	uint bpp = 32;
+	struct drm_connector *con;
+
+	mutex_lock(&drm_dev->mode_config.mutex);
+	drm_for_each_connector(con, drm_dev) {
+		if (con->cmdline_mode.specified) {
+			/* get bpp for preferred connector */
+			bpp = vpout_drm_get_connector_info(con)->bpp;
+			break;
+		}
+	}
+	mutex_unlock(&drm_dev->mode_config.mutex);
+
+	return bpp;
 }
 
 /*
@@ -96,9 +116,9 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 	struct device *dev = drm_dev->dev;
 
 	struct vpout_drm_private *priv;
-	struct vpout_drm_module *mod;
+	struct device_node *port;
 	struct resource *res;
-	u32 bpp = 0;
+	uint bpp;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -110,9 +130,6 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 		return -ENOMEM;
 
 	drm_dev->dev_private = priv;
-
-	priv->is_componentized =
-		vpout_drm_get_external_components(dev, NULL) > 0;
 
 	res = platform_get_resource(plat_dev, IORESOURCE_MEM, 0);
 
@@ -136,27 +153,65 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 		goto fail_free_wq;
 	}
 
-	ret = modeset_init(drm_dev);
-	if (ret < 0) {
-		dev_err(dev, "failed to initialize mode setting\n");
-		goto fail_disable_clk;
+	drm_mode_config_init(drm_dev);
+
+	priv->crtc = vpout_drm_crtc_create(drm_dev);
+
+	if (!priv->crtc) {
+		ret = -ENXIO;
+		goto fail_mode_config_cleanup;
 	}
+
+	port = get_crtc_port(dev);
+	if (!port) {
+		ret = -ENXIO;
+		goto fail_mode_config_cleanup;
+	}
+
+	priv->crtc->port = port;
+	of_node_put(port);
+
+	drm_dev->mode_config.min_width = 0;
+	drm_dev->mode_config.min_height = 0;
+	drm_dev->mode_config.max_width = 2048;
+	drm_dev->mode_config.max_height = 2048;
+	drm_dev->mode_config.funcs = &mode_config_funcs;
 
 	platform_set_drvdata(plat_dev, drm_dev);
 
-	if (priv->is_componentized) {
-		ret = component_bind_all(dev, drm_dev);
-		if (ret < 0)
-			goto fail_mode_config_cleanup;
+	/*
+	 * Now we enum all slave device. In this time
+	 * they all present in system and probed.
+	 */
+	ret = component_bind_all(dev, drm_dev);
+	if (ret < 0)
+		goto fail_mode_config_cleanup;
 
-		ret = vpout_drm_add_external_encoders(drm_dev, &bpp);
-		if (ret < 0)
-			goto fail_component_cleanup;
-	}
+	ret = vpout_drm_add_external_encoders(drm_dev);
+	if (ret < 0)
+		goto fail_component_cleanup;
 
-	if ((priv->num_encoders == 0) || (priv->num_connectors == 0)) {
+	if (priv->num_slaves == 0) {
 		dev_err(dev, "no encoders/connectors found\n");
 		ret = -ENXIO;
+		goto fail_external_cleanup;
+	}
+
+	/* fixup names and lookup cmdline options if connectors have labels */
+	ret = fixup_connectors_names(drm_dev);
+	if (ret) {
+		dev_err(dev, "failed to fixup connectors names\n");
+		goto fail_external_cleanup;
+	}
+
+	/*
+	 * Query preferred connectors.
+	 * It can be made after lookup cmdline options.
+	 * Preferred connector should be assigned through 'video' parameter.
+	 * In any time should be only one preferred connector.
+	 */
+	if (vpout_drm_has_preferred_connectors(drm_dev) != 1) {
+		dev_err(dev, "failed to select preferred connector\n");
 		goto fail_external_cleanup;
 	}
 
@@ -172,11 +227,7 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 		goto fail_vblank_cleanup;
 	}
 
-	list_for_each_entry(mod, &module_list, list) {
-		bpp = mod->preferred_bpp;
-		if (bpp > 0)
-			break;
-	}
+	bpp = vpout_drm_get_preferred_bpp(drm_dev);
 
 	priv->fbdev = drm_fbdev_cma_init(drm_dev, bpp,
 					 drm_dev->mode_config.num_crtc,
@@ -197,17 +248,14 @@ fail_irq_uninstall:
 fail_vblank_cleanup:
 	drm_vblank_cleanup(drm_dev);
 
-fail_mode_config_cleanup:
-	drm_mode_config_cleanup(drm_dev);
-
-fail_component_cleanup:
-	if (priv->is_componentized)
-		component_unbind_all(dev, drm_dev);
-
 fail_external_cleanup:
 	vpout_drm_remove_external_encoders(drm_dev);
 
-fail_disable_clk:
+fail_component_cleanup:
+	component_unbind_all(dev, drm_dev);
+
+fail_mode_config_cleanup:
+	drm_mode_config_cleanup(drm_dev);
 	clk_disable_unprepare(priv->clk);
 
 fail_free_wq:
@@ -276,7 +324,8 @@ static const struct file_operations fops = {
 };
 
 static struct drm_driver vpout_drm_driver = {
-	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET,
+	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET |
+			      DRIVER_PRIME,
 	.load               = vpout_drm_load,
 	.unload             = vpout_drm_unload,
 	.lastclose          = vpout_drm_lastclose,
@@ -286,6 +335,15 @@ static struct drm_driver vpout_drm_driver = {
 	.enable_vblank      = vpout_drm_enable_vblank,
 	.disable_vblank     = vpout_drm_disable_vblank,
 	.gem_free_object    = drm_gem_cma_free_object,
+	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+	.gem_prime_import   = drm_gem_prime_import,
+	.gem_prime_export   = drm_gem_prime_export,
+	.gem_prime_get_sg_table    = drm_gem_cma_prime_get_sg_table,
+	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
+	.gem_prime_vmap     = drm_gem_cma_prime_vmap,
+	.gem_prime_vunmap   = drm_gem_cma_prime_vunmap,
+	.gem_prime_mmap     = drm_gem_cma_prime_mmap,
 	.gem_vm_ops         = &drm_gem_cma_vm_ops,
 	.dumb_create        = drm_gem_cma_dumb_create,
 	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,
@@ -320,6 +378,7 @@ static const struct component_master_ops vpout_drm_comp_ops = {
 static int vpout_drm_probe(struct platform_device *plat_dev)
 {
 	struct component_match *match = NULL;
+	int count;
 	int ret;
 
 	if (!plat_dev->dev.of_node) {
@@ -327,12 +386,13 @@ static int vpout_drm_probe(struct platform_device *plat_dev)
 		return -ENXIO;
 	}
 
-	ret = vpout_drm_get_external_components(&plat_dev->dev, &match);
-	if (ret < 0)
-		return ret;
+	count = vpout_drm_get_external_components(&plat_dev->dev, &match);
+	if (count < 0)
+		return count;
 
-	if (ret == 0)
-		return drm_platform_init(&vpout_drm_driver, plat_dev);
+	ret = vpout_drm_link_init(count);
+	if (ret)
+		return ret;
 
 	return component_master_add_with_match(&plat_dev->dev,
 					       &vpout_drm_comp_ops, match);
@@ -340,16 +400,9 @@ static int vpout_drm_probe(struct platform_device *plat_dev)
 
 static int vpout_drm_remove(struct platform_device *plat_dev)
 {
-	struct drm_device *drm_dev = dev_get_drvdata(&plat_dev->dev);
-	struct vpout_drm_private *priv = drm_dev->dev_private;
+	component_master_del(&plat_dev->dev, &vpout_drm_comp_ops);
 
-	if (!priv)
-		return 0;
-
-	if (priv->is_componentized)
-		component_master_del(&plat_dev->dev, &vpout_drm_comp_ops);
-	else
-		drm_put_dev(platform_get_drvdata(plat_dev));
+	vpout_drm_link_release();
 
 	return 0;
 }
@@ -371,16 +424,12 @@ static struct platform_driver vpout_drm_platform_driver = {
 
 static int __init vpout_drm_init(void)
 {
-	vpout_drm_panel_init();
-
 	return platform_driver_register(&vpout_drm_platform_driver);
 }
 
 static void __exit vpout_drm_fini(void)
 {
 	platform_driver_unregister(&vpout_drm_platform_driver);
-
-	vpout_drm_panel_fini();
 }
 
 module_init(vpout_drm_init);

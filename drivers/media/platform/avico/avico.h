@@ -24,6 +24,8 @@
 
 #include "avico-bitstream.h"
 
+#define NCLKS 4
+
 #define AVICO_CTRL_BASE     0x00
 #define AVICO_CTRL_EVENTS   0x00
 #define AVICO_CTRL_MSKI_CPU 0x04
@@ -44,11 +46,16 @@
 #define AVICO_THREAD_STATUS 0x20
 #define AVICO_THREAD_SMBPOS 0x28
 
-#define AVICO_MD_BASE 0x2000
-#define AVICO_MD_CFG (AVICO_MD_BASE + 0x00)
-#define AVICO_MD_CHANNEL_BASE(i) (AVICO_MD_BASE + 0x80 + 0x20 * (i))
-#define AVICO_MD_MBPOS(i) (AVICO_MD_CHANNEL_BASE(i) + 0x00)
-#define AVICO_MD_FRMN(i)  (AVICO_MD_CHANNEL_BASE(i) + 0x04)
+#define AVICO_MD_SYS_BASE 0x2000
+#define AVICO_MD_SYS_CFG    0x00
+
+#define AVICO_MD_BASE(i) (AVICO_MD_SYS_BASE + 0x80 + 0x20 * (i))
+#define AVICO_MD_MBPOS  0x00
+#define AVICO_MD_FRMN   0x04
+
+#define AVICO_TQ_BASE(i) (0x3000 + 0x40 * (i))
+#define AVICO_TQ_MBPOS  0x00
+#define AVICO_TQ_FRMN   0x04
 
 #define AVICO_VDMA_BASE 0x5000
 
@@ -101,6 +108,16 @@
 #define AVICO_REGC_CPB 0x060
 #define AVICO_REGC_CQC 0x080
 #define AVICO_REGC_CBS 0x100
+
+#define AVICO_REGC_CP0_SIZE 0x010
+#define AVICO_REGC_CP1_SIZE 0x010
+#define AVICO_REGC_CP2_SIZE 0x010
+#define AVICO_REGC_CP3_SIZE 0x010
+#define AVICO_REGC_CPN_SIZE 0x010
+#define AVICO_REGC_CPA_SIZE 0x010
+#define AVICO_REGC_CPB_SIZE 0x010
+#define AVICO_REGC_CQC_SIZE 0x080
+#define AVICO_REGC_CBS_SIZE 0x100
 
 #define AVICO_TASKCTRC_TASK   0x00
 #define AVICO_TASKCTRC_CS     0x04
@@ -412,9 +429,7 @@ struct avico_dev {
 
 	struct dma_chan *dma_ch;
 
-	struct clk *pclk;
-	struct clk *aclk;
-	struct clk *sclk;
+	struct clk *clk[NCLKS];
 
 	spinlock_t irqlock;
 	struct mutex mutex;
@@ -515,6 +530,21 @@ struct avico_enc_params {
 	struct cdc_h264_cfg cdc_h264_cfg;
 };
 
+struct avico_frame_params {
+	uint8_t sps;
+	uint8_t pps;
+	uint16_t gop;
+	uint8_t poc_type;
+	uint8_t qp_i, qp_p, pps_qp;
+	int8_t qpc_offset;
+	int dbf;
+	enum frame_type frame_type;
+	bool idr;
+	uint16_t idr_id;
+	unsigned int frame, maxframe;
+	unsigned int i_period;
+};
+
 struct avico_ctx {
 	struct v4l2_fh fh;
 	struct avico_dev *dev;
@@ -522,24 +552,22 @@ struct avico_ctx {
 	/* Abort requested by m2m */
 	int aborting;
 
-	uint16_t sps;
-	uint16_t pps;
-	uint16_t gop;
+	unsigned long state;
+
+	struct avico_frame_params par;
+
 	/* \todo Crop */
 	/* \todo MD configuration */
 
 	struct v4l2_fract timeperframe;
-	uint8_t poc_type;
 	uint8_t vdma_trans_size_m1;
 
 	uint8_t mbx, mby;
-	int8_t qpy, qpc;
-	int dbf;
-	enum frame_type frame_type;
-	bool idr, outon, capon;
-	unsigned int frame, maxframe;
-	unsigned int i_period;
+	bool outon, capon;
+	bool force_key;
 	unsigned int bitstream_size;
+
+	bool error;
 
 	struct bitstream bs;
 
@@ -551,14 +579,20 @@ struct avico_ctx {
 	uint32_t ref_ptr_off, out_ptr_off;  /* Offsets for new data */
 	int bounce_active;  /* Active bounce buffer */
 
-	uint16_t size_cbs;
-	uint16_t dma_cbs_len;
+	void *vmbref, *vmbcur;
+	dma_addr_t dmambref, dmambcur;
+	unsigned int mbrefsize, mbcursize;
 
 	enum v4l2_colorspace colorspace;
 	unsigned int width, height;
 	unsigned int capfmt, outfmt;
 	unsigned int outsize, capsize, refsize;
 	unsigned int outseq, capseq;
+
+	struct v4l2_ctrl	*ctrl_qp_i;
+	struct v4l2_ctrl	*ctrl_qp_p;
+	struct v4l2_ctrl	*ctrl_qpc_off;
+	struct v4l2_ctrl_handler ctrl_handler;
 };
 
 #define MAX_RBSP_LENGTH 0x0ffffc

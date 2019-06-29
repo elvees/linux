@@ -176,6 +176,9 @@ static int uio_delcore30m_probe(struct platform_device *pdev)
 	struct uio_mem *uiomem;
 	int ret = -EINVAL;
 	int i;
+	struct resource *resources;
+	int num_resources;
+	static const char * const xyram_names[] = { "xyram0", "xyram1" };
 
 	if (pdev->dev.of_node) {
 		/* alloc uioinfo for one device */
@@ -228,8 +231,46 @@ static int uio_delcore30m_probe(struct platform_device *pdev)
 
 	uiomem = &uioinfo->mem[0];
 
-	for (i = 0; i < pdev->num_resources; ++i) {
-		struct resource *r = &pdev->resource[i];
+	num_resources = pdev->num_resources + 2;
+	resources = kmalloc_array(num_resources, sizeof(struct resource),
+				  GFP_KERNEL);
+	if (!resources) {
+		ret = -ENOMEM;
+		goto error_clocks;
+	}
+
+	memcpy(resources, pdev->resource,
+	       pdev->num_resources * sizeof(struct resource));
+
+	for (i = 0; i < 2; ++i) {
+		struct device_node *np;
+		struct platform_device *pdev_xyram;
+		struct resource *regs;
+
+		np = of_parse_phandle(pdev->dev.of_node, "xyram", i);
+		if (!np) {
+			dev_err(&pdev->dev, "Parse XYRAM error\n");
+			break;
+		}
+
+		pdev_xyram = of_find_device_by_node(np);
+		if (!pdev_xyram) {
+			dev_err(&pdev->dev, "Failed to find device by name\n");
+			break;
+		}
+
+		regs = platform_get_resource(pdev_xyram, IORESOURCE_MEM, 0);
+		memcpy(&resources[pdev->num_resources + i], regs,
+		       sizeof(struct resource));
+		resources[pdev->num_resources + i].name = xyram_names[i];
+		of_node_put(np);
+	}
+
+	for (i = 0; i < num_resources; ++i) {
+		struct resource *r = &resources[i];
+
+		if (!strcmp(r->name, "spinlock"))
+			continue;
 
 		if (r->flags != IORESOURCE_MEM)
 			continue;
@@ -247,6 +288,8 @@ static int uio_delcore30m_probe(struct platform_device *pdev)
 		uiomem->name = r->name;
 		++uiomem;
 	}
+
+	kfree(resources);
 
 	while (uiomem < &uioinfo->mem[MAX_UIO_MAPS]) {
 		uiomem->size = 0;
@@ -329,7 +372,7 @@ static const struct dev_pm_ops uio_delcore30m_dev_pm_ops = {
 
 #ifdef CONFIG_OF
 static const struct of_device_id uio_of_delcore30m_match[] = {
-	{ .compatible = "elvees,delcore-30m" },
+	{ .compatible = "elvees,delcore30m" },
 	{ /* Sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, uio_of_delcore30m_match);

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 ELVEES NeoTek CJSC
+ *  Copyright 2015-2019 RnD Center "ELVEES", JSC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 #include <linux/platform_data/brcmfmac-sdio.h>
 #include <linux/platform_device.h>
 
+#include "common.h"
 #include "suspend.h"
 
 static const char * const mcom02_dt_board_compat[] = {
@@ -100,6 +101,7 @@ void __init mcom02_init_machine(void)
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 	platform_device_register_simple("cpufreq-dt", 0, NULL, 0);
 	mcom02_suspend_init();
+	mcom02_init_pmctr();
 }
 
 static struct device bt_device;

@@ -27,43 +27,35 @@
 #include <video/display_timing.h>
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
-
+#include <linux/component.h>
+#include <drm/drm_of.h>
 #include "vpout-drm-drv.h"
 
-struct panel_module {
-	struct vpout_drm_module base;
-	struct vpout_drm_info *info;
+struct panel {
+	struct drm_encoder encoder;
+	struct drm_connector connector;
 	struct display_timings *timings;
 	struct backlight_device *backlight;
 	struct gpio_desc *enable_gpio;
 };
 
-#define to_panel_module(x) container_of(x, struct panel_module, base)
+#define cast_from_encoder(x) container_of(x, struct panel, encoder)
+#define cast_from_connector(x) container_of(x, struct panel, connector)
 
 /*
  * Encoder:
  */
 
-struct panel_encoder {
-	struct drm_encoder base;
-	struct panel_module *mod;
-};
-
-#define to_panel_encoder(x) container_of(x, struct panel_encoder, base)
-
 static void panel_encoder_destroy(struct drm_encoder *encoder)
 {
-	struct panel_encoder *panel_encoder = to_panel_encoder(encoder);
-
 	drm_encoder_cleanup(encoder);
-	kfree(panel_encoder);
 }
 
 static void panel_encoder_dpms(struct drm_encoder *encoder, int mode)
 {
-	struct panel_encoder *panel_encoder = to_panel_encoder(encoder);
-	struct backlight_device *backlight = panel_encoder->mod->backlight;
-	struct gpio_desc *gpio = panel_encoder->mod->enable_gpio;
+	struct panel *panel = cast_from_encoder(encoder);
+	struct backlight_device *backlight = panel->backlight;
+	struct gpio_desc *gpio = panel->enable_gpio;
 
 	if (backlight) {
 		backlight->props.power = mode == DRM_MODE_DPMS_ON ?
@@ -86,10 +78,7 @@ static bool panel_encoder_mode_fixup(struct drm_encoder *encoder,
 
 static void panel_encoder_prepare(struct drm_encoder *encoder)
 {
-	struct panel_encoder *panel_encoder = to_panel_encoder(encoder);
-
 	panel_encoder_dpms(encoder, DRM_MODE_DPMS_OFF);
-	vpout_drm_crtc_set_panel_info(encoder->crtc, panel_encoder->mod->info);
 }
 
 static void panel_encoder_commit(struct drm_encoder *encoder)
@@ -116,56 +105,14 @@ static const struct drm_encoder_helper_funcs panel_encoder_helper_funcs = {
 	.mode_set	= panel_encoder_mode_set,
 };
 
-static struct drm_encoder *panel_encoder_create(struct drm_device *drm_dev,
-						struct panel_module *mod)
-{
-	struct panel_encoder *panel_encoder;
-	struct drm_encoder *encoder;
-	int ret;
-
-	panel_encoder = kzalloc(sizeof(*panel_encoder), GFP_KERNEL);
-	if (!panel_encoder)
-		return NULL;
-
-	panel_encoder->mod = mod;
-
-	encoder = &panel_encoder->base;
-	encoder->possible_crtcs = 1;
-
-	ret = drm_encoder_init(drm_dev, encoder, &panel_encoder_funcs,
-			       DRM_MODE_ENCODER_LVDS);
-	if (ret < 0)
-		goto fail;
-
-	drm_encoder_helper_add(encoder, &panel_encoder_helper_funcs);
-
-	return encoder;
-
-fail:
-	panel_encoder_destroy(encoder);
-
-	return NULL;
-}
-
 /*
  * Connector:
  */
 
-struct panel_connector {
-	struct drm_connector base;
-	struct drm_encoder *encoder;
-	struct panel_module *mod;
-};
-
-#define to_panel_connector(x) container_of(x, struct panel_connector, base)
-
 static void panel_connector_destroy(struct drm_connector *connector)
 {
-	struct panel_connector *panel_connector = to_panel_connector(connector);
-
 	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
-	kfree(panel_connector);
 }
 
 static enum drm_connector_status panel_connector_detect(
@@ -177,8 +124,8 @@ static enum drm_connector_status panel_connector_detect(
 static int panel_connector_get_modes(struct drm_connector *connector)
 {
 	struct drm_device *drm_dev = connector->dev;
-	struct panel_connector *panel_connector = to_panel_connector(connector);
-	struct display_timings *timings = panel_connector->mod->timings;
+	struct panel *panel = cast_from_connector(connector);
+	struct display_timings *timings = panel->timings;
 	int i;
 
 	for (i = 0; i < timings->num_timings; i++) {
@@ -205,17 +152,15 @@ static int panel_connector_get_modes(struct drm_connector *connector)
 static int panel_connector_mode_valid(struct drm_connector *connector,
 				      struct drm_display_mode *mode)
 {
-	struct vpout_drm_private *priv = connector->dev->dev_private;
-
-	return vpout_drm_crtc_mode_valid(priv->crtc, mode);
+	return MODE_OK;
 }
 
-static struct drm_encoder *panel_connector_best_encoder(
-		struct drm_connector *connector)
+static struct drm_encoder*
+panel_connector_best_encoder(struct drm_connector *connector)
 {
-	struct panel_connector *panel_connector = to_panel_connector(connector);
+	struct panel *panel = cast_from_connector(connector);
 
-	return panel_connector->encoder;
+	return &panel->encoder;
 }
 
 static const struct drm_connector_funcs panel_connector_funcs = {
@@ -231,25 +176,44 @@ static const struct drm_connector_helper_funcs panel_connector_helper_funcs = {
 	.best_encoder	= panel_connector_best_encoder,
 };
 
-static struct drm_connector *panel_connector_create(struct drm_device *drm_dev,
-						    struct panel_module *mod,
-						    struct drm_encoder *encoder)
+/*
+ * Device:
+ */
+
+static int
+vpout_panel_bind(struct device *dev, struct device *master, void *data)
 {
-	struct panel_connector *panel_connector;
-	struct drm_connector *connector;
+	struct drm_device *drm_dev = data;
+	struct panel *panel = dev_get_drvdata(dev);
+
+	struct drm_encoder *encoder = &panel->encoder;
+	struct drm_connector *connector = &panel->connector;
+	uint32_t crtcs_mask = 0;
 	int ret;
 
-	panel_connector = kzalloc(sizeof(*panel_connector), GFP_KERNEL);
-	if (!panel_connector)
-		return NULL;
+	if (dev->of_node)
+		crtcs_mask = drm_of_find_possible_crtcs(drm_dev, dev->of_node);
 
-	panel_connector->encoder = encoder;
-	panel_connector->mod = mod;
+	/* If no CRTCs were found, fall back to our old behaviour */
+	if (crtcs_mask == 0) {
+		dev_warn(dev, "Falling back to first CRTC\n");
+		crtcs_mask = 1;
+	}
 
-	connector = &panel_connector->base;
+	encoder->possible_crtcs = crtcs_mask;
 
-	drm_connector_init(drm_dev, connector, &panel_connector_funcs,
-			   DRM_MODE_CONNECTOR_LVDS);
+	ret = drm_encoder_init(drm_dev, encoder, &panel_encoder_funcs,
+			       DRM_MODE_ENCODER_LVDS);
+	if (ret < 0)
+		goto fail;
+
+	drm_encoder_helper_add(encoder, &panel_encoder_helper_funcs);
+
+	ret = drm_connector_init(drm_dev, connector, &panel_connector_funcs,
+				 DRM_MODE_CONNECTOR_LVDS);
+	if (ret)
+		goto encoder_cleanup;
+
 	drm_connector_helper_add(connector, &panel_connector_helper_funcs);
 
 	connector->interlace_allowed = 0;
@@ -257,212 +221,157 @@ static struct drm_connector *panel_connector_create(struct drm_device *drm_dev,
 
 	ret = drm_mode_connector_attach_encoder(connector, encoder);
 	if (ret)
-		goto fail;
+		goto connector_cleanup;
 
-	drm_connector_register(connector);
+	connector->encoder = encoder;
 
-	return connector;
-
-fail:
-	panel_connector_destroy(connector);
-
-	return NULL;
-}
-
-/*
- * Module:
- */
-
-static int panel_modeset_init(struct vpout_drm_module *mod,
-			      struct drm_device *drm_dev)
-{
-	struct panel_module *panel_mod = to_panel_module(mod);
-	struct vpout_drm_private *priv = drm_dev->dev_private;
-	struct drm_encoder *encoder;
-	struct drm_connector *connector;
-
-	encoder = panel_encoder_create(drm_dev, panel_mod);
-	if (!encoder)
-		return -ENOMEM;
-
-	connector = panel_connector_create(drm_dev, panel_mod, encoder);
-	if (!connector)
-		return -ENOMEM;
-
-	priv->encoders[priv->num_encoders++] = encoder;
-	priv->connectors[priv->num_connectors++] = connector;
+	ret = drm_connector_register(connector);
+	if (ret)
+		goto connector_cleanup;
 
 	return 0;
+
+connector_cleanup:
+	drm_connector_cleanup(connector);
+
+encoder_cleanup:
+	drm_encoder_cleanup(encoder);
+
+fail:
+	return ret;
 }
 
-static const struct vpout_drm_module_ops panel_module_ops = {
-	.modeset_init	= panel_modeset_init,
+static void
+vpout_panel_unbind(struct device *dev, struct device *master, void *data)
+{
+	struct panel *panel = dev_get_drvdata(dev);
+
+	panel_connector_destroy(&panel->connector);
+	panel_encoder_destroy(&panel->encoder);
+}
+
+static const struct component_ops panel_ops = {
+	.bind = vpout_panel_bind,
+	.unbind = vpout_panel_unbind,
 };
 
-/*
- * Device:
- */
-
-static struct vpout_drm_info *of_get_panel_info(struct device_node *np)
+static int vpout_drm_panel_probe(struct platform_device *plat_dev)
 {
-	struct device_node *info_np;
-	struct vpout_drm_info *info;
-	int ret = 0;
-
-	if (!np) {
-		pr_err("%s: no devicenode given\n", __func__);
-		return NULL;
-	}
-
-	info_np = of_get_child_by_name(np, "panel-info");
-	if (!info_np) {
-		pr_err("%s: could not find panel-info node\n", __func__);
-		return NULL;
-	}
-
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!info) {
-		of_node_put(info_np);
-		return NULL;
-	}
-
-	ret = of_property_read_u32(info_np, "bpp", &info->bpp);
-	if (ret) {
-		pr_err("%s: error reading panel-info properties\n", __func__);
-		kfree(info);
-		of_node_put(info_np);
-		return NULL;
-	}
-
-	info->invert_pxl_clk = of_property_read_bool(info_np,
-						     "invert-pxl-clk");
-
-	of_node_put(info_np);
-
-	return info;
-}
-
-static int panel_probe(struct platform_device *plat_dev)
-{
-	struct device_node *bl_node, *node = plat_dev->dev.of_node;
-	struct panel_module *panel_mod;
-	struct vpout_drm_module *mod;
-	struct pinctrl *pinctrl;
+	struct device *dev;
+	struct device_node *dev_node;
+	struct device_node *backlight_node;
+	struct panel *panel;
 	int ret;
 
-	if (!node) {
-		dev_err(&plat_dev->dev, "device-tree data is missing\n");
+	dev = &plat_dev->dev;
+	dev_node = dev->of_node;
+
+	if (!dev_node) {
+		dev_err(dev, "device-tree data is missing\n");
 		return -ENXIO;
 	}
 
-	panel_mod = devm_kzalloc(&plat_dev->dev, sizeof(*panel_mod),
-				 GFP_KERNEL);
-
-	if (!panel_mod)
+	panel = devm_kzalloc(dev, sizeof(*panel), GFP_KERNEL);
+	if (!panel)
 		return -ENOMEM;
 
-	bl_node = of_parse_phandle(node, "backlight", 0);
-	if (bl_node) {
-		panel_mod->backlight = of_find_backlight_by_node(bl_node);
-		of_node_put(bl_node);
+	backlight_node = of_parse_phandle(dev_node, "backlight", 0);
 
-		if (!panel_mod->backlight)
+	if (backlight_node) {
+		panel->backlight = of_find_backlight_by_node(backlight_node);
+		of_node_put(backlight_node);
+
+		if (!panel->backlight)
 			return -EPROBE_DEFER;
 
-		dev_info(&plat_dev->dev, "found backlight\n");
+		dev_info(dev, "found backlight\n");
 	}
 
-	panel_mod->enable_gpio = devm_gpiod_get_optional(&plat_dev->dev,
-							 "enable",
-							 GPIOD_OUT_LOW);
+	panel->enable_gpio = devm_gpiod_get_optional(dev, "enable",
+						     GPIOD_OUT_LOW);
 
-	if (IS_ERR(panel_mod->enable_gpio)) {
-		ret = PTR_ERR(panel_mod->enable_gpio);
-		dev_err(&plat_dev->dev, "failed to request enable GPIO\n");
+	if (IS_ERR(panel->enable_gpio)) {
+		ret = PTR_ERR(panel->enable_gpio);
+		dev_err(dev, "failed to request enable GPIO\n");
 		goto fail_backlight;
 	}
 
-	if (panel_mod->enable_gpio)
-		dev_info(&plat_dev->dev, "found enable GPIO\n");
+	if (panel->enable_gpio)
+		dev_info(dev, "found enable GPIO\n");
 
-	mod = &panel_mod->base;
-	plat_dev->dev.platform_data = mod;
+	if (IS_ERR(devm_pinctrl_get_select_default(dev)))
+		dev_warn(dev, "pins are not configured\n");
 
-	vpout_drm_module_init(mod, "panel", &panel_module_ops);
-
-	pinctrl = devm_pinctrl_get_select_default(&plat_dev->dev);
-	if (IS_ERR(pinctrl))
-		dev_warn(&plat_dev->dev, "pins are not configured\n");
-
-	panel_mod->timings = of_get_display_timings(node);
-	if (!panel_mod->timings) {
-		dev_err(&plat_dev->dev, "could not get panel timings\n");
+	panel->timings = of_get_display_timings(dev_node);
+	if (!panel->timings) {
+		dev_err(dev, "could not get panel timings\n");
 		ret = -EINVAL;
-		goto fail_free;
+		goto fail_backlight;
 	}
 
-	panel_mod->info = of_get_panel_info(node);
-	if (!panel_mod->info) {
-		dev_err(&plat_dev->dev, "could not get panel info\n");
-		ret = -EINVAL;
-		goto fail_timings;
-	}
+	dev_set_drvdata(dev, panel);
 
-	mod->preferred_bpp = panel_mod->info->bpp;
+	ret = component_add(dev, &panel_ops);
+	if (ret)
+		goto fail_timing_release;
 
 	return 0;
 
-fail_timings:
-	display_timings_release(panel_mod->timings);
-
-fail_free:
-	vpout_drm_module_cleanup(mod);
+fail_timing_release:
+	display_timings_release(panel->timings);
 
 fail_backlight:
-	if (panel_mod->backlight)
-		put_device(&panel_mod->backlight->dev);
+	if (panel->backlight)
+		put_device(&panel->backlight->dev);
 
 	return ret;
 }
 
-static int panel_remove(struct platform_device *plat_dev)
+static int vpout_drm_panel_remove(struct platform_device *plat_dev)
 {
-	struct vpout_drm_module *mod = dev_get_platdata(&plat_dev->dev);
-	struct panel_module *panel_mod = to_panel_module(mod);
-	struct backlight_device *backlight = panel_mod->backlight;
+	struct device *dev = &plat_dev->dev;
+	struct panel *panel = dev_get_drvdata(dev);
 
-	if (backlight)
-		put_device(&backlight->dev);
+	component_del(dev, &panel_ops);
 
-	display_timings_release(panel_mod->timings);
+	display_timings_release(panel->timings);
 
-	vpout_drm_module_cleanup(mod);
-	kfree(panel_mod->info);
+	if (panel->backlight)
+		put_device(&panel->backlight->dev);
 
 	return 0;
 }
 
-static const struct of_device_id panel_of_match[] = {
+static const struct of_device_id vpout_drm_panel_of_match[] = {
 	{ .compatible = "elvees,mcom02-vpout,panel", },
 	{ },
 };
 
-static struct platform_driver panel_driver = {
-	.probe = panel_probe,
-	.remove = panel_remove,
+MODULE_DEVICE_TABLE(of, vpout_drm_panel_of_match);
+
+static struct platform_driver vpout_drm_panel_platform_driver = {
+	.probe = vpout_drm_panel_probe,
+	.remove = vpout_drm_panel_remove,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "vpout-drm-panel",
-		.of_match_table = panel_of_match,
+		.of_match_table = vpout_drm_panel_of_match,
 	},
 };
 
-int __init vpout_drm_panel_init(void)
+static int __init vpout_drm_panel_init(void)
 {
-	return platform_driver_register(&panel_driver);
+	return platform_driver_register(&vpout_drm_panel_platform_driver);
 }
 
-void __exit vpout_drm_panel_fini(void)
+static void __exit vpout_drm_panel_fini(void)
 {
-	platform_driver_unregister(&panel_driver);
+	platform_driver_unregister(&vpout_drm_panel_platform_driver);
 }
+
+module_init(vpout_drm_panel_init);
+module_exit(vpout_drm_panel_fini);
+
+MODULE_AUTHOR("Mikhail Rasputin <mrasputin@elvees.com");
+MODULE_DESCRIPTION("ELVEES VPOUT Panel DRM Driver");
+MODULE_LICENSE("GPL");

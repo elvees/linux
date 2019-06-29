@@ -1,0 +1,32 @@
+* Toshiba TC358748 parallel video to MIPI CSI2 bridge
+
+Required Properties:
+- compatible: Must be "toshiba,tc358748".
+- reg: I2C slave address.
+- clock-frequency: input clock oscillator.
+- pixel-frequency: input pixel clock.
+- vvalid-invert: active VValid signal is low if property is set.
+- hvalid-invert: active HValid signal is low if property is set.
+
+For further reading on port node refer to
+Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Example:
+
+	i2c0@1c22000 {
+		...
+		...
+		tc358748@0e {
+			compatible = "toshiba,tc358748";
+			reg = <0x0e>;
+			clock-frequency = <40000000>;
+			pixel-frequency = <126000000>;
+			vvalid-invert;
+			port {
+				tc358748endpoint: endpoint {
+					remote = <&vinc_endpoint0>;
+				};
+			};
+		};
+		...
+	};

@@ -857,7 +857,6 @@ source "arch/arm/mach-keystone/Kconfig"
 source "arch/arm/mach-ks8695/Kconfig"
 
 source "arch/arm/mach-mcom02/Kconfig"
-source "arch/arm/plat-mcom/Kconfig"
 
 source "arch/arm/mach-meson/Kconfig"
 
@@ -1425,8 +1424,7 @@ config BIG_LITTLE
 
 config BL_SWITCHER
 	bool "big.LITTLE switcher support"
-	depends on BIG_LITTLE && MCPM && HOTPLUG_CPU
-	select ARM_CPU_SUSPEND
+	depends on BIG_LITTLE && MCPM && HOTPLUG_CPU && ARM_GIC
 	select CPU_PM
 	help
 	  The big.LITTLE "switcher" provides the core functionality to
@@ -1478,6 +1476,7 @@ config NR_CPUS
 config HOTPLUG_CPU
 	bool "Support for hot-pluggable CPUs"
 	depends on SMP
+	select GENERIC_IRQ_MIGRATION
 	help
 	  Say Y here to experiment with turning CPUs off and on.  CPUs
 	  can be controlled through /sys/devices/system/cpu.
@@ -2143,7 +2142,8 @@ config ARCH_SUSPEND_POSSIBLE
 	def_bool y
 
 config ARM_CPU_SUSPEND
-	def_bool PM_SLEEP
+	def_bool PM_SLEEP || BL_SWITCHER
+	depends on ARCH_SUSPEND_POSSIBLE
 
 config ARCH_HIBERNATION_POSSIBLE
 	bool

@@ -92,6 +92,12 @@ config SOC_CAMERA_RJ54N1
 	help
 	  This is a rj54n1cb0c video driver
 
+config SOC_CAMERA_TC358748
+	tristate "tc358748 support"
+	depends on SOC_CAMERA && I2C
+	help
+	  Support for Toshiba TC358748 parallel video to MIPI CSI2 bridge
+
 config SOC_CAMERA_TW9910
 	tristate "tw9910 support"
 	depends on SOC_CAMERA && I2C

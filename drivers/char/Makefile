@@ -60,3 +60,5 @@ js-rtc-y = rtc.o
 
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
 obj-$(CONFIG_XILLYBUS)		+= xillybus/
+obj-$(CONFIG_ELVEES_SWIC)	+= elvees-swic/
+obj-$(CONFIG_DELCORE30M)	+= delcore30m/

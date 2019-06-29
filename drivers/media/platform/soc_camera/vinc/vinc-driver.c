@@ -378,6 +378,7 @@ static int vinc_get_formats(struct soc_camera_device *icd, unsigned int idx,
 	case MEDIA_BUS_FMT_SGRBG12_1X12:
 	case MEDIA_BUS_FMT_SRGGB12_1X12:
 	case MEDIA_BUS_FMT_UYVY8_2X8:
+	case MEDIA_BUS_FMT_RGB888_1X24:
 		formats_count = ARRAY_SIZE(vinc_formats);
 		if (xlate) {
 			for (i = 0; i < formats_count; i++) {
@@ -684,6 +685,9 @@ static int vinc_set_fmt(struct soc_camera_device *icd, struct v4l2_format *f)
 		break;
 	case MEDIA_BUS_FMT_UYVY8_2X8:
 		stream->input_format = YCbCr;
+		break;
+	case MEDIA_BUS_FMT_RGB888_1X24:
+		stream->input_format = RGB;
 		break;
 	default:
 		stream->input_format = UNKNOWN;

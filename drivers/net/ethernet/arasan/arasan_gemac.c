@@ -189,10 +189,6 @@ static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 	reg |= MAC_RECEIVE_CONTROL_STORE_AND_FORWARD;
 	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
 
-	reg = arasan_gemac_readl(pd, DMA_CONFIGURATION);
-	reg |= DMA_CONFIGURATION_WAIT_FOR_DONE;
-	arasan_gemac_writel(pd, DMA_CONFIGURATION, reg);
-
 	arasan_gemac_set_hwaddr(pd->dev);
 }
 
@@ -1014,6 +1010,7 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 	struct device_node *np;
 	int err = -ENXIO;
+	u32 divisor;
 
 	pd->mii_bus = mdiobus_alloc();
 	if (!pd->mii_bus) {
@@ -1027,6 +1024,10 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 	/* TODO: pd->mii_bus->reset also should be implemented to allow
 	 * reset of Ethernet PHY from user space (see MII-TOOL utility)
 	 */
+
+	/* Maximum allowing MDC clock is 2.5 MHz */
+	divisor = DIV_ROUND_UP(clk_get_rate(pd->hclk), 2500000);
+	arasan_gemac_writel(pd, MAC_MDIO_CLOCK_DIVISION_CONTROL, divisor);
 
 	snprintf(pd->mii_bus->id, MII_BUS_ID_SIZE, "%s-0x%x",
 		 pd->pdev->name, pd->pdev->id);

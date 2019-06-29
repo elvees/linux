@@ -26,6 +26,7 @@
 #include <linux/irqreturn.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
+#include <linux/pm_runtime.h>
 
 #include <media/v4l2-mem2mem.h>
 #include <media/v4l2-device.h>
@@ -40,6 +41,13 @@
 
 #define MODULE_NAME "avico"
 
+enum avico_flags {
+	AVICO_ST_NONE,
+	AVICO_ST_ENCODING,
+	AVICO_ST_SAVING,	/* HW thread context saving */
+	AVICO_ST_RESTORING,	/* HW thread context restoring */
+};
+
 /* Per queue */
 #define AVICO_DEF_NUM_BUFS VIDEO_MAX_FRAME
 /* In bytes, per queue */
@@ -50,9 +58,23 @@
 #define BOUNCE_BUF_BASE XYRAM_BASE
 /* Size of macroblock in bytes */
 #define MB_SIZE (16 * 16 * 3 / 2)
-/* We need 4 bounce buffers BOUNCE_BUF_SIZE each (2 buffers for reconstructed
- * frame and 2 buffers for datastream) */
-#define BOUNCE_BUF_SIZE (1920 / 16 * MB_SIZE)
+/* Length of data block VDMA transfers. Should be multiple of 16 bytes. */
+#define DMA_CBS_LEN (40 * 8 * 16)
+/* Size of a buffer for encoded data in VRAM. Should be multiple of 16 bytes. */
+#define SIZE_CBS (80 * 8 * 16)
+/* Max width of frame. Should be multiple of 16. */
+#define AVICO_MAX_WIDTH 1920
+/*
+ * We need 4 bounce buffers BOUNCE_BUF_SIZE each (2 buffers for reconstructed
+ * frame and 2 buffers for datastream).
+ * Bounce buffer for reconstructed frame should be able to store up to one row
+ * of macroblocks.
+ * Bounce buffer for datastream should be able to store encoded data whose size
+ * is multiple of DMA_CBS_LEN so BOUNCE_BUF_SIZE is rounded up if necessary.
+ */
+#define BOUNCE_BUF_SIZE roundup(AVICO_MAX_WIDTH / 16 * MB_SIZE, DMA_CBS_LEN)
+
+static const char *clknames[NCLKS] = { "pclk", "aclk", "sclk", "dsp_aclk" };
 
 static inline void avico_write(u32 const value,
 			       struct avico_ctx const *const ctx,
@@ -87,25 +109,32 @@ static inline u32 avico_dma_read(struct avico_ctx const *const ctx,
  */
 static int avico_ready(void *priv)
 {
+	struct avico_ctx *ctx = priv;
+
+	if (ctx->aborting)
+		return 0;
+
 	return 1;
 }
 
 static void avico_abort(void *priv)
 {
-	/* Required function */
+	struct avico_ctx *ctx = priv;
+
+	ctx->aborting = 1;
 }
 
 void avico_thread_configure(struct avico_ctx *ctx)
 {
 	union frmn frmn = {
-		.frmn = ctx->frame,
-		.gop = ctx->gop,
-		.idr = ctx->idr,
-		.ftype = ctx->frame_type != VE_FR_I
+		.frmn = ctx->par.frame,
+		.gop = ctx->par.gop,
+		.idr = ctx->par.idr,
+		.ftype = ctx->par.frame_type != VE_FR_I
 	};
 
 	union cfg cfg = {
-		.slice_type = ctx->frame_type,
+		.slice_type = ctx->par.frame_type,
 		.num_ref = 0,
 		.auto_trailing = 1,
 		.auto_flush = 1,
@@ -132,7 +161,7 @@ void avico_dma_configure_reference(struct avico_ctx *ctx,
 	union vdma_hvicnt hvicnt;
 	union vdma_cfg cfg = { .val = 0 };
 
-	bool const swap_lines = (ctx->frame % 2) && (ctx->mby % 2);
+	bool const swap_lines = (ctx->par.frame % 2) && (ctx->mby % 2);
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
@@ -210,7 +239,7 @@ void avico_dma_configure_input(struct avico_ctx *ctx, unsigned const channel)
 	union vdma_hvicnt hvicnt;
 	union vdma_cfg cfg = { .val = 0 };
 
-	bool const swap_lines = (ctx->frame % 2) && (ctx->mby % 2);
+	bool const swap_lines = (ctx->par.frame % 2) && (ctx->mby % 2);
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
@@ -227,7 +256,7 @@ void avico_dma_configure_input(struct avico_ctx *ctx, unsigned const channel)
 				channel, AVICO_VDMA_CHANNEL_AICUR);
 	} else { /* swap_lines => + one MB line */
 		avico_dma_write(ctx->dev->vram + adr.acur * 0x0400 +
-				MB_REF_SIZE * ctx->mbx, ctx, channel,
+				MB_CUR_SIZE * ctx->mbx, ctx, channel,
 				AVICO_VDMA_CHANNEL_AICUR);
 	}
 
@@ -239,9 +268,9 @@ void avico_dma_configure_input(struct avico_ctx *ctx, unsigned const channel)
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_VEIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_BIIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_CIIDX);
-	avico_dma_write(MB_REF_SIZE - 16 * 24, ctx, channel,
+	avico_dma_write(MB_CUR_SIZE - 16 * 24, ctx, channel,
 			AVICO_VDMA_CHANNEL_HIIDX);
-	avico_dma_write(MB_REF_SIZE - 16 * 24, ctx, channel,
+	avico_dma_write(MB_CUR_SIZE - 16 * 24, ctx, channel,
 			AVICO_VDMA_CHANNEL_VIIDX);
 
 	acnt.arld = acnt.acnt = (16 >> ctx->vdma_trans_size_m1) - 1;
@@ -284,7 +313,7 @@ void avico_dma_configure_reconstructured(struct avico_ctx *ctx,
 	union vdma_hvicnt hvicnt;
 	union vdma_cfg cfg = { .val = 0 };
 
-	bool const swap_lines = (ctx->frame % 2) && (ctx->mby % 2);
+	bool const swap_lines = (ctx->par.frame % 2) && (ctx->mby % 2);
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
@@ -352,29 +381,37 @@ void avico_dma_configure_reconstructured(struct avico_ctx *ctx,
 	avico_dma_write(cfg.val, ctx, channel, AVICO_VDMA_CHANNEL_CFG);
 }
 
+void avico_dma_configure_bounceout(struct avico_ctx *ctx,
+				   unsigned const channel)
+{
+	union vdma_acnt acnt;
+	union vdma_hvecnt hvecnt = { .val = 0 };
+
+	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, channel,
+			AVICO_VDMA_CHANNEL_A0E);
+
+	acnt.arld = acnt.acnt = (DMA_CBS_LEN >> ctx->vdma_trans_size_m1) - 1;
+	avico_dma_write(acnt.val, ctx, channel, AVICO_VDMA_CHANNEL_ACNT);
+
+	hvecnt.hecnt = hvecnt.herld = (BOUNCE_BUF_SIZE / DMA_CBS_LEN) - 1;
+	avico_dma_write(hvecnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVECNT);
+}
+
+/*
+ * VDMA transfers data blocks from CBS buffer to bounce buffer, where each
+ * data block has size DMA_CBS_LEN.
+ */
 void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 {
 	union adr adr;
-	union vdma_acnt acnt;
-	union vdma_bccnt bccnt;
-	union vdma_hvecnt hvecnt;
-	union vdma_hvicnt hvicnt;
+	union vdma_hvicnt hvicnt = { .val = 0 };
 	union vdma_cfg cfg = { .val = 0 };
-
-	/* \todo I do not understand this */
-	uint32_t const dma_cbs_len = ctx->dma_cbs_len << 4;
 
 	adr.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
 			     AVICO_THREAD_ADR);
 
-	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, channel,
-			AVICO_VDMA_CHANNEL_A0E);
-	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, channel,
-			AVICO_VDMA_CHANNEL_AECUR);
 	avico_dma_write(ctx->dev->vram + (adr.ares + 1) * 0x0800, ctx,
 			channel, AVICO_VDMA_CHANNEL_A0I);
-	avico_dma_write(ctx->dev->vram + (adr.ares + 1) * 0x0800, ctx,
-			channel, AVICO_VDMA_CHANNEL_AICUR);
 
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_BEIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_CEIDX);
@@ -385,28 +422,17 @@ void avico_dma_configure_output(struct avico_ctx *ctx, unsigned const channel)
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_HIIDX);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_VIIDX);
 
-	acnt.arld = acnt.acnt = (dma_cbs_len >> ctx->vdma_trans_size_m1) - 1;
-	avico_dma_write(acnt.val, ctx, channel, AVICO_VDMA_CHANNEL_ACNT);
-
-	bccnt.bcnt = bccnt.brld = bccnt.ccnt = bccnt.crld = 1 - 1;
-	avico_dma_write(bccnt.val, ctx, channel, AVICO_VDMA_CHANNEL_BCCNT);
-
-	/* \todo bitstream_size */
-
-	hvecnt.hecnt = hvecnt.herld = (ctx->bitstream_size / dma_cbs_len) - 1;
-	hvecnt.vecnt = hvecnt.verld = 1 - 1;
-	avico_dma_write(hvecnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVECNT);
-
 	hvicnt.hicnt = hvicnt.hirld = 2 - 1;
-	hvicnt.vicnt = hvicnt.virld = 1 - 1;
 	avico_dma_write(hvicnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVICNT);
+
+	avico_dma_configure_bounceout(ctx, channel);
 
 	avico_dma_write(1, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_DONE);
 	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_IMRDY);
 
 	cfg.dir = 1;
-	cfg.dim = 1;
+	cfg.dim = 0;
 	cfg.cycle = 1;
 	cfg.prt = channel;
 	cfg.brst_ae = 1;
@@ -516,13 +542,177 @@ void m6pos_enable(struct avico_ctx *const ctx, const bool enable)
 				   AVICO_THREAD_TASK);
 }
 
-/*
- * avico_run() - prepares and starts VPU
- */
-static void avico_run(void *priv)
+static void avico_thread_init(struct avico_ctx *ctx)
 {
-	struct avico_ctx *ctx = priv;
-	struct avico_dev *dev = ctx->dev;
+	struct avico_frame_params *par = &ctx->par;
+	union mbpos mbpos = {
+		.nx = DIV_ROUND_UP(ctx->width, 16),
+		.ny = DIV_ROUND_UP(ctx->height, 16)
+	};
+
+	union adr adr = {
+		.acur = ctx->id * 0x0100,
+		.aref = ctx->id * 0x0100 + mbpos.nx,
+		.ares = ctx->id * 0x0080 + mbpos.nx
+	};
+
+	uint8_t qp = par->frame_type == VE_FR_I ? par->qp_i : par->qp_p;
+	union task task = {
+		.std = VE_STD_H264,
+		.qpy = qp,
+		.qpc = clamp(qp + par->qpc_offset, 0, 51),
+		.dbf = par->dbf,
+		.m6eof = 1,
+		.m7eof = 1
+	};
+
+	union frmn frmn = {
+		.gop = par->gop
+	};
+
+	avico_write(mbpos.val, ctx, AVICO_THREAD_BASE(ctx->id) +
+		    AVICO_THREAD_MBPOS);
+	avico_write(adr.val, ctx, AVICO_THREAD_BASE(ctx->id) +
+		    AVICO_THREAD_ADR);
+	avico_write(task.val, ctx, AVICO_THREAD_BASE(ctx->id) +
+		    AVICO_THREAD_TASK);
+	avico_write(frmn.val, ctx, AVICO_THREAD_BASE(ctx->id) +
+		    AVICO_THREAD_FRMN);
+}
+
+static void avico_ec_init(struct avico_ctx *ctx)
+{
+	union ecd_task ecd_task;
+
+	avico_write(SIZE_CBS / 16, ctx, AVICO_EC_BASE(ctx->id) +
+			AVICO_EC_VRAMCTRC + AVICO_VRAMCTRC_SIZE_CBS);
+
+	avico_write(DMA_CBS_LEN / 16, ctx, AVICO_EC_BASE(ctx->id) +
+			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_DMALEN);
+
+	avico_write(ECD_CS_CAVLC, ctx, AVICO_EC_BASE(ctx->id) +
+			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_CS);
+
+	ecd_task.val = avico_read(ctx, AVICO_EC_BASE(ctx->id) +
+				  AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
+	ecd_task.id = ECD_TASK_H264_ENC_RESET;
+	ecd_task.rep = 1;
+	ecd_task.run = 1;
+	ecd_task.repn = 0;
+	avico_write(ecd_task.val, ctx, AVICO_EC_BASE(ctx->id) +
+		    AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
+
+	do {
+		ecd_task.val = avico_read(ctx, AVICO_EC_BASE(ctx->id) +
+				AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
+	} while (ecd_task.ready == 0);
+}
+
+void avico_dma_configure_save_restore(struct avico_ctx *ctx,
+				      unsigned int const channel,
+				      unsigned int const dir,
+				      dma_addr_t const a0e,
+				      dma_addr_t const a0i,
+				      uint32_t const alen,
+				      uint32_t const blen)
+{
+	union vdma_acnt acnt;
+	union vdma_bccnt bccnt = { .val = 0 };
+	union vdma_hvecnt const hvecnt = { .val = 0 };
+	union vdma_hvicnt const hvicnt = { .val = 0 };
+	union vdma_cfg cfg = { .val = 0 };
+
+	avico_dma_write(a0e, ctx, channel, AVICO_VDMA_CHANNEL_A0E);
+	avico_dma_write(a0i, ctx, channel, AVICO_VDMA_CHANNEL_A0I);
+
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_BEIDX);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_CEIDX);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_HEIDX);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_VEIDX);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_BIIDX);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_CIIDX);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_HIIDX);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_VIIDX);
+
+	acnt.arld = acnt.acnt = (alen >> ctx->vdma_trans_size_m1) - 1;
+	avico_dma_write(acnt.val, ctx, channel, AVICO_VDMA_CHANNEL_ACNT);
+
+	bccnt.bcnt = bccnt.brld = blen - 1;
+	avico_dma_write(bccnt.val, ctx, channel, AVICO_VDMA_CHANNEL_BCCNT);
+
+	avico_dma_write(hvecnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVECNT);
+	avico_dma_write(hvicnt.val, ctx, channel, AVICO_VDMA_CHANNEL_HVICNT);
+
+	avico_dma_write(1, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_DONE);
+	avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_IMRDY);
+
+	cfg.dir = dir;
+	cfg.dim = 0;
+	cfg.cycle = 0;
+	cfg.prt = channel;
+	cfg.brst_ae = 1;
+	cfg.brst_ai = 1;
+	cfg.size = ctx->vdma_trans_size_m1;
+	avico_dma_write(cfg.val, ctx, channel, AVICO_VDMA_CHANNEL_CFG);
+}
+
+static void avico_restore(struct avico_ctx *ctx)
+{
+	union adr const adr = {
+		.acur = ctx->id * 0x0100,
+		.aref = ctx->id * 0x0100 + ctx->mbx
+	};
+
+	avico_dma_configure_save_restore(ctx, 0, 0, ctx->dmambref,
+					 ctx->dev->vram + adr.aref * 0x0400,
+					 MB_REF_SIZE, ctx->mbx * 2);
+	avico_dma_configure_save_restore(ctx, 1, 0, ctx->dmambcur,
+					 ctx->dev->vram + adr.acur * 0x0400,
+					 MB_CUR_SIZE, ctx->mbx * 2);
+
+	/* @bug Following will not work for several threads */
+	avico_write(EV_1 << (ctx->id * 8), ctx,
+		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
+
+	ctx->state = AVICO_ST_RESTORING;
+
+	avico_dma_write(1, ctx, ctx->id * 4, AVICO_VDMA_CHANNEL_IMRDY);
+	avico_dma_write(1, ctx, ctx->id * 4 + 1, AVICO_VDMA_CHANNEL_IMRDY);
+}
+
+static void avico_save(struct avico_ctx *ctx)
+{
+	union adr const adr = {
+		.acur = ctx->id * 0x0100,
+		.aref = ctx->id * 0x0100 + ctx->mbx
+	};
+
+	/*
+	 * We need to switch off thread because additional events are generated
+	 * otherwise.
+	 */
+	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_OFF);
+
+	avico_dma_configure_save_restore(ctx, 0, 1, ctx->dmambref,
+					 ctx->dev->vram + adr.aref * 0x0400,
+					 MB_REF_SIZE, ctx->mbx * 2);
+	avico_dma_configure_save_restore(ctx, 1, 1, ctx->dmambcur,
+					 ctx->dev->vram + adr.acur * 0x0400,
+					 MB_CUR_SIZE, ctx->mbx * 2);
+
+	/* @bug Following will not work for several threads */
+	avico_write(EV_1 << (ctx->id * 8), ctx,
+		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
+
+	ctx->state = AVICO_ST_SAVING;
+
+	avico_dma_write(1, ctx, ctx->id * 4, AVICO_VDMA_CHANNEL_IMRDY);
+	avico_dma_write(1, ctx, ctx->id * 4 + 1, AVICO_VDMA_CHANNEL_IMRDY);
+}
+
+static void avico_start(struct avico_ctx *ctx)
+{
 	struct vb2_buffer *src, *dst;
 	uint8_t *out;
 	/* Line of half-MBs reserve above fr_ref */
@@ -530,6 +720,9 @@ static void avico_run(void *priv)
 	uint32_t const fr_ref_reserve_offset = (ctx->mbx * 16) * 12;
 	uint32_t const fr_size_ram = (ctx->mbx * 16) * (ctx->mby * 16) * 3 / 2;
 	union smbpos smbpos;
+	bool write_pps = false;
+	int8_t qpc_offset;
+	struct avico_frame_params *par = &ctx->par;
 
 	src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	dst = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
@@ -540,8 +733,53 @@ static void avico_run(void *priv)
 	ctx->dmainp = vb2_dma_contig_plane_dma_addr(src, 0);
 	ctx->dmaout = vb2_dma_contig_plane_dma_addr(dst, 0);
 
-	WARN_ON(ctx->dmainp == 0);
-	WARN_ON(ctx->dmaout == 0);
+	ctx->error = false;
+
+	par->idr = (par->frame % par->gop) == 0;
+
+	/*
+	 * We can't take ctx->ctrl_handler.lock in this function because
+	 * it can be called in atomic context so we don't support atomic
+	 * reading of controls.
+	 */
+	par->qp_i = ctx->ctrl_qp_i->cur.val;
+	par->qp_p = ctx->ctrl_qp_p->cur.val;
+	qpc_offset = ctx->ctrl_qpc_off->cur.val;
+	if (ctx->force_key) {
+		ctx->force_key = false;
+		par->idr = true;
+	}
+
+	if (par->idr) {
+		par->frame_type = VE_FR_I;
+		par->idr_id++;
+		par->frame = 0;
+		write_pps = true;
+	} else if (par->i_period > 0 && par->frame % par->i_period == 0) {
+		par->frame_type = VE_FR_I;
+	} else {
+		par->frame_type  = VE_FR_P;
+	}
+
+	/*
+	 * Write PPS if chroma_qp_index_offset has been changed. qpc_offset is
+	 * used instead of ctx->ctrl_qpc_off->cur.val to read control
+	 * atomically.
+	 */
+	if (par->qpc_offset != qpc_offset) {
+		write_pps = true;
+		par->qpc_offset = qpc_offset;
+	}
+
+	/*
+	 * TODO: Optimization: don't call if the same SW context is run on the
+	 * same HW context
+	 */
+	avico_thread_init(ctx);
+
+	/* \todo Configure MD */
+
+	avico_ec_init(ctx);
 
 	/* Enable stop by SMBPOS */
 	if (ctx->mby > 1) {
@@ -556,32 +794,16 @@ static void avico_run(void *priv)
 
 	avico_bitstream_init(ctx, out, vb2_plane_size(dst, 0));
 
-	if (!ctx->dmainp || !ctx->dmaout) {
-		v4l2_err(&dev->v4l2_dev,
-			 "Acquiring kernel pointers to buffers failed\n");
-		return;
-	}
-
 	/*if (vb2_plane_size(src, 0) > vb2_plane_size(dst, 0)) {
 		v4l2_err(&dev->v4l2_dev, "Output buffer is too small\n");
 		return;
 	}*/
 
-	if (ctx->frame % ctx->gop == 0) {
-		ctx->frame_type = VE_FR_I;
-		ctx->idr = true;
-	} else if (ctx->i_period > 0 && ctx->frame % ctx->i_period == 0) {
-		ctx->frame_type = VE_FR_I;
-		ctx->idr = false;
-	} else {
-		ctx->frame_type  = VE_FR_P;
-		ctx->idr = false;
-	}
+	if (par->idr)
+		avico_bitstream_write_sps(ctx);
 
-	if (ctx->frame_type == VE_FR_I && ctx->idr) {
-		ctx->frame = 0;
-		avico_bitstream_write_sps_pps(ctx);
-	}
+	if (write_pps)
+		avico_bitstream_write_pps(ctx);
 
 	avico_bitstream_write_slice_header(ctx);
 
@@ -607,11 +829,6 @@ static void avico_run(void *priv)
 
 	avico_dma_configure(ctx);
 
-	/* @bug Will not work for several threads
-	 * We should gaurantee, that others will not overwrite MSK_EV. */
-	avico_write(0xc0 << (ctx->id * 8), ctx,
-		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
-	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
 	/* @bug Following will not work for several threads */
 	avico_write(0xc0 << (ctx->id * 8), ctx,
 		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
@@ -620,8 +837,20 @@ static void avico_run(void *priv)
 	/* \todo Add reference to the section in manual. */
 	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_OFF);
 
+	ctx->state = AVICO_ST_ENCODING;
+
 	/* Run slice data encoding */
 	avico_codec_run(ctx);
+}
+
+/*
+ * avico_run() - prepares and starts VPU
+ */
+static void avico_run(void *priv)
+{
+	struct avico_ctx *ctx = priv;
+
+	avico_restore(ctx);
 }
 
 /* This function will call by DMA after coping last output data in frame */
@@ -632,6 +861,7 @@ static void avico_dma_out_callback(void *data)
 	struct vb2_v4l2_buffer *src, *dst;
 	unsigned long flags;
 	uint32_t encoded;
+	bool error = ctx->error;
 
 	src = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 	dst = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
@@ -641,6 +871,19 @@ static void avico_dma_out_callback(void *data)
 	WARN_ON(encoded % 8 != 0);
 	ctx->bs.p += encoded / 8;
 	vb2_set_plane_payload(&dst->vb2_buf, 0, ctx->bs.p - ctx->bs.start);
+
+	/*
+	 * If offset in output buffer calculated from bounce-to-DDR DMA
+	 * transfers differs from size of encoded data from VPU (rounded to
+	 * minimal VRAM-to-bounce DMA transfer size), that means that
+	 * bounce buffer was overflowed at least once and data is corrupted.
+	 */
+	if (ctx->out_ptr_off != roundup(encoded / 8, DMA_CBS_LEN)) {
+		v4l2_err(&ctx->dev->v4l2_dev,
+			 "frame %u: insufficient data in capture buffer\n",
+			 ctx->capseq);
+		error = true;
+	}
 
 	dst->sequence = ctx->capseq++;
 	src->sequence = ctx->outseq++;
@@ -655,29 +898,31 @@ static void avico_dma_out_callback(void *data)
 	dst->field = src->field;
 	dst->flags = src->flags;
 
+	avico_save(ctx);
+
 	/* \todo Do not understand why we need irqlock here */
 	spin_lock_irqsave(&dev->irqlock, flags);
 	v4l2_m2m_buf_done(src, VB2_BUF_STATE_DONE);
-	v4l2_m2m_buf_done(dst, VB2_BUF_STATE_DONE);
+	v4l2_m2m_buf_done(dst, error ? VB2_BUF_STATE_ERROR :
+			       VB2_BUF_STATE_DONE);
 	spin_unlock_irqrestore(&dev->irqlock, flags);
 
-	if (++ctx->frame >= ctx->maxframe)
-		ctx->frame = 0;
-
-	v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
+	if (++ctx->par.frame >= ctx->par.maxframe)
+		ctx->par.frame = 0;
 }
 
-/* Setup and start DMA for copy data from bounce buffer to DDR */
-static void avico_copy_bounce(struct avico_ctx *ctx,
-			      dma_async_tx_callback callback)
+/* Setup DMA to copy encoded data from bounce buffer to DDR */
+static uint32_t avico_setup_bounceout(struct avico_ctx *ctx,
+				      dma_async_tx_callback callback)
 {
-	uint32_t frame_size;
-	uint32_t ref_size, out_size;
+	uint32_t out_size = avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_AECUR) -
+			    ctx->bounceout[ctx->bounce_active];
 	struct dma_async_tx_descriptor *tx;
 
-	ref_size = ctx->mbx * MB_SIZE; /* We are working by row of MB */
-	out_size = avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_AECUR) -
-					  ctx->bounceout[ctx->bounce_active];
+	/* If out_size is zero and DONE is 1 then AECUR is wrapped to A0E */
+	if (out_size == 0 && avico_dma_read(ctx, 3, AVICO_VDMA_CHANNEL_DONE))
+		out_size = BOUNCE_BUF_SIZE;
+	avico_dma_write(0, ctx, 3, AVICO_VDMA_CHANNEL_DONE);
 
 	/* Bitstream redy not for all rows. We can not run DMA without
 	 * buffer length */
@@ -688,10 +933,21 @@ static void avico_copy_bounce(struct avico_ctx *ctx,
 		tx->callback_param = ctx;
 		tx->callback = callback;
 		dmaengine_submit(tx);
+
 		ctx->out_ptr_off += out_size;
 	}
 
-	frame_size = ctx->mbx * ctx->mby * MB_SIZE;
+	return out_size;
+}
+
+/* Setup DMA to copy reconstructed data from bounce buffer to DDR */
+static void avico_setup_bounceref(struct avico_ctx *ctx,
+				  dma_async_tx_callback callback)
+{
+	uint32_t frame_size = ctx->mbx * ctx->mby * MB_SIZE;
+	uint32_t ref_size = ctx->mbx * MB_SIZE; /* We work by row of MB */
+	struct dma_async_tx_descriptor *tx;
+
 	if (ctx->ref_ptr_off + ref_size > frame_size) {
 		/* First half of last row should be written to end of the frame.
 		 * Second half should be written to the beginning of the
@@ -706,6 +962,8 @@ static void avico_copy_bounce(struct avico_ctx *ctx,
 			ctx->dev->dma_ch, ctx->dmaref,
 			ctx->bounceref[ctx->bounce_active] + end_part_size,
 			ref_size - end_part_size, 0);
+		tx->callback_param = ctx;
+		tx->callback = callback;
 		dmaengine_submit(tx);
 
 		ctx->ref_ptr_off = ref_size - end_part_size;
@@ -713,103 +971,56 @@ static void avico_copy_bounce(struct avico_ctx *ctx,
 		tx = ctx->dev->dma_ch->device->device_prep_dma_memcpy(
 			ctx->dev->dma_ch, ctx->dmaref + ctx->ref_ptr_off,
 			ctx->bounceref[ctx->bounce_active], ref_size, 0);
+		tx->callback_param = ctx;
+		tx->callback = callback;
 		dmaengine_submit(tx);
 
 		ctx->ref_ptr_off += ref_size;
 	}
-	dma_async_issue_pending(ctx->dev->dma_ch);
 }
 
-static irqreturn_t avico_irq(int irq, void *data)
+/* Setup and start DMA to copy data from bounce buffer to DDR */
+static int avico_copy_bounce(struct avico_ctx *ctx, bool eof)
 {
-	struct avico_dev *dev = (struct avico_dev *)data;
-	struct avico_ctx *ctx;
-	u32 events;
-	bool eof;
-	int i;
+	uint32_t out_size = avico_setup_bounceout(ctx, eof ?
+						       avico_dma_out_callback :
+						       NULL);
 
-	/* \todo How does this will work for several HW threads? */
-	ctx = v4l2_m2m_get_curr_priv(dev->m2m_dev);
+	/*
+	 * Don't wait for the end of copying of encoded data when there is no
+	 * encoded data. We expect out_size isn't zero for last row in frame so
+	 * if it is zero we return error. We don't terminate SDMA activity in
+	 * that case because we wait for the end of copying of reconstructed
+	 * frame.
+	 */
+	if (eof && out_size == 0) {
+		avico_setup_bounceref(ctx, avico_dma_out_callback);
+		dma_async_issue_pending(ctx->dev->dma_ch);
 
-	if (ctx == NULL) {
-		pr_err("Instance released before the end of transaction\n");
-		return IRQ_HANDLED;
+		return -EFAULT;
 	}
 
-	events = avico_read(ctx, AVICO_CTRL_EVENTS);
-	eof = events & EV_7;
+	avico_setup_bounceref(ctx, NULL);
 
-	if (!eof) {
-		/* Wait for EV_0, EV_1 */
-		while ((events & EV_0) == 0 || (events & EV_1) == 0)
-			events = avico_read(ctx, AVICO_CTRL_EVENTS);
+	dma_async_issue_pending(ctx->dev->dma_ch);
 
-		/* \bug Need delay: rf#2003 */
-		for (i = 0; i < 80; i++)
-			events = avico_read(ctx, AVICO_CTRL_EVENTS);
+	return 0;
+}
 
-		/* Wait for flush of previous MB data */
-		while (events != (EV_0 | EV_1 | EV_6))
-			events = avico_read(ctx, AVICO_CTRL_EVENTS);
+static void avico_clear_disable_events(struct avico_ctx *ctx)
+{
+	unsigned int channel;
 
-		avico_dma_write(0, ctx, ctx->id * 4 + 2,
-				AVICO_VDMA_CHANNEL_RUN);
-		avico_dma_write(0, ctx, ctx->id * 4 + 3,
-				AVICO_VDMA_CHANNEL_RUN);
+	/*
+	 * Clear RUN registers to ensure VDMA channels are switched off. EVENTS
+	 * register depends on DONE registers so we clear them before clearing
+	 * of EVENTS.
+	 */
+	for (channel = ctx->id * 4; channel < ctx->id * 4 + 4; channel++) {
+		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
+		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_DONE);
 	}
 
-	avico_copy_bounce(ctx, eof ? avico_dma_out_callback : NULL);
-
-	/* Swap active buffers */
-	ctx->bounce_active ^= 1;
-	avico_dma_write(ctx->bounceref[ctx->bounce_active], ctx, 2,
-			AVICO_VDMA_CHANNEL_AECUR);
-	avico_dma_write(ctx->bounceout[ctx->bounce_active], ctx, 3,
-			AVICO_VDMA_CHANNEL_AECUR);
-
-	/* If not last row then run next row */
-	if (!eof) {
-		union smbpos smbpos;
-
-		smbpos.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
-					     AVICO_THREAD_SMBPOS);
-		smbpos.y6++;  /* Set next stop position */
-
-		/* If next row is last then M6POS will not stop and we
-		 * need to enable M6EOF bit */
-		if (smbpos.y6 >= ctx->mby) {
-			avico_write(0x80,
-				    ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
-			m6pos_enable(ctx, false);
-		} else
-			avico_write(smbpos.val, ctx,
-				    AVICO_THREAD_BASE(ctx->id) +
-				    AVICO_THREAD_SMBPOS);
-
-		/* In M6POS mode before continue we need to OFF and ON thread */
-		/* \todo Add reference to the section in manual. */
-		avico_write(1, ctx,
-			    AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_OFF);
-		avico_write(1, ctx,
-			    AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_ON);
-
-		avico_write(0x40 << (ctx->id * 8), ctx,
-			    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
-		avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
-		/* BUG: We do not know how correctly clean events flag before
-		 * exit from IRQ handler. If we exit immediately after cleaning
-		 * events flag then IRQ handler can be called again. To
-		 * prevent this we run DMA channels after cleaning event and
-		 * use memory barrier. */
-		wmb();
-
-		avico_dma_write(1, ctx, ctx->id * 4 + 2,
-				AVICO_VDMA_CHANNEL_RUN);
-		avico_dma_write(1, ctx, ctx->id * 4 + 3,
-				AVICO_VDMA_CHANNEL_RUN);
-
-		return IRQ_HANDLED;
-	}
 	/* \bug Will not work for several threads
 	 * We should gaurantee, that others will not overwrite MSK_EV. */
 	avico_write(0xff << (ctx->id * 8), ctx,
@@ -826,6 +1037,139 @@ static irqreturn_t avico_irq(int irq, void *data)
 	/* \todo Move to context allocation */
 	/* \bug Will not work for several threads */
 	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
+}
+
+static void avico_wait_for_mb_flush(struct avico_ctx *ctx)
+{
+	int i;
+	u32 events = avico_read(ctx, AVICO_CTRL_EVENTS);
+
+	/* Wait for EV_0, EV_1 */
+	while ((events & EV_0) == 0 || (events & EV_1) == 0)
+		events = avico_read(ctx, AVICO_CTRL_EVENTS);
+
+	/* \bug Need delay: rf#2003 */
+	for (i = 0; i < 80; i++)
+		events = avico_read(ctx, AVICO_CTRL_EVENTS);
+
+	/* Wait for flush of previous MB data */
+	while (events != (EV_0 | EV_1 | EV_6))
+		events = avico_read(ctx, AVICO_CTRL_EVENTS);
+}
+
+static void avico_vdma_proceed(struct avico_ctx *ctx)
+{
+	union smbpos smbpos;
+
+	/* Swap active buffers */
+	ctx->bounce_active ^= 1;
+	avico_dma_write(ctx->bounceref[ctx->bounce_active], ctx, 2,
+			AVICO_VDMA_CHANNEL_A0E);
+	avico_dma_configure_bounceout(ctx, 3);
+
+	smbpos.val = avico_read(ctx, AVICO_THREAD_BASE(ctx->id) +
+				     AVICO_THREAD_SMBPOS);
+	smbpos.y6++;  /* Set next stop position */
+
+	/* If next row is last then M6POS will not stop and we
+	 * need to enable M6EOF bit */
+	if (smbpos.y6 >= ctx->mby) {
+		avico_write(0x80, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
+		m6pos_enable(ctx, false);
+	} else
+		avico_write(smbpos.val, ctx,
+			    AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_SMBPOS);
+
+	/* In M6POS mode before continue we need to OFF and ON thread */
+	/* \todo Add reference to the section in manual. */
+	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_OFF);
+	avico_write(1, ctx, AVICO_THREAD_BASE(ctx->id) + AVICO_THREAD_ON);
+
+	avico_write(0x40 << (ctx->id * 8), ctx,
+		    AVICO_CTRL_BASE + AVICO_CTRL_MSK_EV);
+	avico_write(0, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
+	/* BUG: We do not know how correctly clean events flag before
+	 * exit from IRQ handler. If we exit immediately after cleaning
+	 * events flag then IRQ handler can be called again. To
+	 * prevent this we run DMA channels after cleaning event and
+	 * use memory barrier. */
+	wmb();
+
+	avico_dma_write(1, ctx, ctx->id * 4 + 2, AVICO_VDMA_CHANNEL_RUN);
+	avico_dma_write(1, ctx, ctx->id * 4 + 3, AVICO_VDMA_CHANNEL_RUN);
+}
+
+static irqreturn_t avico_irq(int irq, void *data)
+{
+	struct avico_dev *dev = (struct avico_dev *)data;
+	struct avico_ctx *ctx;
+	u32 events;
+	bool eof;
+
+	/* \todo How does this will work for several HW threads? */
+	ctx = v4l2_m2m_get_curr_priv(dev->m2m_dev);
+	if (ctx == NULL) {
+		pr_err("Instance released before the end of transaction\n");
+
+		return IRQ_HANDLED;
+	}
+
+	events = avico_read(ctx, AVICO_CTRL_EVENTS);
+	eof = events & EV_7;
+
+	switch (ctx->state) {
+	case AVICO_ST_ENCODING:
+		if (!eof) { /* If it isn't last row then run next row */
+			avico_wait_for_mb_flush(ctx);
+			avico_dma_write(0, ctx, ctx->id * 4 + 2,
+					AVICO_VDMA_CHANNEL_RUN);
+			avico_dma_write(0, ctx, ctx->id * 4 + 3,
+					AVICO_VDMA_CHANNEL_RUN);
+
+			if (ctx->aborting || avico_copy_bounce(ctx, eof) < 0)
+				goto err;
+
+			avico_vdma_proceed(ctx);
+		} else { /* Last part of frame has been encoded */
+			if (ctx->aborting || avico_copy_bounce(ctx, eof) < 0)
+				goto err;
+
+			avico_clear_disable_events(ctx);
+		}
+		break;
+	case AVICO_ST_RESTORING:
+	case AVICO_ST_SAVING:
+		/*
+		 * Wait for the end of saving/restoring of mb_cur and mb_ref
+		 * structures.
+		 */
+		WARN_ON((events & EV_1) == 0);
+		while ((events & EV_0) == 0)
+			events = avico_read(ctx, AVICO_CTRL_EVENTS);
+
+		avico_clear_disable_events(ctx);
+
+		if (ctx->state == AVICO_ST_RESTORING) {
+			avico_start(ctx);
+		} else {
+			ctx->state = AVICO_ST_NONE;
+			v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
+		}
+		break;
+	default:
+		v4l2_err(&dev->v4l2_dev, "Invalid state\n");
+		break;
+	}
+
+	return IRQ_HANDLED;
+
+err:
+	ctx->error = true;
+	avico_clear_disable_events(ctx);
+	if (ctx->aborting) {
+		dmaengine_terminate_all(ctx->dev->dma_ch);
+		avico_dma_out_callback(ctx);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -937,7 +1281,14 @@ static int avico_s_fmt_output(struct file *file, void *priv,
 	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
 	unsigned int fmt = 0;
 
-	ctx->width = round_up(f->fmt.pix.width, 16);
+	if (f->fmt.pix.width > AVICO_MAX_WIDTH) {
+		ctx->width = AVICO_MAX_WIDTH;
+		v4l2_warn(&ctx->dev->v4l2_dev,
+			  "Requested width %u exceeds maximum %u, setting to maximum\n",
+			  f->fmt.pix.width, ctx->width);
+	} else {
+		ctx->width = round_up(f->fmt.pix.width, 16);
+	}
 	ctx->height = round_up(f->fmt.pix.height, 16);
 	ctx->outsize = ctx->width * ctx->height / 2 * 3;
 	ctx->capsize = ctx->width * ctx->height * 2;
@@ -1186,86 +1537,25 @@ static void avico_buf_queue(struct vb2_buffer *vb)
 	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 }
 
-static void avico_thread_init(struct avico_ctx *ctx)
-{
-	union mbpos mbpos = {
-		.nx = DIV_ROUND_UP(ctx->width, 16),
-		.ny = DIV_ROUND_UP(ctx->height, 16)
-	};
-
-	union adr adr = {
-		.acur = ctx->id * 0x0100,
-		.aref = ctx->id * 0x0100 + mbpos.nx,
-		.ares = ctx->id * 0x0080 + mbpos.nx
-	};
-
-	union task task = {
-		.std = VE_STD_H264,
-		.qpy = ctx->qpy,
-		.qpc = ctx->qpc,
-		.m6eof = 1,
-		.m7eof = 1
-	};
-
-	union frmn frmn = {
-		.gop = ctx->gop
-	};
-
-	avico_write(mbpos.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_MBPOS);
-	avico_write(adr.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_ADR);
-	avico_write(task.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_TASK);
-	avico_write(frmn.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_FRMN);
-}
-
-static void avico_ec_init(struct avico_ctx *ctx)
-{
-	union ecd_task ecd_task;
-
-	avico_write(ctx->size_cbs, ctx, AVICO_EC_BASE(ctx->id) +
-			AVICO_EC_VRAMCTRC + AVICO_VRAMCTRC_SIZE_CBS);
-
-	avico_write(ctx->dma_cbs_len, ctx, AVICO_EC_BASE(ctx->id) +
-			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_DMALEN);
-
-	avico_write(ECD_CS_CAVLC, ctx, AVICO_EC_BASE(ctx->id) +
-			AVICO_EC_TASKCTRC + AVICO_TASKCTRC_CS);
-
-	ecd_task.val = avico_read(ctx, AVICO_EC_BASE(ctx->id) +
-				  AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
-	ecd_task.id = ECD_TASK_H264_ENC_RESET;
-	ecd_task.rep = 1;
-	ecd_task.run = 1;
-	ecd_task.repn = 0;
-	avico_write(ecd_task.val, ctx, AVICO_EC_BASE(ctx->id) +
-		    AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
-
-	do {
-		ecd_task.val = avico_read(ctx, AVICO_EC_BASE(ctx->id) +
-				AVICO_EC_TASKCTRC + AVICO_TASKCTRC_TASK);
-	} while (ecd_task.ready == 0);
-}
-
 static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
-	unsigned int reserve;
-	unsigned int channel;
+	struct vb2_v4l2_buffer *buf;
+	int ret = 0;
+	struct avico_frame_params *par = &ctx->par;
 
-	switch (vq->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+	ret = pm_runtime_get_sync(ctx->dev->dev);
+	if (ret < 0) {
+		v4l2_err(&ctx->dev->v4l2_dev, "Failed to set runtime PM\n");
+		goto err_ret_bufs;
+	}
+
+	if (V4L2_TYPE_IS_OUTPUT(vq->type)) {
 		ctx->outseq = 0;
 		ctx->outon = 1;
-		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	} else {
 		ctx->capseq = 0;
 		ctx->capon = 1;
-		break;
-	default:
-		return -EINVAL;
 	}
 
 	if (ctx->outon != 1 || ctx->capon != 1)
@@ -1274,48 +1564,64 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	/* \todo Assert that width and height < 4096 */
 	ctx->mbx = DIV_ROUND_UP(ctx->width, 16);
 	ctx->mby = DIV_ROUND_UP(ctx->height, 16);
-	ctx->qpy = ctx->qpc = 28;
-	ctx->dbf = 0;
+	par->dbf = 0;
 
-	ctx->frame = 0;
+	par->frame = 0;
 	/* \todo Make configurable.
 	 * This should correlate with log2_max_frame_num_minus4 */
-	ctx->maxframe = 16;
-	ctx->gop = 250;
-	ctx->i_period = 0;
-	ctx->size_cbs = 64 * 8;
-	ctx->dma_cbs_len = 32 * 8;
-	ctx->poc_type = 2;
+	par->maxframe = 16;
+	par->gop = 60;
+	par->i_period = 0;
+	par->poc_type = 2;
 	ctx->vdma_trans_size_m1 = 3;
 
 	ctx->thread = ctx->dev->regs + AVICO_THREAD_BASE(ctx->id);
 
-	avico_write(0UL, ctx, AVICO_CTRL_BASE + AVICO_CTRL_EVENTS);
-
-	avico_thread_init(ctx);
-
-	/* \todo Maybe be do not need padding */
-	reserve = ctx->mbx * 16 * 12; /* From Rolschikov's code */
-	ctx->refsize = ctx->mbx * ctx->mby * (256 + 128) + reserve;
+	ctx->refsize = ctx->mbx * ctx->mby * (256 + 128);
 
 	ctx->vref = dma_alloc_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
 				       &ctx->dmaref, GFP_KERNEL);
 	if (!ctx->vref) {
 		v4l2_err(&ctx->dev->v4l2_dev,
-			 "Can not allocate memory for reference frame");
+			 "Can not allocate memory for reference frame\n");
+		ret = -ENOMEM;
+		goto err_ret_bufs;
 	}
 
-	for (channel = ctx->id * 4; channel <= ctx->id * 4 + 4; channel++) {
-		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_RUN);
-		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_DONE);
-		avico_dma_write(0, ctx, channel, AVICO_VDMA_CHANNEL_IMRDY);
+	ctx->mbrefsize = MB_REF_SIZE * ctx->mbx * 2;
+	ctx->vmbref = dma_alloc_coherent(ctx->dev->v4l2_dev.dev, ctx->mbrefsize,
+					 &ctx->dmambref, GFP_KERNEL);
+	if (!ctx->vmbref) {
+		ret = -ENOMEM;
+		goto free_ref;
 	}
 
-	/* \todo Configure MD */
-
-	avico_ec_init(ctx);
+	ctx->mbcursize = MB_CUR_SIZE * ctx->mbx * 2;
+	ctx->vmbcur = dma_alloc_coherent(ctx->dev->v4l2_dev.dev, ctx->mbcursize,
+					 &ctx->dmambcur, GFP_KERNEL);
+	if (!ctx->vmbcur) {
+		ret = -ENOMEM;
+		goto free_mbref;
+	}
 
 	return 0;
+
+free_mbref:
+	dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->mbrefsize, ctx->vmbref,
+			  ctx->dmambref);
+free_ref:
+	dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize, ctx->vref,
+			  ctx->dmaref);
+err_ret_bufs:
+	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
+		while ((buf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx)))
+			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_QUEUED);
+	} else {
+		while ((buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx)))
+			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_QUEUED);
+	}
+
+	return ret;
 }
 
 static void avico_stop_streaming(struct vb2_queue *q)
@@ -1323,31 +1629,43 @@ static void avico_stop_streaming(struct vb2_queue *q)
 	struct avico_ctx *ctx = vb2_get_drv_priv(q);
 	struct vb2_v4l2_buffer *vbuf;
 	unsigned long flags;
+	bool stop = ctx->outon && ctx->capon;
 
-	for (;;) {
-		if (V4L2_TYPE_IS_OUTPUT(q->type))
-			vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
-		else
-			vbuf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
-		if (vbuf == NULL)
-			break;
-		spin_lock_irqsave(&ctx->dev->irqlock, flags);
-		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
-		spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
+	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
+		ctx->outon = 0;
+		while ((vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx))) {
+			/*
+			 * stop_streaming() could be called asynchronously to
+			 * avico_dma_out_callback() so spinlock ensures buffer
+			 * isn't added to the done buffers list twice.
+			 */
+			spin_lock_irqsave(&ctx->dev->irqlock, flags);
+			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
+			spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
+		}
+	} else {
+		ctx->capon = 0;
+		while ((vbuf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx))) {
+			spin_lock_irqsave(&ctx->dev->irqlock, flags);
+			v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
+			spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
+		}
 	}
 
-	if (ctx->vref) {
-		/* \todo Check return value */
+	if (stop) {
 		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
 				  ctx->vref, ctx->dmaref);
-		ctx->vref = NULL;
-		/* \bug This code is not thread safe. To test it one should
-		 * write test that simultaneously stops capture and output
-		 * streams. */
+
+		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->mbrefsize,
+				  ctx->vmbref, ctx->dmambref);
+
+		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->mbcursize,
+				  ctx->vmbcur, ctx->dmambcur);
+
+		ctx->aborting = 0;
 	}
 
-	/* \bug Only one should be zeroed */
-	ctx->capon = ctx->outon = 0;
+	pm_runtime_put(ctx->dev->dev);
 }
 
 static struct vb2_ops avico_qops = {
@@ -1388,6 +1706,60 @@ static int queue_init(void *priv, struct vb2_queue *src, struct vb2_queue *dst)
 	dst->lock = &ctx->dev->mutex; /* \todo Do we really need this? */
 
 	return vb2_queue_init(dst);
+}
+
+static int avico_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct avico_ctx *ctx = container_of(ctrl->handler, struct avico_ctx,
+					     ctrl_handler);
+
+	switch (ctrl->id) {
+	case V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME:
+		ctx->force_key = true;
+		break;
+	}
+
+	return 0;
+}
+
+static const struct v4l2_ctrl_ops avico_ctrl_ops = {
+	.s_ctrl		= avico_s_ctrl,
+};
+
+static int avico_ctrls_create(struct avico_ctx *ctx)
+{
+	struct avico_dev *dev = ctx->dev;
+
+	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 4);
+
+	ctx->ctrl_qp_i = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+					   V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
+					   0, 51, 1, 28);
+	ctx->ctrl_qp_p = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+					   V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP,
+					   0, 51, 1, 28);
+	ctx->ctrl_qpc_off = v4l2_ctrl_new_std(&ctx->ctrl_handler,
+					      &avico_ctrl_ops,
+				V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET,
+					      -12, 12, 1, 0);
+	v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME, 0, 0, 0, 0);
+
+	if (ctx->ctrl_handler.error) {
+		int err = ctx->ctrl_handler.error;
+
+		v4l2_err(&dev->v4l2_dev, "Failed to create controls\n");
+		return err;
+	}
+
+	v4l2_ctrl_handler_setup(&ctx->ctrl_handler);
+
+	return 0;
+}
+
+static void avico_ctrls_delete(struct avico_ctx *ctx)
+{
+	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 }
 
 static int avico_open(struct file *file)
@@ -1448,14 +1820,27 @@ static int avico_open(struct file *file)
 		rc = PTR_ERR(ctx->fh.m2m_ctx);
 
 		pr_devel("Can not initizlize M2M context!\n");
-		kfree(ctx);
-		goto open_unlock;
+		goto error_ctx_free;
 	}
+
+	rc = avico_ctrls_create(ctx);
+	if (rc)
+		goto error_ctrls_del;
+
+	/* Use separate control handler per file handle/context */
+	ctx->fh.ctrl_handler = &ctx->ctrl_handler;
 
 	v4l2_fh_add(&ctx->fh);
 
 	pr_devel("Created instance: %p, m2m_ctx: %p\n", ctx, ctx->fh.m2m_ctx);
 
+	mutex_unlock(&dev->mutex);
+	return 0;
+
+error_ctrls_del:
+	avico_ctrls_delete(ctx);
+error_ctx_free:
+	kfree(ctx);
 open_unlock:
 	mutex_unlock(&dev->mutex);
 	return rc;
@@ -1470,6 +1855,7 @@ static int avico_release(struct file *file)
 	mutex_lock(&dev->mutex);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 	mutex_unlock(&dev->mutex);
+	avico_ctrls_delete(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	kfree(ctx);
@@ -1495,63 +1881,23 @@ static struct video_device const avico_video_device = {
 	.release = video_device_release_empty
 };
 
-static int avico_clk_init(struct avico_dev *dev, struct platform_device *pdev)
+static int avico_clk_get(struct avico_dev *dev)
 {
-	int err;
+	int i;
 
-	dev->pclk = devm_clk_get(&pdev->dev, "pclk");
-	if (IS_ERR(dev->pclk)) {
-		err = PTR_ERR(dev->pclk);
-		dev_err(&pdev->dev,
-			"failed to get pclk (%u)\n", err);
-		return err;
-	}
+	for (i = 0; i < NCLKS; i++) {
+		dev->clk[i] = devm_clk_get(dev->dev, clknames[i]);
+		if (IS_ERR(dev->clk[i])) {
+			int rc = PTR_ERR(dev->clk[i]);
 
-	dev->aclk = devm_clk_get(&pdev->dev, "aclk");
-	if (IS_ERR(dev->aclk)) {
-		err = PTR_ERR(dev->aclk);
-		dev_err(&pdev->dev,
-			"failed to get aclk (%u)\n", err);
-		return err;
-	}
+			dev_err(dev->dev, "Failed to get clock %s (%u)\n",
+				clknames[i], rc);
 
-	dev->sclk = devm_clk_get(&pdev->dev, "sclk");
-	if (IS_ERR(dev->sclk)) {
-		err = PTR_ERR(dev->sclk);
-		dev_err(&pdev->dev,
-			"failed to get sclk (%u)\n", err);
-		return err;
-	}
-
-	err = clk_prepare_enable(dev->pclk);
-	if (err) {
-		dev_err(&pdev->dev,
-			"failed to enable pclk (%u)\n", err);
-		return err;
-	}
-
-	err = clk_prepare_enable(dev->aclk);
-	if (err) {
-		dev_err(&pdev->dev,
-			"failed to enable aclk (%u)\n", err);
-		goto disable_pclk;
-	}
-
-	err = clk_prepare_enable(dev->sclk);
-	if (err) {
-		dev_err(&pdev->dev,
-			"failed to enable sclk (%u)\n", err);
-		goto disable_aclk;
+			return rc;
+		}
 	}
 
 	return 0;
-
-disable_aclk:
-	clk_disable_unprepare(dev->aclk);
-disable_pclk:
-	clk_disable_unprepare(dev->pclk);
-
-	return err;
 }
 
 static int avico_probe(struct platform_device *pdev)
@@ -1572,24 +1918,22 @@ static int avico_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	/* Try to get and enable clocks */
-	ret = avico_clk_init(dev, pdev);
+	/* Try to get clocks */
+	ret = avico_clk_get(dev);
 	if (ret)
 		return ret;
 
 	dev->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (!dev->regs) {
 		dev_err(&pdev->dev, "Can not map memory region\n");
-		ret = -ENXIO;
-		goto disable_clks;
+		return -ENXIO;
 	}
 
 	/* VRAM address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
 		dev_err(&pdev->dev, "Failed to get VRAM resource\n");
-		ret = -ENXIO;
-		goto disable_clks;
+		return -ENXIO;
 	}
 
 	dev->vram = res->start;
@@ -1599,26 +1943,25 @@ static int avico_probe(struct platform_device *pdev)
 	dev->dma_ch = dma_request_channel(mask, NULL, NULL);
 	if (!dev->dma_ch) {
 		dev_err(&pdev->dev, "Failed to request DMA channel\n");
-		ret = -ENXIO;
-		goto disable_clks;
+		return -ENXIO;
 	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "Failed to get IRQ resource\n");
 		ret = irq; /* -ENXIO */
-		goto disable_clks;
+		goto dma_release;
 	}
 
 	ret = devm_request_irq(&pdev->dev, irq, avico_irq, 0, pdev->name, dev);
 	if (ret)
-		goto disable_clks;
+		goto dma_release;
 
 	/* \todo Request and enable clock */
 
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret)
-		goto disable_clks;
+		goto dma_release;
 
 	spin_lock_init(&dev->irqlock);
 	mutex_init(&dev->mutex);
@@ -1641,6 +1984,8 @@ static int avico_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+
 	ret = video_register_device(&dev->vfd, VFL_TYPE_GRABBER, -1);
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
@@ -1656,16 +2001,13 @@ static int avico_probe(struct platform_device *pdev)
 
 unreg_dev:
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+	pm_runtime_disable(&pdev->dev);
 err_alloc:
 	v4l2_m2m_release(dev->m2m_dev);
 err_m2m:
 	v4l2_device_unregister(&dev->v4l2_dev);
-disable_clks:
-	if (dev->dma_ch)
-		dma_release_channel(dev->dma_ch);
-	clk_disable_unprepare(dev->pclk);
-	clk_disable_unprepare(dev->aclk);
-	clk_disable_unprepare(dev->sclk);
+dma_release:
+	dma_release_channel(dev->dma_ch);
 
 	return ret;
 }
@@ -1678,15 +2020,73 @@ static int avico_remove(struct platform_device *pdev)
 	video_unregister_device(&dev->vfd);
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 	v4l2_m2m_release(dev->m2m_dev);
+	pm_runtime_disable(&pdev->dev);
 	v4l2_device_unregister(&dev->v4l2_dev);
 	dma_release_channel(dev->dma_ch);
 
-	clk_disable_unprepare(dev->pclk);
-	clk_disable_unprepare(dev->aclk);
-	clk_disable_unprepare(dev->sclk);
+	return 0;
+}
+
+static int __maybe_unused avico_runtime_suspend(struct device *dev)
+{
+	int i;
+	struct v4l2_device *v4l2_dev = dev_get_drvdata(dev);
+	struct avico_dev *adev = container_of(v4l2_dev, struct avico_dev,
+					      v4l2_dev);
+
+	/* Clocks must be disabled in reverse order by common sense */
+	for (i = NCLKS - 1; i >= 0; i--)
+		clk_disable_unprepare(adev->clk[i]);
 
 	return 0;
 }
+
+static int __maybe_unused avico_runtime_resume(struct device *dev)
+{
+	int i, rc;
+	struct v4l2_device *v4l2_dev = dev_get_drvdata(dev);
+	struct avico_dev *adev = container_of(v4l2_dev, struct avico_dev,
+					      v4l2_dev);
+
+	for (i = 0; i < NCLKS; i++) {
+		rc = clk_prepare_enable(adev->clk[i]);
+		if (rc) {
+			dev_err(dev, "Failed to enable clock %s (%u)\n",
+				clknames[i], rc);
+
+			while (--i >= 0)
+				clk_disable_unprepare(adev->clk[i]);
+
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+/* BUG: System Sleep callbacks must not be executed when the driver is in use.
+ * Otherwise the proccess will get stuck and the driver will become unavailable
+ * after resuming. */
+static int __maybe_unused avico_suspend(struct device *dev)
+{
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	return avico_runtime_suspend(dev);
+}
+
+static int __maybe_unused avico_resume(struct device *dev)
+{
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	return avico_runtime_resume(dev);
+}
+
+static const struct dev_pm_ops avico_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(avico_suspend, avico_resume)
+	SET_RUNTIME_PM_OPS(avico_runtime_suspend, avico_runtime_resume, NULL)
+};
 
 static struct platform_device_id avico_platform_ids[] = {
 	{ .name = "avico", .driver_data = 0 },
@@ -1708,6 +2108,7 @@ static struct platform_driver avico_driver = {
 	.driver = {
 		.name = MODULE_NAME,
 		.owner = THIS_MODULE,
+		.pm = &avico_pm_ops,
 		.of_match_table = of_match_ptr(avico_dt_ids)
 	},
 	.id_table = avico_platform_ids

@@ -27,6 +27,7 @@
 #include <drm/drm_plane_helper.h>
 
 #include "vpout-drm-drv.h"
+#include "vpout-drm-link.h"
 #include "vpout-drm-regs.h"
 
 struct vpout_drm_crtc {
@@ -286,9 +287,37 @@ static int vpout_drm_crtc_page_flip(struct drm_crtc *crtc,
 	return 0;
 }
 
+void vpout_drm_crtc_set_panel_info(struct drm_crtc *crtc,
+				   const struct vpout_drm_info *info)
+{
+	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
+
+	vpout_drm_crtc->info = info;
+}
+
+int vpout_drm_crtc_set_config(struct drm_mode_set *set)
+{
+	struct vpout_drm_info *info;
+	struct drm_connector *conn;
+
+	/* support one encoder/connector in one time */
+	if (set->num_connectors > 1)
+		return -EINVAL;
+
+	/* prepare external info */
+	conn = set->num_connectors ? set->connectors[0] : NULL;
+
+	if (conn) {
+		info = vpout_drm_get_encoder_info(conn->encoder);
+		vpout_drm_crtc_set_panel_info(set->crtc, info);
+	}
+
+	return drm_crtc_helper_set_config(set);
+}
+
 static const struct drm_crtc_funcs vpout_drm_crtc_funcs = {
 	.destroy = vpout_drm_crtc_destroy,
-	.set_config = drm_crtc_helper_set_config,
+	.set_config = vpout_drm_crtc_set_config,
 	.page_flip = vpout_drm_crtc_page_flip,
 };
 
@@ -335,14 +364,6 @@ int vpout_drm_crtc_mode_valid(struct drm_crtc *crtc,
 		return MODE_VSYNC_WIDE;
 
 	return MODE_OK;
-}
-
-void vpout_drm_crtc_set_panel_info(struct drm_crtc *crtc,
-			       const struct vpout_drm_info *info)
-{
-	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
-
-	vpout_drm_crtc->info = info;
 }
 
 irqreturn_t vpout_drm_crtc_irq(struct drm_crtc *crtc)

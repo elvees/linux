@@ -94,7 +94,7 @@
 
 #define MEM_ADDR_MASK			GENMASK(7, 0)
 #define BCH_MODE_MASK			GENMASK(27, 25)
-
+#define MODE_16BIT			BIT(28)
 #define CS_MASK				GENMASK(31, 30)
 #define CS_SHIFT			30
 
@@ -304,6 +304,16 @@ static void anfc_prepare_cmd(struct anfc *nfc, u8 cmd1, u8 cmd2,
 			     u8 dmamode, u32 pagesize, u8 addrcycles)
 {
 	u32 regval;
+
+	if (nfc->chip.options & NAND_BUSWIDTH_16) {
+		regval = readl(nfc->base + MEM_ADDR2_OFST);
+		if (nand_opcode_8bits(cmd1) || cmd1 == NAND_CMD_STATUS)
+			regval &= ~MODE_16BIT;
+		else
+			regval |= MODE_16BIT;
+
+		writel(regval, nfc->base + MEM_ADDR2_OFST);
+	}
 
 	regval = cmd1 | (cmd2 << CMD2_SHIFT);
 	if (dmamode && nfc->dma)
@@ -639,6 +649,8 @@ static int anfc_ecc_init(struct mtd_info *mtd,
 	}
 	oob_index = mtd->oobsize - nfc->ecclayout.eccbytes;
 	eccaddr = mtd->writesize + oob_index;
+	if (nfc->chip.options & NAND_BUSWIDTH_16)
+		eccaddr /= 2;
 
 	for (i = 0; i < nand_chip->ecc.size; i++)
 		nfc->ecclayout.eccpos[i] = oob_index + i;
@@ -689,6 +701,8 @@ static void anfc_cmd_function(struct mtd_info *mtd,
 		wait = true;
 		break;
 	case NAND_CMD_SEQIN:
+		if (nfc->chip.options & NAND_BUSWIDTH_16)
+			column /= 2;
 		addrcycles = nfc->raddr_cycles + nfc->caddr_cycles;
 		nfc->page = page_addr;
 		anfc_prepare_cmd(nfc, cmd, NAND_CMD_PAGEPROG, 1,
@@ -697,6 +711,8 @@ static void anfc_cmd_function(struct mtd_info *mtd,
 		break;
 	case NAND_CMD_READOOB:
 		column += mtd->writesize;
+		if (nfc->chip.options & NAND_BUSWIDTH_16)
+			column /= 2;
 	case NAND_CMD_READ0:
 	case NAND_CMD_READ1:
 		addrcycles = nfc->raddr_cycles + nfc->caddr_cycles;
@@ -926,6 +942,8 @@ static int anfc_probe(struct platform_device *pdev)
 		err = -ENXIO;
 		goto err_clock;
 	}
+	dev_info(&pdev->dev, "Bus width: %d\n",
+		 (nand_chip->options & NAND_BUSWIDTH_16) ? 16 : 8);
 
 	if (nand_scan_tail(mtd)) {
 		dev_err(&pdev->dev, "nand_scan_tail for NAND failed\n");

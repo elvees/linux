@@ -34,49 +34,24 @@
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 
+struct connector_proxy {
+	struct drm_connector *connector;
+	const struct drm_connector_helper_funcs *funcs;
+};
+
 struct vpout_drm_private {
 	void __iomem *mmio;
 	struct clk *clk;
 	struct workqueue_struct *wq;
 	struct drm_fbdev_cma *fbdev;
 	struct drm_crtc *crtc;
-	bool is_componentized;
-	unsigned int num_encoders;
-	struct drm_encoder *encoders[8];
-	unsigned int num_connectors;
-	struct drm_connector *connectors[8];
-	const struct drm_connector_helper_funcs *connector_funcs[8];
-};
 
-struct vpout_drm_module;
-
-struct vpout_drm_module_ops {
-	int (*modeset_init)(struct vpout_drm_module *mod,
-			    struct drm_device *dev);
-};
-
-struct vpout_drm_module {
-	const char *name;
-	struct list_head list;
-	const struct vpout_drm_module_ops *funcs;
-	unsigned int preferred_bpp;
-};
-
-void vpout_drm_module_init(struct vpout_drm_module *mod, const char *name,
-			   const struct vpout_drm_module_ops *funcs);
-
-void vpout_drm_module_cleanup(struct vpout_drm_module *mod);
-
-struct vpout_drm_info {
-	uint32_t bpp;
-	bool invert_pxl_clk;
+	int num_slaves;
+	struct connector_proxy slaves[8];
 };
 
 int vpout_drm_crtc_mode_valid(struct drm_crtc *crtc,
 			      struct drm_display_mode *mode);
-
-void vpout_drm_crtc_set_panel_info(struct drm_crtc *crtc,
-				   const struct vpout_drm_info *info);
 
 irqreturn_t vpout_drm_crtc_irq(struct drm_crtc *crtc);
 

@@ -47,9 +47,25 @@ void avico_regs_thread_dump(void __iomem *const base)
 	dump("thread.smbpos", base, AVICO_THREAD_SMBPOS);
 }
 
+void avico_regs_md_sys_dump(void __iomem *const base)
+{
+	dump("md.sys.md_cfg", base, AVICO_MD_SYS_CFG);
+}
+
+void avico_regs_md_dump(void __iomem *const base)
+{
+	dump("md.mbpos_md  ", base, AVICO_MD_MBPOS);
+	dump("md.frmn_md   ", base, AVICO_MD_FRMN);
+}
+
+void avico_regs_tq_dump(void __iomem *const base)
+{
+	dump("tq.mbpos_tq  ", base, AVICO_TQ_MBPOS);
+	dump("tq.frmn_tq   ", base, AVICO_TQ_FRMN);
+}
+
 void avico_regs_vdma_sys_dump(void __iomem *const base)
 {
-	dump("vdma.sys.run   ", base, AVICO_VDMA_SYS_RUN);
 	dump("vdma.sys.run   ", base, AVICO_VDMA_SYS_RUN);
 	dump("vdma.sys.busy  ", base, AVICO_VDMA_SYS_BUSY);
 	dump("vdma.sys.active", base, AVICO_VDMA_SYS_ACTV);
@@ -149,19 +165,19 @@ void avico_regs_ec_packer_dump(void __iomem *const base)
 
 void avico_regs_ec_regc_dump(void __iomem *const base)
 {
-	uint8_t buf[0x200];
+	uint8_t buf[AVICO_REGC_CBS - AVICO_REGC_CP0 + AVICO_REGC_CBS_SIZE];
 
-	memcpy_fromio(buf, base, 0x200 / 4);
+	memcpy_fromio(buf, base, sizeof(buf));
 
-	dumphex("ec.regc.cp0", buf, 0x00, 0x10);
-	dumphex("ec.regc.cp1", buf, 0x10, 0x10);
-	dumphex("ec.regc.cp2", buf, 0x20, 0x10);
-	dumphex("ec.regc.cp3", buf, 0x30, 0x10);
-	dumphex("ec.regc.cpn", buf, 0x40, 0x10);
-	dumphex("ec.regc.cpa", buf, 0x50, 0x10);
-	dumphex("ec.regc.cpb", buf, 0x60, 0x10);
-	dumphex("ec.regc.cqc", buf, 0x80, 0x80);
-	dumphex("ec.regc.cbs", buf, 0x100, 0x100);
+	dumphex("ec.regc.cp0", buf, AVICO_REGC_CP0, AVICO_REGC_CP0_SIZE);
+	dumphex("ec.regc.cp1", buf, AVICO_REGC_CP1, AVICO_REGC_CP1_SIZE);
+	dumphex("ec.regc.cp2", buf, AVICO_REGC_CP2, AVICO_REGC_CP2_SIZE);
+	dumphex("ec.regc.cp3", buf, AVICO_REGC_CP3, AVICO_REGC_CP3_SIZE);
+	dumphex("ec.regc.cpn", buf, AVICO_REGC_CPN, AVICO_REGC_CPN_SIZE);
+	dumphex("ec.regc.cpa", buf, AVICO_REGC_CPA, AVICO_REGC_CPA_SIZE);
+	dumphex("ec.regc.cpb", buf, AVICO_REGC_CPB, AVICO_REGC_CPB_SIZE);
+	dumphex("ec.regc.cqc", buf, AVICO_REGC_CQC, AVICO_REGC_CQC_SIZE);
+	dumphex("ec.regc.cbs", buf, AVICO_REGC_CBS, AVICO_REGC_CBS_SIZE);
 }
 
 void avico_regs_ec_dump(void __iomem *const base)
@@ -178,6 +194,9 @@ void avico_regs_dump(void __iomem *const base, const unsigned int thread)
 {
 	avico_regs_ctrl_dump(base + AVICO_CTRL_BASE);
 	avico_regs_thread_dump(base + AVICO_THREAD_BASE(thread));
+	avico_regs_md_sys_dump(base + AVICO_MD_SYS_BASE);
+	avico_regs_md_dump(base + AVICO_MD_BASE(thread));
+	avico_regs_tq_dump(base + AVICO_TQ_BASE(thread));
 	avico_regs_vdma_dump(base + AVICO_VDMA_BASE, thread * 4);
 	avico_regs_ec_dump(base + AVICO_EC_BASE(thread));
 }

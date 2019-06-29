@@ -236,7 +236,7 @@ static void vinc_configure_bgr(struct vinc_dev *priv,
 			ct->coeff[0] = COEFF_FLOAT_TO_U16(1, 1);
 			ct->coeff[1] = COEFF_FLOAT_TO_U16(-0.3918, 1);
 			ct->coeff[2] = COEFF_FLOAT_TO_U16(-0.7141, 1);
-			ct->coeff[3] = COEFF_FLOAT_TO_U16(1, 3);
+			ct->coeff[3] = COEFF_FLOAT_TO_U16(1, 1);
 			ct->coeff[4] = COEFF_FLOAT_TO_U16(1.772, 1);
 			ct->coeff[5] = COEFF_FLOAT_TO_U16(0, 1);
 			ct->coeff[6] = COEFF_FLOAT_TO_U16(1, 1);

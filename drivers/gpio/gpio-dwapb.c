@@ -488,6 +488,7 @@ static int dwapb_gpio_add_port(struct dwapb_gpio *gpio,
 {
 	struct dwapb_gpio_port *port;
 	void __iomem *dat, *set, *dirout;
+	u32 reg;
 	int err;
 
 	port = &gpio->ports[offs];
@@ -513,8 +514,11 @@ static int dwapb_gpio_add_port(struct dwapb_gpio *gpio,
 		return err;
 	}
 
+	reg = dwapb_read(gpio, GPIO_SWPORTA_CTL +
+			       (pp->idx * GPIO_SWPORT_CTL_SIZE));
+	reg |= ~pp->skip_mask;
 	dwapb_write(gpio, GPIO_SWPORTA_CTL +
-			(pp->idx * GPIO_SWPORT_CTL_SIZE), ~pp->skip_mask);
+			  (pp->idx * GPIO_SWPORT_CTL_SIZE), reg);
 
 #ifdef CONFIG_OF_GPIO
 	port->bgc.gc.of_node = pp->node;
@@ -598,15 +602,16 @@ dwapb_gpio_get_pdata_of(struct device *dev)
 		}
 
 		skip_count = of_property_count_elems_of_size(port_np,
-							     "skip-gpios",
+							     "skip-gpio-list",
 							     sizeof(u32));
 		for (j = 0; j < skip_count; j++) {
 			u32 num;
 
-			if (of_property_read_u32_index(port_np, "skip-gpios",
-						       j, &num)) {
+			if (of_property_read_u32_index(port_np,
+						       "skip-gpio-list", j,
+						       &num)) {
 				dev_err(dev,
-					"failed to get index %d from skip-gpios property (%s)",
+					"failed to get index %d from skip-gpio-list property (%s)",
 					j, port_np->full_name);
 				return ERR_PTR(-EINVAL);
 			}
