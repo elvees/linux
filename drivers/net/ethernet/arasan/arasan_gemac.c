@@ -69,7 +69,7 @@ void arasan_gemac_dump_regs(struct arasan_gemac_pdata *pd)
 	print_reg(MAC_ADDRESS1_HIGH);
 	print_reg(MAC_ADDRESS1_MED);
 	print_reg(MAC_ADDRESS1_LOW);
-	print_reg(MAC_INTERRUPT);
+	print_reg(MAC_INTERRUPT_STATUS);
 	print_reg(MAC_INTERRUPT_ENABLE);
 }
 
@@ -192,19 +192,21 @@ static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 	arasan_gemac_set_hwaddr(pd->dev);
 }
 
-static int arasan_gemac_alloc_rx_buffer(struct arasan_gemac_pdata *pd, int index)
+static int arasan_gemac_alloc_rx_desc(struct arasan_gemac_pdata *pd, int index)
 {
-	struct sk_buff *skb = netdev_alloc_skb(pd->dev, PKT_BUF_SZ);
+	struct sk_buff *skb;
 	dma_addr_t mapping;
+	int len;
+	bool last = index == (RX_RING_SIZE - 1);
 
-	WARN_ON(pd->rx_buffers[index].skb);
-	WARN_ON(pd->rx_buffers[index].mapping);
-
+	skb = netdev_alloc_skb(pd->dev, mtu_to_buf_sz(pd->dev->mtu));
 	if (unlikely(!skb))
 		return -ENOMEM;
 
-	mapping = dma_map_single(&pd->pdev->dev, skb_tail_pointer(skb),
-				 PKT_BUF_SZ, DMA_FROM_DEVICE);
+	len = skb_tailroom(skb);
+
+	mapping = dma_map_single(&pd->pdev->dev, skb_tail_pointer(skb), len,
+				 DMA_FROM_DEVICE);
 
 	if (dma_mapping_error(&pd->pdev->dev, mapping)) {
 		dev_kfree_skb_any(skb);
@@ -214,6 +216,9 @@ static int arasan_gemac_alloc_rx_buffer(struct arasan_gemac_pdata *pd, int index
 
 	pd->rx_buffers[index].skb = skb;
 	pd->rx_buffers[index].mapping = mapping;
+
+	/* check if we are at the last descriptor and need to set EOR */
+	pd->rx_ring[index].misc = last ? DMA_RDES1_EOR | len : len;
 	pd->rx_ring[index].buffer1 = mapping + NET_IP_ALIGN;
 	pd->rx_ring[index].status = DMA_RDES0_OWN_BIT;
 
@@ -225,37 +230,61 @@ static int arasan_gemac_alloc_rx_buffer(struct arasan_gemac_pdata *pd, int index
 	return 0;
 }
 
+static void arasan_gemac_free_rx_desc(struct arasan_gemac_pdata *pd, int index)
+{
+	struct arasan_gemac_ring_info *desc = &pd->rx_buffers[index];
+	int len;
+
+	if (desc->skb) {
+		len = skb_tailroom(desc->skb);
+		WARN_ON(len == 0);
+		dma_unmap_single(&pd->pdev->dev, desc->mapping, len,
+				 DMA_FROM_DEVICE);
+		dev_kfree_skb_any(desc->skb);
+
+		desc->skb = NULL;
+		desc->mapping = 0;
+	}
+}
+
+static void arasan_gemac_free_tx_desc(struct arasan_gemac_pdata *pd, int index)
+{
+	struct arasan_gemac_ring_info *desc = &pd->tx_buffers[index];
+
+	if (desc->skb) {
+		WARN_ON(!desc->mapping);
+		dma_unmap_single(&pd->pdev->dev, desc->mapping, desc->skb->len,
+				 DMA_TO_DEVICE);
+		dev_kfree_skb_any(desc->skb);
+
+		desc->skb = NULL;
+		desc->mapping = 0;
+	}
+}
+
 static void arasan_gemac_free_tx_ring(struct arasan_gemac_pdata *pd)
 {
 	int i;
+	int dma_sz = TX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc);
 
-	if (!pd->tx_buffers)
-		return;
+	if (pd->tx_buffers) {
+		for (i = 0; i < TX_RING_SIZE; i++)
+			arasan_gemac_free_tx_desc(pd, i);
 
-	for (i = 0; i < TX_RING_SIZE; i++) {
-		struct sk_buff *skb = pd->tx_buffers[i].skb;
+		/* FIXME
+		 * Do we really need wmb here ?
+		 */
+		wmb();
 
-		if (skb) {
-			WARN_ON(!pd->tx_buffers[i].mapping);
-			dma_unmap_single(&pd->pdev->dev,
-					 pd->tx_buffers[i].mapping,
-					 skb->len, DMA_TO_DEVICE);
-			dev_kfree_skb_any(skb);
-		}
-
-		pd->tx_ring[i].status = 0;
-		pd->tx_ring[i].misc = 0;
-		pd->tx_ring[i].buffer1 = 0;
-		pd->tx_ring[i].buffer2 = 0;
+		kfree(pd->tx_buffers);
+		pd->tx_buffers = NULL;
 	}
 
-	/* FIXME
-	 * Do we really need wmb here ?
-	 */
-	wmb();
-
-	kfree(pd->tx_buffers);
-	pd->tx_buffers = NULL;
+	if (pd->tx_ring) {
+		dma_free_coherent(&pd->pdev->dev, dma_sz, pd->tx_ring,
+				  pd->tx_dma_addr);
+		pd->tx_ring = NULL;
+	}
 
 	pd->tx_ring_head = 0;
 	pd->tx_ring_tail = 0;
@@ -264,32 +293,26 @@ static void arasan_gemac_free_tx_ring(struct arasan_gemac_pdata *pd)
 static void arasan_gemac_free_rx_ring(struct arasan_gemac_pdata *pd)
 {
 	int i;
+	int dma_sz = RX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc);
 
-	if (!pd->rx_buffers)
-		return;
+	if (pd->rx_buffers) {
+		for (i = 0; i < RX_RING_SIZE; i++)
+			arasan_gemac_free_rx_desc(pd, i);
 
-	for (i = 0; i < RX_RING_SIZE; i++) {
-		if (pd->rx_buffers[i].skb)
-			dev_kfree_skb_any(pd->rx_buffers[i].skb);
+		/* FIXME
+		 * Do we really need wmb here ?
+		 */
+		wmb();
 
-		if (pd->rx_buffers[i].mapping)
-			dma_unmap_single(&pd->pdev->dev,
-					 pd->rx_buffers[i].mapping,
-					 PKT_BUF_SZ, DMA_FROM_DEVICE);
-
-		pd->rx_ring[i].status = 0;
-		pd->rx_ring[i].misc = 0;
-		pd->rx_ring[i].buffer1 = 0;
-		pd->rx_ring[i].buffer2 = 0;
+		kfree(pd->rx_buffers);
+		pd->rx_buffers = NULL;
 	}
 
-	/* FIXME
-	 * Do we really need wmb here ?
-	 */
-	wmb();
-
-	kfree(pd->rx_buffers);
-	pd->rx_buffers = NULL;
+	if (pd->rx_ring) {
+		dma_free_coherent(&pd->pdev->dev, dma_sz, pd->rx_ring,
+				  pd->rx_dma_addr);
+		pd->rx_ring = NULL;
+	}
 
 	pd->rx_ring_head = 0;
 	pd->rx_ring_tail = 0;
@@ -297,25 +320,18 @@ static void arasan_gemac_free_rx_ring(struct arasan_gemac_pdata *pd)
 
 static int arasan_gemac_alloc_tx_ring(struct arasan_gemac_pdata *pd)
 {
-	int i;
+	int dma_sz = TX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc);
+	int cpu_sz = TX_RING_SIZE * sizeof(struct arasan_gemac_ring_info);
 
-	pd->tx_buffers = kmalloc_array(TX_RING_SIZE,
-		sizeof(struct arasan_gemac_ring_info), GFP_KERNEL);
+	pd->tx_ring = dma_zalloc_coherent(&pd->pdev->dev, dma_sz,
+					  &pd->tx_dma_addr, GFP_KERNEL);
+	if (!pd->tx_ring)
+		return -ENOMEM;
+
+	pd->tx_buffers = kzalloc(cpu_sz, GFP_KERNEL);
 
 	if (!pd->tx_buffers)
 		return -ENOMEM;
-
-	/* Initialize the TX Ring */
-	for (i = 0; i < TX_RING_SIZE; i++) {
-		pd->tx_buffers[i].skb = NULL;
-		pd->tx_buffers[i].mapping = 0;
-		pd->tx_ring[i].status = 0;
-		pd->tx_ring[i].misc = 0;
-		pd->tx_ring[i].buffer1 = 0;
-		pd->tx_ring[i].buffer2 = 0;
-	}
-	pd->tx_ring[TX_RING_SIZE - 1].misc = DMA_TDES1_EOR; /* End of ring */
-	wmb();
 
 	pd->tx_ring_head = 0;
 	pd->tx_ring_tail = 0;
@@ -328,29 +344,25 @@ static int arasan_gemac_alloc_tx_ring(struct arasan_gemac_pdata *pd)
 static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 {
 	int i;
+	int dma_sz = RX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc);
+	int cpu_sz = RX_RING_SIZE * sizeof(struct arasan_gemac_ring_info);
 
-	pd->rx_buffers = kmalloc_array(RX_RING_SIZE,
-		sizeof(struct arasan_gemac_ring_info), GFP_KERNEL);
+	pd->rx_ring = dma_zalloc_coherent(&pd->pdev->dev, dma_sz,
+					  &pd->rx_dma_addr, GFP_KERNEL);
+	if (!pd->rx_ring)
+		return -ENOMEM;
 
-	if (pd->rx_buffers == NULL)
-		goto out;
+	pd->rx_buffers = kzalloc(cpu_sz, GFP_KERNEL);
 
-	/* initialize the rx ring */
-	for (i = 0; i < RX_RING_SIZE; i++) {
-		pd->rx_ring[i].status = 0;
-		pd->rx_ring[i].misc = PKT_BUF_SZ;
-		pd->rx_ring[i].buffer2 = 0;
-		pd->rx_buffers[i].skb = NULL;
-		pd->rx_buffers[i].mapping = 0;
-	}
-	pd->rx_ring[RX_RING_SIZE - 1].misc = (PKT_BUF_SZ | DMA_RDES1_EOR);
+	if (!pd->rx_buffers)
+		return -ENOMEM;
 
 	/* now allocate the entire ring of skbs */
 	for (i = 0; i < RX_RING_SIZE; i++) {
-		if (arasan_gemac_alloc_rx_buffer(pd, i)) {
+		if (arasan_gemac_alloc_rx_desc(pd, i)) {
 			netdev_err(pd->dev,
 				   "failed to allocate rx skb %d\n", i);
-			goto out_free_rx_skbs;
+			return -ENOMEM;
 		}
 	}
 
@@ -360,79 +372,10 @@ static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 	arasan_gemac_writel(pd, DMA_RECEIVE_BASE_ADDRESS, pd->rx_dma_addr);
 
 	return 0;
-
-out_free_rx_skbs:
-	arasan_gemac_free_rx_ring(pd);
-out:
-	return -ENOMEM;
 }
 
-/* Open the ethernet interface */
-static int arasan_gemac_open(struct net_device *dev)
-{
-	struct arasan_gemac_pdata *pd = netdev_priv(dev);
-	u32 result, reg;
-
-	pd->rx_ring = dma_alloc_coherent(&pd->pdev->dev,
-		(RX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc)),
-		&pd->rx_dma_addr, GFP_KERNEL);
-
-	if (!pd->rx_ring)
-		return -ENOMEM;
-
-	pd->tx_ring = dma_alloc_coherent(&pd->pdev->dev,
-		(TX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc)),
-		&pd->tx_dma_addr, GFP_KERNEL);
-
-	if (!pd->tx_ring)
-		return -ENOMEM;
-
-	result = arasan_gemac_alloc_tx_ring(pd);
-	if (result) {
-		netdev_err(pd->dev, "Failed to Initialize tx dma ring\n");
-		return result;
-	}
-
-	result = arasan_gemac_alloc_rx_ring(pd);
-	if (result) {
-		netdev_err(pd->dev, "Failed to Initialize rx dma ring\n");
-		return result;
-	}
-
-	arasan_gemac_init(pd);
-
-	/* schedule a link state check */
-	phy_start(pd->phy_dev);
-
-	napi_enable(&pd->napi);
-
-	/* Enable interrupts */
-	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE,
-			    DMA_INTERRUPT_ENABLE_RECEIVE_DONE |
-			    DMA_INTERRUPT_ENABLE_TRANSMIT_DONE);
-
-	/* Enable packet transmission */
-	reg = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
-	reg |= MAC_TRANSMIT_CONTROL_TRANSMIT_ENABLE;
-	arasan_gemac_writel(pd, MAC_TRANSMIT_CONTROL, reg);
-
-	/* Enable packet reception */
-	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
-	reg |= MAC_RECEIVE_CONTROL_RECEIVE_ENABLE;
-	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
-
-	/* Start transmit and receive DMA */
-	arasan_gemac_writel(pd, DMA_CONTROL,
-			    DMA_CONTROL_START_RECEIVE_DMA |
-			    DMA_CONTROL_START_TRANSMIT_DMA);
-
-	netif_start_queue(dev);
-
-	return 0;
-}
-
-static void arasan_gemac_tx_update_stats(struct net_device *dev,
-					 u32 status, u32 length)
+static inline void arasan_gemac_tx_update_stats(struct net_device *dev,
+						u32 status, u32 length)
 {
 	if (unlikely(status & 0x7fffffff)) {
 		dev->stats.tx_errors++;
@@ -465,18 +408,7 @@ static void arasan_gemac_complete_tx(struct net_device *dev)
 
 		arasan_gemac_tx_update_stats(dev, status, misc);
 
-		WARN_ON(!pd->tx_buffers[index].skb);
-		WARN_ON(!pd->tx_buffers[index].mapping);
-
-		dma_unmap_single(&pd->pdev->dev, pd->tx_buffers[index].mapping,
-				 pd->tx_buffers[index].skb->len, DMA_TO_DEVICE);
-
-		pd->tx_buffers[index].mapping = 0;
-
-		dev_kfree_skb_any(pd->tx_buffers[index].skb);
-		pd->tx_buffers[index].skb = NULL;
-
-		pd->tx_ring[index].buffer1 = 0;
+		arasan_gemac_free_tx_desc(pd, index);
 
 		/* FIXME
 		 * Do we really need wmb here ?
@@ -505,8 +437,6 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	rmb();
 
 	WARN_ON(pd->tx_ring[index].status & DMA_TDES0_OWN_BIT);
-	WARN_ON(pd->tx_buffers[index].skb);
-	WARN_ON(pd->tx_buffers[index].mapping);
 
 	mapping = dma_map_single(&pd->pdev->dev, skb->data,
 				 skb->len, DMA_TO_DEVICE);
@@ -556,11 +486,12 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	return NETDEV_TX_OK;
 }
 
-
 static void arasan_gemac_alloc_new_rx_buffers(struct arasan_gemac_pdata *pd)
 {
 	while (pd->rx_ring_tail != pd->rx_ring_head) {
-		if (arasan_gemac_alloc_rx_buffer(pd, pd->rx_ring_tail))
+		WARN_ON(pd->rx_buffers[pd->rx_ring_tail].skb);
+
+		if (arasan_gemac_alloc_rx_desc(pd, pd->rx_ring_tail))
 			break;
 
 		pd->rx_ring_tail = (pd->rx_ring_tail + 1) % RX_RING_SIZE;
@@ -581,12 +512,12 @@ static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd,
 	dev->stats.rx_bytes += packet_length;
 
 	dma_unmap_single(&pd->pdev->dev, pd->rx_buffers[index].mapping,
-			 PKT_BUF_SZ, DMA_FROM_DEVICE);
-
-	pd->rx_buffers[index].mapping = 0;
+			 packet_length, DMA_FROM_DEVICE);
 
 	skb = pd->rx_buffers[index].skb;
+
 	pd->rx_buffers[index].skb = NULL;
+	pd->rx_buffers[index].mapping = 0;
 
 	skb_reserve(skb, NET_IP_ALIGN);
 	skb_put(skb, packet_length);
@@ -627,8 +558,9 @@ static int arasan_gemac_rx_poll(struct napi_struct *napi, int budget)
 		arasan_gemac_rx_count_stats(dev, status);
 		arasan_gemac_rx_handoff(pd, pd->rx_ring_head, status);
 		pd->rx_ring_head = (pd->rx_ring_head + 1) % RX_RING_SIZE;
-		arasan_gemac_alloc_new_rx_buffers(pd);
 	}
+
+	arasan_gemac_alloc_new_rx_buffers(pd);
 
 	drop_frame_cnt = arasan_gemac_readl(pd, DMA_MISSED_FRAME_COUNTER);
 	dev->stats.rx_dropped += drop_frame_cnt;
@@ -656,14 +588,15 @@ static irqreturn_t arasan_gemac_interrupt(int irq, void *dev_id)
 
 	ints_to_clear = 0;
 
-	if (int_sts & DMA_STATUS_AND_IRQ_TRANSFER_DONE) {
-		ints_to_clear |= DMA_STATUS_AND_IRQ_TRANSFER_DONE;
+	if (int_sts & DMA_STATUS_AND_IRQ_TRANSMIT_DONE) {
+		ints_to_clear |= DMA_STATUS_AND_IRQ_TRANSMIT_DONE;
 		netif_wake_queue(pd->dev);
 	}
 
 	if (int_sts & DMA_STATUS_AND_IRQ_RECEIVE_DONE) {
 		/* mask RX DMAC interrupts */
 		u32 dma_intr_ena = arasan_gemac_readl(pd, DMA_INTERRUPT_ENABLE);
+
 		dma_intr_ena &= (~DMA_INTERRUPT_ENABLE_RECEIVE_DONE);
 		arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, dma_intr_ena);
 
@@ -677,7 +610,7 @@ static irqreturn_t arasan_gemac_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void arasan_gemac_stop_tx(struct arasan_gemac_pdata *pd)
+static void arasan_gemac_stop_tx_dma(struct arasan_gemac_pdata *pd)
 {
 	u32 reg;
 	int timeout = 1000;
@@ -701,6 +634,20 @@ static void arasan_gemac_stop_tx(struct arasan_gemac_pdata *pd)
 	/* ACK Tx DMAC stop bit */
 	arasan_gemac_writel(pd, DMA_STATUS_AND_IRQ,
 			    DMA_STATUS_AND_IRQ_TX_DMA_STOPPED);
+}
+
+static void arasan_gemac_start_tx_dma(struct arasan_gemac_pdata *pd)
+{
+	u32 reg;
+
+	reg = arasan_gemac_readl(pd, DMA_CONTROL);
+	reg |= DMA_CONTROL_START_TRANSMIT_DMA;
+	arasan_gemac_writel(pd, DMA_CONTROL, reg);
+}
+
+static void arasan_gemac_stop_tx_mac(struct arasan_gemac_pdata *pd)
+{
+	u32 reg;
 
 	/* mask TX DMAC interrupts */
 	reg = arasan_gemac_readl(pd, DMA_INTERRUPT_ENABLE);
@@ -708,7 +655,7 @@ static void arasan_gemac_stop_tx(struct arasan_gemac_pdata *pd)
 	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, reg);
 
 	/* We must guarantee that interrupts will be masked
-	 * before stoping MAC TX
+	 * before stopping MAC TX
 	 */
 	wmb();
 
@@ -718,30 +665,31 @@ static void arasan_gemac_stop_tx(struct arasan_gemac_pdata *pd)
 	arasan_gemac_writel(pd, MAC_TRANSMIT_CONTROL, reg);
 }
 
-static void arasan_gemac_stop_rx(struct arasan_gemac_pdata *pd)
+static void arasan_gemac_start_tx_mac(struct arasan_gemac_pdata *pd)
 {
-	int timeout = 1000;
 	u32 reg;
 
-	/* mask RX DMAC interrupts */
-	reg = arasan_gemac_readl(pd, DMA_INTERRUPT_ENABLE);
-	reg &= ~DMA_INTERRUPT_ENABLE_RECEIVE_DONE;
-	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, reg);
+	reg = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
+	reg |= MAC_TRANSMIT_CONTROL_TRANSMIT_ENABLE;
+	arasan_gemac_writel(pd, MAC_TRANSMIT_CONTROL, reg);
+}
 
-	/* We must guarantee that interrupts will be masked
-	 * before stoping RX MAC
+static void arasan_gemac_stop_tx(struct arasan_gemac_pdata *pd)
+{
+	arasan_gemac_stop_tx_dma(pd);
+
+	/* We must guarantee that TX DMA will be stopped
+	 * before stopping MAC
 	 */
 	wmb();
 
-	/* stop RX MAC */
-	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
-	reg &= ~MAC_RECEIVE_CONTROL_RECEIVE_ENABLE;
-	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
+	arasan_gemac_stop_tx_mac(pd);
+}
 
-	/* We must guarantee that RX MAC will be stopped
-	 * before stoping DMA
-	 */
-	wmb();
+static void arasan_gemac_stop_rx_dma(struct arasan_gemac_pdata *pd)
+{
+	u32 reg;
+	int timeout = 1000;
 
 	/* stop RX DMAC */
 	reg = arasan_gemac_readl(pd, DMA_CONTROL);
@@ -764,6 +712,68 @@ static void arasan_gemac_stop_rx(struct arasan_gemac_pdata *pd)
 			    DMA_STATUS_AND_IRQ_RX_DMA_STOPPED);
 }
 
+static void arasan_gemac_start_rx_dma(struct arasan_gemac_pdata *pd)
+{
+	u32 reg;
+
+	reg = arasan_gemac_readl(pd, DMA_CONTROL);
+	reg |= DMA_CONTROL_START_RECEIVE_DMA;
+	arasan_gemac_writel(pd, DMA_CONTROL, reg);
+}
+
+static void arasan_gemac_stop_rx_mac(struct arasan_gemac_pdata *pd)
+{
+	u32 reg;
+
+	/* mask RX DMAC interrupts */
+	reg = arasan_gemac_readl(pd, DMA_INTERRUPT_ENABLE);
+	reg &= ~DMA_INTERRUPT_ENABLE_RECEIVE_DONE;
+	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, reg);
+
+	/* We must guarantee that interrupts will be masked
+	 * before stopping RX MAC
+	 */
+	wmb();
+
+	/* stop RX MAC */
+	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
+	reg &= ~MAC_RECEIVE_CONTROL_RECEIVE_ENABLE;
+	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
+}
+
+static void arasan_gemac_start_rx_mac(struct arasan_gemac_pdata *pd)
+{
+	u32 reg;
+
+	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
+	reg |= MAC_RECEIVE_CONTROL_RECEIVE_ENABLE;
+	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
+}
+
+static void arasan_gemac_stop_rx(struct arasan_gemac_pdata *pd)
+{
+	arasan_gemac_stop_rx_mac(pd);
+
+	/* We must guarantee that RX MAC will be stopped
+	 * before stopping DMA
+	 */
+	wmb();
+
+	arasan_gemac_stop_rx_dma(pd);
+}
+
+static void arasan_gemac_start_rx(struct arasan_gemac_pdata *pd)
+{
+	arasan_gemac_start_rx_mac(pd);
+	arasan_gemac_start_rx_dma(pd);
+}
+
+static void arasan_gemac_start_tx(struct arasan_gemac_pdata *pd)
+{
+	arasan_gemac_start_tx_mac(pd);
+	arasan_gemac_start_tx_dma(pd);
+}
+
 static int arasan_gemac_stop(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
@@ -781,16 +791,6 @@ static int arasan_gemac_stop(struct net_device *dev)
 
 	phy_stop(pd->phy_dev);
 	/* TODO: We should somehow power down PHY */
-
-	dma_free_coherent(&pd->pdev->dev,
-			  RX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc),
-			  pd->rx_ring, pd->rx_dma_addr);
-	pd->rx_ring = NULL;
-
-	dma_free_coherent(&pd->pdev->dev,
-			  TX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc),
-			  pd->tx_ring, pd->tx_dma_addr);
-	pd->tx_ring = NULL;
 
 	return 0;
 }
@@ -1065,6 +1065,52 @@ err_out_free_mdiobus:
 	mdiobus_free(pd->mii_bus);
 err_out:
 	return err;
+}
+
+/* Open the Ethernet interface */
+static int arasan_gemac_open(struct net_device *dev)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+	u32 result;
+
+	result = arasan_gemac_alloc_tx_ring(pd);
+	if (result) {
+		netdev_err(pd->dev, "Failed to Initialize tx dma ring\n");
+		goto err;
+	}
+
+	result = arasan_gemac_alloc_rx_ring(pd);
+	if (result) {
+		netdev_err(pd->dev, "Failed to Initialize rx dma ring\n");
+		goto err;
+	}
+
+	arasan_gemac_init(pd);
+
+	/* schedule a link state check */
+	phy_start(pd->phy_dev);
+
+	napi_enable(&pd->napi);
+
+	/* Enable interrupts */
+	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE,
+			    DMA_INTERRUPT_ENABLE_RECEIVE_DONE |
+			    DMA_INTERRUPT_ENABLE_TRANSMIT_DONE);
+
+	/* Enable packet transmission */
+	arasan_gemac_start_tx(pd);
+
+	/* Enable packet reception */
+	arasan_gemac_start_rx(pd);
+
+	netif_start_queue(dev);
+
+	return 0;
+err:
+	/* explicit cleanup even if something is partially initialized */
+	arasan_gemac_free_tx_ring(pd);
+	arasan_gemac_free_rx_ring(pd);
+	return result;
 }
 
 static int arasan_gemac_set_mac_address(struct net_device *dev, void *addr)

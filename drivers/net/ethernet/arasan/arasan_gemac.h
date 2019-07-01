@@ -11,7 +11,8 @@
 #ifndef _ARASAN_GEMAC_H
 #define _ARASAN_GEMAC_H
 
-#define PKT_BUF_SZ (VLAN_ETH_FRAME_LEN + NET_IP_ALIGN + 4)
+#define mtu_to_frame_sz(x) ((x) + VLAN_ETH_HLEN)
+#define mtu_to_buf_sz(x) (mtu_to_frame_sz(x) + NET_IP_ALIGN + 4)
 
 /* HACK: Set TX descriptor ring size to 8
  * to workaround low TX speed problem
@@ -76,7 +77,7 @@
 #define MAC_TRANSMIT_PACKET_START_THRESHOLD       0x01C4
 #define MAC_RECEIVE_PACKET_START_THRESHOLD        0x01C8
 #define MAC_TRANSMIT_FIFO_ALMOST_EMPTY_THRESHOLD  0x01CC
-#define MAC_INTERRUPT                             0x01E0
+#define MAC_INTERRUPT_STATUS                      0x01E0
 #define MAC_INTERRUPT_ENABLE                      0x01E4
 #define MAC_VLAN_TPID1                            0x01E8
 #define MAC_VLAN_TPID2                            0x01EC
@@ -91,8 +92,8 @@
 #define DMA_CONTROL_START_TRANSMIT_DMA                BIT(0)
 #define DMA_CONTROL_START_RECEIVE_DMA                 BIT(1)
 
-#define DMA_STATUS_AND_IRQ_TRANSFER_DONE              BIT(0)
-#define DMA_STATUS_AND_IRQ_TRANS_DESC_UNVAIL          BIT(1)
+#define DMA_STATUS_AND_IRQ_TRANSMIT_DONE              BIT(0)
+#define DMA_STATUS_AND_IRQ_TRANS_DESC_UNAVAIL         BIT(1)
 #define DMA_STATUS_AND_IRQ_TX_DMA_STOPPED             BIT(2)
 #define DMA_STATUS_AND_IRQ_RECEIVE_DONE               BIT(4)
 #define DMA_STATUS_AND_IRQ_RX_DMA_STOPPED             BIT(6)
@@ -128,7 +129,6 @@
 #define DMA_RDES0_OWN_BIT      BIT(31)
 #define DMA_RDES0_FD           BIT(30)
 #define DMA_RDES0_LD           BIT(29)
-
 #define DMA_RDES1_EOR          BIT(26)
 
 #define DMA_TDES0_OWN_BIT      BIT(31)
