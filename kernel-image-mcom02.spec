@@ -1,6 +1,6 @@
 %define kernel_base_version	4.4
-%define kernel_sublevel		.111
-%define kernel_extra_version	.8
+%define kernel_sublevel		.178
+%define kernel_extra_version	.2
 
 Name: kernel-image-mcom02
 Version: %kernel_base_version%kernel_sublevel%kernel_extra_version
@@ -251,6 +251,9 @@ touch %buildroot%modules_dir/modules.{alias,dep,symbols,builtin}.bin
 %modules_dir/build
 
 %changelog
+* Sat Jun 29 2019 RnD Center ELVEES <rnd_elvees@altlinux.org> 4.4.178.2-alt1
+- Update for release v4.4.178.2
+
 * Mon Dec 10 2018 RnD Center ELVEES <rnd_elvees@altlinux.org> 4.4.111.8-alt1
 - Update for release v4.4.111.8
 
