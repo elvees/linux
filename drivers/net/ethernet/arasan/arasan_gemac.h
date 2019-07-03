@@ -137,9 +137,9 @@
 #define DMA_TDES1_FS           BIT(29)
 #define DMA_TDES1_EOR          BIT(26)
 
-#define arasan_gemac_readl(port, reg) __raw_readl((port)->regs + reg)
+#define arasan_gemac_readl(port, reg) readl((port)->regs + (reg))
 #define arasan_gemac_writel(port, reg, value) \
-	__raw_writel((value), (port)->regs + reg)
+	writel((value), (port)->regs + (reg))
 
 struct arasan_gemac_dma_desc {
 	u32 status;
