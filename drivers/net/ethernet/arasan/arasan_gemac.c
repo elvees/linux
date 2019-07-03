@@ -220,12 +220,16 @@ static int arasan_gemac_alloc_rx_desc(struct arasan_gemac_pdata *pd, int index)
 	/* check if we are at the last descriptor and need to set EOR */
 	pd->rx_ring[index].misc = last ? DMA_RDES1_EOR | len : len;
 	pd->rx_ring[index].buffer1 = mapping + NET_IP_ALIGN;
+
+	/* ensures that descriptor has been initialized */
+	dma_wmb();
+
+	/* assign ownership to DMAC */
 	pd->rx_ring[index].status = DMA_RDES0_OWN_BIT;
 
-	/* FIXME
-	 * Do we really need wmb here ?
+	/* Strictly speaking, a barrier is required here.
+	 * Caller should provide it.
 	 */
-	wmb();
 
 	return 0;
 }
@@ -271,11 +275,6 @@ static void arasan_gemac_free_tx_ring(struct arasan_gemac_pdata *pd)
 		for (i = 0; i < TX_RING_SIZE; i++)
 			arasan_gemac_free_tx_desc(pd, i);
 
-		/* FIXME
-		 * Do we really need wmb here ?
-		 */
-		wmb();
-
 		kfree(pd->tx_buffers);
 		pd->tx_buffers = NULL;
 	}
@@ -298,11 +297,6 @@ static void arasan_gemac_free_rx_ring(struct arasan_gemac_pdata *pd)
 	if (pd->rx_buffers) {
 		for (i = 0; i < RX_RING_SIZE; i++)
 			arasan_gemac_free_rx_desc(pd, i);
-
-		/* FIXME
-		 * Do we really need wmb here ?
-		 */
-		wmb();
 
 		kfree(pd->rx_buffers);
 		pd->rx_buffers = NULL;
@@ -336,6 +330,7 @@ static int arasan_gemac_alloc_tx_ring(struct arasan_gemac_pdata *pd)
 	pd->tx_ring_head = 0;
 	pd->tx_ring_tail = 0;
 
+	/* Memory barrier is required here and is provided by writel(). */
 	arasan_gemac_writel(pd, DMA_TRANSMIT_BASE_ADDRESS, pd->tx_dma_addr);
 
 	return 0;
@@ -369,6 +364,7 @@ static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 	pd->rx_ring_head = 0;
 	pd->rx_ring_tail = 0;
 
+	/* Memory barrier is required here and is provided by writel(). */
 	arasan_gemac_writel(pd, DMA_RECEIVE_BASE_ADDRESS, pd->rx_dma_addr);
 
 	return 0;
@@ -394,10 +390,8 @@ static void arasan_gemac_complete_tx(struct net_device *dev)
 		int index = pd->tx_ring_tail;
 		u32 status, misc;
 
-		/* FIXME
-		 * Do we really need rmb here ?
-		 */
-		rmb();
+		/* ensures that CPU sees actual state */
+		dma_rmb();
 
 		status = pd->tx_ring[index].status;
 		misc = pd->tx_ring[index].misc;
@@ -409,11 +403,6 @@ static void arasan_gemac_complete_tx(struct net_device *dev)
 		arasan_gemac_tx_update_stats(dev, status, misc);
 
 		arasan_gemac_free_tx_desc(pd, index);
-
-		/* FIXME
-		 * Do we really need wmb here ?
-		 */
-		wmb();
 
 		pd->tx_ring_tail = (pd->tx_ring_tail + 1) % TX_RING_SIZE;
 	}
@@ -430,11 +419,6 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		(((pd->tx_ring_head + 2) % TX_RING_SIZE) == pd->tx_ring_tail);
 
 	arasan_gemac_complete_tx(dev);
-
-	/* FIXME
-	 * Do we really need rmb here ?
-	 */
-	rmb();
 
 	WARN_ON(pd->tx_ring[index].status & DMA_TDES0_OWN_BIT);
 
@@ -462,10 +446,8 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	pd->tx_ring[index].buffer1 = mapping;
 	pd->tx_ring[index].misc = tmp_desc1;
 
-	/* FIXME
-	 * Do we really need wmb here ?
-	 */
-	wmb();
+	/* ensures that descriptor has been initialized */
+	dma_wmb();
 
 	/* increment head */
 	pd->tx_ring_head = (pd->tx_ring_head + 1) % TX_RING_SIZE;
@@ -473,14 +455,11 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* assign ownership to DMAC */
 	pd->tx_ring[index].status = DMA_TDES0_OWN_BIT;
 
-	/* FIXME
-	 * Do we really need rmb here ?
-	 */
-	wmb();
-
 	skb_tx_timestamp(skb);
 
-	/* kick the DMA */
+	/* Memory barrier is required here and is provided by writel().
+	 * kick the DMA
+	 */
 	arasan_gemac_writel(pd, DMA_TRANSMIT_POLL_DEMAND, 1);
 
 	return NETDEV_TX_OK;
@@ -544,10 +523,8 @@ static int arasan_gemac_rx_poll(struct napi_struct *napi, int budget)
 	int work_done;
 
 	for (work_done = 0; work_done < budget; work_done++) {
-		/* FIXME
-		 * Do we really need rmb here ?
-		 */
-		rmb();
+		/* ensures that CPU sees actual state */
+		dma_rmb();
 
 		status = pd->rx_ring[pd->rx_ring_head].status;
 
@@ -565,7 +542,9 @@ static int arasan_gemac_rx_poll(struct napi_struct *napi, int budget)
 	drop_frame_cnt = arasan_gemac_readl(pd, DMA_MISSED_FRAME_COUNTER);
 	dev->stats.rx_dropped += drop_frame_cnt;
 
-	/* Kick RXDMA */
+	/* Memory barrier is required here and is provided by writel().
+	 * Kick RXDMA.
+	 */
 	arasan_gemac_writel(pd, DMA_RECEIVE_POLL_DEMAND, 1);
 
 	if (work_done < budget) {
@@ -654,12 +633,10 @@ static void arasan_gemac_stop_tx_mac(struct arasan_gemac_pdata *pd)
 	reg &= ~DMA_INTERRUPT_ENABLE_TRANSMIT_DONE;
 	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, reg);
 
-	/* We must guarantee that interrupts will be masked
+	/* writel() guarantees that interrupts will be masked
 	 * before stopping MAC TX
 	 */
-	wmb();
 
-	/* stop MAC TX */
 	reg = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
 	reg &= ~MAC_TRANSMIT_CONTROL_TRANSMIT_ENABLE;
 	arasan_gemac_writel(pd, MAC_TRANSMIT_CONTROL, reg);
@@ -677,12 +654,6 @@ static void arasan_gemac_start_tx_mac(struct arasan_gemac_pdata *pd)
 static void arasan_gemac_stop_tx(struct arasan_gemac_pdata *pd)
 {
 	arasan_gemac_stop_tx_dma(pd);
-
-	/* We must guarantee that TX DMA will be stopped
-	 * before stopping MAC
-	 */
-	wmb();
-
 	arasan_gemac_stop_tx_mac(pd);
 }
 
@@ -730,12 +701,10 @@ static void arasan_gemac_stop_rx_mac(struct arasan_gemac_pdata *pd)
 	reg &= ~DMA_INTERRUPT_ENABLE_RECEIVE_DONE;
 	arasan_gemac_writel(pd, DMA_INTERRUPT_ENABLE, reg);
 
-	/* We must guarantee that interrupts will be masked
-	 * before stopping RX MAC
+	/* writel() guarantees that interrupts will be masked
+	 * before stopping RX MAC.
 	 */
-	wmb();
 
-	/* stop RX MAC */
 	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
 	reg &= ~MAC_RECEIVE_CONTROL_RECEIVE_ENABLE;
 	arasan_gemac_writel(pd, MAC_RECEIVE_CONTROL, reg);
@@ -753,12 +722,6 @@ static void arasan_gemac_start_rx_mac(struct arasan_gemac_pdata *pd)
 static void arasan_gemac_stop_rx(struct arasan_gemac_pdata *pd)
 {
 	arasan_gemac_stop_rx_mac(pd);
-
-	/* We must guarantee that RX MAC will be stopped
-	 * before stopping DMA
-	 */
-	wmb();
-
 	arasan_gemac_stop_rx_dma(pd);
 }
 
