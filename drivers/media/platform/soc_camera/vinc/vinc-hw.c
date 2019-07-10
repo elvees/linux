@@ -163,9 +163,25 @@ void vinc_configure_input(struct vinc_stream *stream)
 		vinc_write(priv, CSI2_DEVICE_READY(ifacenum), 0x1);
 		vinc_write(priv, STREAM_INP_CFG(channel), 0x2 + ifacenum);
 	} else if (stream->video_source == V4L2_MBUS_PARALLEL) {
-		vinc_write(priv, PPORT_INP_MUX_CFG, 0);
-		vinc_write(priv, PPORT_CFG(ifacenum), PORT_CFG_PIXEL_MODE(1));
-		vinc_write(priv, PPORT_CFG(2), PORT_CFG_PIXEL_MODE(0));
+		/* Parallel video can be received in three modes depend on
+		 * PP_VIN_TYPE value:
+		 * 0 - One or two 12-bit sources (used one pport for each
+		 *     source).
+		 * 1 - One 8+8+8 source (used all three pports)
+		 * 2 - One 12+12 source (used two pports). This mode is
+		 *     unsupported yet.
+		 */
+		if (stream->input_framefmt.code == MEDIA_BUS_FMT_RGB888_1X24) {
+			vinc_write(priv, PPORT_INP_MUX_CFG, PP_VIN_TYPE(1));
+			vinc_write(priv, PPORT_CFG(0), PORT_CFG_PIXEL_MODE(1));
+			vinc_write(priv, PPORT_CFG(1), PORT_CFG_PIXEL_MODE(1));
+			vinc_write(priv, PPORT_CFG(2), PORT_CFG_PIXEL_MODE(1));
+		} else {
+			vinc_write(priv, PPORT_INP_MUX_CFG, PP_VIN_TYPE(0));
+			vinc_write(priv, PPORT_CFG(ifacenum),
+				   PORT_CFG_PIXEL_MODE(1));
+			vinc_write(priv, PPORT_CFG(2), PORT_CFG_PIXEL_MODE(0));
+		}
 		if (stream->input_format == BAYER) {
 			vinc_write(priv, PINTERFACE_CFG(ifacenum),
 					PINTERFACE_CFG_CYCLE_NUM(1) |
@@ -181,6 +197,14 @@ void vinc_configure_input(struct vinc_stream *stream)
 			/* TODO: Add macros for CCMOV settings */
 			vinc_write(priv, PINTERFACE_CCMOV(ifacenum, 0),
 				   0x091D0915);
+		} else if (stream->input_framefmt.code ==
+			   MEDIA_BUS_FMT_RGB888_1X24) {
+			vinc_write(priv, PINTERFACE_CFG(ifacenum),
+					PINTERFACE_CFG_CYCLE_NUM(1) |
+					PINTERFACE_CFG_PIXEL_NUM_EVEN(1) |
+					PINTERFACE_CFG_PORT_NUM_SYNC(0));
+			vinc_write(priv, PINTERFACE_CCMOV(ifacenum, 0),
+				   0x000000132);
 		} else
 			dev_err(priv->ici.v4l2_dev.dev, "Unknown input format %#x",
 				stream->input_format);
