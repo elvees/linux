@@ -541,8 +541,12 @@ struct avico_frame_params {
 	enum frame_type frame_type;
 	bool idr;
 	uint16_t idr_id;
-	unsigned int frame, maxframe;
+	unsigned int frame;
+	uint8_t log2_max_frame;
 	unsigned int i_period;
+	struct {
+		uint16_t left, right, top, bottom;
+	} crop;
 };
 
 struct avico_ctx {
@@ -563,7 +567,6 @@ struct avico_ctx {
 	uint8_t vdma_trans_size_m1;
 
 	uint8_t mbx, mby;
-	bool outon, capon;
 	bool force_key;
 	unsigned int bitstream_size;
 
@@ -572,12 +575,14 @@ struct avico_ctx {
 	struct bitstream bs;
 
 	unsigned int id; /* Hardware thread ID */
-	void __iomem *thread;
 	void *vref;
 	dma_addr_t dmaref, dmainp, dmaout;
 	dma_addr_t bounceref[2], bounceout[2];
 	uint32_t ref_ptr_off, out_ptr_off;  /* Offsets for new data */
 	int bounce_active;  /* Active bounce buffer */
+
+	int bounce_count;
+	spinlock_t bounce_lock;
 
 	void *vmbref, *vmbcur;
 	dma_addr_t dmambref, dmambcur;

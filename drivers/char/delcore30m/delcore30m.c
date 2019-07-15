@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+
-// Copyright 2018 RnD Center "ELVEES", JSC
+// Copyright 2018-2019 RnD Center "ELVEES", JSC
 
 #include <linux/kernel.h>
 #include <linux/anon_inodes.h>
@@ -994,7 +994,7 @@ static int delcore30m_resource_request(struct delcore30m_private_data *pdata,
 {
 	struct delcore30m_resource_desc *res;
 	unsigned long *array;
-	int rc, i, idx, max, ret;
+	int rc, i, idx, max;
 
 	res = kzalloc(sizeof(struct delcore30m_resource_desc), GFP_KERNEL);
 	if (!res)
@@ -1023,16 +1023,14 @@ static int delcore30m_resource_request(struct delcore30m_private_data *pdata,
 		goto err_resource_request;
 	}
 
-	ret = anon_inode_getfd("delcoreresource",
+	rc = anon_inode_getfd("delcoreresource",
 			       &delcore30m_resource_fops,
 			       res,
 			       O_RDWR);
-	if (ret < 0) {
-		rc = -EBUSY;
+	if (rc < 0)
 		goto err_resource_request;
-	}
 
-	res->resource.fd = ret;
+	res->resource.fd = rc;
 
 	spin_lock(&pdata->reslock);
 
@@ -1041,7 +1039,7 @@ static int delcore30m_resource_request(struct delcore30m_private_data *pdata,
 		idx = find_first_zero_bit(array, max);
 		if (idx == max) {
 			spin_unlock(&pdata->reslock);
-			rc = -EFAULT;
+			rc = -EBUSY;
 			goto resource_release;
 		}
 
@@ -1061,7 +1059,6 @@ static int delcore30m_resource_request(struct delcore30m_private_data *pdata,
 resource_release:
 	resource_release(res);
 err_resource_request:
-	dev_err(pdata->dev, "Resource allocate error\n");
 	kfree(res);
 	return rc;
 }

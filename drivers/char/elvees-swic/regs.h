@@ -10,6 +10,8 @@
 #ifndef _REGS_H_
 #define _REGS_H_
 
+#define SWIC_DMA_RX_DESC			0x1000
+#define SWIC_DMA_RX_DATA			0x1040
 #define SWIC_DMA_TX_DESC			0x1080
 #define SWIC_DMA_TX_DATA			0x10C0
 
@@ -57,6 +59,8 @@
 #define SWIC_TX_SPEED_PLL_TX_EN			BIT(8)
 #define SWIC_TX_SPEED_LVDS_EN			BIT(9)
 #define SWIC_TX_SPEED_COEFF_10			GENMASK(28, 20)
+
+#define SWIC_RX_SPEED				0x18
 
 #define SWIC_CNT_RX_PACK			0x20
 
