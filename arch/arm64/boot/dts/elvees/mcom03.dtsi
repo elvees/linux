@@ -46,6 +46,7 @@
 			d-cache-line-size = <64>;
 			d-cache-sets = <128>;
 			next-level-cache = <&l2>;
+			cpu-release-addr = <0 0xC0000808>;
 		};
 
 		cpu2: cpu@2 {
@@ -60,6 +61,7 @@
 			d-cache-line-size = <64>;
 			d-cache-sets = <128>;
 			next-level-cache = <&l2>;
+			cpu-release-addr = <0 0xC0000810>;
 		};
 
 		cpu3: cpu@3 {
@@ -74,6 +76,7 @@
 			d-cache-line-size = <64>;
 			d-cache-sets = <128>;
 			next-level-cache = <&l2>;
+			cpu-release-addr = <0 0xC0000818>;
 		};
 
 		l2: cache {

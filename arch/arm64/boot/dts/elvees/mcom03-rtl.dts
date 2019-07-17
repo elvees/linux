@@ -46,15 +46,3 @@
 		reg = <0xF000 0x2000>;
 	};
 };
-
-&cpu1 {
-	status = "disabled";
-};
-
-&cpu2 {
-	status = "disabled";
-};
-
-&cpu3 {
-	status = "disabled";
-};
