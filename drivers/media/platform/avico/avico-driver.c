@@ -758,6 +758,8 @@ static void avico_start(struct avico_ctx *ctx)
 	}
 
 	if (par->idr) {
+		par->gop = ctx->ctrl_gop->cur.val;
+		par->log2_max_frame = max(4, order_base_2(par->gop));
 		par->frame_type = VE_FR_I;
 		par->idr_id++;
 		par->frame = 0;
@@ -1648,8 +1650,7 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 	par->crop.bottom = (ctx->mby * 16 - ctx->height) / 2;
 
 	par->frame = 0;
-	par->gop = 60;
-	par->log2_max_frame = order_base_2(par->gop);
+	par->gop = ctx->ctrl_gop->cur.val;
 	par->i_period = 0;
 	par->poc_type = 2;
 	ctx->vdma_trans_size_m1 = 3;
@@ -1858,6 +1859,9 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 					      -12, 12, 1, 0);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME, 0, 0, 0, 0);
+	ctx->ctrl_gop = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+					  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
+					  1, 1 << 16, 1, 60);
 
 	if (ctx->ctrl_handler.error) {
 		int err = ctx->ctrl_handler.error;

@@ -533,7 +533,7 @@ struct avico_enc_params {
 struct avico_frame_params {
 	uint8_t sps;
 	uint8_t pps;
-	uint16_t gop;
+	uint32_t gop;
 	uint8_t poc_type;
 	uint8_t qp_i, qp_p, pps_qp;
 	int8_t qpc_offset;
@@ -597,6 +597,7 @@ struct avico_ctx {
 	struct v4l2_ctrl	*ctrl_qp_i;
 	struct v4l2_ctrl	*ctrl_qp_p;
 	struct v4l2_ctrl	*ctrl_qpc_off;
+	struct v4l2_ctrl	*ctrl_gop;
 	struct v4l2_ctrl_handler ctrl_handler;
 };
 
