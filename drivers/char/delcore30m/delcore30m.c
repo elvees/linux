@@ -381,12 +381,123 @@ err:
 	return 1;
 }
 
+static void delcore30m_run_job(struct delcore30m_job_desc *desc)
+{
+	struct delcore30m_private_data *pdata = desc->pdata;
+	u8 thread_num = 0;
+	ptrdiff_t stack_offset;
+	u32 reg_value;
+	int i;
+
+	for_each_set_bit(i, &desc->cores, MAX_CORES) {
+		delcore30m_writel(pdata, i, DELCORE30M_R0, thread_num++);
+
+		stack_offset = set_args(desc, i);
+
+		reg_value = addr2delcore30m(pdata->stack[i].paddr +
+					    stack_offset);
+		delcore30m_writel(pdata, i, DELCORE30M_A6, reg_value);
+		delcore30m_writel(pdata, i, DELCORE30M_A7, reg_value);
+		desc->job.status = DELCORE30M_JOB_RUNNING;
+
+		reg_value = pdata->pram[i].pram_res->start;
+		delcore30m_writel(pdata, i, DELCORE30M_PC,
+				  addr2delcore30m(reg_value));
+
+		reg_value = delcore30m_readl_cmn(pdata, DELCORE30M_MASKR_DSP);
+		reg_value |= DELCORE30M_QSTR_CORE_MASK(i);
+		delcore30m_writel_cmn(pdata, DELCORE30M_MASKR_DSP, reg_value);
+
+		/* Sequential cores start */
+		if (desc->cores != ELCORE30M_CORE_ALL)
+			delcore30m_writel(pdata, i, DELCORE30M_DCSR,
+					  DELCORE30M_DCSR_RUN);
+	}
+
+	/* Simultaneous cores start */
+	if (desc->cores == ELCORE30M_CORE_ALL)
+		delcore30m_writel_cmn(pdata, DELCORE30M_CSR_DSP,
+				      DELCORE30M_CSR_SYNSTART);
+}
+
+static void delcore30m_try_run(struct delcore30m_private_data *pdata)
+{
+	struct delcore30m_job_desc *desc, *next;
+	u8 core;
+	u32 stopped_cores = 0;
+
+	for (core = 0; core < MAX_CORES; ++core)
+		if (!(delcore30m_readl(pdata, core, DELCORE30M_DCSR) &
+		      DELCORE30M_DCSR_RUN))
+			stopped_cores |= BIT(core);
+
+	list_for_each_entry_safe(desc, next, &pdata->enqueued, list) {
+		/* Search job, that can be placed on stopped cores */
+		if ((stopped_cores & desc->cores) != desc->cores)
+			continue;
+
+		delcore30m_run_job(desc);
+
+		list_del(&desc->list);
+		list_add_tail(&desc->list, &pdata->running);
+	}
+}
+
+void reset_cores(struct delcore30m_job_desc *job_desc)
+{
+	struct delcore30m_private_data *pdata = job_desc->pdata;
+	u32 i;
+	off_t offset;
+
+	for_each_set_bit(i, &job_desc->cores, MAX_CORES) {
+		delcore30m_writel(pdata, i, DELCORE30M_DCSR, 0x0);
+		delcore30m_writel(pdata, i, DELCORE30M_SR, 0x0);
+		delcore30m_writel(pdata, i, DELCORE30M_LA, 0xFFFF);
+		delcore30m_writel(pdata, i, DELCORE30M_CSL, 0x0);
+		delcore30m_writel(pdata, i, DELCORE30M_LC, 0x0);
+		delcore30m_writel(pdata, i, DELCORE30M_CSH, 0x0);
+		delcore30m_writel(pdata, i, DELCORE30M_SP, 0x0);
+
+		offset = DELCORE30M_A0;
+
+		for (; offset <= DELCORE30M_A5; offset += 4)
+			delcore30m_writel(pdata, i, offset, 0x0);
+	}
+}
+
+static void job_cancel(struct delcore30m_job_desc *job_desc)
+{
+	struct delcore30m_private_data *pdata;
+	unsigned long flags;
+
+	pdata = job_desc->pdata;
+
+	spin_lock_irqsave(&pdata->lock, flags);
+	if (job_desc->job.status == DELCORE30M_JOB_IDLE) {
+		spin_unlock_irqrestore(&pdata->lock, flags);
+		return;
+	}
+
+	if (job_desc->job.status == DELCORE30M_JOB_RUNNING)
+		reset_cores(job_desc);
+
+	job_desc->job.rc = DELCORE30M_JOB_CANCELLED;
+	job_desc->job.status = DELCORE30M_JOB_IDLE;
+
+	list_del(&job_desc->list);
+
+	if (!list_empty(&pdata->enqueued))
+		delcore30m_try_run(pdata);
+
+	spin_unlock_irqrestore(&pdata->lock, flags);
+	wake_up_interruptible(&job_desc->wait);
+}
+
 static int delcore30m_job_release(struct inode *inode, struct file *file)
 {
 	struct delcore30m_job_desc *desc = file->private_data;
 
-	if (desc->job.status != DELCORE30M_JOB_IDLE)
-		return -EBUSY;
+	job_cancel(desc);
 
 	unmap_buffers(desc);
 	detach_buffers(desc);
@@ -511,67 +622,6 @@ err_desc:
 	return ret;
 }
 
-static void delcore30m_run_job(struct delcore30m_job_desc *desc)
-{
-	struct delcore30m_private_data *pdata = desc->pdata;
-	u8 thread_num = 0;
-	ptrdiff_t stack_offset;
-	u32 reg_value;
-	int i;
-
-	for_each_set_bit(i, &desc->cores, MAX_CORES) {
-		delcore30m_writel(pdata, i, DELCORE30M_R0, thread_num++);
-
-		stack_offset = set_args(desc, i);
-
-		reg_value = addr2delcore30m(pdata->stack[i].paddr +
-					    stack_offset);
-		delcore30m_writel(pdata, i, DELCORE30M_A6, reg_value);
-		delcore30m_writel(pdata, i, DELCORE30M_A7, reg_value);
-		desc->job.status = DELCORE30M_JOB_RUNNING;
-
-		reg_value = pdata->pram[i].pram_res->start;
-		delcore30m_writel(pdata, i, DELCORE30M_PC,
-				  addr2delcore30m(reg_value));
-
-		reg_value = delcore30m_readl_cmn(pdata, DELCORE30M_MASKR_DSP);
-		reg_value |= DELCORE30M_QSTR_CORE_MASK(i);
-		delcore30m_writel_cmn(pdata, DELCORE30M_MASKR_DSP, reg_value);
-
-		/* Sequential cores start */
-		if (desc->cores != ELCORE30M_CORE_ALL)
-			delcore30m_writel(pdata, i, DELCORE30M_DCSR,
-					  DELCORE30M_DCSR_RUN);
-	}
-
-	/* Simultaneous cores start */
-	if (desc->cores == ELCORE30M_CORE_ALL)
-		delcore30m_writel_cmn(pdata, DELCORE30M_CSR_DSP,
-				      DELCORE30M_CSR_SYNSTART);
-}
-
-static void delcore30m_try_run(struct delcore30m_private_data *pdata)
-{
-	struct delcore30m_job_desc *desc, *next;
-	u8 core;
-	u32 stopped_cores = 0;
-
-	for (core = 0; core < MAX_CORES; ++core)
-		if (!(delcore30m_readl(pdata, core, DELCORE30M_DCSR) &
-		      DELCORE30M_DCSR_RUN))
-			stopped_cores |= BIT(core);
-
-	list_for_each_entry_safe(desc, next, &pdata->enqueued, list) {
-		/* Search job, that can be placed on stopped cores */
-		if ((stopped_cores & desc->cores) != desc->cores)
-			continue;
-
-		delcore30m_run_job(desc);
-
-		list_del(&desc->list);
-		list_add_tail(&desc->list, &pdata->running);
-	}
-}
 
 static int delcore30m_job_enqueue(struct delcore30m_private_data *pdata,
 				  void __user *arg)
@@ -642,35 +692,12 @@ done:
 	return ret;
 }
 
-void reset_cores(struct delcore30m_job_desc *job_desc)
-{
-	struct delcore30m_private_data *pdata = job_desc->pdata;
-	u32 i;
-	off_t offset;
-
-	for_each_set_bit(i, &job_desc->cores, MAX_CORES) {
-		delcore30m_writel(pdata, i, DELCORE30M_DCSR, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_SR, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_LA, 0xFFFF);
-		delcore30m_writel(pdata, i, DELCORE30M_CSL, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_LC, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_CSH, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_SP, 0x0);
-
-		offset = DELCORE30M_A0;
-
-		for (; offset <= DELCORE30M_A5; offset += 4)
-			delcore30m_writel(pdata, i, offset, 0x0);
-	}
-}
-
 static int delcore30m_job_cancel(struct delcore30m_private_data *pdata,
 				 void __user *arg)
 {
 	struct delcore30m_job job;
 	struct delcore30m_job_desc *job_desc;
 	struct fd fd;
-	unsigned long flags;
 	int ret;
 
 	ret = copy_from_user(&job, arg, sizeof(struct delcore30m_job));
@@ -685,25 +712,7 @@ static int delcore30m_job_cancel(struct delcore30m_private_data *pdata,
 
 	job_desc = fd.file->private_data;
 
-	spin_lock_irqsave(&pdata->lock, flags);
-	if (job_desc->job.status == DELCORE30M_JOB_IDLE) {
-		spin_unlock_irqrestore(&pdata->lock, flags);
-		goto done;
-	}
-
-	if (job_desc->job.status == DELCORE30M_JOB_RUNNING)
-		reset_cores(job_desc);
-
-	job_desc->job.rc = DELCORE30M_JOB_CANCELLED;
-	job_desc->job.status = DELCORE30M_JOB_IDLE;
-
-	list_del(&job_desc->list);
-
-	if (!list_empty(&pdata->enqueued))
-		delcore30m_try_run(pdata);
-
-	spin_unlock_irqrestore(&pdata->lock, flags);
-	wake_up_interruptible(&job_desc->wait);
+	job_cancel(job_desc);
 done:
 	fdput(fd);
 	return ret;
