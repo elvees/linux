@@ -235,6 +235,27 @@ void avico_dma_configure_reference(struct avico_ctx *ctx,
 	avico_dma_write(cfg.val, ctx, channel, AVICO_VDMA_CHANNEL_CFG);
 }
 
+void avico_dma_configure_input_last_row(struct avico_ctx *ctx,
+					unsigned const channel)
+{
+	union vdma_bccnt bccnt;
+	uint8_t mb_lines = ctx->height % 16 * 3 / 2;
+
+	if (mb_lines == 0)
+		mb_lines = 24;
+
+	avico_dma_write(-16 * (mb_lines - 1) * ctx->mbx, ctx, channel,
+			AVICO_VDMA_CHANNEL_HEIDX);
+	avico_dma_write(MB_CUR_SIZE - 16 * mb_lines, ctx, channel,
+			AVICO_VDMA_CHANNEL_HIIDX);
+	avico_dma_write(MB_CUR_SIZE - 16 * mb_lines, ctx, channel,
+			AVICO_VDMA_CHANNEL_VIIDX);
+
+	bccnt.bcnt = bccnt.brld = mb_lines - 1;
+	bccnt.ccnt = bccnt.crld = 1 - 1;
+	avico_dma_write(bccnt.val, ctx, channel, AVICO_VDMA_CHANNEL_BCCNT);
+}
+
 void avico_dma_configure_input(struct avico_ctx *ctx, unsigned const channel)
 {
 	union adr adr;
@@ -942,6 +963,7 @@ static void avico_vdma_next_bounce(struct avico_ctx *ctx)
 	if (smbpos.y6 >= ctx->mby) {
 		msk_int = 0x80;
 		m6pos_enable(ctx, false);
+		avico_dma_configure_input_last_row(ctx, 1);
 	} else {
 		msk_int = 0x40;
 		avico_write(smbpos.val, ctx,
@@ -967,6 +989,7 @@ static void avico_vdma_next_bounce(struct avico_ctx *ctx)
 	/* If next row isn't last then enable interrupt by EV6 */
 	avico_write(msk_int, ctx, AVICO_CTRL_BASE + AVICO_CTRL_MSK_INT);
 
+	avico_dma_write(1, ctx, ctx->id * 4 + 1, AVICO_VDMA_CHANNEL_RUN);
 	avico_dma_write(1, ctx, ctx->id * 4 + 2, AVICO_VDMA_CHANNEL_RUN);
 	avico_dma_write(1, ctx, ctx->id * 4 + 3, AVICO_VDMA_CHANNEL_RUN);
 }
@@ -1149,6 +1172,8 @@ static irqreturn_t avico_irq(int irq, void *data)
 	case AVICO_ST_ENCODING:
 		if (!eof) {
 			avico_wait_for_mb_flush(ctx);
+			avico_dma_write(0, ctx, ctx->id * 4 + 1,
+					AVICO_VDMA_CHANNEL_RUN);
 			avico_dma_write(0, ctx, ctx->id * 4 + 2,
 					AVICO_VDMA_CHANNEL_RUN);
 			avico_dma_write(0, ctx, ctx->id * 4 + 3,
@@ -1357,8 +1382,7 @@ static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			f->fmt.pix.bytesperline = round_up(f->fmt.pix.width,
 							   16);
 			f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
-					       round_up(f->fmt.pix.height, 16) /
-					       2 * 3;
+					       f->fmt.pix.height / 2 * 3;
 			break;
 		default:
 			/* We don't support other pixel formats */
