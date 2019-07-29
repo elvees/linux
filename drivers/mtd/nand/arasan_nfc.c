@@ -2,6 +2,7 @@
  * Arasan Nand Flash Controller Driver
  * Copyright (C) 2014 - 2015 Xilinx, Inc.
  * Copyright (C) 2015 ELVEES NeoTek CJSC
+ * Copyright (C) 2019 RnD Center "ELVEES", JSC
  * Based on the Xilinx driver for a newer version of the same hardware.
  *
  * This program is free software; you can redistribute it and/or modify it under
@@ -58,17 +59,24 @@
 #define PKT_CNT_SHIFT			12
 
 #define ECC_ENABLE			BIT(31)
+#define ADDR_CYCLES_MASK		GENMASK(30, 28)
+#define ADDR_CYCLES_SHIFT		28
 #define DMA_EN_MASK			GENMASK(27, 26)
-#define DMA_ENABLE			0x2
 #define DMA_EN_SHIFT			26
+#define DMA_ENABLE			0x2
 #define PAGE_SIZE_MASK			GENMASK(25, 23)
 #define PAGE_SIZE_SHIFT			23
 #define PAGE_SIZE_512			0
 #define PAGE_SIZE_2K			1
 #define PAGE_SIZE_4K			2
 #define PAGE_SIZE_8K			3
+#define SYN_MODES_MASK			GENMASK(22, 20)
+#define SYN_MODES_SHIFT			20
+#define ASYN_SYN_SHIFT			19
+#define SYN_ENABLE			0x1
+#define ASYN_MODES_MASK			GENMASK(18, 16)
+#define ASYN_MODES_SHIFT		16
 #define CMD2_SHIFT			8
-#define ADDR_CYCLES_SHIFT		28
 
 #define XFER_COMPLETE			BIT(2)
 #define READ_READY			BIT(1)
@@ -83,6 +91,8 @@
 #define PROG_RDID			BIT(6)
 #define PROG_RDPARAM			BIT(7)
 #define PROG_RST			BIT(8)
+#define PROG_GET_FEATURE		BIT(9)
+#define PROG_SET_FEATURE		BIT(10)
 
 #define ONFI_STATUS_FAIL		BIT(0)
 #define ONFI_STATUS_READY		BIT(6)
@@ -99,7 +109,7 @@
 #define CS_SHIFT			30
 
 #define PAGE_ERR_CNT_MASK		GENMASK(16, 8)
-#define PAGE_ERR_CNT_SHIFT              8
+#define PAGE_ERR_CNT_SHIFT		8
 #define PKT_ERR_CNT_MASK		GENMASK(7, 0)
 
 #define ONFI_ID_ADDR			0x20
@@ -109,13 +119,18 @@
 #define TEMP_BUF_SIZE			512
 #define SPARE_ADDR_CYCLES		BIT(29)
 
+/* ONFI subfeature parameters */
+#define ONFI_SUBFEAT_DATA_INTF_MASK	GENMASK(5, 4)
+#define ONFI_SUBFEAT_DATA_INTF_SHIFT	4
+#define ONFI_SUBFEAT_TMODE_MASK		GENMASK(3, 0)
+#define ONFI_DATA_INTF_SYN		0x1
+
 /**
  * struct anfc_ecc_matrix - Defines ecc information storage format
  * @pagesize:		Page size in bytes.
  * @codeword_size:	Code word size information.
  * @eccbits:		Number of ecc bits.
  * @bch:		Bch / Hamming mode enable/disable.
- * @eccaddr:		Ecc start address information.
  * @eccsize:		Ecc size information.
  */
 struct anfc_ecc_matrix {
@@ -182,6 +197,7 @@ struct anfc {
 	bool bch;
 	bool err;
 	bool iswriteoob;
+	bool syn_mode;
 
 	u8 buf[TEMP_BUF_SIZE];
 
@@ -194,6 +210,7 @@ struct anfc {
 	u32 bufshift;
 	u32 rdintrmask;
 	u32 ecc_regval;
+	u8  timing_mode;
 
 	struct completion bufrdy;
 	struct completion xfercomp;
@@ -310,12 +327,23 @@ static void anfc_prepare_cmd(struct anfc *nfc, u8 cmd1, u8 cmd2,
 	}
 
 	regval = cmd1 | (cmd2 << CMD2_SHIFT);
+	if (nfc->syn_mode) {
+		regval |= SYN_ENABLE << ASYN_SYN_SHIFT;
+		regval |= (nfc->timing_mode << SYN_MODES_SHIFT) &
+			  SYN_MODES_MASK;
+	} else
+		regval |= (nfc->timing_mode << ASYN_MODES_SHIFT) &
+			  ASYN_MODES_MASK;
+
 	if (dmamode && nfc->dma)
-		regval |= DMA_ENABLE << DMA_EN_SHIFT;
+		regval |= (DMA_ENABLE << DMA_EN_SHIFT) & DMA_EN_MASK;
 	if (addrcycles)
-		regval |= addrcycles << ADDR_CYCLES_SHIFT;
+		regval |= (addrcycles << ADDR_CYCLES_SHIFT) &
+			  ADDR_CYCLES_MASK;
 	if (pagesize)
-		regval |= anfc_page(pagesize) << PAGE_SIZE_SHIFT;
+		regval |= (anfc_page(pagesize) << PAGE_SIZE_SHIFT) &
+			  PAGE_SIZE_MASK;
+
 	writel(regval, nfc->base + CMD_OFST);
 }
 
@@ -509,7 +537,7 @@ static int anfc_read_page_hwecc(struct mtd_info *mtd,
 		mtd->ecc_stats.corrected += val;
 		val = readl(nfc->base + ECC_ERR_CNT_2BIT_OFST);
 		mtd->ecc_stats.failed += val;
-		/* clear ecc error count register 1Bit, 2Bit */
+		/* Clear ecc error count register 1Bit, 2Bit */
 		writel(0x0, nfc->base + ECC_ERR_CNT_1BIT_OFST);
 		writel(0x0, nfc->base + ECC_ERR_CNT_2BIT_OFST);
 	}
@@ -558,9 +586,22 @@ static u8 anfc_read_byte(struct mtd_info *mtd)
 	return nfc->buf[nfc->bufshift++];
 }
 
+static void anfc_write_byte(struct mtd_info *mtd, uint8_t byte)
+{
+	struct anfc *nfc = container_of(mtd, struct anfc, mtd);
+
+	anfc_set_irq_masks(nfc, XFER_COMPLETE);
+
+	writel(byte, nfc->base + DATA_PORT_OFST);
+
+	anfc_wait_for_event(nfc, XFER_COMPLETE);
+}
+
 static void anfc_readfifo(struct anfc *nfc, u32 prog, u32 size)
 {
 	u32 i, *bufptr = (u32 *)&nfc->buf[0];
+
+	WARN_ON(size % 4);
 
 	anfc_set_irq_masks(nfc, READ_READY);
 
@@ -757,6 +798,19 @@ static void anfc_cmd_function(struct mtd_info *mtd,
 		prog = PROG_STATUS;
 		wait = read = true;
 		break;
+	case NAND_CMD_GET_FEATURES:
+		anfc_prepare_cmd(nfc, cmd, 0, 0, 0, 1);
+		anfc_setpagecoladdr(nfc, page_addr, column);
+		anfc_setpktszcnt(nfc, 4, 1);
+		anfc_readfifo(nfc, PROG_GET_FEATURE, 4);
+		break;
+	case NAND_CMD_SET_FEATURES:
+		anfc_prepare_cmd(nfc, cmd, 0, 0, 0, 1);
+		anfc_setpagecoladdr(nfc, page_addr, column);
+		anfc_setpktszcnt(nfc, 4, 1);
+		prog = PROG_SET_FEATURE;
+		wait = true;
+		break;
 	default:
 		return;
 	}
@@ -845,6 +899,38 @@ static irqreturn_t anfc_irq_handler(int irq, void *ptr)
 	return IRQ_HANDLED;
 }
 
+static int anfc_init_timing_mode(struct anfc *nfc)
+{
+	struct nand_chip *chip = &nfc->chip;
+	struct mtd_info *mtd = &nfc->mtd;
+	u8 mode, feature[4] = { 0 };
+	int err;
+
+	/* Get timing modes */
+	mode = onfi_get_async_timing_mode(chip);
+	mode = fls(mode) - 1;
+	if (mode < 0)
+		mode = 0;
+
+	feature[0] = mode;
+	err = chip->onfi_set_features(mtd, chip,
+				      ONFI_FEATURE_ADDR_TIMING_MODE,
+				      feature);
+	if (err)
+		return err;
+
+	err = chip->onfi_get_features(mtd, chip,
+				      ONFI_FEATURE_ADDR_TIMING_MODE,
+				      feature);
+	if (err)
+		return err;
+
+	nfc->syn_mode = false;
+	nfc->timing_mode = feature[0];
+
+	return 0;
+}
+
 static int anfc_probe(struct platform_device *pdev)
 {
 	struct anfc *nfc;
@@ -896,6 +982,7 @@ static int anfc_probe(struct platform_device *pdev)
 	nand_chip->read_buf = anfc_read_buf;
 	nand_chip->write_buf = anfc_write_buf;
 	nand_chip->read_byte = anfc_read_byte;
+	nand_chip->write_byte = anfc_write_byte;
 	nand_chip->options = NAND_BUSWIDTH_AUTO
 			     | NAND_NO_SUBPAGE_WRITE
 			     | NAND_USE_BOUNCE_BUFFER;
@@ -932,10 +1019,21 @@ static int anfc_probe(struct platform_device *pdev)
 		nfc->caddr_cycles =
 			(nand_chip->onfi_params.addr_cycles >> 4) & 0xF;
 	}
+
+	err = anfc_init_timing_mode(nfc);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to init timing mode\n");
+		goto err_clock;
+	}
+
+	dev_info(&pdev->dev, "Data interface: %s, timing mode: %d\n",
+		 nfc->syn_mode ? "NV-DDR" : "SDR", nfc->timing_mode);
+
 	if (anfc_ecc_init(mtd, &nand_chip->ecc)) {
 		err = -ENXIO;
 		goto err_clock;
 	}
+
 	dev_info(&pdev->dev, "Bus width: %d\n",
 		 (nand_chip->options & NAND_BUSWIDTH_16) ? 16 : 8);
 
