@@ -1306,7 +1306,6 @@ static int avico_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		fmt = ctx->outfmt;
 		f->fmt.pix.pixelformat = output_formats[fmt].pixelformat;
-		f->fmt.pix.flags = output_formats[fmt].flags;
 		switch (f->fmt.pix.pixelformat) {
 		case V4L2_PIX_FMT_M420:
 			f->fmt.pix.bytesperline = round_up(ctx->width, 16);
@@ -1320,7 +1319,6 @@ static int avico_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		fmt = ctx->capfmt;
 		f->fmt.pix.pixelformat = capture_formats[fmt].pixelformat;
-		f->fmt.pix.flags = capture_formats[fmt].flags;
 		f->fmt.pix.bytesperline = 0;
 		/* TODO: Think how to specify sizeimage more intellegently */
 		f->fmt.pix.sizeimage = ctx->capsize;
@@ -1431,12 +1429,12 @@ static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			      &f->fmt.pix.height, AVICO_HMIN,
 			      AVICO_HMAX, AVICO_HALIGN, 0);
 	f->fmt.pix.field = V4L2_FIELD_NONE;
+	f->fmt.pix.flags = 0;
 
 	switch (f->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		fmt = avico_outfmt(f->fmt.pix.pixelformat);
 		f->fmt.pix.pixelformat = output_formats[fmt].pixelformat;
-		f->fmt.pix.flags = output_formats[fmt].flags;
 		avico_try_colorspace(f);
 		switch (f->fmt.pix.pixelformat) {
 		case V4L2_PIX_FMT_M420:
@@ -1453,7 +1451,6 @@ static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		fmt = avico_capfmt(f->fmt.pix.pixelformat);
 		f->fmt.pix.pixelformat = capture_formats[fmt].pixelformat;
-		f->fmt.pix.flags = capture_formats[fmt].flags;
 		f->fmt.pix.bytesperline = 0;
 		/* TODO: Think how to specify sizeimage more intellegently */
 		f->fmt.pix.sizeimage = f->fmt.pix.width * f->fmt.pix.height * 2;
