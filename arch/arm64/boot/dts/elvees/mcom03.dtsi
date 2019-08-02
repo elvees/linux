@@ -25,6 +25,13 @@
 			device_type = "cpu";
 			enable-method = "spin-table";
 			reg = <0x0>;
+			i-cache-size = <0x8000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <128>;
+			next-level-cache = <&l2>;
 		};
 
 		cpu1: cpu@1 {
@@ -32,6 +39,13 @@
 			device_type = "cpu";
 			enable-method = "spin-table";
 			reg = <0x1>;
+			i-cache-size = <0x8000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <128>;
+			next-level-cache = <&l2>;
 		};
 
 		cpu2: cpu@2 {
@@ -39,6 +53,13 @@
 			device_type = "cpu";
 			enable-method = "spin-table";
 			reg = <0x2>;
+			i-cache-size = <0x8000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <128>;
+			next-level-cache = <&l2>;
 		};
 
 		cpu3: cpu@3 {
@@ -46,6 +67,20 @@
 			device_type = "cpu";
 			enable-method = "spin-table";
 			reg = <0x3>;
+			i-cache-size = <0x8000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <128>;
+			next-level-cache = <&l2>;
+		};
+
+		l2: cache {
+			cache-unified;
+			cache-size = <0x100000>;
+			cache-line-size = <64>;
+			cache-sets = <1024>;
 		};
 	};
 
