@@ -1368,6 +1368,12 @@ config SERIAL_ARC_NR_PORTS
 	  Set this to the number of serial ports you want the driver
 	  to support.
 
+config SERIAL_ELVEES_P2M
+	tristate "ELVEES P2M serial driver"
+	select SERIAL_CORE
+	help
+	  Serial driver for printing messages to memory.
+
 config SERIAL_RP2
 	tristate "Comtrol RocketPort EXPRESS/INFINITY support"
 	depends on PCI
