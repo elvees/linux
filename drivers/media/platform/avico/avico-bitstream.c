@@ -127,29 +127,6 @@ void avico_bitstream_init(struct avico_ctx *ctx, void *ptr, unsigned int size)
 	bs->nulls = 0;
 }
 
-#define SYNTAX_ELEMENT_U(_name, _enable, _width, _value) { \
-	.type = SYNTAX_ELEMENT_TYPE_U, \
-	.enable = _enable, \
-	.width = _width, \
-	.value = _value }
-#define SYNTAX_ELEMENT_UE(_name, _enable, _value) { \
-	.type = SYNTAX_ELEMENT_TYPE_UE, \
-	.enable = _enable, \
-	.value = _value }
-
-enum syntax_element_type {
-	SYNTAX_ELEMENT_TYPE_U,
-	SYNTAX_ELEMENT_TYPE_UE,
-	SYNTAX_ELEMENT_TYPE_SE
-};
-
-struct syntax_element {
-	enum syntax_element_type type;
-	bool enable;
-	uint8_t width;
-	uint32_t value;
-};
-
 void avico_bitstream_write_sps(struct avico_ctx *ctx)
 {
 	struct bitstream *const bs = &ctx->bs;
