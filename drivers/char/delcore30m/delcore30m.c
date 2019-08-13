@@ -172,6 +172,12 @@ struct sdma_program_buf {
 
 static const struct file_operations delcore30m_resource_fops;
 
+static inline u16 delcore30m_readw(struct delcore30m_private_data
+				   const *const pdata, u8 core, off_t reg)
+{
+	return ioread16(pdata->dsp_regs[core] + reg);
+}
+
 static inline u32 delcore30m_readl(struct delcore30m_private_data
 				   const *const pdata, u8 core, off_t reg)
 {
@@ -182,6 +188,13 @@ static inline u32 delcore30m_readl_cmn(struct delcore30m_private_data
 				       const *const pdata, off_t reg)
 {
 	return ioread32(pdata->cmn_regs + reg);
+}
+
+static inline void delcore30m_writew(struct delcore30m_private_data
+				    const *const pdata, u8 core, off_t reg,
+				    u16 value)
+{
+	return iowrite16(value, pdata->dsp_regs[core] + reg);
 }
 
 static inline void delcore30m_writel(struct delcore30m_private_data
@@ -424,7 +437,7 @@ static void delcore30m_run_job(struct delcore30m_job_desc *desc)
 		desc->job.status = DELCORE30M_JOB_RUNNING;
 
 		reg_value = pdata->pram[i].pram_res->start;
-		delcore30m_writel(pdata, i, DELCORE30M_PC,
+		delcore30m_writew(pdata, i, DELCORE30M_PC,
 				  addr2delcore30m(reg_value));
 
 		reg_value = delcore30m_readl_cmn(pdata, DELCORE30M_MASKR_DSP);
@@ -450,7 +463,7 @@ static void delcore30m_try_run(struct delcore30m_private_data *pdata)
 	u32 stopped_cores = 0;
 
 	for (core = 0; core < MAX_CORES; ++core)
-		if (!(delcore30m_readl(pdata, core, DELCORE30M_DCSR) &
+		if (!(delcore30m_readw(pdata, core, DELCORE30M_DCSR) &
 		      DELCORE30M_DCSR_RUN))
 			stopped_cores |= BIT(core);
 
@@ -473,13 +486,13 @@ void reset_cores(struct delcore30m_job_desc *job_desc)
 	off_t offset;
 
 	for_each_set_bit(i, &job_desc->cores, MAX_CORES) {
-		delcore30m_writel(pdata, i, DELCORE30M_DCSR, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_SR, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_LA, 0xFFFF);
-		delcore30m_writel(pdata, i, DELCORE30M_CSL, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_LC, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_CSH, 0x0);
-		delcore30m_writel(pdata, i, DELCORE30M_SP, 0x0);
+		delcore30m_writew(pdata, i, DELCORE30M_DCSR, 0x0);
+		delcore30m_writew(pdata, i, DELCORE30M_SR, 0x0);
+		delcore30m_writew(pdata, i, DELCORE30M_LA, 0xFFFF);
+		delcore30m_writew(pdata, i, DELCORE30M_CSL, 0x0);
+		delcore30m_writew(pdata, i, DELCORE30M_LC, 0x0);
+		delcore30m_writew(pdata, i, DELCORE30M_CSH, 0x0);
+		delcore30m_writew(pdata, i, DELCORE30M_SP, 0x0);
 		delcore30m_writel(pdata, i, DELCORE30M_IMASKR, 0x0);
 
 		offset = DELCORE30M_A0;
@@ -1465,7 +1478,7 @@ static enum delcore30m_job_rc delcore30m_job_rc(struct delcore30m_private_data
 	int i;
 
 	for_each_set_bit(i, &mask, MAX_CORES) {
-		u32 val = delcore30m_readl(pdata, i, DELCORE30M_DCSR);
+		u32 val = delcore30m_readw(pdata, i, DELCORE30M_DCSR);
 
 		if (val & (DELCORE30M_DCSR_PI | DELCORE30M_DCSR_SE |
 			   DELCORE30M_DCSR_BRK))
