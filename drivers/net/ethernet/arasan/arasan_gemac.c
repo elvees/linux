@@ -1165,6 +1165,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	pd->pdev = pdev;
 	pd->dev = dev;
 	spin_lock_init(&pd->lock);
+	spin_lock_init(&pd->tx_freelock);
 
 	/* Try to get and enable Arasan GEMAC hclk */
 	pd->hclk = devm_clk_get(&pdev->dev, NULL);
