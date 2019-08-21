@@ -170,6 +170,8 @@ struct sdma_program_buf {
 	char *start, *pos, *end;
 };
 
+#define phys_to_xyram(x) ((x) & 0xFFFFF)
+
 static const struct file_operations delcore30m_resource_fops;
 
 static inline u16 delcore30m_readw(struct delcore30m_private_data
@@ -264,9 +266,9 @@ static void delcore30m_mem_free(struct delcore30m_buffer_desc *buf_desc)
 	}
 }
 
-static u32 addr2delcore30m(dma_addr_t address)
+static u32 cpu_to_delcore30m(dma_addr_t address)
 {
-	return (address & 0xFFFFF) >> 2;
+	return address >> 2;
 }
 
 static void write_arg_regs(struct delcore30m_job_desc *desc,
@@ -430,15 +432,15 @@ static void delcore30m_run_job(struct delcore30m_job_desc *desc)
 
 		stack_offset = set_args(desc, i);
 
-		reg_value = addr2delcore30m(pdata->stack[i].paddr +
-					    stack_offset);
+		reg_value = pdata->stack[i].paddr + stack_offset;
+		reg_value = cpu_to_delcore30m(phys_to_xyram(reg_value));
 		delcore30m_writel(pdata, i, DELCORE30M_A6, reg_value);
 		delcore30m_writel(pdata, i, DELCORE30M_A7, reg_value);
 		desc->job.status = DELCORE30M_JOB_RUNNING;
 
 		reg_value = pdata->pram[i].pram_res->start;
 		delcore30m_writew(pdata, i, DELCORE30M_PC,
-				  addr2delcore30m(reg_value));
+				  cpu_to_delcore30m(phys_to_xyram(reg_value)));
 
 		reg_value = delcore30m_readl_cmn(pdata, DELCORE30M_MASKR_DSP);
 		reg_value |= DELCORE30M_QSTR_CORE_MASK(i);
@@ -1381,7 +1383,7 @@ static int delcore30m_dmachain_setup(struct delcore30m_private_data *pdata,
 
 	/* FIXME: interrupt handler address */
 	delcore30m_writel(pdata, core_id, DELCORE30M_INVAR,
-			  addr2delcore30m(0x0C));
+			  cpu_to_delcore30m(phys_to_xyram(0x0C)));
 
 	regmap_read(pdata->sdma, INTEN, &inten_value);
 	inten_value |= 1 << dmachain.channel.num;
