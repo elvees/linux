@@ -895,7 +895,9 @@ static int elvees_swic_probe(struct platform_device *pdev)
 		goto disable_aclk;
 	}
 
-	dev_info(&pdev->dev, "ELVEES SWIC @ 0x%p\n", pdata->regs);
+	dev_info(&pdev->dev,
+		 "ELVEES SWIC @ 0x%p; SWIC version %x\n",
+		 pdata->regs, swic_readl(pdata, SWIC_HW_VER));
 
 	return 0;
 

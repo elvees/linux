@@ -11,12 +11,18 @@
 #ifndef _ARASAN_GEMAC_H
 #define _ARASAN_GEMAC_H
 
-#define PKT_BUF_SZ (VLAN_ETH_FRAME_LEN + NET_IP_ALIGN + 4)
+/* GEMAC TX descriptor can describe 4K buffer.
+ * But currently some unexplored bugs are observed if we set Jumbo frame
+ * more than 3500 bytes. This bugs lead to lack of transmission. */
+#define ARASAN_JUMBO_MTU 3500U
 
-/* HACK: Set TX descriptor ring size to 8
- * to workaround low TX speed problem
- */
-#define TX_RING_SIZE (8)
+/* GEMAC FIFO depth in 32 bit words */
+#define ARASAN_FIFO_SZ 1024
+
+#define mtu_to_frame_sz(x) ((x) + VLAN_ETH_HLEN)
+#define mtu_to_buf_sz(x) (mtu_to_frame_sz(x) + NET_IP_ALIGN + 4)
+
+#define TX_RING_SIZE (128)
 #define RX_RING_SIZE (128)
 #define NAPI_WEIGHT (64)
 
@@ -76,7 +82,7 @@
 #define MAC_TRANSMIT_PACKET_START_THRESHOLD       0x01C4
 #define MAC_RECEIVE_PACKET_START_THRESHOLD        0x01C8
 #define MAC_TRANSMIT_FIFO_ALMOST_EMPTY_THRESHOLD  0x01CC
-#define MAC_INTERRUPT                             0x01E0
+#define MAC_INTERRUPT_STATUS                      0x01E0
 #define MAC_INTERRUPT_ENABLE                      0x01E4
 #define MAC_VLAN_TPID1                            0x01E8
 #define MAC_VLAN_TPID2                            0x01EC
@@ -91,8 +97,8 @@
 #define DMA_CONTROL_START_TRANSMIT_DMA                BIT(0)
 #define DMA_CONTROL_START_RECEIVE_DMA                 BIT(1)
 
-#define DMA_STATUS_AND_IRQ_TRANSFER_DONE              BIT(0)
-#define DMA_STATUS_AND_IRQ_TRANS_DESC_UNVAIL          BIT(1)
+#define DMA_STATUS_AND_IRQ_TRANSMIT_DONE              BIT(0)
+#define DMA_STATUS_AND_IRQ_TRANS_DESC_UNAVAIL         BIT(1)
 #define DMA_STATUS_AND_IRQ_TX_DMA_STOPPED             BIT(2)
 #define DMA_STATUS_AND_IRQ_RECEIVE_DONE               BIT(4)
 #define DMA_STATUS_AND_IRQ_RX_DMA_STOPPED             BIT(6)
@@ -101,7 +107,11 @@
 #define DMA_STATUS_AND_IRQ_RECEIVE_DMA_STATE(VAL)     (((VAL) & 0xf0000) >> 20)
 
 #define DMA_INTERRUPT_ENABLE_TRANSMIT_DONE            BIT(0)
+#define DMA_INTERRUPT_ENABLE_TRANS_DESC_UNAVAIL       BIT(1)
 #define DMA_INTERRUPT_ENABLE_RECEIVE_DONE             BIT(4)
+
+#define DMA_INTERRUPT_ENABLE_MAC                      BIT(8)
+#define DMA_STATUS_AND_IRQ_MAC                        BIT(8)
 
 #define MAC_GLOBAL_CONTROL_SPEED(VAL)                 ((VAL) << 0)
 #define MAC_GLOBAL_CONTROL_DUPLEX_MODE(VAL)           ((VAL) << 2)
@@ -123,12 +133,14 @@
 #define MAC_MDIO_CONTROL_PHY_ADDR(VAL)                ((VAL) << 0)
 #define MAC_MDIO_CONTROL_START_FRAME(VAL)             ((VAL) << 15)
 
+#define MAC_INTERRUPT_ENABLE_UNDERRUN                 BIT(0)
+#define MAC_IRQ_STATUS_UNDERRUN                       BIT(0)
+
 /* DMA descriptor fields */
 
 #define DMA_RDES0_OWN_BIT      BIT(31)
 #define DMA_RDES0_FD           BIT(30)
 #define DMA_RDES0_LD           BIT(29)
-
 #define DMA_RDES1_EOR          BIT(26)
 
 #define DMA_TDES0_OWN_BIT      BIT(31)
@@ -137,9 +149,9 @@
 #define DMA_TDES1_FS           BIT(29)
 #define DMA_TDES1_EOR          BIT(26)
 
-#define arasan_gemac_readl(port, reg) __raw_readl((port)->regs + reg)
+#define arasan_gemac_readl(port, reg) readl((port)->regs + (reg))
 #define arasan_gemac_writel(port, reg, value) \
-	__raw_writel((value), (port)->regs + reg)
+	writel((value), (port)->regs + (reg))
 
 struct arasan_gemac_dma_desc {
 	u32 status;
@@ -172,6 +184,8 @@ struct arasan_gemac_pdata {
 	dma_addr_t rx_dma_addr;
 	dma_addr_t tx_dma_addr;
 
+	/* lock for descriptor completion */
+	spinlock_t tx_freelock;
 	int tx_ring_head, tx_ring_tail;
 	int rx_ring_head, rx_ring_tail;
 

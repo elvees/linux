@@ -196,7 +196,7 @@
 #define PINTERFACE_CFG_PHASE_CORR(v)	(((v) & 0x7) << 20)
 #define PINTERFACE_CFG_FORW_H(v)	(((v) & 0xFF) << 24)
 
-/* Bits for PINTERFACE_HVFSYNCregister */
+/* Bits for PINTERFACE_HVFSYNC register */
 #define PINTERFACE_HVFSYNC_INVERS_H	BIT(0)
 #define PINTERFACE_HVFSYNC_INVERS_V	BIT(1)
 #define PINTERFACE_HVFSYNC_INVERS_F	BIT(2)
@@ -207,7 +207,9 @@
 #define PINTERFACE_HVFSYNC_PRE_DELAY_V(v)	(((v) & 0x1F) << 24)
 #define PINTERFACE_HVFSYNC_DELAY_VF_ODD_OFS(v)	(((v) & 0x7) << 29)
 
-
+/* Bits for PPORT_INP_MUX_CFG register */
+#define PP_VIN_TYPE(v)			((v) & 0x7)
+#define PP_VIN_CLK			BIT(8)
 
 /* Bits for CMOS_CTR register */
 #define CMOS_CTR_RESET			BIT(0)
@@ -468,6 +470,7 @@ struct vinc_stream {
 	enum v4l2_mbus_type video_source;
 	int csi2_lanes;
 	enum vinc_input_format input_format;
+	struct v4l2_mbus_framefmt input_framefmt;
 	u32 bayer_mode;
 
 	struct vinc_cluster cluster;

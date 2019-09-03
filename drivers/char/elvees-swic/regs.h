@@ -29,6 +29,8 @@
 
 #define SWIC_DMA_RUN				0x0C
 
+#define SWIC_HW_VER				0x00
+
 #define SWIC_STATUS				0x04
 #define SWIC_STATUS_DC_ERR			BIT(0)
 #define SWIC_STATUS_P_ERR			BIT(1)
