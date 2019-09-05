@@ -10,6 +10,8 @@
 #ifndef ELVEES_SWIC_H
 #define ELVEES_SWIC_H
 
+#define ELVEES_SWIC_MAX_PACKET_SIZE (1024*1024)
+
 enum swic_link_state {
 	LINK_ERROR_RESET,
 	LINK_ERROR_WAIT,
@@ -32,10 +34,15 @@ enum swic_tx_speed {
 	TX_SPEED_408 = 8
 };
 
+struct elvees_swic_speed {
+	unsigned int rx;
+	unsigned int tx;
+};
+
 #define SWICIOC_MAGIC 'w'
 
 #define SWICIOC_SET_LINK \
-	_IO(SWICIOC_MAGIC, 1)
+	_IOW(SWICIOC_MAGIC, 1, unsigned int)
 
 #define SWICIOC_GET_LINK_STATE \
 	_IOR(SWICIOC_MAGIC, 2, enum swic_link_state *)
@@ -43,7 +50,10 @@ enum swic_tx_speed {
 #define SWICIOC_SET_TX_SPEED \
 	_IOW(SWICIOC_MAGIC, 3, enum swic_tx_speed)
 
+#define SWICIOC_GET_SPEED \
+	_IOR(SWICIOC_MAGIC, 4, struct elvees_swic_speed *)
+
 #define SWICIOC_SET_MTU \
-	_IOW(SWICIOC_MAGIC, 4, unsigned long)
+	_IOW(SWICIOC_MAGIC, 5, unsigned long)
 
 #endif

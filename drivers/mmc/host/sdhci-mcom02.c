@@ -15,8 +15,10 @@
  * your option) any later version.
  */
 
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+
 #include "sdhci-pltfm.h"
 
 #define SDHCI_MCOM02_CLK_CTRL_OFFSET	0x2c
@@ -25,19 +27,21 @@
 #define CLK_CTRL_TIMEOUT_MASK		(0xf << CLK_CTRL_TIMEOUT_SHIFT)
 #define CLK_CTRL_TIMEOUT_MIN_EXP	13
 
-#define CONFIG_SIGNALS_REG1_OFFSET	0x100
-#define CONFIG_SIGNALS_OTAPDLYENA	BIT(20)
-#define CONFIG_SIGNALS_OTAPDLYSEL	GENMASK(24, 21)
-
-#define OTAPDLYSEL_SD_HS		15
-#define OTAPDLYSEL_MMC_HS		8
+#define SDMMC_INIT_CONFIG_1		0x100
+#define SDMMC_INIT_CONFIG_ITAPDLYSEL	GENMASK(31, 27)
+#define SDMMC_INIT_CONFIG_ITAPDLYENA	BIT(26)
+#define SDMMC_INIT_CONFIG_ITAPCHGWIN	BIT(25)
+#define SDMMC_INIT_CONFIG_OTAPDLYSEL	GENMASK(24, 21)
+#define SDMMC_INIT_CONFIG_OTAPDLYENA	BIT(20)
 
 /**
  * struct sdhci_mcom02_data
  * @clk_ahb:	Pointer to the AHB clock
+ * @clk_phase:	Array of input/output clock phase delays for all speed modes
  */
 struct sdhci_mcom02_data {
 	struct clk *clk_ahb;
+	int  clk_phase[MMC_TIMING_MMC_HS400 + 1][2];
 };
 
 static unsigned int sdhci_mcom02_get_timeout_clock(struct sdhci_host *host)
@@ -60,35 +64,102 @@ static inline u32 prep_field(u32 value, u32 mask)
 	return (value << (ffs(mask) - 1)) & mask;
 }
 
-static void sdhci_mcom02_set_tap_delay(struct sdhci_host *host, u8 otapdlysel)
+static void sdhci_mcom02_set_clk_delays(struct sdhci_host *host)
 {
-	u32 tmp;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_mcom02_data *sdhci_mcom02 = pltfm_host->priv;
+	u32 reg;
 
-	tmp = readl(host->ioaddr + CONFIG_SIGNALS_REG1_OFFSET);
-	tmp |= CONFIG_SIGNALS_OTAPDLYENA;
-	tmp &= ~CONFIG_SIGNALS_OTAPDLYSEL;
-	tmp |= prep_field(otapdlysel, CONFIG_SIGNALS_OTAPDLYSEL);
-	writel(tmp, host->ioaddr + CONFIG_SIGNALS_REG1_OFFSET);
+	/* Set Tap Delay Lines */
+	reg = readl(host->ioaddr + SDMMC_INIT_CONFIG_1);
+	if (sdhci_mcom02->clk_phase[host->timing][0] != -1) {
+		/* This signal should be asserted few clocks before
+		 * the corectrl_itapdlysel changes and should be
+		 * asserted for few clocks after.
+		 */
+		reg |= SDMMC_INIT_CONFIG_ITAPCHGWIN;
+		writel(reg, host->ioaddr + SDMMC_INIT_CONFIG_1);
+
+		reg &= ~SDMMC_INIT_CONFIG_ITAPDLYSEL;
+		reg |= prep_field(sdhci_mcom02->clk_phase[host->timing][0],
+				  SDMMC_INIT_CONFIG_ITAPDLYSEL);
+		reg |= SDMMC_INIT_CONFIG_ITAPDLYENA;
+		udelay(1); /* Asserted few clocks before */
+		writel(reg, host->ioaddr + SDMMC_INIT_CONFIG_1);
+
+		reg &= ~SDMMC_INIT_CONFIG_ITAPCHGWIN;
+		udelay(1); /* Asserted few clocks after */
+		writel(reg, host->ioaddr + SDMMC_INIT_CONFIG_1);
+	} else if (reg & SDMMC_INIT_CONFIG_ITAPDLYENA) {
+		reg &= ~SDMMC_INIT_CONFIG_ITAPDLYENA;
+		writel(reg, host->ioaddr + SDMMC_INIT_CONFIG_1);
+	}
+
+	reg = readl(host->ioaddr + SDMMC_INIT_CONFIG_1);
+	if (sdhci_mcom02->clk_phase[host->timing][1] != -1) {
+		reg &= ~SDMMC_INIT_CONFIG_OTAPDLYSEL;
+		reg |= prep_field(sdhci_mcom02->clk_phase[host->timing][1],
+				  SDMMC_INIT_CONFIG_OTAPDLYSEL);
+		reg |= SDMMC_INIT_CONFIG_OTAPDLYENA;
+		writel(reg, host->ioaddr + SDMMC_INIT_CONFIG_1);
+	} else if (reg & SDMMC_INIT_CONFIG_OTAPDLYENA) {
+		reg &= ~SDMMC_INIT_CONFIG_OTAPDLYENA;
+		writel(reg, host->ioaddr + SDMMC_INIT_CONFIG_1);
+	}
 }
 
 static void sdhci_mcom02_set_clock(struct sdhci_host *host, unsigned int clock)
 {
-	u8 delay = 0;
-
-	switch (host->timing) {
-	case MMC_TIMING_MMC_HS:
-	case MMC_TIMING_MMC_DDR52:
-		delay = OTAPDLYSEL_MMC_HS;
-		break;
-	case MMC_TIMING_SD_HS:
-		delay = OTAPDLYSEL_SD_HS;
-		break;
-	}
-
-	if (delay)
-		sdhci_mcom02_set_tap_delay(host, delay);
+	/* Set the input and output clock phase delays */
+	sdhci_mcom02_set_clk_delays(host);
 
 	sdhci_set_clock(host, clock);
+}
+
+static void mcom02_of_read_clk_phase(struct device *dev,
+				     struct sdhci_mcom02_data *sdhci_mcom02,
+				     unsigned int timing, const char *prop)
+{
+	struct device_node *np = dev->of_node;
+
+	int clk_phase[2] = { -1, -1 };
+
+	/*
+	 * Read Tap Delay values from DT, if the DT does not contain the
+	 * tap values then disable tap delay for this mode
+	 */
+	if (prop)
+		of_property_read_u32_array(np, prop, clk_phase, 2);
+
+	/* The values read are input and output clock delays in order */
+	sdhci_mcom02->clk_phase[timing][0] = clk_phase[0];
+	sdhci_mcom02->clk_phase[timing][1] = clk_phase[1];
+}
+
+/**
+ * mcom02_of_parse_clk_phases - parse DeviceTree node for clock delay values
+ * @dev:	Pointer to our struct device.
+ *
+ * Called at initialization to parse the values of clock delays.
+ */
+static void mcom02_of_parse_clk_phases(struct device *dev,
+				       struct sdhci_mcom02_data *sdhci_mcom02)
+{
+	static const char *const names[MMC_TIMING_MMC_HS400 + 1] = {
+		[MMC_TIMING_MMC_HS]      = "mcom02,clk-phase-mmc-hs",
+		[MMC_TIMING_SD_HS]       = "mcom02,clk-phase-sd-hs",
+		[MMC_TIMING_UHS_SDR12]   = "mcom02,clk-phase-uhs-sdr12",
+		[MMC_TIMING_UHS_SDR25]   = "mcom02,clk-phase-uhs-sdr25",
+		[MMC_TIMING_UHS_SDR50]   = "mcom02,clk-phase-uhs-sdr50",
+		[MMC_TIMING_UHS_SDR104]  = "mcom02,clk-phase-uhs-sdr104",
+		[MMC_TIMING_UHS_DDR50]   = "mcom02,clk-phase-uhs-ddr50",
+		[MMC_TIMING_MMC_DDR52]   = "mcom02,clk-phase-mmc-ddr52",
+		[MMC_TIMING_MMC_HS200]   = "mcom02,clk-phase-mmc-hs200",
+	};
+	int i;
+
+	for (i = 0; i <= MMC_TIMING_MMC_HS400; i++)
+		mcom02_of_read_clk_phase(dev, sdhci_mcom02, i, names[i]);
 }
 
 static struct sdhci_ops sdhci_mcom02_ops = {
@@ -215,6 +286,8 @@ static int sdhci_mcom02_probe(struct platform_device *pdev)
 	pltfm_host = sdhci_priv(host);
 	pltfm_host->priv = sdhci_mcom02;
 	pltfm_host->clk = clk_xin;
+
+	mcom02_of_parse_clk_phases(&pdev->dev, sdhci_mcom02);
 
 	ret = mmc_of_parse(host->mmc);
 	if (ret) {

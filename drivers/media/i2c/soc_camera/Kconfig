@@ -98,6 +98,12 @@ config SOC_CAMERA_TC358748
 	help
 	  Support for Toshiba TC358748 parallel video to MIPI CSI2 bridge
 
+config SOC_CAMERA_TC358762
+	tristate "tc358762 support"
+	depends on SOC_CAMERA && I2C
+	help
+	  Support for Toshiba TC358762 MIPI DSI to parallel video bridge
+
 config SOC_CAMERA_TW9910
 	tristate "tw9910 support"
 	depends on SOC_CAMERA && I2C

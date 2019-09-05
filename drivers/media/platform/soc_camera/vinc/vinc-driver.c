@@ -657,6 +657,7 @@ static int vinc_set_fmt(struct soc_camera_device *icd, struct v4l2_format *f)
 
 	stream->ycbcr_enc = stream_set_ycbcr_enc(pix->ycbcr_enc);
 	stream->quantization = stream_set_quantization(mbus_fmt->quantization);
+	stream->input_framefmt = *mbus_fmt;
 
 	switch (mbus_fmt->code) {
 	case MEDIA_BUS_FMT_SRGGB8_1X8:
