@@ -83,6 +83,7 @@ struct elvees_swic_private_data {
 	u8 *tx_data;
 	bool tx_data_done;
 	bool rx_desc_done;
+	bool link;
 
 	wait_queue_head_t write_wq;
 	wait_queue_head_t read_wq;
@@ -260,8 +261,13 @@ static int elvees_swic_set_link(struct elvees_swic_private_data *pdata,
 
 	elvees_swic_reset(pdata);
 
-	if (arg == 0)
+	if (arg == 0) {
+		/* No interrupt if link is disabled in a regular way */
+		pdata->link = false;
+		wake_up_interruptible(&pdata->write_wq);
+		wake_up_interruptible(&pdata->read_wq);
 		return 0;
+	}
 
 	reg = SWIC_MODE_CR_LINK_START | SWIC_MODE_CR_LINK_MASK |
 	      SWIC_MODE_CR_ERR_MASK | SWIC_MODE_CR_COEFF_10_WR;
@@ -453,8 +459,9 @@ static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
 				      (chunk_aligned / 8) - 1);
 
 		ret = wait_event_interruptible(pdata->write_wq,
-					       pdata->tx_data_done);
-		if (ret == -ERESTARTSYS)
+					       pdata->tx_data_done ||
+					       !pdata->link);
+		if (ret == -ERESTARTSYS || !pdata->link)
 			goto stop_data_dma;
 
 		buf += chunk;
@@ -541,8 +548,9 @@ static ssize_t elvees_swic_read(struct file *file, char __user *buf,
 	elvees_swic_start_dma(pdata, SWIC_DMA_RX_DESC,
 			      pdata->rx_desc_dma_addr, 0, 0);
 
-	ret = wait_event_interruptible(pdata->read_wq, pdata->rx_desc_done);
-	if (ret == -ERESTARTSYS)
+	ret = wait_event_interruptible(pdata->read_wq, pdata->rx_desc_done ||
+						       !pdata->link);
+	if (ret == -ERESTARTSYS || !pdata->link)
 		goto stop_desc_dma;
 
 	if (pdata->rx_desc->type == ELVEES_SWIC_EEP)
@@ -733,6 +741,7 @@ static irqreturn_t elvees_swic_ih(int irq, void *data)
 
 	if (reg & SWIC_STATUS_CONNECTED) {
 		reg |= SWIC_STATUS_GOT_FIRST_BIT;
+		pdata->link = true;
 		dev_dbg(pdata->dev, "Connection is set\n");
 	}
 
@@ -754,6 +763,12 @@ static irqreturn_t elvees_swic_ih(int irq, void *data)
 	if (reg & SWIC_STATUS_CREDIT_ERR) {
 		reg |= SWIC_STATUS_CREDIT_ERR;
 		dev_dbg(pdata->dev, "Credit error\n");
+	}
+
+	if (reg & SWIC_STATUS_ERR) {
+		pdata->link = false;
+		wake_up_interruptible(&pdata->write_wq);
+		wake_up_interruptible(&pdata->read_wq);
 	}
 
 	swic_writel(pdata, SWIC_STATUS, reg);
