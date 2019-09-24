@@ -402,12 +402,14 @@ static long elvees_swic_ioctl(struct file *file,
 		return elvees_swic_set_link(pdata, arg);
 	case SWICIOC_GET_LINK_STATE:
 		return elvees_swic_get_link_state(pdata, uptr);
-	case SWICIOC_GET_SPEED:
-		return elvees_swic_get_speed(pdata, uptr);
 	case SWICIOC_SET_TX_SPEED:
 		return elvees_swic_set_speed(pdata, arg);
+	case SWICIOC_GET_SPEED:
+		return elvees_swic_get_speed(pdata, uptr);
 	case SWICIOC_SET_MTU:
 		return elvees_swic_set_mtu(pdata, arg);
+	case SWICIOC_GET_MTU:
+		return copy_to_user(uptr, &pdata->mtu, sizeof(unsigned long));
 	}
 
 	return -ENOTTY;
