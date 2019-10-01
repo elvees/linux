@@ -61,7 +61,7 @@ enum avico_flags {
 /* Length of data block VDMA transfers. Should be multiple of 16 bytes. */
 #define DMA_CBS_LEN (40 * 8 * 16)
 /* Size of a buffer for encoded data in VRAM. Should be multiple of 16 bytes. */
-#define SIZE_CBS (80 * 8 * 16)
+#define SIZE_CBS (DMA_CBS_LEN * 2)
 /* Frame bounds */
 #define AVICO_WALIGN 1 /* power of 2 */
 #define AVICO_HALIGN 1 /* power of 2 */
