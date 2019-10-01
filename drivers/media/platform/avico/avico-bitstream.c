@@ -1159,7 +1159,7 @@ static int v4l2_to_h264_colorspace(struct avico_ctx *ctx,
 	switch (ctx->transfer) {
 	case V4L2_XFER_FUNC_709:
 		if (ctx->colorspace == V4L2_COLORSPACE_BT2020 &&
-		    ctx->height >= 2160)
+		    ctx->out_q.height >= 2160)
 			st->t = H264_TRC_BT2020_12;
 		else
 			st->t = H264_TRC_BT709;

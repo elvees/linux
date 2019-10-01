@@ -689,6 +689,19 @@ struct avico_frame_params {
 	struct avico_crop crop;
 };
 
+enum avico_thread_type {
+	AVICO_ENCODER,
+	AVICO_DECODER,
+};
+
+struct avico_q_data {
+	struct v4l2_fmtdesc *f;
+	u32 width;
+	u32 height;
+	u32 sizeimage;
+	u32 bytesperline;
+};
+
 struct avico_ctx {
 	struct v4l2_fh fh;
 	struct avico_dev *dev;
@@ -697,6 +710,7 @@ struct avico_ctx {
 	int aborting;
 
 	unsigned long state;
+	enum avico_thread_type thread_type;
 
 	struct avico_sps sps;
 	struct avico_pps pps;
@@ -730,14 +744,15 @@ struct avico_ctx {
 	dma_addr_t dmambref, dmambcur;
 	unsigned int mbrefsize, mbcursize;
 
+	struct avico_q_data out_q;
+	struct avico_q_data cap_q;
+
 	enum v4l2_colorspace colorspace;
 	enum v4l2_quantization range;
 	enum v4l2_ycbcr_encoding matrix;
 	enum v4l2_xfer_func transfer;
 
-	unsigned int width, height;
-	unsigned int capfmt, outfmt;
-	unsigned int outsize, capsize, refsize;
+	unsigned int refsize;
 	unsigned int outseq, capseq;
 
 	struct v4l2_ctrl	*ctrl_qp_i;

@@ -232,7 +232,7 @@ void avico_dma_configure_input_last_row(struct avico_ctx *ctx,
 					unsigned const channel)
 {
 	union vdma_bccnt bccnt;
-	uint8_t mb_lines = ctx->height % 16 * 3 / 2;
+	uint8_t mb_lines = ctx->out_q.height % 16 * 3 / 2;
 
 	if (mb_lines == 0)
 		mb_lines = 24;
@@ -565,8 +565,8 @@ static void avico_thread_init(struct avico_ctx *ctx)
 {
 	struct avico_frame_params *par = &ctx->par;
 	union mbpos mbpos = {
-		.nx = DIV_ROUND_UP(ctx->width, 16),
-		.ny = DIV_ROUND_UP(ctx->height, 16)
+		.nx = DIV_ROUND_UP(ctx->out_q.width, 16),
+		.ny = DIV_ROUND_UP(ctx->out_q.height, 16)
 	};
 
 	union adr adr = {
@@ -1247,113 +1247,117 @@ static int avico_querycap(struct file *file, void *priv,
 	return 0;
 }
 
-static struct v4l2_fmtdesc output_formats[] = {
+
+static inline bool avico_compressed(struct v4l2_fmtdesc *f)
+{
+	if (f->flags & V4L2_FMT_FLAG_COMPRESSED)
+		return true;
+	return false;
+}
+
+static struct v4l2_fmtdesc avico_formats[] = {
 	{
-		.index = 0,
-		.type  = V4L2_BUF_TYPE_VIDEO_OUTPUT,
 		.description = "M420",
 		.pixelformat = V4L2_PIX_FMT_M420
-	}
-};
-
-static struct v4l2_fmtdesc capture_formats[] = {
+	},
 	{
-		.index = 0,
-		.type  = V4L2_BUF_TYPE_VIDEO_CAPTURE,
 		.flags = V4L2_FMT_FLAG_COMPRESSED,
 		.description = "H264 Encoded Stream",
 		.pixelformat = V4L2_PIX_FMT_H264
-	}
+	},
 };
+
+static struct v4l2_fmtdesc *avico_find_format(struct avico_ctx *ctx,
+					      u32 pixelformat, u32 type)
+{
+	unsigned int i;
+	bool compressed = ctx->thread_type == AVICO_ENCODER ?
+					      !V4L2_TYPE_IS_OUTPUT(type) :
+					      V4L2_TYPE_IS_OUTPUT(type);
+
+	for (i = 0; i < ARRAY_SIZE(avico_formats); ++i) {
+		struct v4l2_fmtdesc *f = &avico_formats[i];
+
+		if (f->pixelformat == pixelformat &&
+		    avico_compressed(f) == compressed)
+			return f;
+	}
+
+	return NULL;
+}
+
+static inline struct avico_q_data *get_q_data(struct avico_ctx *ctx,
+					      enum v4l2_buf_type type)
+{
+	switch (type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		return &ctx->out_q;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		return &ctx->cap_q;
+	default:
+		return NULL;
+	}
+}
+
+static int avico_enum_fmt(struct v4l2_fmtdesc *formats, int nformats,
+			  struct v4l2_fmtdesc *f, bool compressed)
+{
+	int i, index = 0;
+
+	for (i = 0; i < nformats; ++i)
+		if (avico_compressed(&formats[i]) == compressed &&
+		    index++ == f->index)
+			break;
+
+	/* Format not found */
+	if (i >= nformats)
+		return -EINVAL;
+
+	strlcpy(f->description, formats[i].description, sizeof(f->description));
+	f->pixelformat = formats[i].pixelformat;
+	f->flags = formats[i].flags;
+
+	return 0;
+}
 
 static int avico_enum_fmt_output(struct file *file, void *priv,
 				 struct v4l2_fmtdesc *f)
 {
-	if (f->index >= ARRAY_SIZE(output_formats))
-		return -EINVAL;
-	*f = output_formats[f->index];
+	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
 
-	return 0;
+	return avico_enum_fmt(avico_formats, ARRAY_SIZE(avico_formats), f,
+			      ctx->thread_type == AVICO_DECODER);
 }
 
 static int avico_enum_fmt_capture(struct file *file, void *priv,
 				  struct v4l2_fmtdesc *f)
 {
-	if (f->index >= ARRAY_SIZE(capture_formats))
-		return -EINVAL;
-	*f = capture_formats[f->index];
+	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
 
-	return 0;
+	return avico_enum_fmt(avico_formats, ARRAY_SIZE(avico_formats), f,
+			      ctx->thread_type == AVICO_ENCODER);
 }
 
 static int avico_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
-	unsigned int fmt;
+	struct avico_q_data *q_data = get_q_data(ctx, f->type);
 
-	f->fmt.pix.width = ctx->width;
-	f->fmt.pix.height = ctx->height;
-	f->fmt.pix.field = V4L2_FIELD_NONE;
-
-	switch (f->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		fmt = ctx->outfmt;
-		f->fmt.pix.pixelformat = output_formats[fmt].pixelformat;
-		switch (f->fmt.pix.pixelformat) {
-		case V4L2_PIX_FMT_M420:
-			f->fmt.pix.bytesperline = round_up(ctx->width, 16);
-			f->fmt.pix.sizeimage = ctx->outsize;
-			break;
-		default:
-			/* We don't support other pixel formats */
-			__WARN();
-		}
-		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		fmt = ctx->capfmt;
-		f->fmt.pix.pixelformat = capture_formats[fmt].pixelformat;
-		f->fmt.pix.bytesperline = 0;
-		/* TODO: Think how to specify sizeimage more intellegently */
-		f->fmt.pix.sizeimage = ctx->capsize;
-		break;
-	default:
+	if (!q_data)
 		return -EINVAL;
-	}
 
+	f->fmt.pix.width = q_data->width;
+	f->fmt.pix.height = q_data->height;
+	f->fmt.pix.field = V4L2_FIELD_NONE;
+	f->fmt.pix.pixelformat = q_data->f->pixelformat;
+	f->fmt.pix.bytesperline = q_data->bytesperline;
+	f->fmt.pix.sizeimage = q_data->sizeimage;
 	f->fmt.pix.colorspace = ctx->colorspace;
 	f->fmt.pix.ycbcr_enc = ctx->matrix;
 	f->fmt.pix.quantization = ctx->range;
 	f->fmt.pix.xfer_func = ctx->transfer;
 
 	return 0;
-}
-
-static unsigned int avico_outfmt(u32 pixelformat)
-{
-	unsigned int fmt = 0;
-
-	while (fmt < ARRAY_SIZE(output_formats) &&
-	       pixelformat != output_formats[fmt].pixelformat)
-		fmt++;
-
-	if (fmt >= ARRAY_SIZE(output_formats))
-		fmt = 0;
-
-	return fmt;
-}
-
-static unsigned int avico_capfmt(u32 pixelformat)
-{
-	unsigned int fmt = 0;
-
-	while (fmt < ARRAY_SIZE(capture_formats) &&
-	       pixelformat != capture_formats[fmt].pixelformat)
-		fmt++;
-
-	if (fmt >= ARRAY_SIZE(capture_formats))
-		fmt = 0;
-
-	return fmt;
 }
 
 /* SD streams likely use SMPTE170M and HD streams REC709 */
@@ -1413,85 +1417,89 @@ static void avico_try_colorspace(struct v4l2_format *f)
 	}
 }
 
-static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
+static int avico_try_fmt_common(struct v4l2_format *f)
 {
-	unsigned int fmt;
+	enum v4l2_field field = f->fmt.pix.field;
+
+	if (field == V4L2_FIELD_ANY)
+		field = V4L2_FIELD_NONE;
+	else if (field != V4L2_FIELD_NONE)
+		return -EINVAL;
+
+	f->fmt.pix.field = field;
+	f->fmt.pix.flags = 0;
 
 	v4l_bound_align_image(&f->fmt.pix.width, AVICO_WMIN,
 			      AVICO_WMAX, AVICO_WALIGN,
 			      &f->fmt.pix.height, AVICO_HMIN,
 			      AVICO_HMAX, AVICO_HALIGN, 0);
-	f->fmt.pix.field = V4L2_FIELD_NONE;
-	f->fmt.pix.flags = 0;
 
-	switch (f->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		fmt = avico_outfmt(f->fmt.pix.pixelformat);
-		f->fmt.pix.pixelformat = output_formats[fmt].pixelformat;
-		avico_try_colorspace(f);
-		switch (f->fmt.pix.pixelformat) {
-		case V4L2_PIX_FMT_M420:
-			f->fmt.pix.bytesperline = round_up(f->fmt.pix.width,
-							   16);
-			f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
-					       f->fmt.pix.height / 2 * 3;
-			break;
-		default:
-			/* We don't support other pixel formats */
-			__WARN();
-		}
+	switch (f->fmt.pix.pixelformat) {
+	case V4L2_PIX_FMT_M420:
+		f->fmt.pix.bytesperline = round_up(f->fmt.pix.width,
+						   16);
+		f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
+				       f->fmt.pix.height / 2 * 3;
 		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		fmt = avico_capfmt(f->fmt.pix.pixelformat);
-		f->fmt.pix.pixelformat = capture_formats[fmt].pixelformat;
+	case V4L2_PIX_FMT_H264:
 		f->fmt.pix.bytesperline = 0;
 		/* TODO: Think how to specify sizeimage more intellegently */
 		f->fmt.pix.sizeimage = f->fmt.pix.width * f->fmt.pix.height * 2;
 		break;
 	default:
-		return -EINVAL;
+		/* We don't support other pixel formats */
+		__WARN();
 	}
+
+	if (V4L2_TYPE_IS_OUTPUT(f->type))
+		avico_try_colorspace(f);
 
 	return 0;
 }
 
-static int avico_s_fmt_output(struct file *file, void *priv,
-			      struct v4l2_format *f)
+static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
-	int ret = avico_try_fmt(file, priv, f);
+	struct v4l2_fmtdesc *fmt = avico_find_format(ctx,
+						     f->fmt.pix.pixelformat,
+						     f->type);
 
-	if (ret)
-		return ret;
+	if (!fmt) {
+		v4l2_err(&ctx->dev->v4l2_dev,
+			 "Image format (0x%08x) is invalid.\n",
+			 f->fmt.pix.pixelformat);
 
-	ctx->width = f->fmt.pix.width;
-	ctx->height = f->fmt.pix.height;
+		return -EINVAL;
+	}
 
-	ctx->outsize = f->fmt.pix.sizeimage;
-	ctx->capsize = ctx->width * ctx->height * 2;
-
-	ctx->outfmt = avico_outfmt(f->fmt.pix.pixelformat);
-
-	ctx->colorspace = f->fmt.pix.colorspace;
-	ctx->matrix = f->fmt.pix.ycbcr_enc;
-	ctx->range = f->fmt.pix.quantization;
-	ctx->transfer = f->fmt.pix.xfer_func;
-
-	return avico_g_fmt(file, priv, f);
+	return avico_try_fmt_common(f);
 }
 
-static int avico_s_fmt_capture(struct file *file, void *priv,
-			       struct v4l2_format *f)
+
+static int avico_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct avico_ctx *ctx = container_of(priv, struct avico_ctx, fh);
+	struct avico_q_data *q_data = get_q_data(ctx, f->type);
 	int ret = avico_try_fmt(file, priv, f);
 
 	if (ret)
 		return ret;
 
-	/* Ignore width & height. They are only set for output end. */
+	if (!q_data)
+		return -EINVAL;
 
-	ctx->capfmt = avico_capfmt(f->fmt.pix.pixelformat);
+	q_data->width = f->fmt.pix.width;
+	q_data->height = f->fmt.pix.height;
+	q_data->bytesperline = f->fmt.pix.bytesperline;
+	q_data->sizeimage = f->fmt.pix.sizeimage;
+	q_data->f = avico_find_format(ctx, f->fmt.pix.pixelformat, f->type);
+
+	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
+		ctx->colorspace = f->fmt.pix.colorspace;
+		ctx->matrix = f->fmt.pix.ycbcr_enc;
+		ctx->range = f->fmt.pix.quantization;
+		ctx->transfer = f->fmt.pix.xfer_func;
+	}
 
 	return avico_g_fmt(file, priv, f);
 }
@@ -1611,12 +1619,12 @@ static const struct v4l2_ioctl_ops avico_ioctl_ops = {
 
 	.vidioc_enum_fmt_vid_out = avico_enum_fmt_output,
 	.vidioc_g_fmt_vid_out    = avico_g_fmt,
-	.vidioc_s_fmt_vid_out    = avico_s_fmt_output,
+	.vidioc_s_fmt_vid_out    = avico_s_fmt,
 	.vidioc_try_fmt_vid_out  = avico_try_fmt,
 
 	.vidioc_enum_fmt_vid_cap = avico_enum_fmt_capture,
 	.vidioc_g_fmt_vid_cap    = avico_g_fmt,
-	.vidioc_s_fmt_vid_cap    = avico_s_fmt_capture,
+	.vidioc_s_fmt_vid_cap    = avico_s_fmt,
 	.vidioc_try_fmt_vid_cap  = avico_try_fmt,
 
 	.vidioc_g_parm    = avico_g_parm,
@@ -1645,18 +1653,12 @@ static int avico_queue_setup(struct vb2_queue *vq,
 			     unsigned int sizes[], void *alloc_ctxs[])
 {
 	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
+	struct avico_q_data *q_data = get_q_data(ctx, vq->type);
 
-	switch (vq->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		sizes[0] = ctx->outsize;
-		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		sizes[0] = ctx->capsize;
-		break;
-	default:
+	if (!q_data)
 		return -EINVAL;
-	}
 
+	sizes[0] = q_data->sizeimage;
 	*nbuffers = min(*nbuffers, AVICO_QUEUE_MEM_LIMIT / sizes[0]);
 	*nplanes = 1;
 
@@ -1672,32 +1674,25 @@ static int avico_buf_prepare(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct avico_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
-	unsigned int size;
+	struct avico_q_data *q_data = get_q_data(ctx, vb->type);
 
 	if (vbuf->field == V4L2_FIELD_ANY)
 		vbuf->field = V4L2_FIELD_NONE;
 	if (vbuf->field != V4L2_FIELD_NONE)
 		return -EINVAL;
 
-	switch (vb->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		size = ctx->outsize;
-		break;
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		size = ctx->capsize;
-		break;
-	default:
+	if (!q_data)
 		return -EINVAL;
-	}
 
-	if (vb2_plane_size(vb, 0) < size) {
+	if (vb2_plane_size(vb, 0) < q_data->sizeimage) {
 		v4l2_printk(KERN_NOTICE, &ctx->dev->v4l2_dev,
 			    "Data will not fit into plane (%lu < %u)\n",
-			    vb2_plane_size(vb, 0), size);
+			    vb2_plane_size(vb, 0), q_data->sizeimage);
 		return -EINVAL;
 	}
 
-	vb2_set_plane_payload(vb, 0, size);
+	if (ctx->thread_type == AVICO_ENCODER)
+		vb2_set_plane_payload(vb, 0, q_data->sizeimage);
 
 	return 0;
 }
@@ -1715,17 +1710,26 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 	struct avico_frame_params *par = &ctx->par;
 	int ret = 0;
 
+	if (ctx->out_q.width != ctx->cap_q.width ||
+	    ctx->out_q.height != ctx->cap_q.height) {
+		v4l2_err(&ctx->dev->v4l2_dev, "can't convert %dx%d to %dx%d\n",
+			 ctx->out_q.width, ctx->out_q.height,
+			 ctx->cap_q.width, ctx->cap_q.height);
+		ret = -EINVAL;
+		goto err_ret;
+	}
+
 	ctx->outseq = ctx->capseq = 0;
 
 	/* \todo Assert that width and height < 4096 */
-	ctx->mbx = DIV_ROUND_UP(ctx->width, 16);
-	ctx->mby = DIV_ROUND_UP(ctx->height, 16);
+	ctx->mbx = DIV_ROUND_UP(ctx->out_q.width, 16);
+	ctx->mby = DIV_ROUND_UP(ctx->out_q.height, 16);
 	par->dbf = 0;
 
 	par->crop.left = 0;
 	par->crop.top = 0;
-	par->crop.right = (ctx->mbx * 16 - ctx->width) / 2;
-	par->crop.bottom = (ctx->mby * 16 - ctx->height) / 2;
+	par->crop.right = (ctx->mbx * 16 - ctx->out_q.width) / 2;
+	par->crop.bottom = (ctx->mby * 16 - ctx->out_q.height) / 2;
 
 	par->frame = 0;
 	par->gop = ctx->ctrl_gop->cur.val;
@@ -1733,7 +1737,14 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 	par->poc_type = 2;
 	ctx->vdma_trans_size_m1 = 3;
 
-	ctx->refsize = ctx->mbx * ctx->mby * (256 + 128);
+	if (ctx->thread_type == AVICO_ENCODER) {
+		ctx->refsize = ctx->mbx * ctx->mby * (256 + 128);
+	} else {
+		unsigned int refreserve = ctx->mbx * 16 * 12;
+
+		/* + reserve line of half-MBs above mb_ref */
+		ctx->refsize = ctx->mbx * ctx->mby * (256 + 128) + refreserve;
+	}
 
 	ctx->vref = dma_alloc_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
 				       &ctx->dmaref, GFP_KERNEL);
@@ -1744,20 +1755,24 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 		return -ENOMEM;
 	}
 
-	ctx->mbrefsize = MB_REF_SIZE * ctx->mbx * 2;
-	ctx->vmbref = dma_alloc_coherent(ctx->dev->v4l2_dev.dev, ctx->mbrefsize,
-					 &ctx->dmambref, GFP_KERNEL);
-	if (!ctx->vmbref) {
-		ret = -ENOMEM;
-		goto free_ref;
-	}
+	if (ctx->thread_type == AVICO_ENCODER) {
+		ctx->mbrefsize = MB_REF_SIZE * ctx->mbx * 2;
+		ctx->vmbref = dma_alloc_coherent(ctx->dev->v4l2_dev.dev,
+						 ctx->mbrefsize, &ctx->dmambref,
+						 GFP_KERNEL);
+		if (!ctx->vmbref) {
+			ret = -ENOMEM;
+			goto free_ref;
+		}
 
-	ctx->mbcursize = MB_CUR_SIZE * ctx->mbx * 2;
-	ctx->vmbcur = dma_alloc_coherent(ctx->dev->v4l2_dev.dev, ctx->mbcursize,
-					 &ctx->dmambcur, GFP_KERNEL);
-	if (!ctx->vmbcur) {
-		ret = -ENOMEM;
-		goto free_mbref;
+		ctx->mbcursize = MB_CUR_SIZE * ctx->mbx * 2;
+		ctx->vmbcur = dma_alloc_coherent(ctx->dev->v4l2_dev.dev,
+						 ctx->mbcursize, &ctx->dmambcur,
+						 GFP_KERNEL);
+		if (!ctx->vmbcur) {
+			ret = -ENOMEM;
+			goto free_mbref;
+		}
 	}
 
 	return 0;
@@ -1768,7 +1783,7 @@ free_mbref:
 free_ref:
 	dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize, ctx->vref,
 			  ctx->dmaref);
-
+err_ret:
 	return ret;
 }
 
@@ -1849,12 +1864,15 @@ static void avico_stop_streaming(struct vb2_queue *q)
 		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
 				  ctx->vref, ctx->dmaref);
 
-		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->mbrefsize,
-				  ctx->vmbref, ctx->dmambref);
+		if (ctx->thread_type == AVICO_ENCODER) {
+			dma_free_coherent(ctx->dev->v4l2_dev.dev,
+					  ctx->mbrefsize, ctx->vmbref,
+					  ctx->dmambref);
 
-		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->mbcursize,
-				  ctx->vmbcur, ctx->dmambcur);
-
+			dma_free_coherent(ctx->dev->v4l2_dev.dev,
+					  ctx->mbcursize, ctx->vmbcur,
+					  ctx->dmambcur);
+		}
 		ctx->aborting = 0;
 	}
 
@@ -1984,6 +2002,7 @@ static int avico_open(struct file *file)
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
 
+	ctx->thread_type = AVICO_ENCODER;
 	/* \todo Should be allocated dynamically */
 	ctx->id = 0;
 
@@ -1991,20 +2010,27 @@ static int avico_open(struct file *file)
 		.numerator = 1,
 		.denominator = 25
 	};
-
-	ctx->width = 1280;
-	ctx->height = 720;
-
-	ctx->outsize = round_up(ctx->width, 16) * round_up(ctx->height, 16) *
-		       3 / 2;
-	/* \todo Following is surplus */
-	ctx->capsize = round_up(ctx->width * ctx->height * 2, PAGE_SIZE);
-
 	ctx->outseq = ctx->capseq = 0;
-	ctx->colorspace = avico_def_colorspace(ctx->width, ctx->height);
+
+	ctx->out_q.width = ctx->cap_q.width = 1280;
+	ctx->out_q.height = ctx->cap_q.height = 720;
+
+	ctx->colorspace = avico_def_colorspace(ctx->out_q.width,
+					       ctx->out_q.height);
 	ctx->transfer = V4L2_XFER_FUNC_DEFAULT;
 	ctx->matrix = V4L2_YCBCR_ENC_DEFAULT;
 	ctx->range = V4L2_QUANTIZATION_DEFAULT;
+
+	ctx->out_q.bytesperline = round_up(ctx->out_q.width, 16);
+	ctx->out_q.sizeimage = ctx->out_q.bytesperline *
+			       round_up(ctx->out_q.height, 16) * 3 / 2;
+	ctx->cap_q.bytesperline = 0;
+	ctx->cap_q.sizeimage = ctx->cap_q.width * ctx->cap_q.height * 2;
+
+	ctx->out_q.f = avico_find_format(ctx, V4L2_PIX_FMT_M420,
+					 V4L2_BUF_TYPE_VIDEO_OUTPUT);
+	ctx->cap_q.f = avico_find_format(ctx, V4L2_PIX_FMT_H264,
+					 V4L2_BUF_TYPE_VIDEO_CAPTURE);
 
 	for (i = 0; i < 2; i++) {
 		/* \bug Will not work for several threads
