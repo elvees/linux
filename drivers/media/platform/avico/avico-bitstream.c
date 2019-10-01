@@ -100,6 +100,109 @@ struct h264_signal_type {
 	int r;
 };
 
+static int read_lzb(struct bitstream *bs)
+{
+	uint8_t cb, cbmask;
+	int lzb;
+
+	/* unexpected end of bitstream */
+	if (bs->p > bs->end)
+		return -EINVAL;
+
+	cbmask = (1 << bs->bitsleft) - 1;
+	cb = *bs->p & cbmask;
+	lzb = bs->bitsleft - fls(cb);
+	bs->bitsleft -= lzb;
+
+	while (cb == 0) {
+		unsigned int z;
+
+		bs->bitsleft = 8;
+
+		/* unexpected end of bitstream */
+		if (++bs->p > bs->end)
+			return -EINVAL;
+
+		/* skip emulation_prevention_three_byte */
+		if (bs->nulls == 2 && *bs->p == 3) {
+			bs->p++;
+			bs->nulls = 0;
+		}
+		if (*bs->p == 0)
+			bs->nulls++;
+		else
+			bs->nulls = 0;
+
+		cb = *bs->p;
+		z = 8 - fls(cb);
+		bs->bitsleft -= z;
+		lzb += z;
+	}
+
+	return lzb;
+}
+
+static uint32_t readu(struct bitstream *bs, uint8_t bits)
+{
+	uint32_t value = 0;
+
+	while (bits) {
+		unsigned int const readbits = min(bs->bitsleft, bits);
+		unsigned int const cbmask = (1 << readbits) - 1;
+		/* Number of top readbits */
+		unsigned int const read = *bs->p >> (bs->bitsleft - readbits);
+
+		/* unexpected end of bitstream */
+		if (bs->p > bs->end) {
+			__WARN();
+			return value;
+		}
+
+		value <<= readbits;
+		value |= read & cbmask;
+		bits -= readbits; /* Decrease number of bits to be read */
+		bs->bitsleft -= readbits;
+
+		if (bs->bitsleft == 0) {
+			bs->bitsleft = 8;
+			bs->p++;
+			/* skip emulation_prevention_three_byte */
+			if (bs->nulls == 2 && *bs->p == 3) {
+				bs->p++;
+				bs->nulls = 0;
+			}
+			if (*bs->p == 0)
+				bs->nulls++;
+			else
+				bs->nulls = 0;
+		}
+	}
+
+	return value;
+}
+
+static uint32_t readue(struct bitstream *bs)
+{
+	uint32_t value, vmask;
+	int lzb = read_lzb(bs);
+
+	/* bad bitstream */
+	WARN_ON(lzb < 0 || lzb > 31);
+
+	vmask = (1 << lzb) - 1;
+	value = readu(bs, lzb + 1) & vmask;
+
+	return vmask + value;
+}
+
+static int32_t readse(struct bitstream *bs)
+{
+	uint32_t ue = readue(bs);
+	int32_t se = DIV_ROUND_UP(ue, 2);
+
+	return ue % 2 ? se : -se;
+}
+
 /* Zero_byte followed by a start_code_prefix_one_3bytes */
 static void write_delimiter(struct bitstream *bs)
 {
