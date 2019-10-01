@@ -62,13 +62,6 @@ enum avico_flags {
 #define DMA_CBS_LEN (40 * 8 * 16)
 /* Size of a buffer for encoded data in VRAM. Should be multiple of 16 bytes. */
 #define SIZE_CBS (DMA_CBS_LEN * 2)
-/* Frame bounds */
-#define AVICO_WALIGN 1 /* power of 2 */
-#define AVICO_HALIGN 1 /* power of 2 */
-#define AVICO_WMAX 1920
-#define AVICO_WMIN 16
-#define AVICO_HMAX 4096
-#define AVICO_HMIN 16
 /*
  * We need 4 bounce buffers BOUNCE_BUF_SIZE each (2 buffers for reconstructed
  * frame and 2 buffers for datastream).

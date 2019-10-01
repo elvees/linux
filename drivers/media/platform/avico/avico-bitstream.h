@@ -17,30 +17,6 @@
 
 #include "avico.h"
 
-enum nalu_type_t {
-	NALU_SLICE = 1,
-	NALU_DPA,
-	NALU_DPB,
-	NALU_DPC,
-	NALU_IDR,
-	NALU_SEI,
-	NALU_SPS,
-	NALU_PPS,
-	NALU_AUD,
-	NALU_EOSEQ,
-	NALU_EOSTREAM,
-	NALU_FILL,
-	NALU_NONE
-};
-
-enum nalu_priority_t {
-	NALU_PRIOR_DISPOSABLE,
-	NALU_PRIOR_LOW,
-	NALU_PRIOR_HIGH,
-	NALU_PRIOR_HIGHEST,
-	NALU_PRIOR_NONE
-};
-
 struct bitstream {
 	uint8_t *start;
 	uint8_t *end;
@@ -61,5 +37,14 @@ void avico_bitstream_get64(struct avico_ctx *ctx, uint32_t data[2],
 int avico_bitstream_ecd_stuff_pos(struct avico_ctx *ctx);
 void avico_bitstream_cut64(struct avico_ctx *ctx);
 void avico_bitstream_dump(struct bitstream *bs);
+int avico_bitstream_read_delimiter(struct bitstream *bs);
+int avico_bitstream_read_nalu_type(struct avico_ctx *ctx,
+				   unsigned int *nalu_type,
+				   unsigned int *nalu_priority);
+int avico_bitstream_read_sps(struct avico_ctx *ctx);
+int avico_bitstream_read_pps(struct avico_ctx *ctx);
+int avico_bitstream_read_slice_header(struct avico_ctx *ctx,
+				      unsigned int nalu_type,
+				      unsigned int nalu_priority);
 
 #endif /* AVICO_BITSTREAM_H */
