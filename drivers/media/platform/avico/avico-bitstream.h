@@ -28,6 +28,19 @@ struct bitstream {
 
 struct avico_ctx;
 
+static inline int avico_bitstream_bit_offset(struct bitstream *bs)
+{
+	return (bs->p - bs->start) * 8 + 8 - bs->bitsleft;
+}
+
+static inline void avico_bitstream_align_up(struct bitstream *bs)
+{
+	if (bs->bitsleft != 8) {
+		bs->bitsleft = 8;
+		bs->p++;
+	}
+}
+
 void avico_bitstream_init(struct avico_ctx *ctx, void *ptr, unsigned int size);
 void avico_bitstream_write_sps(struct avico_ctx *ctx);
 void avico_bitstream_write_pps(struct avico_ctx *ctx);

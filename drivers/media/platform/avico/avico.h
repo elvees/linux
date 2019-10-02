@@ -417,7 +417,7 @@ struct thread {
 	union smbpos smbpos;
 };
 
-enum ecd_task_id {
+enum ec_task_id {
 	ECD_TASK_ADDEXBITS  = 0x92,
 	ECD_TASK_ADDEXBYTES = 0x93,
 	ECD_TASK_H264_ENC_RESET = 0xc0,
@@ -426,6 +426,17 @@ enum ecd_task_id {
 	ECD_TASK_H264_ENC_TRAIL,
 	ECD_TASK_H264_ENC_FLUSH
 };
+
+enum ed_task_id {
+	T_H264_DEC_TOTAL_RESET = 0xc0,
+	T_H264_DEC_SLICE_RESET,
+	T_H264_DEC_MB_420,
+	T_H264_DEC_DBS_SHIFT,
+	T_H264_DEC_INIT_DBS_LOAD,
+	T_H264_DEC_DBS_LOAD_FLAG_0,
+	T_H264_DEC_DBS_LOAD_FLAG_1
+};
+
 
 union ecd_task {
 	uint32_t val;
@@ -709,6 +720,7 @@ struct avico_ctx {
 	/* Abort requested by m2m */
 	int aborting;
 
+	bool reschanged;
 	unsigned long state;
 	enum avico_thread_type thread_type;
 
