@@ -2844,6 +2844,7 @@ static int avico_open(struct file *file)
 	 * 2. Allocate and initialize device-specific context and m2m_ctx
 	 * 3. Setup controls */
 
+	struct video_device *vdev = video_devdata(file);
 	struct avico_dev *dev = video_drvdata(file);
 	struct avico_ctx *ctx;
 	int rc = 0;
@@ -2858,13 +2859,9 @@ static int avico_open(struct file *file)
 		goto open_unlock;
 	}
 
-	v4l2_fh_init(&ctx->fh, video_devdata(file));
+	v4l2_fh_init(&ctx->fh, vdev);
 	file->private_data = &ctx->fh;
 	ctx->dev = dev;
-
-	ctx->thread_type = AVICO_ENCODER;
-	/* \todo Should be allocated dynamically */
-	ctx->id = 0;
 
 	ctx->timeperframe = (struct v4l2_fract) {
 		.numerator = 1,
@@ -2881,24 +2878,50 @@ static int avico_open(struct file *file)
 	ctx->matrix = V4L2_YCBCR_ENC_DEFAULT;
 	ctx->range = V4L2_QUANTIZATION_DEFAULT;
 
-	ctx->out_q.bytesperline = round_up(ctx->out_q.width, 16);
-	ctx->out_q.sizeimage = ctx->out_q.bytesperline *
-			       round_up(ctx->out_q.height, 16) * 3 / 2;
-	ctx->cap_q.bytesperline = 0;
-	ctx->cap_q.sizeimage = ctx->cap_q.width * ctx->cap_q.height * 2;
+	if (vdev == &dev->vfd_enc) {
+		ctx->thread_type = AVICO_ENCODER;
+		/* \todo Should be allocated dynamically */
+		ctx->id = 0;
 
-	ctx->out_q.f = avico_find_format(ctx, V4L2_PIX_FMT_M420,
-					 V4L2_BUF_TYPE_VIDEO_OUTPUT);
-	ctx->cap_q.f = avico_find_format(ctx, V4L2_PIX_FMT_H264,
-					 V4L2_BUF_TYPE_VIDEO_CAPTURE);
+		ctx->out_q.bytesperline = round_up(ctx->out_q.width, 16);
+		ctx->out_q.sizeimage = ctx->out_q.bytesperline *
+				       round_up(ctx->out_q.height, 16) * 3 / 2;
+		ctx->cap_q.bytesperline = 0;
+		ctx->cap_q.sizeimage = ctx->cap_q.width * ctx->cap_q.height * 2;
 
-	for (i = 0; i < 2; i++) {
-		/* \bug Will not work for several threads
-		 * \todo Should be allocated dynamically */
-		ctx->bounceref[i] = BOUNCE_BUF_BASE + BOUNCE_BUF_SIZE * i;
-		ctx->bounceout[i] = BOUNCE_BUF_BASE + BOUNCE_BUF_SIZE * (2 + i);
+		ctx->out_q.f = avico_find_format(ctx, V4L2_PIX_FMT_M420,
+						 V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		ctx->cap_q.f = avico_find_format(ctx, V4L2_PIX_FMT_H264,
+						 V4L2_BUF_TYPE_VIDEO_CAPTURE);
+
+		for (i = 0; i < 2; i++) {
+			/* \bug Will not work for several threads
+			 * \todo Should be allocated dynamically */
+			ctx->bounceref[i] = BOUNCE_BUF_BASE + BOUNCE_BUF_SIZE *
+					    i;
+			ctx->bounceout[i] = BOUNCE_BUF_BASE + BOUNCE_BUF_SIZE *
+					    (2 + i);
+		}
+		spin_lock_init(&ctx->bounce_lock);
+	} else if (vdev == &dev->vfd_dec) {
+		ctx->thread_type = AVICO_DECODER;
+		/* \todo Should be allocated dynamically */
+		ctx->id = 2;
+
+		ctx->cap_q.bytesperline = round_up(ctx->cap_q.width, 16);
+		ctx->cap_q.sizeimage = ctx->cap_q.bytesperline *
+				       round_up(ctx->cap_q.height, 16) * 3 / 2;
+		ctx->out_q.bytesperline = 0;
+		ctx->out_q.sizeimage = ctx->out_q.width * ctx->out_q.height * 2;
+
+		ctx->out_q.f = avico_find_format(ctx, V4L2_PIX_FMT_H264,
+						 V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		ctx->cap_q.f = avico_find_format(ctx, V4L2_PIX_FMT_M420,
+						 V4L2_BUF_TYPE_VIDEO_CAPTURE);
+	} else {
+		rc = -ENOENT;
+		goto error_ctx_free;
 	}
-	spin_lock_init(&ctx->bounce_lock);
 
 	pr_devel("Initializing M2M context...\n");
 	ctx->fh.m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev, ctx, &queue_init);
@@ -2961,8 +2984,17 @@ static const struct v4l2_file_operations avico_fops = {
 	.mmap    = v4l2_m2m_fop_mmap
 };
 
-static struct video_device const avico_video_device = {
-	.name      = MODULE_NAME,
+static struct video_device const avico_enc_video_device = {
+	.name      = "avico-enc",
+	.vfl_dir   = VFL_DIR_M2M,
+	.fops      = &avico_fops,
+	.ioctl_ops = &avico_ioctl_ops,
+	.minor     = -1,
+	.release = video_device_release_empty
+};
+
+static struct video_device const avico_dec_video_device = {
+	.name      = "avico-dec",
 	.vfl_dir   = VFL_DIR_M2M,
 	.fops      = &avico_fops,
 	.ioctl_ops = &avico_ioctl_ops,
@@ -3060,9 +3092,13 @@ static int avico_probe(struct platform_device *pdev)
 	spin_lock_init(&dev->irqlock);
 	mutex_init(&dev->mutex);
 
-	dev->vfd = avico_video_device;
-	dev->vfd.lock = &dev->mutex;
-	dev->vfd.v4l2_dev = &dev->v4l2_dev;
+	dev->vfd_enc = avico_enc_video_device;
+	dev->vfd_enc.lock = &dev->mutex;
+	dev->vfd_enc.v4l2_dev = &dev->v4l2_dev;
+
+	dev->vfd_dec = avico_dec_video_device;
+	dev->vfd_dec.lock = &dev->mutex;
+	dev->vfd_dec.v4l2_dev = &dev->v4l2_dev;
 
 	dev->m2m_dev = v4l2_m2m_init(&avico_m2m_ops);
 	if (IS_ERR(dev->m2m_dev)) {
@@ -3080,20 +3116,31 @@ static int avico_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
-	ret = video_register_device(&dev->vfd, VFL_TYPE_GRABBER, -1);
+	ret = video_register_device(&dev->vfd_enc, VFL_TYPE_GRABBER, -1);
 	if (ret) {
 		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
-		goto unreg_dev;
+		goto cleanup_ctx;
 	}
+	video_set_drvdata(&dev->vfd_enc, dev);
+	v4l2_info(&dev->v4l2_dev, "Encoder registered as /dev/video%d\n",
+		  dev->vfd_enc.num);
 
-	video_set_drvdata(&dev->vfd, dev);
-	v4l2_info(&dev->v4l2_dev, "Device registered as /dev/video%d\n",
-		dev->vfd.num);
+	ret = video_register_device(&dev->vfd_dec, VFL_TYPE_GRABBER, -1);
+	if (ret) {
+		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
+		goto unreg_enc;
+	}
+	video_set_drvdata(&dev->vfd_dec, dev);
+	v4l2_info(&dev->v4l2_dev, "Decoder registered as /dev/video%d\n",
+		dev->vfd_dec.num);
+
 	platform_set_drvdata(pdev, dev);
 
 	return 0;
 
-unreg_dev:
+unreg_enc:
+	video_unregister_device(&dev->vfd_enc);
+cleanup_ctx:
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 	pm_runtime_disable(&pdev->dev);
 err_alloc:
@@ -3113,7 +3160,8 @@ static int avico_remove(struct platform_device *pdev)
 	struct avico_dev *dev = (struct avico_dev *)platform_get_drvdata(pdev);
 
 	v4l2_info(&dev->v4l2_dev, "Removing " MODULE_NAME "\n");
-	video_unregister_device(&dev->vfd);
+	video_unregister_device(&dev->vfd_enc);
+	video_unregister_device(&dev->vfd_dec);
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 	v4l2_m2m_release(dev->m2m_dev);
 	pm_runtime_disable(&pdev->dev);

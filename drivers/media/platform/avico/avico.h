@@ -507,7 +507,8 @@ union vdma_cfg {
 
 struct avico_dev {
 	struct v4l2_device v4l2_dev;
-	struct video_device vfd;
+	struct video_device vfd_enc;
+	struct video_device vfd_dec;
 
 	struct device *dev;
 
