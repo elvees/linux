@@ -2380,6 +2380,54 @@ static int avico_subscribe_event(struct v4l2_fh *fh,
 	}
 }
 
+static int avico_try_decoder_cmd(struct file *file, void *fh,
+				 struct v4l2_decoder_cmd *dc)
+{
+	struct avico_ctx *ctx = container_of(fh, struct avico_ctx, fh);
+
+	if (ctx->thread_type != AVICO_DECODER)
+		return -ENOTTY;
+
+	if (dc->cmd != V4L2_DEC_CMD_STOP)
+		return -EINVAL;
+
+	dc->flags = 0;
+	dc->stop.pts = 0;
+
+	return 0;
+}
+
+static int avico_decoder_cmd(struct file *file, void *fh,
+			    struct v4l2_decoder_cmd *dc)
+{
+	struct avico_ctx *ctx = container_of(fh, struct avico_ctx, fh);
+	int ret;
+	struct vb2_v4l2_buffer *buf;
+	struct vb2_queue *src_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+						   V4L2_BUF_TYPE_VIDEO_OUTPUT);
+	struct vb2_queue *dst_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+						   V4L2_BUF_TYPE_VIDEO_CAPTURE);
+
+	ret = avico_try_decoder_cmd(file, fh, dc);
+	if (ret < 0)
+		return ret;
+
+	/* Output/Capture stream is off. No need to flush. */
+	if (!vb2_is_streaming(src_vq) || !vb2_is_streaming(dst_vq))
+		return 0;
+
+	buf = v4l2_m2m_last_src_buf(ctx->fh.m2m_ctx);
+	if (buf) {
+		/* Mark last buffer */
+		buf->flags |= V4L2_BUF_FLAG_LAST;
+	} else {
+		dst_vq->last_buffer_dequeued = true;
+		wake_up(&dst_vq->done_wq);
+	}
+
+	return 0;
+}
+
 static const struct v4l2_ioctl_ops avico_ioctl_ops = {
 	.vidioc_querycap = avico_querycap,
 
@@ -2404,6 +2452,9 @@ static const struct v4l2_ioctl_ops avico_ioctl_ops = {
 
 	.vidioc_streamon  = v4l2_m2m_ioctl_streamon,
 	.vidioc_streamoff = v4l2_m2m_ioctl_streamoff,
+
+	.vidioc_try_decoder_cmd	= avico_try_decoder_cmd,
+	.vidioc_decoder_cmd	= avico_decoder_cmd,
 
 	.vidioc_subscribe_event = avico_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe
