@@ -192,7 +192,7 @@ static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
 	swic_writel(pdata, base_addr + SWIC_DMA_RUN, 0);
 
 	reg = swic_readl(pdata, SWIC_MODE_CR);
-	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_RDY_MODE |
+	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_LINK_RESET |
 					 SWIC_MODE_CR_LINK_DISABLE);
 
 	while (swic_readl(pdata, base_addr + SWIC_DMA_RUN) &
@@ -200,13 +200,13 @@ static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
 	}
 
 	reg = swic_readl(pdata, SWIC_MODE_CR);
-	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_RDY_MODE));
+	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_LINK_RESET));
 }
 
 static void elvees_swic_reset(struct elvees_swic_private_data *pdata)
 {
 	swic_writel(pdata, SWIC_MODE_CR, SWIC_MODE_CR_LINK_DISABLE |
-					 SWIC_MODE_CR_LINK_RST);
+					 SWIC_MODE_CR_LINK_RESET);
 
 	swic_writel(pdata, SWIC_TX_SPEED, 0);
 
