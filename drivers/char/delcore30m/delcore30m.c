@@ -1256,7 +1256,7 @@ static void sdma_program_tile(struct sdma_program_buf *program_buf,
 	char *loop_start;
 	ptrdiff_t loop_length;
 	const u32 acnt = sd.asize / SDMA_BURST_SIZE(sd.ccr);
-	const u32 trans16_pack = (acnt / 16);
+	u32 i, trans16_pack = (acnt / 16);
 	const u32 trans_pack = (acnt % 16);
 
 	if (type != SDMA_CHANNEL_OUTPUT || sd.type == SDMA_DESCRIPTOR_E1I0 ||
@@ -1287,9 +1287,19 @@ static void sdma_program_tile(struct sdma_program_buf *program_buf,
 		sdma_command_add(program_buf, SDMA_DMAMOVE_CCR, 2);
 		sdma_command_add(program_buf, sd.ccr | (15 << 18) | (15 << 4),
 				 4);
+	}
 
+	for (i = 0; i < trans16_pack / 256; ++i) {
+		sdma_command_add(program_buf, SDMA_DMALP(1) + (255 << 8), 2);
+		sdma_command_add(program_buf, SDMA_DMALD, 1);
+		sdma_command_add(program_buf, SDMA_DMAST, 1);
+		sdma_command_add(program_buf, SDMA_DMALPEND(1) + (2 << 8), 2);
+	}
+
+	trans16_pack = trans16_pack % 256;
+	if (trans16_pack) {
 		sdma_command_add(program_buf,
-				 SDMA_DMALP(1) + ((trans16_pack-1) << 8), 2);
+				 SDMA_DMALP(1) + ((trans16_pack - 1) << 8), 2);
 		sdma_command_add(program_buf, SDMA_DMALD, 1);
 		sdma_command_add(program_buf, SDMA_DMAST, 1);
 		sdma_command_add(program_buf, SDMA_DMALPEND(1) + (2 << 8), 2);
