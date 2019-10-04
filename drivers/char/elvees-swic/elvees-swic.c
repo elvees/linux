@@ -70,6 +70,9 @@ struct elvees_swic_private_data {
 	void __iomem *regs;
 
 	unsigned long mtu;
+	u32 tx_speed;
+
+	spinlock_t lock;
 
 	struct elvees_swic_buf_desc *rx_data_ring;
 
@@ -184,6 +187,17 @@ static void swic_writel(struct elvees_swic_private_data *pdata, u32 reg,
 	 writel(value, pdata->regs + reg);
 }
 
+static void elvees_swic_hw_set_speed(struct elvees_swic_private_data *pdata,
+				     unsigned long arg)
+{
+	u32 reg;
+
+	reg = swic_readl(pdata, SWIC_TX_SPEED);
+	reg &= ~SWIC_TX_SPEED_TX_SPEED;
+	reg |= SET_FIELD(SWIC_TX_SPEED_TX_SPEED, arg);
+	swic_writel(pdata, SWIC_TX_SPEED, reg);
+}
+
 static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
 				 u32 base_addr)
 {
@@ -198,6 +212,9 @@ static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
 	while (swic_readl(pdata, base_addr + SWIC_DMA_RUN) &
 	       SWIC_DMA_CSR_RUN) {
 	}
+
+	/* Set speed to default (4.8 Mbit/s) when link is disabled. */
+	elvees_swic_hw_set_speed(pdata, TX_SPEED_4P8);
 
 	reg = swic_readl(pdata, SWIC_MODE_CR);
 	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_LINK_RESET));
@@ -364,15 +381,16 @@ static u32 elvees_swic_get_speed(struct elvees_swic_private_data *pdata,
 static int elvees_swic_set_speed(struct elvees_swic_private_data *pdata,
 				 unsigned long arg)
 {
-	u32 reg;
+	unsigned long flags;
 
 	if (arg != TX_SPEED_2P4 && arg > TX_SPEED_408)
 		return -EINVAL;
 
-	reg = swic_readl(pdata, SWIC_TX_SPEED);
-	reg &= ~SWIC_TX_SPEED_TX_SPEED;
-	reg |= SET_FIELD(SWIC_TX_SPEED_TX_SPEED, arg);
-	swic_writel(pdata, SWIC_TX_SPEED, reg);
+	spin_lock_irqsave(&pdata->lock, flags);
+	pdata->tx_speed = arg;
+	if (pdata->link)
+		elvees_swic_hw_set_speed(pdata, pdata->tx_speed);
+	spin_unlock_irqrestore(&pdata->lock, flags);
 
 	return 0;
 }
@@ -739,14 +757,19 @@ static irqreturn_t elvees_swic_dma_tx_data_ih(int irq, void *data)
 
 static irqreturn_t elvees_swic_ih(int irq, void *data)
 {
-	u32 reg;
 	struct elvees_swic_private_data *pdata = data;
+	u32 reg;
 
 	reg = swic_readl(pdata, SWIC_STATUS);
 
 	if (reg & SWIC_STATUS_CONNECTED) {
 		reg |= SWIC_STATUS_GOT_FIRST_BIT;
 		pdata->link = true;
+
+		spin_lock(&pdata->lock);
+		elvees_swic_hw_set_speed(pdata, pdata->tx_speed);
+		spin_unlock(&pdata->lock);
+
 		dev_dbg(pdata->dev, "Connection is set\n");
 	}
 
@@ -772,6 +795,11 @@ static irqreturn_t elvees_swic_ih(int irq, void *data)
 
 	if (reg & SWIC_STATUS_ERR) {
 		pdata->link = false;
+
+		spin_lock(&pdata->lock);
+		elvees_swic_hw_set_speed(pdata, TX_SPEED_4P8);
+		spin_unlock(&pdata->lock);
+
 		wake_up_interruptible(&pdata->write_wq);
 		wake_up_interruptible(&pdata->read_wq);
 	}
@@ -899,6 +927,8 @@ static int elvees_swic_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_aclk;
 
+	spin_lock_init(&pdata->lock);
+
 	mutex_init(&pdata->swic_write_lock);
 	mutex_init(&pdata->swic_read_lock);
 
@@ -908,6 +938,7 @@ static int elvees_swic_probe(struct platform_device *pdev)
 	init_waitqueue_head(&pdata->read_wq);
 
 	pdata->mtu = ELVEES_SWIC_MTU_DEFAULT;
+	pdata->tx_speed = TX_SPEED_4P8;
 
 	ret = elvees_swic_rx_ring_create(pdata);
 	if (ret) {
