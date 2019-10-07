@@ -510,6 +510,9 @@ struct avico_dev {
 	struct video_device vfd_enc;
 	struct video_device vfd_dec;
 
+	void *vmem[2];
+	struct gen_pool *mem_pool[2];
+
 	struct device *dev;
 
 	void __iomem *regs;
@@ -744,8 +747,17 @@ struct avico_ctx {
 	struct bitstream bs;
 
 	unsigned int id; /* Hardware thread ID */
-	void *vref;
-	dma_addr_t dmaref, dmainp, dmaout;
+
+	void *vref[2];
+	dma_addr_t dmaref[2];
+	int refn; /* Reference buffer number */
+	unsigned int refsize;
+
+	void *vsrc[2];
+	dma_addr_t dmasrc[2];
+	unsigned int srcsize;
+
+	dma_addr_t dmainp, dmaout;
 	dma_addr_t bounceref[2], bounceout[2];
 	uint32_t ref_ptr_off, out_ptr_off;  /* Offsets for new data */
 	int bounce_active;  /* Active bounce buffer */
@@ -781,7 +793,6 @@ struct avico_ctx {
 	enum v4l2_ycbcr_encoding matrix;
 	enum v4l2_xfer_func transfer;
 
-	unsigned int refsize;
 	unsigned int outseq, capseq;
 
 	struct v4l2_ctrl	*ctrl_qp_i;
