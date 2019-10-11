@@ -1249,6 +1249,22 @@ static struct buf_info *delcore30m_job_get_bufinfo(
 	return NULL;
 }
 
+static void sdma_addr_add(struct sdma_program_buf *program_buf, u8 cmd,
+			  u32 value)
+{
+	int i;
+
+	if (value == 0)
+		return;
+
+	for (i = 0; i < value / U16_MAX; ++i)
+		sdma_command_add(program_buf, cmd + (U16_MAX << 8), 3);
+
+	value %= U16_MAX;
+	if (value)
+		sdma_command_add(program_buf, cmd + (value << 8), 3);
+}
+
 static void sdma_program_tile(struct sdma_program_buf *program_buf,
 			      struct sdma_descriptor sd,
 			      enum sdma_channel_type type, u8 channel)
@@ -1259,22 +1275,20 @@ static void sdma_program_tile(struct sdma_program_buf *program_buf,
 	u32 i, trans16_pack = (acnt / 16);
 	const u32 trans_pack = (acnt % 16);
 
-	if (type != SDMA_CHANNEL_OUTPUT || sd.type == SDMA_DESCRIPTOR_E1I0 ||
-	    sd.type == SDMA_DESCRIPTOR_E1I1) {
-		sdma_command_add(program_buf, SDMA_DMAMOVE_SAR, 2);
-		if (type == SDMA_CHANNEL_INPUT)
-			sdma_command_add(program_buf, sd.a0e, 4);
-		else
-			sdma_command_add(program_buf, sd.a0i, 4);
-	}
+	sdma_command_add(program_buf, SDMA_DMAMOVE_SAR, 2);
+	if (type == SDMA_CHANNEL_INPUT)
+		sdma_command_add(program_buf, sd.a0e, 4);
+	else
+		sdma_command_add(program_buf, sd.a0i, 4);
+
+	sdma_command_add(program_buf, SDMA_DMAMOVE_DAR, 2);
+	if (type == SDMA_CHANNEL_INPUT)
+		sdma_command_add(program_buf, sd.a0i, 4);
+	else
+		sdma_command_add(program_buf, sd.a0e, 4);
 
 	if (sd.type == SDMA_DESCRIPTOR_E1I1 ||
 	    sd.type == SDMA_DESCRIPTOR_E1I0) {
-		sdma_command_add(program_buf, SDMA_DMAMOVE_DAR, 2);
-		if (type == SDMA_CHANNEL_INPUT)
-			sdma_command_add(program_buf, sd.a0i, 4);
-		else
-			sdma_command_add(program_buf, sd.a0e, 4);
 		sdma_command_add(program_buf,
 				 SDMA_DMAWFE +
 					((MAX_SDMA_CHANNELS + channel) << 11),
@@ -1315,17 +1329,14 @@ static void sdma_program_tile(struct sdma_program_buf *program_buf,
 		sdma_command_add(program_buf, SDMA_DMAST, 1);
 	}
 
-	if (sd.type == SDMA_DESCRIPTOR_E1I1 ||
-	    sd.type == SDMA_DESCRIPTOR_E0I1) {
-		if (type == SDMA_CHANNEL_INPUT)
-			sdma_command_add(program_buf, SDMA_DMAADDH_SAR +
-						((sd.astride - sd.asize) << 8),
-					 3);
-		else
-			sdma_command_add(program_buf, SDMA_DMAADDH_DAR +
-						((sd.astride - sd.asize) << 8),
-					 3);
-	}
+	if (type == SDMA_CHANNEL_INPUT)
+		sdma_addr_add(program_buf, SDMA_DMAADDH_SAR,
+			      sd.astride - sd.asize);
+	else
+		sdma_addr_add(program_buf, SDMA_DMAADDH_DAR,
+			      sd.astride - sd.asize);
+
+
 
 	/* FIXME: Using barrier SDMA_DMARMB or/and SDMA_DMAWMB? */
 
@@ -1388,7 +1399,7 @@ static int sdma_program(struct delcore30m_dmachain dmachain,
 		memcpy(&temp_sd, sd, sizeof(struct sdma_descriptor));
 
 		temp_sd.a0e += sg_dma_address(external->sgt->sgl);
-		temp_sd.a0i = sg_dma_address(internal[odd]->sgt->sgl);
+		temp_sd.a0i += sg_dma_address(internal[odd]->sgt->sgl);
 
 		sdma_program_tile(&program_buf, temp_sd,
 				  dmachain.channel.type, dmachain.channel.num);
