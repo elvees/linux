@@ -478,7 +478,10 @@ stop_data_dma:
 
 	dma_copied = swic_readl(pdata, SWIC_DMA_TX_DATA + SWIC_DMA_CSR);
 	dma_copied = GET_FIELD(dma_copied, SWIC_DMA_CSR_WCX);
-	dma_copied = chunk_aligned - ((dma_copied + 1) * 8);
+	if (dma_copied == 0xFFFF)
+		dma_copied = chunk_aligned;
+	else
+		dma_copied = chunk_aligned - (dma_copied + 1) * 8;
 	*transmitted += dma_copied;
 
 stop_desc_dma:
