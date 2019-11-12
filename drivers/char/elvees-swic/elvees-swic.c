@@ -658,13 +658,43 @@ exit:
 	return transmitted;
 }
 
+static int swic_receive_data(struct elvees_swic_private_data *pdata,
+			     char __user *buf, size_t *size,
+			     size_t *completed)
+{
+	struct elvees_swic_buf_desc *ring = pdata->rx_data_ring;
+	struct elvees_swic_ring_head *head = &pdata->cpu_head;
+	size_t chunk;
+	int ret;
+
+	chunk = min_t(size_t, ELVEES_SWIC_RX_BUF_SIZE - head->offset, *size);
+
+	ret = copy_to_user(buf, ring[head->desc_num].vaddr +
+			   head->offset, chunk);
+	if (ret)
+		return ret;
+
+	*completed += chunk;
+	*size -= chunk;
+
+	if (chunk == ELVEES_SWIC_RX_BUF_SIZE - head->offset) {
+		ring[head->desc_num].ready4dma = 1;
+		elvees_swic_move_head(head);
+		swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN,
+			    SWIC_DMA_CSR_RUN);
+	} else
+		head->offset += ALIGN(chunk, 8);
+
+	return 0;
+}
+
 static ssize_t elvees_swic_read(struct file *file, char __user *buf,
 				size_t size, loff_t *ppos)
 {
 	struct elvees_swic_private_data *pdata = file->private_data;
 	struct elvees_swic_buf_desc *ring = pdata->rx_data_ring;
 	struct elvees_swic_ring_head *head = &pdata->cpu_head;
-	size_t desc_size, completed = 0, chunk;
+	size_t desc_size, completed = 0;
 	int ret;
 
 	mutex_lock(&pdata->swic_read_lock);
@@ -695,45 +725,11 @@ static ssize_t elvees_swic_read(struct file *file, char __user *buf,
 	desc_size = pdata->rx_desc->size;
 
 	/*TODO: Add waiting for all packet data is actually copied by RX DMA */
-	if (head->offset != 0) {
-		chunk = min_t(size_t, ELVEES_SWIC_RX_BUF_SIZE - head->offset,
-			      desc_size);
-
-		ret = copy_to_user(buf, ring[head->desc_num].vaddr +
-					head->offset, chunk);
-		if (ret)
-			goto stop_data_dma;
-
-		if (chunk == ELVEES_SWIC_RX_BUF_SIZE - head->offset) {
-			ring[head->desc_num].ready4dma = 1;
-			elvees_swic_move_head(head);
-			swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN,
-				    SWIC_DMA_CSR_RUN);
-		} else
-			head->offset += ALIGN(chunk, 8);
-
-		completed += chunk;
-		desc_size -= chunk;
-	}
-
 	while (desc_size > 0) {
-		chunk = min_t(size_t, ELVEES_SWIC_RX_BUF_SIZE, desc_size);
-
-		ret = copy_to_user(buf + completed, ring[head->desc_num].vaddr,
-				   chunk);
+		ret = swic_receive_data(pdata, buf + completed,
+					&desc_size, &completed);
 		if (ret)
 			goto stop_data_dma;
-
-		completed += chunk;
-		desc_size -= chunk;
-
-		if (chunk == ELVEES_SWIC_RX_BUF_SIZE) {
-			ring[head->desc_num].ready4dma = 1;
-			elvees_swic_move_head(head);
-			swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN,
-				    SWIC_DMA_CSR_RUN);
-		} else
-			head->offset = ALIGN(chunk, 8);
 	}
 
 	goto exit;
