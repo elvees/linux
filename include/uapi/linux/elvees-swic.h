@@ -59,4 +59,7 @@ struct elvees_swic_speed {
 #define SWICIOC_GET_MTU \
 	_IOR(SWICIOC_MAGIC, 6, unsigned long)
 
+#define SWICIOC_FLUSH \
+	_IO(SWICIOC_MAGIC, 7)
+
 #endif
