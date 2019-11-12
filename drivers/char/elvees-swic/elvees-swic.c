@@ -433,16 +433,6 @@ static long elvees_swic_ioctl(struct file *file,
 	return -ENOTTY;
 }
 
-static bool elvees_swic_check_link(struct elvees_swic_private_data *pdata)
-{
-	u32 reg = swic_readl(pdata, SWIC_STATUS) & SWIC_STATUS_LINK_STATE;
-
-	if (reg == SWIC_STATUS_LINK_STATE_RUN)
-		return true;
-
-	return false;
-}
-
 static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
 				char __user *buf, size_t size,
 				size_t *transmitted)
@@ -516,7 +506,7 @@ static ssize_t elvees_swic_write(struct file *file, const char __user *buf,
 
 	mutex_lock(&pdata->swic_write_lock);
 
-	if (!elvees_swic_check_link(pdata)) {
+	if (!pdata->link) {
 		mutex_unlock(&pdata->swic_write_lock);
 		return -ENOLINK;
 	}
@@ -556,7 +546,7 @@ static ssize_t elvees_swic_read(struct file *file, char __user *buf,
 
 	mutex_lock(&pdata->swic_read_lock);
 
-	if (!elvees_swic_check_link(pdata)) {
+	if (!pdata->link) {
 		mutex_unlock(&pdata->swic_read_lock);
 		return -ENOLINK;
 	}
