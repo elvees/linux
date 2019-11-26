@@ -589,6 +589,10 @@ struct avico_ctx {
 	unsigned int mbrefsize, mbcursize;
 
 	enum v4l2_colorspace colorspace;
+	enum v4l2_quantization range;
+	enum v4l2_ycbcr_encoding matrix;
+	enum v4l2_xfer_func transfer;
+
 	unsigned int width, height;
 	unsigned int capfmt, outfmt;
 	unsigned int outsize, capsize, refsize;

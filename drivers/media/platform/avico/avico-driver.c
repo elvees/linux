@@ -1330,6 +1330,9 @@ static int avico_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	}
 
 	f->fmt.pix.colorspace = ctx->colorspace;
+	f->fmt.pix.ycbcr_enc = ctx->matrix;
+	f->fmt.pix.quantization = ctx->range;
+	f->fmt.pix.xfer_func = ctx->transfer;
 
 	return 0;
 }
@@ -1362,6 +1365,63 @@ static unsigned int avico_capfmt(u32 pixelformat)
 	return fmt;
 }
 
+/* SD streams likely use SMPTE170M and HD streams REC709 */
+static enum v4l2_colorspace avico_def_colorspace(unsigned int width,
+						 unsigned int height)
+{
+	if (width <= 720 && height <= 576)
+		return V4L2_COLORSPACE_SMPTE170M;
+
+	return V4L2_COLORSPACE_REC709;
+}
+
+static void avico_try_colorspace(struct v4l2_format *f)
+{
+	switch (f->fmt.pix.colorspace) {
+	case V4L2_COLORSPACE_SMPTE170M:
+	case V4L2_COLORSPACE_REC709:
+	case V4L2_COLORSPACE_SRGB:
+	case V4L2_COLORSPACE_BT2020:
+	case V4L2_COLORSPACE_SMPTE240M:
+	case V4L2_COLORSPACE_470_SYSTEM_M:
+	case V4L2_COLORSPACE_470_SYSTEM_BG:
+	case V4L2_COLORSPACE_RAW:
+		break;
+	default:
+		f->fmt.pix.colorspace = avico_def_colorspace(f->fmt.pix.width,
+							     f->fmt.pix.height);
+		break;
+	}
+
+	switch (f->fmt.pix.ycbcr_enc) {
+	case V4L2_YCBCR_ENC_XV601:
+	case V4L2_YCBCR_ENC_SYCC:
+	case V4L2_YCBCR_ENC_601:
+	case V4L2_YCBCR_ENC_XV709:
+	case V4L2_YCBCR_ENC_709:
+	case V4L2_YCBCR_ENC_BT2020_CONST_LUM:
+	case V4L2_YCBCR_ENC_BT2020:
+	case V4L2_YCBCR_ENC_SMPTE240M:
+	case V4L2_YCBCR_ENC_DEFAULT:
+		break;
+	default:
+		f->fmt.pix.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+		break;
+	}
+
+	switch (f->fmt.pix.xfer_func) {
+	case V4L2_XFER_FUNC_709:
+	case V4L2_XFER_FUNC_SRGB:
+	case V4L2_XFER_FUNC_SMPTE240M:
+	case V4L2_XFER_FUNC_NONE:
+	case V4L2_XFER_FUNC_DEFAULT:
+		break;
+	default:
+		f->fmt.pix.xfer_func = V4L2_YCBCR_ENC_DEFAULT;
+		break;
+	}
+}
+
 static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	unsigned int fmt;
@@ -1377,6 +1437,7 @@ static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		fmt = avico_outfmt(f->fmt.pix.pixelformat);
 		f->fmt.pix.pixelformat = output_formats[fmt].pixelformat;
 		f->fmt.pix.flags = output_formats[fmt].flags;
+		avico_try_colorspace(f);
 		switch (f->fmt.pix.pixelformat) {
 		case V4L2_PIX_FMT_M420:
 			f->fmt.pix.bytesperline = round_up(f->fmt.pix.width,
@@ -1401,8 +1462,6 @@ static int avico_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		return -EINVAL;
 	}
 
-	f->fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
-
 	return 0;
 }
 
@@ -1422,6 +1481,11 @@ static int avico_s_fmt_output(struct file *file, void *priv,
 	ctx->capsize = ctx->width * ctx->height * 2;
 
 	ctx->outfmt = avico_outfmt(f->fmt.pix.pixelformat);
+
+	ctx->colorspace = f->fmt.pix.colorspace;
+	ctx->matrix = f->fmt.pix.ycbcr_enc;
+	ctx->range = f->fmt.pix.quantization;
+	ctx->transfer = f->fmt.pix.xfer_func;
 
 	return avico_g_fmt(file, priv, f);
 }
@@ -1947,7 +2011,10 @@ static int avico_open(struct file *file)
 	ctx->capsize = round_up(ctx->width * ctx->height * 2, PAGE_SIZE);
 
 	ctx->outseq = ctx->capseq = 0;
-	ctx->colorspace = V4L2_COLORSPACE_REC709;
+	ctx->colorspace = avico_def_colorspace(ctx->width, ctx->height);
+	ctx->transfer = V4L2_XFER_FUNC_DEFAULT;
+	ctx->matrix = V4L2_YCBCR_ENC_DEFAULT;
+	ctx->range = V4L2_QUANTIZATION_DEFAULT;
 
 	for (i = 0; i < 2; i++) {
 		/* \bug Will not work for several threads
