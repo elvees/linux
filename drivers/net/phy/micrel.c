@@ -22,6 +22,7 @@
  *		Switch : ksz8873, ksz886x
  */
 
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/phy.h>
@@ -577,6 +578,7 @@ static int kszphy_resume(struct phy_device *phydev)
 
 	value = phy_read(phydev, MII_BMCR);
 	phy_write(phydev, MII_BMCR, value & ~BMCR_PDOWN);
+	msleep(1);
 
 	kszphy_config_intr(phydev);
 	mutex_unlock(&phydev->lock);
