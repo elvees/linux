@@ -280,6 +280,8 @@ static int vpout_drm_unload(struct drm_device *drm_dev)
 
 	drm_irq_uninstall(drm_dev);
 
+	clk_disable_unprepare(priv->clk);
+
 	flush_workqueue(priv->wq);
 	destroy_workqueue(priv->wq);
 
