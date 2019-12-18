@@ -17,12 +17,12 @@
 #include "avico.h"
 #include "avico-bitstream.h"
 
+/* Zero_byte followed by a start_code_prefix_one_3bytes */
 static void write_delimiter(struct bitstream *bs)
 {
 	const uint8_t delimiter[4] = { 0, 0, 0, 1 };
 
-	WARN_ON(bs == NULL);
-	WARN_ON(bs->p == NULL);
+	/* The code must start from byte boundary */
 	WARN_ON(bs->freebits != 8);
 
 	if (bs->p + 4 > bs->end) {
@@ -43,9 +43,6 @@ static void write_delimiter(struct bitstream *bs)
  * 32-bit buffer is more complex for bit-stuffing */
 static void writeu(struct bitstream *bs, uint8_t bits, uint32_t value)
 {
-	WARN_ON(bs == NULL);
-	WARN_ON(bs->p == NULL);
-
 	while (bits) {
 		unsigned const writebits = min(bs->freebits, bits);
 		unsigned const vmask = ((1 << writebits) - 1) << (bits -
@@ -84,8 +81,6 @@ static void writeue(struct bitstream *bs, uint32_t value)
 {
 	unsigned const bits = 32 - __builtin_clz(value + 1);
 
-	WARN_ON(bs == NULL);
-	WARN_ON(bs->p == NULL);
 	WARN_ON(value == U32_MAX);
 
 	writeu(bs, bits * 2 - 1, value + 1);
@@ -95,21 +90,16 @@ static void writese(struct bitstream *bs, int32_t value)
 {
 	uint32_t const uvalue = value <= 0 ? (-2 * value) : (2 * value - 1);
 
-	WARN_ON(bs == NULL);
-	WARN_ON(bs->p == NULL);
-
 	writeue(bs, uvalue);
 }
 
 static void write_trailing_bits(struct bitstream *bs)
 {
-	WARN_ON(bs == NULL);
-	WARN_ON(bs->p == NULL);
-
-	writeu(bs, 1, 1);
+	writeu(bs, 1, 1); /* rbsp_stop_one_bit */
 	if (bs->freebits != 8)
-		writeu(bs, bs->freebits, 0);
+		writeu(bs, bs->freebits, 0); /* rbsp_alignment_zero bits */
 
+	/* Trailing bits must be byte aligned */
 	WARN_ON(bs->freebits != 8);
 }
 
@@ -126,29 +116,6 @@ void avico_bitstream_init(struct avico_ctx *ctx, void *ptr, unsigned int size)
 	bs->freebits = 8;
 	bs->nulls = 0;
 }
-
-#define SYNTAX_ELEMENT_U(_name, _enable, _width, _value) { \
-	.type = SYNTAX_ELEMENT_TYPE_U, \
-	.enable = _enable, \
-	.width = _width, \
-	.value = _value }
-#define SYNTAX_ELEMENT_UE(_name, _enable, _value) { \
-	.type = SYNTAX_ELEMENT_TYPE_UE, \
-	.enable = _enable, \
-	.value = _value }
-
-enum syntax_element_type {
-	SYNTAX_ELEMENT_TYPE_U,
-	SYNTAX_ELEMENT_TYPE_UE,
-	SYNTAX_ELEMENT_TYPE_SE
-};
-
-struct syntax_element {
-	enum syntax_element_type type;
-	bool enable;
-	uint8_t width;
-	uint32_t value;
-};
 
 void avico_bitstream_write_sps(struct avico_ctx *ctx)
 {
@@ -258,15 +225,8 @@ void avico_bitstream_write_pps(struct avico_ctx *ctx)
 
 void avico_bitstream_write_slice_header(struct avico_ctx *ctx)
 {
-	struct bitstream *bs;
+	struct bitstream *bs = &ctx->bs;
 	struct avico_frame_params *par = &ctx->par;
-
-	WARN_ON(ctx == NULL);
-	bs = &ctx->bs;
-
-	WARN_ON(bs == NULL);
-	WARN_ON(bs->p == NULL);
-	WARN_ON(bs->freebits != 8);
 
 	write_delimiter(bs);
 	writeu(bs, 1, 0); /* forbidden_zero_bit */

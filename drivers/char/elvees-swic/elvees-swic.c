@@ -30,8 +30,8 @@
 #define ELVEES_SWIC_TX_BUF_SIZE		SZ_16K
 
 #define ELVEES_SWIC_DMA_CSR_WN		3
-#define ELVEES_SWIC_EOP			0x01
-#define ELVEES_SWIC_EEP			0x10
+#define ELVEES_SWIC_EOP			0b01
+#define ELVEES_SWIC_EEP			0b10
 
 #define ELVEES_SWIC_RX_BUF_SIZE		SZ_16K
 #define RX_RING_SIZE			(ELVEES_SWIC_MAX_PACKET_SIZE / \
@@ -83,6 +83,7 @@ struct elvees_swic_private_data {
 	u8 *tx_data;
 	bool tx_data_done;
 	bool rx_desc_done;
+	bool link;
 
 	wait_queue_head_t write_wq;
 	wait_queue_head_t read_wq;
@@ -191,7 +192,7 @@ static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
 	swic_writel(pdata, base_addr + SWIC_DMA_RUN, 0);
 
 	reg = swic_readl(pdata, SWIC_MODE_CR);
-	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_RDY_MODE |
+	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_LINK_RESET |
 					 SWIC_MODE_CR_LINK_DISABLE);
 
 	while (swic_readl(pdata, base_addr + SWIC_DMA_RUN) &
@@ -199,13 +200,13 @@ static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
 	}
 
 	reg = swic_readl(pdata, SWIC_MODE_CR);
-	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_RDY_MODE));
+	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_LINK_RESET));
 }
 
 static void elvees_swic_reset(struct elvees_swic_private_data *pdata)
 {
 	swic_writel(pdata, SWIC_MODE_CR, SWIC_MODE_CR_LINK_DISABLE |
-					 SWIC_MODE_CR_LINK_RST);
+					 SWIC_MODE_CR_LINK_RESET);
 
 	swic_writel(pdata, SWIC_TX_SPEED, 0);
 
@@ -260,8 +261,13 @@ static int elvees_swic_set_link(struct elvees_swic_private_data *pdata,
 
 	elvees_swic_reset(pdata);
 
-	if (arg == 0)
+	if (arg == 0) {
+		/* No interrupt if link is disabled in a regular way */
+		pdata->link = false;
+		wake_up_interruptible(&pdata->write_wq);
+		wake_up_interruptible(&pdata->read_wq);
 		return 0;
+	}
 
 	reg = SWIC_MODE_CR_LINK_START | SWIC_MODE_CR_LINK_MASK |
 	      SWIC_MODE_CR_ERR_MASK | SWIC_MODE_CR_COEFF_10_WR;
@@ -396,12 +402,14 @@ static long elvees_swic_ioctl(struct file *file,
 		return elvees_swic_set_link(pdata, arg);
 	case SWICIOC_GET_LINK_STATE:
 		return elvees_swic_get_link_state(pdata, uptr);
-	case SWICIOC_GET_SPEED:
-		return elvees_swic_get_speed(pdata, uptr);
 	case SWICIOC_SET_TX_SPEED:
 		return elvees_swic_set_speed(pdata, arg);
+	case SWICIOC_GET_SPEED:
+		return elvees_swic_get_speed(pdata, uptr);
 	case SWICIOC_SET_MTU:
 		return elvees_swic_set_mtu(pdata, arg);
+	case SWICIOC_GET_MTU:
+		return copy_to_user(uptr, &pdata->mtu, sizeof(unsigned long));
 	}
 
 	return -ENOTTY;
@@ -453,8 +461,9 @@ static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
 				      (chunk_aligned / 8) - 1);
 
 		ret = wait_event_interruptible(pdata->write_wq,
-					       pdata->tx_data_done);
-		if (ret == -ERESTARTSYS)
+					       pdata->tx_data_done ||
+					       !pdata->link);
+		if (ret == -ERESTARTSYS || !pdata->link)
 			goto stop_data_dma;
 
 		buf += chunk;
@@ -469,7 +478,10 @@ stop_data_dma:
 
 	dma_copied = swic_readl(pdata, SWIC_DMA_TX_DATA + SWIC_DMA_CSR);
 	dma_copied = GET_FIELD(dma_copied, SWIC_DMA_CSR_WCX);
-	dma_copied = chunk_aligned - ((dma_copied + 1) * 8);
+	if (dma_copied == 0xFFFF)
+		dma_copied = chunk_aligned;
+	else
+		dma_copied = chunk_aligned - (dma_copied + 1) * 8;
 	*transmitted += dma_copied;
 
 stop_desc_dma:
@@ -541,8 +553,9 @@ static ssize_t elvees_swic_read(struct file *file, char __user *buf,
 	elvees_swic_start_dma(pdata, SWIC_DMA_RX_DESC,
 			      pdata->rx_desc_dma_addr, 0, 0);
 
-	ret = wait_event_interruptible(pdata->read_wq, pdata->rx_desc_done);
-	if (ret == -ERESTARTSYS)
+	ret = wait_event_interruptible(pdata->read_wq, pdata->rx_desc_done ||
+						       !pdata->link);
+	if (ret == -ERESTARTSYS || !pdata->link)
 		goto stop_desc_dma;
 
 	if (pdata->rx_desc->type == ELVEES_SWIC_EEP)
@@ -733,6 +746,7 @@ static irqreturn_t elvees_swic_ih(int irq, void *data)
 
 	if (reg & SWIC_STATUS_CONNECTED) {
 		reg |= SWIC_STATUS_GOT_FIRST_BIT;
+		pdata->link = true;
 		dev_dbg(pdata->dev, "Connection is set\n");
 	}
 
@@ -754,6 +768,12 @@ static irqreturn_t elvees_swic_ih(int irq, void *data)
 	if (reg & SWIC_STATUS_CREDIT_ERR) {
 		reg |= SWIC_STATUS_CREDIT_ERR;
 		dev_dbg(pdata->dev, "Credit error\n");
+	}
+
+	if (reg & SWIC_STATUS_ERR) {
+		pdata->link = false;
+		wake_up_interruptible(&pdata->write_wq);
+		wake_up_interruptible(&pdata->read_wq);
 	}
 
 	swic_writel(pdata, SWIC_STATUS, reg);
