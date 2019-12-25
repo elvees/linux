@@ -1860,7 +1860,7 @@ static void avico_stop_streaming(struct vb2_queue *q)
 		}
 	}
 
-	if (!vb2_is_streaming(other_vq)) {
+	if (vb2_is_streaming(other_vq)) {
 		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
 				  ctx->vref, ctx->dmaref);
 
