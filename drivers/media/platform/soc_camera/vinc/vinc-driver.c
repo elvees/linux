@@ -209,26 +209,25 @@ static int vinc_start_streaming(struct vb2_queue *q, unsigned int count)
 	const u8 channel = devnum & 0x01;
 	struct vinc_stream * const stream = &priv->stream[devnum];
 	const u8 ifacenum = stream->ifacenum & 0x01;
-	u32 csi2_port_sys_ctr = vinc_read(priv, CSI2_PORT_SYS_CTR(0));
 	u32 csi2_intr;
-	u32 stream_ctr;
+	u32 reg;
 
 	if (priv->stream[((~devnum) & 0x02) | channel].started)
 		return -EBUSY;
 
 	dev_dbg(icd->parent, "Start streaming (count: %u)\n", count);
 
+	v4l2_ctrl_grab(stream->test_pattern, 1);
 	if (stream->video_source == V4L2_MBUS_CSI2) {
+		reg = vinc_read(priv, CSI2_PORT_SYS_CTR(ifacenum));
 		/* Workaround for mcom issue rf#1361 (see errata)
 		 * Check that VINC captures video and reenable MIPI port
 		 * otherwise. */
 		do {
 			vinc_write(priv, CSI2_PORT_SYS_CTR(ifacenum),
-				   csi2_port_sys_ctr &
-				   ~CSI2_PORT_SYS_CTR_ENABLE);
+				   reg & ~CSI2_PORT_SYS_CTR_ENABLE);
 			vinc_write(priv, CSI2_PORT_SYS_CTR(ifacenum),
-				   csi2_port_sys_ctr |
-				   CSI2_PORT_SYS_CTR_ENABLE);
+				   reg | CSI2_PORT_SYS_CTR_ENABLE);
 			vinc_configure_input(stream);
 
 			timeout = jiffies + msecs_to_jiffies(30);
@@ -251,6 +250,7 @@ static int vinc_start_streaming(struct vb2_queue *q, unsigned int count)
 				vb2_buffer_done(&buf->vb.vb2_buf,
 						VB2_BUF_STATE_QUEUED);
 			}
+			v4l2_ctrl_grab(stream->test_pattern, 0);
 			dev_err(icd->parent,
 				"Can not receive video from sensor\n");
 			return -EIO;
@@ -260,10 +260,18 @@ static int vinc_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	vinc_write(priv, STREAM_DMA_WR_CTR(channel, 0),
 		   DMA_WR_CTR_FRAME_END_EN);
-	stream_ctr = vinc_read(priv, STREAM_CTR);
-	stream_ctr |= STREAM_CTR_DMA_CHANNELS_ENABLE;
-	stream_ctr |= STREAM_CTR_STREAM_ENABLE(channel);
-	vinc_write(priv, STREAM_CTR, stream_ctr);
+
+	reg = vinc_read(priv, STREAM_PROC_CFG(channel));
+	if (stream->input_format == BAYER && !stream->test_pattern->cur.val)
+		reg |= STREAM_PROC_CFG_CFA_EN;
+	else
+		reg &= ~STREAM_PROC_CFG_CFA_EN;
+	vinc_write(priv, STREAM_PROC_CFG(channel), reg);
+
+	reg = vinc_read(priv, STREAM_CTR);
+	reg |= STREAM_CTR_DMA_CHANNELS_ENABLE;
+	reg |= STREAM_CTR_STREAM_ENABLE(channel);
+	vinc_write(priv, STREAM_CTR, reg);
 
 	stream->sequence = 0;
 	spin_lock_irq(&stream->lock);
@@ -291,6 +299,7 @@ static void vinc_stop_streaming(struct vb2_queue *q)
 
 	vinc_stream_enable(priv, channel, false);
 
+	v4l2_ctrl_grab(stream->test_pattern, 0);
 	vinc_write(priv, STREAM_DMA_WR_CTR(channel, 0), 0x0);
 	csi2_port_sys_ctr = vinc_read(priv, CSI2_PORT_SYS_CTR(channel));
 	vinc_write(priv, CSI2_PORT_SYS_CTR(channel),
