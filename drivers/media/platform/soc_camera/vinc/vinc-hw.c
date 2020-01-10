@@ -121,7 +121,7 @@ void vinc_configure_input(struct vinc_stream *stream)
 		vinc_write(priv, PINTERFACE_HVFSYNC(0),
 				PINTERFACE_HVFSYNC_DELAY_V(0x11) |
 				PINTERFACE_HVFSYNC_PRE_DELAY_V(1));
-		vinc_write(priv, STREAM_INP_CFG(0), 0x0);
+		vinc_write(priv, STREAM_INP_CFG(channel), 0x0);
 	} else if (stream->video_source == V4L2_MBUS_CSI2) {
 		vinc_write(priv, PPORT_INP_MUX_CFG, 0x0);
 		vinc_write(priv, PPORT_CFG(0), 0x0);

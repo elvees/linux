@@ -190,6 +190,88 @@ void avico_regs_ec_dump(void __iomem *const base)
 	avico_regs_ec_taskctrc_dump(base + AVICO_EC_TASKCTRC);
 }
 
+void avico_regs_ed_taskctrd_dump(void __iomem *const base)
+{
+	dump("ed.taskcrtd.task       ", base, AVICO_TASKCTRD_TASK);
+	dump("ed.taskcrtd.cs         ", base, AVICO_TASKCTRD_CS);
+	dump("ed.taskcrtd.mbpos      ", base, AVICO_TASKCTRD_MBPOS);
+	dump("ed.taskcrtd.frmn       ", base, AVICO_TASKCTRD_FRMN);
+	dump("ed.taskcrtd.dma_dbs_len", base, AVICO_TASKCTRD_DMALEN);
+}
+
+void avico_regs_ed_vramctrd_dump(void __iomem *const base)
+{
+	dump("ed.vramctrd.base_dp0", base, AVICO_VRAMCTRD_BASE_DP0);
+	dump("ed.vramctrd.base_dp1", base, AVICO_VRAMCTRD_BASE_DP1);
+	dump("ed.vramctrd.base_dp2", base, AVICO_VRAMCTRD_BASE_DP2);
+	dump("ed.vramctrd.base_dp3", base, AVICO_VRAMCTRD_BASE_DP3);
+	dump("ed.vramctrd.base_dpn", base, AVICO_VRAMCTRD_BASE_DPN);
+	dump("ed.vramctrd.base_dqc", base, AVICO_VRAMCTRD_BASE_DQC);
+	dump("ed.vramctrd.base_dbs", base, AVICO_VRAMCTRD_BASE_DBS);
+	dump("ed.vramctrd.size_dp0", base, AVICO_VRAMCTRD_SIZE_DP0);
+	dump("ed.vramctrd.size_dp1", base, AVICO_VRAMCTRD_SIZE_DP1);
+	dump("ed.vramctrd.size_dp2", base, AVICO_VRAMCTRD_SIZE_DP2);
+	dump("ed.vramctrd.size_dp3", base, AVICO_VRAMCTRD_SIZE_DP3);
+	dump("ed.vramctrd.size_dqc", base, AVICO_VRAMCTRD_SIZE_DQC);
+	dump("ed.vramctrd.size_dbs", base, AVICO_VRAMCTRD_SIZE_DBS);
+	dump("ed.vramctrd.addr_dp0", base, AVICO_VRAMCTRD_ADDR_DP0);
+	dump("ed.vramctrd.addr_dp1", base, AVICO_VRAMCTRD_ADDR_DP1);
+	dump("ed.vramctrd.addr_dp2", base, AVICO_VRAMCTRD_ADDR_DP2);
+	dump("ed.vramctrd.addr_dp3", base, AVICO_VRAMCTRD_ADDR_DP3);
+	dump("ed.vramctrd.addr_dpn", base, AVICO_VRAMCTRD_ADDR_DPN);
+	dump("ed.vramctrd.addr_dpa", base, AVICO_VRAMCTRD_ADDR_DPA);
+	dump("ed.vramctrd.addr_dpb", base, AVICO_VRAMCTRD_ADDR_DPB);
+	dump("ed.vramctrd.addr_dqc", base, AVICO_VRAMCTRD_ADDR_DQC);
+	dump("ed.vramctrd.addr_dbs", base, AVICO_VRAMCTRD_ADDR_DBS);
+}
+
+void avico_regs_ed_parser_dump(void __iomem *const base)
+{
+	dump("ed.parser.cr             ", base, AVICO_PARSER_CR);
+	dump("ed.parser.dbs_total_len  ", base, AVICO_PARSER_DBS_TOTAL_LEN);
+	dump("ed.parser.dbs_offset     ", base, AVICO_PARSER_DBS_OFFSET);
+	dump("ed.parser.dbs_load_flag  ", base, AVICO_PARSER_DBS_LOAD_FLAG);
+	dump("ed.parser.dbs_stuff_mode ", base, AVICO_PARSER_DBS_STUFF_MODE);
+}
+
+void avico_regs_ed_hdrd_dump(void __iomem *const base)
+{
+	dump("ed.hdrd.cr", base, AVICO_HDRD_CR);
+}
+
+void avico_regs_ed_cavld_dump(void __iomem *const base)
+{
+	dump("ed.cavld.cr", base, AVICO_CAVLD_CR);
+	dump("ed.cavld.sr", base, AVICO_CAVLD_SR);
+}
+
+void avico_regs_ed_regd_dump(void __iomem *const base)
+{
+	uint8_t buf[AVICO_REGD_DBS - AVICO_REGD_DP0 + AVICO_REGD_DBS_SIZE];
+
+	memcpy_fromio(buf, base, sizeof(buf));
+
+	dumphex("ed.regd.dp0", buf, AVICO_REGD_DP0, AVICO_REGD_DP0_SIZE);
+	dumphex("ed.regd.dp1", buf, AVICO_REGD_DP1, AVICO_REGD_DP1_SIZE);
+	dumphex("ed.regd.dp2", buf, AVICO_REGD_DP2, AVICO_REGD_DP2_SIZE);
+	dumphex("ed.regd.dp3", buf, AVICO_REGD_DP3, AVICO_REGD_DP3_SIZE);
+	dumphex("ed.regd.dpn", buf, AVICO_REGD_DPN, AVICO_REGD_DPN_SIZE);
+	dumphex("ed.regd.dpa", buf, AVICO_REGD_DPA, AVICO_REGD_DPA_SIZE);
+	dumphex("ed.regd.dpb", buf, AVICO_REGD_DPB, AVICO_REGD_DPB_SIZE);
+	dumphex("ed.regd.dqc", buf, AVICO_REGD_DQC, AVICO_REGD_DQC_SIZE);
+	dumphex("ed.regd.dbs", buf, AVICO_REGD_DBS, AVICO_REGD_DBS_SIZE);
+}
+
+void avico_regs_ed_dump(void __iomem *const base)
+{
+	avico_regs_ed_regd_dump(base + AVICO_ED_REGD);
+	avico_regs_ed_cavld_dump(base + AVICO_ED_CAVLD);
+	avico_regs_ed_hdrd_dump(base + AVICO_ED_HDRD);
+	avico_regs_ed_parser_dump(base + AVICO_ED_PARSER);
+	avico_regs_ed_vramctrd_dump(base + AVICO_ED_VRAMCTRD);
+	avico_regs_ed_taskctrd_dump(base + AVICO_ED_TASKCTRD);
+}
+
 void avico_regs_dump(void __iomem *const base, const unsigned int thread)
 {
 	avico_regs_ctrl_dump(base + AVICO_CTRL_BASE);
@@ -198,5 +280,8 @@ void avico_regs_dump(void __iomem *const base, const unsigned int thread)
 	avico_regs_md_dump(base + AVICO_MD_BASE(thread));
 	avico_regs_tq_dump(base + AVICO_TQ_BASE(thread));
 	avico_regs_vdma_dump(base + AVICO_VDMA_BASE, thread * 4);
-	avico_regs_ec_dump(base + AVICO_EC_BASE(thread));
+	if (thread <= 1)
+		avico_regs_ec_dump(base + AVICO_EC_BASE(thread));
+	else
+		avico_regs_ed_dump(base + AVICO_ED_BASE(thread));
 }

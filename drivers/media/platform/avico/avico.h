@@ -90,8 +90,8 @@
 #define AVICO_VDMA_CHANNEL_CFG    0x4c
 
 #define AVICO_ECD_BASE 0x8000
+
 #define AVICO_EC_BASE(i) (AVICO_ECD_BASE + 0x4000 * (i))
-#define AVICO_ED_BASE(i) (AVICO_ECD_BASE + 0x2000 + 0x4000 * (i))
 #define AVICO_EC_REGC     0x0000
 #define AVICO_EC_CAVLC    0x0a00
 #define AVICO_EC_HDRC     0x1800
@@ -159,6 +159,74 @@
 #define AVICO_PACKER_CBS_EXTBITS_LEN 0x0c
 #define AVICO_PACKER_CBS_STUFF_MODE  0x10
 #define AVICO_PACKER_CBS_STUFF_POS   0x14
+
+#define AVICO_ED_BASE(i) (AVICO_ECD_BASE + 0x2000 + 0x4000 * (i - 2))
+#define AVICO_ED_REGD     0x0000
+#define AVICO_ED_CAVLD    0x0a00
+#define AVICO_ED_HDRD     0x1800
+#define AVICO_ED_PARSER   0x1a00
+#define AVICO_ED_VRAMCTRD 0x1c00
+#define AVICO_ED_TASKCTRD 0x1e00
+
+#define AVICO_REGD_DP0 0x000
+#define AVICO_REGD_DP1 0x010
+#define AVICO_REGD_DP2 0x020
+#define AVICO_REGD_DP3 0x030
+#define AVICO_REGD_DPN 0x040
+#define AVICO_REGD_DPA 0x050
+#define AVICO_REGD_DPB 0x060
+#define AVICO_REGD_DQC 0x080
+#define AVICO_REGD_DBS 0x100
+
+#define AVICO_REGD_DP0_SIZE 0x010
+#define AVICO_REGD_DP1_SIZE 0x010
+#define AVICO_REGD_DP2_SIZE 0x010
+#define AVICO_REGD_DP3_SIZE 0x010
+#define AVICO_REGD_DPN_SIZE 0x010
+#define AVICO_REGD_DPA_SIZE 0x010
+#define AVICO_REGD_DPB_SIZE 0x010
+#define AVICO_REGD_DQC_SIZE 0x080
+#define AVICO_REGD_DBS_SIZE 0x100
+
+#define AVICO_TASKCTRD_TASK   0x00
+#define AVICO_TASKCTRD_CS     0x04
+#define AVICO_TASKCTRD_MBPOS  0x08
+#define AVICO_TASKCTRD_FRMN   0x0C
+#define AVICO_TASKCTRD_DMALEN 0x10
+
+#define AVICO_VRAMCTRD_BASE_DP0 0x00
+#define AVICO_VRAMCTRD_BASE_DP1 0x04
+#define AVICO_VRAMCTRD_BASE_DP2 0x08
+#define AVICO_VRAMCTRD_BASE_DP3 0x0c
+#define AVICO_VRAMCTRD_BASE_DPN 0x10
+#define AVICO_VRAMCTRD_BASE_DQC 0x20
+#define AVICO_VRAMCTRD_BASE_DBS 0x24
+#define AVICO_VRAMCTRD_SIZE_DP0 0x40
+#define AVICO_VRAMCTRD_SIZE_DP1 0x44
+#define AVICO_VRAMCTRD_SIZE_DP2 0x48
+#define AVICO_VRAMCTRD_SIZE_DP3 0x4c
+#define AVICO_VRAMCTRD_SIZE_DQC 0x60
+#define AVICO_VRAMCTRD_SIZE_DBS 0x64
+#define AVICO_VRAMCTRD_ADDR_DP0 0x80
+#define AVICO_VRAMCTRD_ADDR_DP1 0x84
+#define AVICO_VRAMCTRD_ADDR_DP2 0x88
+#define AVICO_VRAMCTRD_ADDR_DP3 0x8c
+#define AVICO_VRAMCTRD_ADDR_DPN 0x90
+#define AVICO_VRAMCTRD_ADDR_DPA 0x94
+#define AVICO_VRAMCTRD_ADDR_DPB 0x98
+#define AVICO_VRAMCTRD_ADDR_DQC 0xa0
+#define AVICO_VRAMCTRD_ADDR_DBS 0xa4
+
+#define AVICO_CAVLD_CR 0x00
+#define AVICO_CAVLD_SR 0x04
+
+#define AVICO_HDRD_CR 0x00
+
+#define AVICO_PARSER_CR              0x00
+#define AVICO_PARSER_DBS_TOTAL_LEN   0x04
+#define AVICO_PARSER_DBS_OFFSET      0x08
+#define AVICO_PARSER_DBS_LOAD_FLAG   0x0c
+#define AVICO_PARSER_DBS_STUFF_MODE  0x10
 
 #define EV_0 BIT(0)
 #define EV_1 BIT(1)
@@ -589,6 +657,10 @@ struct avico_ctx {
 	unsigned int mbrefsize, mbcursize;
 
 	enum v4l2_colorspace colorspace;
+	enum v4l2_quantization range;
+	enum v4l2_ycbcr_encoding matrix;
+	enum v4l2_xfer_func transfer;
+
 	unsigned int width, height;
 	unsigned int capfmt, outfmt;
 	unsigned int outsize, capsize, refsize;

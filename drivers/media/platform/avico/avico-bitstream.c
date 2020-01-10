@@ -17,6 +17,89 @@
 #include "avico.h"
 #include "avico-bitstream.h"
 
+/* video_format (Rec. ITU-T H.264) */
+enum h264_format {
+	H264_FMT_COMPONENT = 0,
+	H264_FMT_PAL   = 1,
+	H264_FMT_NTSC  = 2,
+	H264_FMT_SECAM = 3,
+	H264_FMT_MAC   = 4,
+	H264_FMT_UNSPECIFIED = 5,
+	H264_FMT_NB /* Not part of ABI */
+};
+
+/* Colour primaries (Rec. ITU-T H.264) */
+enum h264_colorprimaries {
+	H264_PRI_RESERVED0   = 0,
+	H264_PRI_BT709       = 1,
+	H264_PRI_UNSPECIFIED = 2,
+	H264_PRI_RESERVED    = 3,
+	H264_PRI_BT470M      = 4,
+	H264_PRI_BT470BG     = 5,
+	H264_PRI_SMPTE170M   = 6,
+	H264_PRI_SMPTE240M   = 7,
+	H264_PRI_FILM        = 8,
+	H264_PRI_BT2020      = 9,
+	H264_PRI_SMPTE428    = 10,
+	H264_PRI_SMPTEST428_1 = H264_PRI_SMPTE428,
+	H264_PRI_SMPTE431    = 11,
+	H264_PRI_SMPTE432    = 12,
+	H264_PRI_JEDEC_P22   = 22,
+	H264_PRI_NB /* Not part of ABI */
+};
+
+/* Transfer characteristics (Rec. ITU-T H.264) */
+enum h264_colortransfer {
+	H264_TRC_RESERVED0    = 0,
+	H264_TRC_BT709        = 1,
+	H264_TRC_UNSPECIFIED  = 2,
+	H264_TRC_RESERVED     = 3,
+	H264_TRC_GAMMA22      = 4,
+	H264_TRC_GAMMA28      = 5,
+	H264_TRC_SMPTE170M    = 6,
+	H264_TRC_SMPTE240M    = 7,
+	H264_TRC_LINEAR       = 8,
+	H264_TRC_LOG          = 9,
+	H264_TRC_LOG_SQRT     = 10,
+	H264_TRC_IEC61966_2_4 = 11,
+	H264_TRC_BT1361_ECG   = 12,
+	H264_TRC_IEC61966_2_1 = 13,
+	H264_TRC_BT2020_10    = 14,
+	H264_TRC_BT2020_12    = 15,
+	H264_TRC_SMPTE2084    = 16,
+	H264_TRC_SMPTE428     = 17,
+	H264_TRC_ARIB_STD_B67 = 18,
+	H264_TRC_NB /* Not part of ABI */
+};
+
+/* Matrix coefficients (Rec. ITU-T H.264) */
+enum h264_matrix {
+	H264_MTX_RGB         = 0,
+	H264_MTX_BT709       = 1,
+	H264_MTX_UNSPECIFIED = 2,
+	H264_MTX_RESERVED    = 3,
+	H264_MTX_FCC         = 4,
+	H264_MTX_BT470BG     = 5,
+	H264_MTX_SMPTE170M   = 6,
+	H264_MTX_SMPTE240M   = 7,
+	H264_MTX_YCGCO       = 8,
+	H264_MTX_BT2020_NCL  = 9,
+	H264_MTX_BT2020_CL   = 10,
+	H264_MTX_SMPTE2085   = 11,
+	H264_MTX_CHROMA_DERIVED_NCL = 12,
+	H264_MTX_CHROMA_DERIVED_CL = 13,
+	H264_MTX_ICTCP       = 14,
+	H264_MTX_NB /* Not part of ABI */
+};
+
+struct h264_signal_type {
+	enum h264_format f;
+	enum h264_matrix m;
+	enum h264_colorprimaries p;
+	enum h264_colortransfer t;
+	int r;
+};
+
 /* Zero_byte followed by a start_code_prefix_one_3bytes */
 static void write_delimiter(struct bitstream *bs)
 {
@@ -117,10 +200,158 @@ void avico_bitstream_init(struct avico_ctx *ctx, void *ptr, unsigned int size)
 	bs->nulls = 0;
 }
 
+static int v4l2_to_h264_colorspace(struct avico_ctx *ctx,
+				   struct h264_signal_type *st)
+{
+	/* TODO: Add support for VIDIOC_S_STD */
+	st->f = H264_FMT_UNSPECIFIED;
+
+	/* First step, set the defaults for each primaries */
+	switch (ctx->colorspace) {
+	case V4L2_COLORSPACE_SMPTE170M:
+		st->r = 0;
+		st->m = H264_MTX_SMPTE170M;
+		st->t = H264_TRC_BT709;
+		st->p = H264_PRI_SMPTE170M;
+		break;
+	case V4L2_COLORSPACE_REC709:
+		st->r = 0;
+		st->m = H264_MTX_BT709;
+		st->t = H264_TRC_BT709;
+		st->p = H264_PRI_BT709;
+		break;
+	case V4L2_COLORSPACE_SRGB:
+		st->r = 1;
+		st->m = H264_MTX_SMPTE170M;
+		st->t = H264_TRC_IEC61966_2_1;
+		st->p = H264_PRI_BT709;
+		break;
+	case V4L2_COLORSPACE_BT2020:
+		st->r = 0;
+		st->m = H264_MTX_BT2020_NCL;
+		st->t = H264_TRC_BT2020_12;
+		st->p = H264_PRI_BT2020;
+		break;
+	case V4L2_COLORSPACE_SMPTE240M:
+		st->r = 0;
+		st->m = H264_MTX_SMPTE240M;
+		st->t = H264_TRC_SMPTE240M;
+		st->p = H264_PRI_SMPTE240M;
+		break;
+	case V4L2_COLORSPACE_470_SYSTEM_M:
+		st->r = 0;
+		st->m = H264_MTX_SMPTE170M;
+		st->t = H264_TRC_BT709;
+		st->p = H264_PRI_BT470M;
+		break;
+	case V4L2_COLORSPACE_470_SYSTEM_BG:
+		st->r = 0;
+		st->m = H264_MTX_BT470BG;
+		st->t = H264_TRC_BT709;
+		st->p = H264_PRI_BT470BG;
+		break;
+	case V4L2_COLORSPACE_RAW:
+		/* Explicitly unknown */
+		st->r = 0;
+		st->m = H264_MTX_UNSPECIFIED;
+		st->t = H264_TRC_UNSPECIFIED;
+		st->p = H264_PRI_UNSPECIFIED;
+		break;
+	default:
+		v4l2_warn(&ctx->dev->v4l2_dev,
+			  "Colorspace %d isn't supported\n", ctx->colorspace);
+
+		return -EINVAL;
+	}
+
+	switch (ctx->range) {
+	case V4L2_QUANTIZATION_FULL_RANGE:
+		st->r = 1;
+		break;
+	case V4L2_QUANTIZATION_LIM_RANGE:
+		st->r = 0;
+		break;
+	case V4L2_QUANTIZATION_DEFAULT:
+		/* nothing, just use defaults for colorspace */
+		break;
+	default:
+		v4l2_warn(&ctx->dev->v4l2_dev,
+			  "Quantization %d isn't supported\n", ctx->range);
+		st->r = 0;
+		break;
+	}
+
+	switch (ctx->matrix) {
+	case V4L2_YCBCR_ENC_XV601:
+		st->m = H264_MTX_BT470BG;
+		break;
+	case V4L2_YCBCR_ENC_SYCC:
+		st->m = H264_MTX_BT709;
+		break;
+	case V4L2_YCBCR_ENC_601:
+		st->m = H264_MTX_SMPTE170M;
+		break;
+	case V4L2_YCBCR_ENC_XV709:
+		st->m = H264_MTX_BT709;
+		break;
+	case V4L2_YCBCR_ENC_709:
+		st->m = H264_MTX_BT709;
+		break;
+	case V4L2_YCBCR_ENC_BT2020_CONST_LUM:
+		st->m = H264_MTX_BT2020_CL;
+		break;
+	case V4L2_YCBCR_ENC_BT2020:
+		st->m = H264_MTX_BT2020_NCL;
+		break;
+	case V4L2_YCBCR_ENC_SMPTE240M:
+		st->m = H264_MTX_SMPTE240M;
+		break;
+	case V4L2_YCBCR_ENC_DEFAULT:
+		/* nothing, just use defaults for colorspace */
+		break;
+	default:
+		v4l2_warn(&ctx->dev->v4l2_dev,
+			  "Encoding %d isn't supported\n", ctx->matrix);
+		st->m = H264_MTX_UNSPECIFIED;
+		break;
+	}
+
+	switch (ctx->transfer) {
+	case V4L2_XFER_FUNC_709:
+		if (ctx->colorspace == V4L2_COLORSPACE_BT2020 &&
+		    ctx->height >= 2160)
+			st->t = H264_TRC_BT2020_12;
+		else
+			st->t = H264_TRC_BT709;
+		break;
+	case V4L2_XFER_FUNC_SRGB:
+		st->t = H264_TRC_IEC61966_2_1;
+		break;
+	case V4L2_XFER_FUNC_SMPTE240M:
+		st->t = H264_TRC_SMPTE240M;
+		break;
+	case V4L2_XFER_FUNC_NONE:
+		st->t = H264_TRC_LINEAR;
+		break;
+	case V4L2_XFER_FUNC_DEFAULT:
+		/* nothing, just use defaults for colorspace */
+		break;
+	default:
+		v4l2_warn(&ctx->dev->v4l2_dev,
+			  "Transfer function %d isn't supported\n",
+			  ctx->transfer);
+		st->t = H264_TRC_UNSPECIFIED;
+		break;
+	}
+
+	return 0;
+}
+
 void avico_bitstream_write_sps(struct avico_ctx *ctx)
 {
 	struct bitstream *const bs = &ctx->bs;
 	struct avico_frame_params *par = &ctx->par;
+	struct h264_signal_type st;
 
 	/* Write SPS */
 	write_delimiter(bs);
@@ -172,7 +403,18 @@ void avico_bitstream_write_sps(struct avico_ctx *ctx)
 	writeu(bs, 1, 1); /* vui_parameters_present_flag */
 	writeu(bs, 1, 0); /* vui_aspect_ratio_present_flag */
 	writeu(bs, 1, 0); /* vui_overscan_info_present_flag */
-	writeu(bs, 1, 0); /* vui_video_signal_type_present_flag */
+	if (!v4l2_to_h264_colorspace(ctx, &st)) {
+		writeu(bs, 1, 1); /* vui_video_signal_type_present_flag */
+		writeu(bs, 3, st.f); /* vui_video_format */
+		writeu(bs, 1, st.r); /* vui_video_full_range_flag */
+		writeu(bs, 1, 1); /* vui_colour_description_present_flag */
+		writeu(bs, 8, st.p); /* vui_colour_primaries */
+		writeu(bs, 8, st.t); /* vui_transfer_characteristics */
+		writeu(bs, 8, st.m); /* vui_matrix_coefficients */
+	} else {
+		writeu(bs, 1, 0); /* vui_video_signal_type_present_flag */
+	}
+
 	writeu(bs, 1, 0); /* vui_chroma_loc_info_present_flag */
 
 	writeu(bs, 1, 1); /* vui_timing_info_present_flag */
