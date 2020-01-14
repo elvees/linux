@@ -21,6 +21,7 @@
  */
 
 #include <linux/component.h>
+#include <linux/mfd/syscon.h>
 #include <linux/types.h>
 
 #include <drm/drm_fb_cma_helper.h>
@@ -131,12 +132,29 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 
 	drm_dev->dev_private = priv;
 
-	res = platform_get_resource(plat_dev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(plat_dev, IORESOURCE_MEM, "lcd");
 
 	priv->mmio = devm_ioremap_resource(dev, res);
 	if (IS_ERR(priv->mmio)) {
-		dev_err(dev, "failed to ioremap\n");
+		dev_err(dev, "failed to map LCD registers\n");
 		ret = PTR_ERR(priv->mmio);
+		goto fail_free_wq;
+	}
+
+	res = platform_get_resource_byname(plat_dev, IORESOURCE_MEM, "dsi");
+
+	priv->dsi = devm_ioremap_resource(dev, res);
+	if (IS_ERR(priv->dsi)) {
+		dev_err(dev, "failed to map DSI registers\n");
+		ret = PTR_ERR(priv->dsi);
+		goto fail_free_wq;
+	}
+
+	priv->smctr = syscon_regmap_lookup_by_phandle(dev->of_node,
+						      "elvees,smctr");
+	if (IS_ERR(priv->smctr)) {
+		dev_err(dev, "failed to get SMCTR regmap\n");
+		ret = PTR_ERR(priv->smctr);
 		goto fail_free_wq;
 	}
 

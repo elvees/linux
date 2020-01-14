@@ -194,6 +194,9 @@ static struct vpout_drm_info *get_endpoint_info(struct device_node *endpoint)
 	info->invert_pxl_clk = of_property_read_bool(info_np,
 						     "invert-pxl-clk");
 	info->label = of_get_property(info_np, "label", NULL);
+	if (strcmp(info->label, "DSI") == 0)
+		info->dsi = true;
+
 
 	of_node_put(info_np);
 

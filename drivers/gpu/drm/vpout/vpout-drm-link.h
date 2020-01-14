@@ -18,6 +18,7 @@
 struct vpout_drm_info {
 	uint32_t bpp;
 	bool invert_pxl_clk;
+	bool dsi;
 	const char *label;
 };
 
