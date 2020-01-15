@@ -901,6 +901,10 @@ static int arasan_gemac_stop(struct net_device *dev)
 	phy_stop(pd->phy_dev);
 	/* TODO: We should somehow power down PHY */
 
+	phy_disconnect(pd->phy_dev);
+	mdiobus_unregister(pd->mii_bus);
+	mdiobus_free(pd->mii_bus);
+
 	return 0;
 }
 
@@ -1224,6 +1228,12 @@ static int arasan_gemac_open(struct net_device *dev)
 	if (res)
 		return res;
 
+	res = arasan_gemac_mii_init(dev);
+	if (res) {
+		netdev_err(dev, "Failed to initialize Phy\n");
+		arasan_gemac_stop_mac(dev);
+		return res;
+	}
 	/* schedule a link state check */
 	phy_start(pd->phy_dev);
 
@@ -1391,18 +1401,12 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 
 	arasan_gemac_dma_soft_reset(pd);
 
-	res = arasan_gemac_mii_init(dev);
-	if (res)
-		goto err_out_unregister_netdev;
-
 	/* Display ethernet banner */
 	netdev_info(dev, "Arasan GEMAC ethernet at 0x%08lx int=%d (%pM)\n",
 		    dev->base_addr, dev->irq, dev->dev_addr);
 
 	return 0;
 
-err_out_unregister_netdev:
-	unregister_netdev(dev);
 err_disable_clocks:
 	clk_disable_unprepare(pd->hclk);
 err_free_dev:
@@ -1421,12 +1425,6 @@ static int arasan_gemac_remove(struct platform_device *pdev)
 		return 0;
 
 	pd = netdev_priv(dev);
-
-	if (pd->phy_dev)
-		phy_disconnect(pd->phy_dev);
-
-	mdiobus_unregister(pd->mii_bus);
-	mdiobus_free(pd->mii_bus);
 
 	unregister_netdev(dev);
 	clk_disable_unprepare(pd->hclk);
