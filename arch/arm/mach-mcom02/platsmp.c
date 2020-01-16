@@ -15,6 +15,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/delay.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 #include <asm/smp_scu.h>
 #include <asm/smp_plat.h>
 
@@ -22,7 +24,8 @@
 
 static void __iomem *spram_base_addr;
 static void __iomem *pmctr_base_addr;
-static void __iomem *smctr_base_addr;
+static struct regmap *smctr_regmap;
+
 static void __iomem *scu_base_addr;
 
 static void __init mcom02_map_device(char *compatible, void **base_addr)
@@ -45,14 +48,15 @@ static void __init mcom02_map_device(char *compatible, void **base_addr)
 
 static int mcom02_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
-	if (!smctr_base_addr) {
+	if (IS_ERR(smctr_regmap)) {
 		pr_err("%s: SMCTR is not mapped\n", __func__);
 		return -ENXIO;
 	}
 
 	/* Remap BOOT so that CPU1 boots from SPRAM where the boot
 	 * vector is stored */
-	writel(SMCTR_BOOT_REMAP_SPRAM, smctr_base_addr + SMCTR_BOOT_REMAP);
+	regmap_write(smctr_regmap, SMCTR_BOOT_REMAP,
+		     SMCTR_BOOT_REMAP_SPRAM);
 
 	if (!pmctr_base_addr) {
 		pr_err("%s: PMCTR is not mapped\n", __func__);
@@ -84,7 +88,7 @@ static void __init mcom02_smp_prepare_cpus(unsigned int max_cpus)
 	outer_clean_range(0, trampoline_sz);
 
 	mcom02_map_device("elvees,mcom-pmctr", &pmctr_base_addr);
-	mcom02_map_device("elvees,mcom-smctr", &smctr_base_addr);
+	smctr_regmap = syscon_regmap_lookup_by_compatible("elvees,mcom-smctr");
 
 	scu_base_addr = ioremap(scu_a9_get_base(), SZ_4K);
 
