@@ -53,6 +53,14 @@ struct elvees_swic_stats {
 	__u32 credit_err;
 };
 
+struct elvees_swic_lvds_test {
+	unsigned int iters;
+	unsigned int s_lvds_0;
+	unsigned int s_lvds_1;
+	unsigned int d_lvds_0;
+	unsigned int d_lvds_1;
+};
+
 #define SWICIOC_MAGIC 'w'
 
 #define SWICIOC_SET_LINK \
@@ -81,5 +89,8 @@ struct elvees_swic_stats {
 
 #define SWICIOC_RESET_STATS \
 	_IO(SWICIOC_MAGIC, 9)
+
+#define SWICIOC_LVDS_TEST \
+	_IOWR(SWICIOC_MAGIC, 10, struct elvees_swic_lvds_test *)
 
 #endif

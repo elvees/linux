@@ -6,7 +6,6 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
-
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <linux/cdev.h>
@@ -95,6 +94,7 @@ struct elvees_swic_private_data {
 	bool epp;
 
 	struct elvees_swic_stats stats;
+	struct elvees_swic_lvds_test lvds;
 
 	wait_queue_head_t write_wq;
 	wait_queue_head_t read_wq;
@@ -515,6 +515,41 @@ static int elvees_swic_set_mtu(struct elvees_swic_private_data *pdata,
 	return 0;
 }
 
+static u32 elvees_swic_lvds_test(struct elvees_swic_private_data *pdata,
+				 void __user *arg)
+{
+	u32 reg, iters;
+	int ret, i;
+
+	ret = copy_from_user(&pdata->lvds, arg,
+			     sizeof(struct elvees_swic_lvds_test));
+	if (ret)
+		return ret;
+
+	iters = pdata->lvds.iters;
+	memset(&pdata->lvds, 0, sizeof(struct elvees_swic_lvds_test));
+
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	reg &= ~(SWIC_MODE_CR_D_LVDS_TX | SWIC_MODE_CR_S_LVDS_TX);
+	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_LVDS_MODE);
+
+	for (i = 0; i < iters; i++) {
+		reg = swic_readl(pdata, SWIC_STATUS);
+		reg & SWIC_STATUS_S_LVDS_RX ? pdata->lvds.s_lvds_1++
+					    : pdata->lvds.s_lvds_0++;
+		reg & SWIC_STATUS_D_LVDS_RX ? pdata->lvds.d_lvds_1++
+					    : pdata->lvds.d_lvds_0++;
+		pdata->lvds.iters++;
+	}
+
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	reg &= ~SWIC_MODE_CR_LVDS_MODE;
+	swic_writel(pdata, SWIC_MODE_CR, reg);
+
+	return copy_to_user(arg, &pdata->lvds,
+			    sizeof(struct elvees_swic_lvds_test));
+}
+
 static long elvees_swic_ioctl(struct file *file,
 			      unsigned int cmd,
 			      unsigned long arg)
@@ -544,6 +579,8 @@ static long elvees_swic_ioctl(struct file *file,
 				    sizeof(struct elvees_swic_stats));
 	case SWICIOC_RESET_STATS:
 		return elvees_swic_stats_reset(pdata);
+	case SWICIOC_LVDS_TEST:
+		return elvees_swic_lvds_test(pdata, uptr);
 	}
 
 	return -ENOTTY;
