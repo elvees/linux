@@ -46,7 +46,7 @@ struct bitstream {
 	uint8_t *end;
 	uint8_t *p;
 	uint8_t cb;
-	uint8_t freebits;
+	uint8_t bitsleft;
 	int8_t nulls;
 };
 

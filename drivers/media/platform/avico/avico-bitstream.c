@@ -106,7 +106,7 @@ static void write_delimiter(struct bitstream *bs)
 	const uint8_t delimiter[4] = { 0, 0, 0, 1 };
 
 	/* The code must start from byte boundary */
-	WARN_ON(bs->freebits != 8);
+	WARN_ON(bs->bitsleft != 8);
 
 	if (bs->p + 4 > bs->end) {
 		bs->p = bs->end + 1;
@@ -127,7 +127,7 @@ static void write_delimiter(struct bitstream *bs)
 static void writeu(struct bitstream *bs, uint8_t bits, uint32_t value)
 {
 	while (bits) {
-		unsigned const writebits = min(bs->freebits, bits);
+		unsigned const writebits = min(bs->bitsleft, bits);
 		unsigned const vmask = ((1 << writebits) - 1) << (bits -
 								  writebits);
 
@@ -141,11 +141,11 @@ static void writeu(struct bitstream *bs, uint8_t bits, uint32_t value)
 		bs->cb |= write;   /* Write to bs->cb */
 		value &= ~vmask;   /* Clean written bits in value */
 		bits -= writebits; /* Decrease number of bits to be written */
-		bs->freebits -= writebits; /* Increase current bit offset */
+		bs->bitsleft -= writebits; /* Increase current bit offset */
 
-		if (bs->freebits == 0) {
-			bs->freebits = 8;
-			/* \dontknow */
+		if (bs->bitsleft == 0) {
+			bs->bitsleft = 8;
+			/* insert emulation_prevention_three_byte */
 			if (bs->nulls == 2 && !(bs->cb & 0xfc)) {
 				*bs->p++ = 0x03;
 				bs->nulls = 0;
@@ -179,11 +179,11 @@ static void writese(struct bitstream *bs, int32_t value)
 static void write_trailing_bits(struct bitstream *bs)
 {
 	writeu(bs, 1, 1); /* rbsp_stop_one_bit */
-	if (bs->freebits != 8)
-		writeu(bs, bs->freebits, 0); /* rbsp_alignment_zero bits */
+	if (bs->bitsleft != 8)
+		writeu(bs, bs->bitsleft, 0); /* rbsp_alignment_zero bits */
 
 	/* Trailing bits must be byte aligned */
-	WARN_ON(bs->freebits != 8);
+	WARN_ON(bs->bitsleft != 8);
 }
 
 void avico_bitstream_init(struct avico_ctx *ctx, void *ptr, unsigned int size)
@@ -196,7 +196,7 @@ void avico_bitstream_init(struct avico_ctx *ctx, void *ptr, unsigned int size)
 	bs->end = bs->start + size - 1;
 	bs->p = bs->start;
 	bs->cb = 0;
-	bs->freebits = 8;
+	bs->bitsleft = 8;
 	bs->nulls = 0;
 }
 
@@ -513,7 +513,7 @@ void avico_bitstream_get64(struct avico_ctx *ctx, uint32_t data[2],
 {
 	struct bitstream *bs = &ctx->bs;
 	uint8_t *p = (uint8_t *)((uintptr_t)bs->p & ~0x7);
-	int b = (bs->p - p) * 8 + 8 - bs->freebits;
+	int b = (bs->p - p) * 8 + 8 - bs->bitsleft;
 
 	*bs->p = bs->cb;
 
@@ -543,18 +543,18 @@ void avico_bitstream_cut64(struct avico_ctx *ctx)
 {
 	ctx->bs.p = IS_ALIGNED((uintptr_t)ctx->bs.p, 8) ? ctx->bs.p :
 			PTR_ALIGN(ctx->bs.p - 8, 8);
-	ctx->bs.freebits = 8;
+	ctx->bs.bitsleft = 8;
 	ctx->bs.cb = 0;
 	ctx->bs.nulls = 0;
 }
 
 void avico_bitstream_dump(struct bitstream *bs)
 {
-	size_t len = bs->p - bs->start + (bs->freebits == 8 ? 0 : 1);
+	size_t len = bs->p - bs->start + (bs->bitsleft == 8 ? 0 : 1);
 	*bs->p = bs->cb;
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 1, bs->start,
 		       len, true);
-	if (bs->freebits != 8)
-		pr_info("Bits in last byte: %u\n", 8 - bs->freebits);
+	if (bs->bitsleft != 8)
+		pr_info("Bits in last byte: %u\n", 8 - bs->bitsleft);
 }
 
