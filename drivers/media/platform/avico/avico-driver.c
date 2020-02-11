@@ -1792,13 +1792,13 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct avico_ctx *ctx = vb2_get_drv_priv(vq);
 	struct vb2_v4l2_buffer *buf;
 	int ret = 0;
-	struct vb2_queue *opp_vq;
+	struct vb2_queue *other_vq;
 
 	if (V4L2_TYPE_IS_OUTPUT(vq->type))
-		opp_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+		other_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
 					 V4L2_BUF_TYPE_VIDEO_CAPTURE);
 	else
-		opp_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+		other_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
 					 V4L2_BUF_TYPE_VIDEO_OUTPUT);
 
 	/* TODO: Move to avico_open() */
@@ -1808,7 +1808,7 @@ static int avico_start_streaming(struct vb2_queue *vq, unsigned int count)
 		goto err_ret_bufs;
 	}
 
-	if (vb2_is_streaming(opp_vq)) {
+	if (vb2_is_streaming(other_vq)) {
 		ret = avico_init_streaming(ctx);
 		if (ret)
 			goto pm_put;
@@ -1835,10 +1835,10 @@ static void avico_stop_streaming(struct vb2_queue *q)
 	struct avico_ctx *ctx = vb2_get_drv_priv(q);
 	struct vb2_v4l2_buffer *vbuf;
 	unsigned long flags;
-	struct vb2_queue *opp_vq;
+	struct vb2_queue *other_vq;
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
-		opp_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+		other_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
 					 V4L2_BUF_TYPE_VIDEO_CAPTURE);
 		while ((vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx))) {
 			/*
@@ -1851,7 +1851,7 @@ static void avico_stop_streaming(struct vb2_queue *q)
 			spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
 		}
 	} else {
-		opp_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+		other_vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
 					 V4L2_BUF_TYPE_VIDEO_OUTPUT);
 		while ((vbuf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx))) {
 			spin_lock_irqsave(&ctx->dev->irqlock, flags);
@@ -1860,7 +1860,7 @@ static void avico_stop_streaming(struct vb2_queue *q)
 		}
 	}
 
-	if (!vb2_is_streaming(opp_vq)) {
+	if (!vb2_is_streaming(other_vq)) {
 		dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->refsize,
 				  ctx->vref, ctx->dmaref);
 
