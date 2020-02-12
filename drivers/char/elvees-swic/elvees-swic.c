@@ -70,6 +70,10 @@ struct elvees_swic_private_data {
 	void __iomem *regs;
 
 	unsigned long mtu;
+	u32 tx_speed;
+
+	spinlock_t lock;
+	spinlock_t dma_lock;
 
 	struct elvees_swic_buf_desc *rx_data_ring;
 
@@ -84,6 +88,11 @@ struct elvees_swic_private_data {
 	bool tx_data_done;
 	bool rx_desc_done;
 	bool link;
+	/* Flag to grant permission to start DMA channels.
+	 * If set to true, no one should start DMA.
+	 */
+	bool dma_disable;
+	bool epp;
 
 	wait_queue_head_t write_wq;
 	wait_queue_head_t read_wq;
@@ -103,6 +112,37 @@ struct elvees_swic_private_data {
 	struct cdev cdev;
 };
 
+static u32 swic_readl(struct elvees_swic_private_data *pdata, u32 reg)
+{
+	return readl(pdata->regs + reg);
+}
+
+static void swic_writel(struct elvees_swic_private_data *pdata, u32 reg,
+			u32 value)
+{
+	 writel(value, pdata->regs + reg);
+}
+
+static void elvees_swic_rx_data_dma_setup(
+	struct elvees_swic_private_data *pdata)
+{
+	struct elvees_swic_buf_desc *ring = pdata->rx_data_ring;
+	int i;
+
+	/* TODO: Check, if it possible to remove dma_disable flag from here */
+	pdata->dma_disable = false;
+	pdata->dma_head.offset = 0;
+	pdata->cpu_head.offset = 0;
+	pdata->dma_head.desc_num = 0;
+	pdata->cpu_head.desc_num = 0;
+
+	for (i = 0; i < RX_RING_SIZE; i++)
+		ring[i].ready4dma = 1;
+
+	swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_CP,
+		    pdata->rx_data_dma_addr | 1);
+}
+
 static int elvees_swic_rx_ring_create(struct elvees_swic_private_data *pdata)
 {
 	struct elvees_swic_buf_desc *ring;
@@ -114,7 +154,6 @@ static int elvees_swic_rx_ring_create(struct elvees_swic_private_data *pdata)
 		return -ENOMEM;
 
 	for (i = 0; i < RX_RING_SIZE; i++) {
-		ring[i].ready4dma = 1;
 		ring[i].vaddr = dma_alloc_coherent(pdata->dev,
 						   ELVEES_SWIC_RX_BUF_SIZE,
 						   &ring[i].dma.ir,
@@ -136,12 +175,9 @@ static int elvees_swic_rx_ring_create(struct elvees_swic_private_data *pdata)
 	}
 
 	ring[RX_RING_SIZE - 1].dma.cp = pdata->rx_data_dma_addr;
-
-	pdata->dma_head.offset = 0;
-	pdata->cpu_head.offset = 0;
-	pdata->dma_head.desc_num = 0;
-	pdata->cpu_head.desc_num = 0;
 	pdata->rx_data_ring = ring;
+
+	elvees_swic_rx_data_dma_setup(pdata);
 
 	return 0;
 
@@ -173,15 +209,15 @@ static int elvees_swic_rx_ring_destroy(struct elvees_swic_private_data *pdata)
 	return 0;
 }
 
-static u32 swic_readl(struct elvees_swic_private_data *pdata, u32 reg)
+static void elvees_swic_hw_set_speed(struct elvees_swic_private_data *pdata,
+				     unsigned long arg)
 {
-	return readl(pdata->regs + reg);
-}
+	u32 reg;
 
-static void swic_writel(struct elvees_swic_private_data *pdata, u32 reg,
-			u32 value)
-{
-	 writel(value, pdata->regs + reg);
+	reg = swic_readl(pdata, SWIC_TX_SPEED);
+	reg &= ~SWIC_TX_SPEED_TX_SPEED;
+	reg |= SET_FIELD(SWIC_TX_SPEED_TX_SPEED, arg);
+	swic_writel(pdata, SWIC_TX_SPEED, reg);
 }
 
 static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
@@ -199,8 +235,70 @@ static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
 	       SWIC_DMA_CSR_RUN) {
 	}
 
+	/* Set speed to default (4.8 Mbit/s) when link is disabled. */
+	elvees_swic_hw_set_speed(pdata, TX_SPEED_4P8);
+
 	reg = swic_readl(pdata, SWIC_MODE_CR);
 	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_LINK_RESET));
+}
+
+static inline void elvees_swic_move_head(struct elvees_swic_ring_head *p)
+{
+	p->desc_num = (p->desc_num == RX_RING_SIZE - 1) ? 0 : p->desc_num + 1;
+	p->offset = 0;
+}
+
+static void elvees_swic_stop_all_dma(struct elvees_swic_private_data *pdata)
+{
+	struct elvees_swic_buf_desc *ring = pdata->rx_data_ring;
+	struct elvees_swic_ring_head *head = &pdata->dma_head;
+	unsigned long flags;
+	u32 reg;
+
+	spin_lock_irqsave(&pdata->dma_lock, flags);
+
+	if (swic_readl(pdata, SWIC_DMA_RX_DESC + SWIC_DMA_RUN) &
+	    SWIC_DMA_CSR_RUN)
+		swic_writel(pdata, SWIC_DMA_RX_DESC + SWIC_DMA_RUN, 0);
+
+	if (swic_readl(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN) &
+	    SWIC_DMA_CSR_RUN)
+		swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN, 0);
+
+	if (swic_readl(pdata, SWIC_DMA_TX_DESC + SWIC_DMA_RUN) &
+	    SWIC_DMA_CSR_RUN)
+		swic_writel(pdata, SWIC_DMA_TX_DESC + SWIC_DMA_RUN, 0);
+
+	if (swic_readl(pdata, SWIC_DMA_TX_DATA + SWIC_DMA_RUN) &
+	    SWIC_DMA_CSR_RUN)
+		swic_writel(pdata, SWIC_DMA_TX_DATA + SWIC_DMA_RUN, 0);
+
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_LINK_RESET);
+	udelay(1);
+	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_LINK_RESET));
+
+	reg = swic_readl(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_CP);
+
+	/* DMA could be started from different places, and at the time
+	 * we disable irq and stop DMA, several buffers could be filled.
+	 * Mark this buffers as completed.
+	 */
+	while (ring[head->desc_num].dma.cp != reg) {
+		ring[head->desc_num].ready4dma = 0;
+		elvees_swic_move_head(head);
+	}
+	/* Workaround bug #12560 */
+	ring[head->desc_num].ready4dma = 0;
+
+	swic_writel(pdata,  SWIC_DMA_RX_DATA + SWIC_DMA_CP,
+		    ring[head->desc_num].dma.cp | 1);
+
+	elvees_swic_move_head(head);
+
+	pdata->dma_disable = true;
+
+	spin_unlock_irqrestore(&pdata->dma_lock, flags);
 }
 
 static void elvees_swic_reset(struct elvees_swic_private_data *pdata)
@@ -221,6 +319,71 @@ static void elvees_swic_reset(struct elvees_swic_private_data *pdata)
 	pdata->cpu_head.offset = 0;
 	pdata->dma_head.desc_num = 0;
 	pdata->cpu_head.desc_num = 0;
+}
+
+static void elvees_swic_init(struct elvees_swic_private_data *pdata)
+{
+	unsigned long rate;
+	u32 reg;
+
+	reg = SWIC_MODE_CR_LINK_DISABLE | SWIC_MODE_CR_LINK_START |
+	      SWIC_MODE_CR_COEFF_10_WR |
+	      SWIC_MODE_CR_LINK_MASK | SWIC_MODE_CR_ERR_MASK;
+
+	swic_writel(pdata, SWIC_MODE_CR, reg);
+
+	rate = clk_get_rate(pdata->aclk);
+	rate = DIV_ROUND_UP(rate, 10000000);
+	reg = SET_FIELD(SWIC_TX_SPEED_COEFF_10, rate);
+
+	swic_writel(pdata, SWIC_TX_SPEED, reg);
+}
+
+static void elvees_swic_enable(struct elvees_swic_private_data *pdata)
+{
+	u32 reg;
+
+	/* Workaround bug #11323 */
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	reg |= SWIC_MODE_CR_LINK_RESET;
+	swic_writel(pdata, SWIC_MODE_CR, reg);
+
+	/*
+	 * Field TX_SPEED is set to 0x0(4.8 Mbit/s).
+	 * This is required to establish link.
+	 */
+	reg = swic_readl(pdata, SWIC_TX_SPEED);
+	reg |= SWIC_TX_SPEED_PLL_TX_EN | SWIC_TX_SPEED_LVDS_EN;
+	reg |= SET_FIELD(SWIC_TX_SPEED_TX_SPEED, TX_SPEED_4P8);
+	swic_writel(pdata, SWIC_TX_SPEED, reg);
+
+	swic_writel(pdata, SWIC_CNT_RX_PACK, 0);
+
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	reg &= ~(SWIC_MODE_CR_LINK_DISABLE | SWIC_MODE_CR_LINK_RESET);
+	swic_writel(pdata, SWIC_MODE_CR, reg);
+}
+
+static void elvees_swic_disable(struct elvees_swic_private_data *pdata)
+{
+	u32 reg;
+
+	/* Graceful shutdown */
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	reg |= SWIC_MODE_CR_LINK_DISABLE;
+	swic_writel(pdata, SWIC_MODE_CR, reg);
+
+	/* Workaround bug #1006
+	 * Delay to get correct Disconnect error by other side
+	 */
+	mdelay(1);
+
+	reg = swic_readl(pdata, SWIC_TX_SPEED);
+	reg &= ~(SWIC_TX_SPEED_PLL_TX_EN | SWIC_TX_SPEED_LVDS_EN);
+	reg &= ~SWIC_TX_SPEED_TX_SPEED;
+	swic_writel(pdata, SWIC_TX_SPEED, reg);
+
+	elvees_swic_stop_all_dma(pdata);
 }
 
 static int elvees_swic_open(struct inode *inode, struct file *file)
@@ -256,43 +419,19 @@ static void elvees_swic_start_dma(struct elvees_swic_private_data *pdata,
 static int elvees_swic_set_link(struct elvees_swic_private_data *pdata,
 				unsigned int arg)
 {
-	u32 reg;
-	unsigned long rate;
-
-	elvees_swic_reset(pdata);
-
 	if (arg == 0) {
 		/* No interrupt if link is disabled in a regular way */
 		pdata->link = false;
+		elvees_swic_disable(pdata);
 		wake_up_interruptible(&pdata->write_wq);
 		wake_up_interruptible(&pdata->read_wq);
 		return 0;
 	}
 
-	reg = SWIC_MODE_CR_LINK_START | SWIC_MODE_CR_LINK_MASK |
-	      SWIC_MODE_CR_ERR_MASK | SWIC_MODE_CR_COEFF_10_WR;
+	if (arg == 1 && pdata->link)
+		return 0;
 
-	swic_writel(pdata, SWIC_MODE_CR, reg);
-
-	rate = clk_get_rate(pdata->aclk);
-	rate = DIV_ROUND_UP(rate, 10000000);
-	reg = SET_FIELD(SWIC_TX_SPEED_COEFF_10, rate);
-
-	/*
-	 * Field TX_SPEED is set to 0x0(4.8 Mbit/s).
-	 * This is required to establish link.
-	 */
-	swic_writel(pdata, SWIC_TX_SPEED, SWIC_TX_SPEED_PLL_TX_EN |
-					  SWIC_TX_SPEED_LVDS_EN | reg);
-
-	swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_CP,
-		    pdata->rx_data_dma_addr | 1);
-
-	/* Wait for RX DMA to fetch first registers block from memory */
-	udelay(1);
-
-	swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN,
-		    SWIC_DMA_CSR_RUN);
+	elvees_swic_enable(pdata);
 
 	return 0;
 }
@@ -364,15 +503,16 @@ static u32 elvees_swic_get_speed(struct elvees_swic_private_data *pdata,
 static int elvees_swic_set_speed(struct elvees_swic_private_data *pdata,
 				 unsigned long arg)
 {
-	u32 reg;
+	unsigned long flags;
 
 	if (arg != TX_SPEED_2P4 && arg > TX_SPEED_408)
 		return -EINVAL;
 
-	reg = swic_readl(pdata, SWIC_TX_SPEED);
-	reg &= ~SWIC_TX_SPEED_TX_SPEED;
-	reg |= SET_FIELD(SWIC_TX_SPEED_TX_SPEED, arg);
-	swic_writel(pdata, SWIC_TX_SPEED, reg);
+	spin_lock_irqsave(&pdata->lock, flags);
+	pdata->tx_speed = arg;
+	if (pdata->link)
+		elvees_swic_hw_set_speed(pdata, pdata->tx_speed);
+	spin_unlock_irqrestore(&pdata->lock, flags);
 
 	return 0;
 }
@@ -415,21 +555,12 @@ static long elvees_swic_ioctl(struct file *file,
 	return -ENOTTY;
 }
 
-static bool elvees_swic_check_link(struct elvees_swic_private_data *pdata)
-{
-	u32 reg = swic_readl(pdata, SWIC_STATUS) & SWIC_STATUS_LINK_STATE;
-
-	if (reg == SWIC_STATUS_LINK_STATE_RUN)
-		return true;
-
-	return false;
-}
-
 static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
 				char __user *buf, size_t size,
 				size_t *transmitted)
 {
-	size_t chunk, chunk_aligned;
+	size_t chunk, chunk_aligned = 0;
+	unsigned long flags;
 	int ret;
 	u32 dma_copied;
 
@@ -437,8 +568,14 @@ static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
 	pdata->tx_desc->size = size;
 	pdata->tx_desc->type = ELVEES_SWIC_EOP;
 
+	spin_lock_irqsave(&pdata->dma_lock, flags);
+	if (pdata->dma_disable) {
+		spin_unlock_irqrestore(&pdata->dma_lock, flags);
+		return -ENOLINK;
+	}
 	elvees_swic_start_dma(pdata, SWIC_DMA_TX_DESC,
 			      pdata->tx_desc_dma_addr, 0, 0);
+	spin_unlock_irqrestore(&pdata->dma_lock, flags);
 
 	while (size > 0) {
 		pdata->tx_data_done = false;
@@ -452,19 +589,37 @@ static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
 		chunk_aligned = ALIGN(chunk, 8);
 
 		ret = copy_from_user(pdata->tx_data, buf, chunk);
+		/*
+		 * We don't call elvees_swic_stop_all_dma() on error here,
+		 * since only TX_DESC DMA started at this time,
+		 * and it's already stopped.
+		 */
 		if (ret)
-			goto stop_desc_dma;
+			goto exit;
 
+		spin_lock_irqsave(&pdata->dma_lock, flags);
+		if (pdata->dma_disable) {
+			spin_unlock_irqrestore(&pdata->dma_lock, flags);
+			ret = -ENOLINK;
+			goto exit;
+		}
 		elvees_swic_start_dma(pdata, SWIC_DMA_TX_DATA,
 				      pdata->tx_data_dma_addr,
 				      ELVEES_SWIC_DMA_CSR_WN,
 				      (chunk_aligned / 8) - 1);
+		spin_unlock_irqrestore(&pdata->dma_lock, flags);
 
 		ret = wait_event_interruptible(pdata->write_wq,
 					       pdata->tx_data_done ||
 					       !pdata->link);
-		if (ret == -ERESTARTSYS || !pdata->link)
-			goto stop_data_dma;
+		if (ret == -ERESTARTSYS) {
+			elvees_swic_stop_all_dma(pdata);
+			goto exit;
+		}
+		if (!pdata->link) {
+			ret = -ENOLINK;
+			goto exit;
+		}
 
 		buf += chunk;
 		*transmitted += chunk;
@@ -473,9 +628,7 @@ static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
 
 	return 0;
 
-stop_data_dma:
-	elvees_swic_stop_dma(pdata, SWIC_DMA_TX_DATA);
-
+exit:
 	dma_copied = swic_readl(pdata, SWIC_DMA_TX_DATA + SWIC_DMA_CSR);
 	dma_copied = GET_FIELD(dma_copied, SWIC_DMA_CSR_WCX);
 	if (dma_copied == 0xFFFF)
@@ -484,8 +637,6 @@ stop_data_dma:
 		dma_copied = chunk_aligned - (dma_copied + 1) * 8;
 	*transmitted += dma_copied;
 
-stop_desc_dma:
-	elvees_swic_stop_dma(pdata, SWIC_DMA_TX_DESC);
 	return ret;
 }
 
@@ -498,10 +649,12 @@ static ssize_t elvees_swic_write(struct file *file, const char __user *buf,
 
 	mutex_lock(&pdata->swic_write_lock);
 
-	if (!elvees_swic_check_link(pdata)) {
+	if (!pdata->link) {
 		mutex_unlock(&pdata->swic_write_lock);
 		return -ENOLINK;
 	}
+
+	pdata->dma_disable = false;
 
 	while (size > 0) {
 		packet_size = min_t(size_t, size, pdata->mtu);
@@ -521,10 +674,49 @@ exit:
 	return transmitted;
 }
 
-static inline void elvees_swic_move_head(struct elvees_swic_ring_head *p)
+static int swic_receive_data(struct elvees_swic_private_data *pdata,
+			     char __user *buf, size_t *size,
+			     size_t *completed)
 {
-	p->desc_num = (p->desc_num == RX_RING_SIZE - 1) ? 0 : p->desc_num + 1;
-	p->offset = 0;
+	struct elvees_swic_buf_desc *ring = pdata->rx_data_ring;
+	struct elvees_swic_ring_head *head = &pdata->cpu_head;
+	size_t chunk;
+	unsigned long flags;
+	int ret;
+
+	chunk = min_t(size_t, ELVEES_SWIC_RX_BUF_SIZE - head->offset, *size);
+
+	ret = copy_to_user(buf, ring[head->desc_num].vaddr +
+			   head->offset, chunk);
+	if (ret)
+		return ret;
+
+	*completed += chunk;
+	*size -= chunk;
+
+	if (chunk == ELVEES_SWIC_RX_BUF_SIZE - head->offset) {
+		if (ring[head->desc_num].ready4dma) {
+			ret = wait_event_interruptible(pdata->read_wq,
+					!ring[head->desc_num].ready4dma ||
+					!pdata->link);
+			if (ret == -ERESTARTSYS)
+				return ret;
+
+			if (!pdata->link)
+				return -ENOLINK;
+		}
+		spin_lock_irqsave(&pdata->dma_lock, flags);
+		ring[head->desc_num].ready4dma = 1;
+		elvees_swic_move_head(head);
+
+		if (pdata->link && !pdata->epp)
+			swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN,
+				    SWIC_DMA_CSR_RUN);
+		spin_unlock_irqrestore(&pdata->dma_lock, flags);
+	} else
+		head->offset += ALIGN(chunk, 8);
+
+	return 0;
 }
 
 static ssize_t elvees_swic_read(struct file *file, char __user *buf,
@@ -533,12 +725,13 @@ static ssize_t elvees_swic_read(struct file *file, char __user *buf,
 	struct elvees_swic_private_data *pdata = file->private_data;
 	struct elvees_swic_buf_desc *ring = pdata->rx_data_ring;
 	struct elvees_swic_ring_head *head = &pdata->cpu_head;
-	size_t desc_size, completed = 0, chunk;
+	size_t desc_size, completed = 0;
+	unsigned long flags;
 	int ret;
 
 	mutex_lock(&pdata->swic_read_lock);
 
-	if (!elvees_swic_check_link(pdata)) {
+	if (!pdata->link) {
 		mutex_unlock(&pdata->swic_read_lock);
 		return -ENOLINK;
 	}
@@ -548,70 +741,76 @@ static ssize_t elvees_swic_read(struct file *file, char __user *buf,
 		return -ENOBUFS;
 	}
 
+	pdata->rx_desc->valid = 0;
 	pdata->rx_desc_done = false;
+	pdata->dma_disable = false;
+	pdata->epp = false;
+
+	spin_lock_irqsave(&pdata->dma_lock, flags);
+	if (pdata->dma_disable) {
+		spin_unlock_irqrestore(&pdata->dma_lock, flags);
+		goto exit;
+	}
+	swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN, SWIC_DMA_CSR_RUN);
 
 	elvees_swic_start_dma(pdata, SWIC_DMA_RX_DESC,
 			      pdata->rx_desc_dma_addr, 0, 0);
+	spin_unlock_irqrestore(&pdata->dma_lock, flags);
 
 	ret = wait_event_interruptible(pdata->read_wq, pdata->rx_desc_done ||
 						       !pdata->link);
-	if (ret == -ERESTARTSYS || !pdata->link)
-		goto stop_desc_dma;
+	if (ret == -ERESTARTSYS)
+		goto dma_stop;
 
+	/* If link disconected and no rx_desc received, goto exit */
+	if (!pdata->rx_desc_done && !pdata->link)
+		goto exit;
+
+	/* If rx_desc received, but not valid, goto exit */
+	if (pdata->rx_desc->valid == 0) {
+		/* TODO: We don't know if there is data available in RX DATA
+		 * buffer when this happens. If it is, cpu_head should be
+		 * updated to skip invalid data.
+		 */
+		dev_warn(pdata->dev, "RX DESC not valid\n");
+		goto exit;
+	}
+
+	/* If rx_desc received with EEP packet, try read some data */
 	if (pdata->rx_desc->type == ELVEES_SWIC_EEP)
-		goto stop_data_dma;
+		pdata->epp = true;
 
 	desc_size = pdata->rx_desc->size;
 
 	/*TODO: Add waiting for all packet data is actually copied by RX DMA */
-	if (head->offset != 0) {
-		chunk = min_t(size_t, ELVEES_SWIC_RX_BUF_SIZE - head->offset,
-			      desc_size);
-
-		ret = copy_to_user(buf, ring[head->desc_num].vaddr +
-					head->offset, chunk);
-		if (ret)
-			goto stop_data_dma;
-
-		if (chunk == ELVEES_SWIC_RX_BUF_SIZE - head->offset) {
-			ring[head->desc_num].ready4dma = 1;
-			elvees_swic_move_head(head);
-			swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN,
-				    SWIC_DMA_CSR_RUN);
-		} else
-			head->offset += ALIGN(chunk, 8);
-
-		completed += chunk;
-		desc_size -= chunk;
-	}
-
 	while (desc_size > 0) {
-		chunk = min_t(size_t, ELVEES_SWIC_RX_BUF_SIZE, desc_size);
-
-		ret = copy_to_user(buf + completed, ring[head->desc_num].vaddr,
-				   chunk);
-		if (ret)
-			goto stop_data_dma;
-
-		completed += chunk;
-		desc_size -= chunk;
-
-		if (chunk == ELVEES_SWIC_RX_BUF_SIZE) {
-			ring[head->desc_num].ready4dma = 1;
-			elvees_swic_move_head(head);
-			swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN,
-				    SWIC_DMA_CSR_RUN);
-		} else
-			head->offset = ALIGN(chunk, 8);
+		ret = swic_receive_data(pdata, buf + completed,
+					&desc_size, &completed);
+		if (ret) {
+			if (ret == -ERESTARTSYS)
+				goto dma_stop;
+			else
+				goto exit;
+		}
 	}
 
 	goto exit;
 
-stop_desc_dma:
-	elvees_swic_stop_dma(pdata, SWIC_DMA_RX_DESC);
-
-stop_data_dma:
-	elvees_swic_stop_dma(pdata, SWIC_DMA_RX_DATA);
+dma_stop:
+	elvees_swic_stop_all_dma(pdata);
+	/* TODO: We get here when user interrupts read routine, and we don't
+	 * need any remaining data. We update cpu_head to skip this data,
+	 * till cpu_head begins to point to the same buffer as dma_head.
+	 * This is not good since skipped buffers may contain data from
+	 * the next packet that will be lost.
+	 */
+	while (head->desc_num != pdata->dma_head.desc_num) {
+		spin_lock_irqsave(&pdata->dma_lock, flags);
+		/* Mark buffer as ready */
+		ring[head->desc_num].ready4dma = 1;
+		elvees_swic_move_head(head);
+		spin_unlock_irqrestore(&pdata->dma_lock, flags);
+	}
 
 exit:
 	mutex_unlock(&pdata->swic_read_lock);
@@ -701,18 +900,26 @@ static irqreturn_t elvees_swic_dma_rx_data_ih(int irq, void *data)
 	struct elvees_swic_private_data *pdata = data;
 	struct elvees_swic_buf_desc *ring = pdata->rx_data_ring;
 	struct elvees_swic_ring_head *head = &pdata->dma_head;
+	u32 reg = swic_readl(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_CP);
 
 	swic_readl(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_CSR);
 
-	/* Mark current buffer as completed */
-	ring[head->desc_num].ready4dma = 0;
+	spin_lock(&pdata->dma_lock);
 
-	elvees_swic_move_head(head);
+	while (ring[head->desc_num].dma.cp != reg) {
+		/* Mark current buffer as completed */
+		ring[head->desc_num].ready4dma = 0;
+		elvees_swic_move_head(head);
+	}
 
 	/* Start RX Data DMA if next buffer is available */
-	if (ring[head->desc_num].ready4dma == 1)
+	if (!pdata->dma_disable && ring[head->desc_num].ready4dma == 1) {
 		swic_writel(pdata, SWIC_DMA_RX_DATA + SWIC_DMA_RUN,
 			    SWIC_DMA_CSR_RUN);
+	}
+	spin_unlock(&pdata->dma_lock);
+
+	wake_up_interruptible(&pdata->read_wq);
 
 	return IRQ_HANDLED;
 }
@@ -739,14 +946,33 @@ static irqreturn_t elvees_swic_dma_tx_data_ih(int irq, void *data)
 
 static irqreturn_t elvees_swic_ih(int irq, void *data)
 {
-	u32 reg;
 	struct elvees_swic_private_data *pdata = data;
+	u32 reg;
 
 	reg = swic_readl(pdata, SWIC_STATUS);
 
 	if (reg & SWIC_STATUS_CONNECTED) {
 		reg |= SWIC_STATUS_GOT_FIRST_BIT;
 		pdata->link = true;
+
+		spin_lock(&pdata->dma_lock);
+		elvees_swic_rx_data_dma_setup(pdata);
+		spin_unlock(&pdata->dma_lock);
+
+		spin_lock(&pdata->lock);
+		elvees_swic_hw_set_speed(pdata, pdata->tx_speed);
+		spin_unlock(&pdata->lock);
+
+		/* Workaround bug #rf12568 */
+		spin_lock(&pdata->dma_lock);
+		pdata->tx_desc->valid = 1;
+		pdata->tx_desc->size = 0;
+		pdata->tx_desc->type = ELVEES_SWIC_EOP;
+
+		elvees_swic_start_dma(pdata, SWIC_DMA_TX_DESC,
+				      pdata->tx_desc_dma_addr, 0, 0);
+		spin_unlock(&pdata->dma_lock);
+
 		dev_dbg(pdata->dev, "Connection is set\n");
 	}
 
@@ -772,6 +998,13 @@ static irqreturn_t elvees_swic_ih(int irq, void *data)
 
 	if (reg & SWIC_STATUS_ERR) {
 		pdata->link = false;
+
+		spin_lock(&pdata->lock);
+		elvees_swic_hw_set_speed(pdata, TX_SPEED_4P8);
+		spin_unlock(&pdata->lock);
+
+		elvees_swic_stop_all_dma(pdata);
+
 		wake_up_interruptible(&pdata->write_wq);
 		wake_up_interruptible(&pdata->read_wq);
 	}
@@ -899,6 +1132,9 @@ static int elvees_swic_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_aclk;
 
+	spin_lock_init(&pdata->lock);
+	spin_lock_init(&pdata->dma_lock);
+
 	mutex_init(&pdata->swic_write_lock);
 	mutex_init(&pdata->swic_read_lock);
 
@@ -908,12 +1144,14 @@ static int elvees_swic_probe(struct platform_device *pdev)
 	init_waitqueue_head(&pdata->read_wq);
 
 	pdata->mtu = ELVEES_SWIC_MTU_DEFAULT;
+	pdata->tx_speed = TX_SPEED_4P8;
 
 	ret = elvees_swic_rx_ring_create(pdata);
 	if (ret) {
 		elvees_swic_dev_unregister(pdata);
 		goto disable_aclk;
 	}
+	elvees_swic_init(pdata);
 
 	dev_info(&pdev->dev,
 		 "ELVEES SWIC @ 0x%p; SWIC version %x\n",

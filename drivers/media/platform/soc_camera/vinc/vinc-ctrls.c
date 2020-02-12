@@ -502,18 +502,7 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_TEST_PATTERN:
-		stream_ctr = vinc_read(priv, STREAM_CTR);
-		vinc_write(priv, STREAM_CTR,
-			   stream_ctr & ~STREAM_CTR_STREAM_ENABLE(channel));
-		proc_cfg = vinc_read(priv, STREAM_PROC_CFG(channel));
-		if (stream->input_format == BAYER && !ctrl->val)
-			proc_cfg |= STREAM_PROC_CFG_CFA_EN;
-		else
-			proc_cfg &= ~STREAM_PROC_CFG_CFA_EN;
-		if (ctrl->val)
-			vinc_configure_input(stream);
-		vinc_write(priv, STREAM_PROC_CFG(channel), proc_cfg);
-		vinc_write(priv, STREAM_CTR, stream_ctr);
+		/* Test pattern can be changed only when stream is off */
 		break;
 	case V4L2_CID_SENSOR_AUTO_WHITE_BALANCE: {
 		struct v4l2_control awb = {

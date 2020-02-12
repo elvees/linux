@@ -1,0 +1,101 @@
+* ELVEES MCom-02 device tree clock bindings
+
+Required properties for PLL:
+
+- compatible: should be "elvees,mcom-clk-pll".
+- reg: shall be the register offset from CMCTR base.
+- #clock-cells: should be 0
+- clocks: shall be the input parent clock phandle for the clock.
+
+Optional properties for PLL
+
+- clk-mult-initial: set initial multiplier.
+
+
+Required properties for divider:
+
+- compatible: should be "elvees,mcom-clk-divider".
+- reg: shall be the register offset from CMCTR base.
+- #clock-cells: should be 0
+- clocks: shall be the input parent clock phandle for the clock.
+- reg-shift: bit shift of the divider field.
+- reg-width: width of the divider field.
+
+Optional properties for divider:
+
+- clk-div-initial: write raw value into register. This is not a divider.
+  Divider = 2 ^ clk-div-initial
+
+
+Required properties for gate:
+
+- compatible: should be "elvees,mcom-clk-gate".
+- reg: shall be the register offset from CMCTR base.
+- #clock-cells: should be 0
+- clocks: shall be the input parent clock phandle for the clock.
+- reg-bit: bit shift for the bit enabling/disabling the clock.
+
+
+Required properties for mux:
+
+- compatible: should be "elvees,mcom-clk-mux".
+- reg: shall be the register offset from CMCTR base.
+- #clock-cells: should be 0
+- clocks: shall be the input parent clocks phandle for the clock.
+- reg-shift: bit shift of the mux field.
+- reg-width: width of the mux field.
+
+Optional properties for mux:
+
+- clk-mux-initial: write raw value into register (can be in range 0..7).
+
+
+Example:
+
+	clock-controller@38094000 {
+		compatible = "elvees,mcom-cmctr";
+		reg = <0x38094000 0x1000>;
+
+		clocks {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			spllclk: spllclk {
+				compatible = "elvees,mcom-clk-pll";
+				clocks = <&xti24m>;
+				#clock-cells = <0>;
+				reg = <0x10c>;
+				clk-mult-initial = <12>;
+			};
+
+			clkout_clk_mux: clkout_clk_mux {
+				compatible = "elvees,mcom-clk-mux";
+				clocks = <&spllclk>, <&cpllclk>, <&apllclk>,
+					 <&dpllclk>, <&vpllclk>, <&swic0pllclk>,
+					 <&swic1pllclk>;
+				#clock-cells = <0>;
+				reg = <0x80>;
+				reg-shift = <0>;
+				reg-width = <3>;
+				clk-mux-initial = <0>;
+			};
+
+			clkout_clk_div: clkout_clk_div {
+				compatible = "elvees,mcom-clk-divider";
+				clocks = <&clkout_clk_mux>;
+				#clock-cells = <0>;
+				reg = <0x84>;
+				reg-shift = <0>;
+				reg-width = <2>;
+				clk-div-initial = <0>;
+			};
+
+			clkout_clk: clkout_clk {
+				compatible = "elvees,mcom-clk-gate";
+				clocks = <&clkout_clk_div>;
+				#clock-cells = <0>;
+				reg = <0x88>;
+				reg-bit = <0>;
+			};
+		};
+	};

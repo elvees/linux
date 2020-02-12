@@ -301,6 +301,73 @@ static __init void mcom_clk_divider_init(struct device_node *node)
 	}
 }
 
+static __init void mcom_clk_mux_init(struct device_node *node)
+{
+	u32 reg, shift, width, clk_mux;
+	struct clk *clk;
+	const char *clk_name = node->name;
+	int num_parents = of_clk_get_parent_count(node);
+	const char **mux_parents;
+	int rc, i;
+
+	if (!cmctr_base) {
+		pr_err_once("%s: cmctr_base is not defined\n", node->name);
+		return;
+	}
+	if (num_parents < 0) {
+		pr_err_once("%s: Can not get clocks count\n", node->name);
+		return;
+	}
+
+	of_property_read_string(node, "clock-output-names", &clk_name);
+
+	rc = of_property_read_u32(node, "reg", &reg);
+	if (rc) {
+		pr_err("%s: Can not read reg property\n", clk_name);
+		return;
+	}
+
+	rc = of_property_read_u32(node, "reg-shift", &shift);
+	if (rc) {
+		pr_err("%s: Can not read reg-shift property\n", clk_name);
+		return;
+	}
+
+	rc = of_property_read_u32(node, "reg-width", &width);
+	if (rc) {
+		pr_err("%s: Can not read reg-width property\n", clk_name);
+		return;
+	}
+
+	rc = of_property_read_u32(node, "clk-mux-initial", &clk_mux);
+	if (!rc) {
+		unsigned long flags = 0;
+
+		spin_lock_irqsave(&mcom_clk_lock, flags);
+		writel(clk_mux, cmctr_base + reg);
+		spin_unlock_irqrestore(&mcom_clk_lock, flags);
+	}
+
+	mux_parents = kmalloc(num_parents * sizeof(*mux_parents), GFP_KERNEL);
+	for (i = 0; i < num_parents; i++)
+		mux_parents[i] = of_clk_get_parent_name(node, i);
+
+	clk = clk_register_mux(NULL, clk_name, mux_parents, num_parents, 0,
+			       cmctr_base + reg, shift, width,
+			       CLK_MUX_READ_ONLY, &mcom_clk_lock);
+
+	if (IS_ERR(clk)) {
+		pr_err("%s: Can not register clk\n", clk_name);
+		return;
+	}
+
+	rc = of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	if (rc) {
+		pr_err("%s: Can not add clk provider\n", clk_name);
+		return;
+	}
+}
+
 static __init void mcom_cmctr_init(struct device_node *node)
 {
 	cmctr_base = of_iomap(node, 0);
@@ -313,3 +380,4 @@ CLK_OF_DECLARE(mcom_clk_pll, "elvees,mcom-clk-pll", mcom_clk_pll_init);
 CLK_OF_DECLARE(mcom_clk_gate, "elvees,mcom-clk-gate", mcom_clk_gate_init);
 CLK_OF_DECLARE(mcom_clk_divider, "elvees,mcom-clk-divider",
 	       mcom_clk_divider_init);
+CLK_OF_DECLARE(mcom_clk_mux, "elvees,mcom-clk-mux", mcom_clk_mux_init);
