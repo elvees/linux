@@ -150,6 +150,7 @@ struct sdhci_arasan_data {
 	struct sdhci_arasan_clk_data clk_data;
 	const struct sdhci_arasan_clk_ops *clk_ops;
 
+	int		ctrl_id;
 	struct regmap	*soc_ctl_base;
 	const struct sdhci_arasan_soc_ctl_map *soc_ctl_map;
 	unsigned int	quirks;
@@ -196,6 +197,20 @@ static const struct sdhci_arasan_soc_ctl_map intel_keembay_soc_ctl_map = {
 	.clockmultiplier = { .reg = 0x4, .width = 8, .shift = 14 },
 	.support64b = { .reg = 0x4, .width = 1, .shift = 24 },
 	.hiword_update = false,
+};
+
+static const struct sdhci_arasan_soc_ctl_map mcom03_soc_ctl_map[] = {
+	{
+		.baseclkfreq = { .reg = 0x40, .width = 8, .shift = 8 },
+		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1 },
+		.hiword_update = false,
+	},
+	{
+		.baseclkfreq = { .reg = 0x7c, .width = 8, .shift = 8 },
+		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1 },
+		.hiword_update = false,
+	},
+	{ /* sentinel */ }
 };
 
 /**
@@ -1255,6 +1270,10 @@ static const struct of_device_id sdhci_arasan_of_match[] = {
 		.compatible = "intel,keembay-sdhci-5.1-sdio",
 		.data = &intel_keembay_sdio_data,
 	},
+	{
+		.compatible = "elvees,mcom03-sdhci-8.9a",
+		.data = &sdhci_arasan_generic_data,
+	},
 	/* Generic compatible below here */
 	{
 		.compatible = "arasan,sdhci-8.9a",
@@ -1607,6 +1626,18 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "rockchip,rk3399-sdhci-5.1"))
 		sdhci_arasan_update_clockmultiplier(host, 0x0);
+
+	/* Set proper soc_ctl_map for MCom-03 */
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "elvees,mcom03-sdhci-8.9a")) {
+		ret = device_property_read_u32(&pdev->dev, "elvees,ctrl-id",
+					       &sdhci_arasan->ctrl_id);
+		if (ret)
+			goto clk_disable_all;
+
+		sdhci_arasan->soc_ctl_map =
+			&mcom03_soc_ctl_map[sdhci_arasan->ctrl_id];
+	}
 
 	if (of_device_is_compatible(np, "intel,keembay-sdhci-5.1-emmc") ||
 	    of_device_is_compatible(np, "intel,keembay-sdhci-5.1-sd") ||
