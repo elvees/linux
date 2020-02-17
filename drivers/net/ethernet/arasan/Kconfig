@@ -1,0 +1,31 @@
+#
+# Arasan device configuration
+#
+
+config NET_VENDOR_ARASAN
+	bool "Arasan devices"
+	default n
+	---help---
+	  If you have a network (Ethernet) card belonging to this class, say Y
+	  and read the Ethernet-HOWTO, available from
+	  <http://www.tldp.org/docs.html#howto>.
+
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all
+	  the questions about Arasan cards. If you say Y, you will be asked for
+	  your specific card in the following questions.
+
+if NET_VENDOR_ARASAN
+
+config ARASAN_GEMAC
+	tristate "Arasan Gigabit Ethernet support"
+	depends on HAS_IOMEM
+	select PHYLIB
+	default n
+	---help---
+	  This driver supports the Arasan Gigabit Ethernet (GEMAC) adapter.
+
+	  To compile this driver as a module, choose M here.  The module
+	  will be called arasan-gemac.
+
+endif # NET_VENDOR_ARASAN
