@@ -113,6 +113,20 @@ static const struct sdhci_arasan_soc_ctl_map rk3399_soc_ctl_map = {
 	.hiword_update = true,
 };
 
+static const struct sdhci_arasan_soc_ctl_map mcom03_soc_ctl_map[] = {
+	{
+		.baseclkfreq = { .reg = 0x40, .width = 8, .shift = 8 },
+		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1},
+		.hiword_update = false,
+	},
+	{
+		.baseclkfreq = { .reg = 0x7c, .width = 8, .shift = 8 },
+		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1},
+		.hiword_update = false,
+	},
+	{ /* sentinel */ }
+};
+
 /**
  * sdhci_arasan_syscon_write - Write to a field in soc_ctl registers
  *
@@ -464,6 +478,7 @@ static const struct of_device_id sdhci_arasan_of_match[] = {
 		.compatible = "rockchip,rk3399-sdhci-5.1",
 		.data = &rk3399_soc_ctl_map,
 	},
+	{ .compatible = "elvees,mcom03-sdhci-8.9a" },
 
 	/* Generic compatible below here */
 	{ .compatible = "arasan,sdhci-8.9a" },
@@ -779,6 +794,19 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "rockchip,rk3399-sdhci-5.1"))
 		sdhci_arasan_update_clockmultiplier(host, 0x0);
+
+	/* Set proper soc_ctl_map for MCom-03 */
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "elvees,mcom03-sdhci-8.9a")) {
+		int ctrl_id;
+
+		ret = device_property_read_u32(&pdev->dev, "elvees,ctrl-id",
+					       &ctrl_id);
+		if (ret)
+			goto clk_disable_all;
+
+		sdhci_arasan->soc_ctl_map = &mcom03_soc_ctl_map[ctrl_id];
+	}
 
 	sdhci_arasan_update_baseclkfreq(host);
 
