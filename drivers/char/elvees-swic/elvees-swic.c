@@ -209,39 +209,6 @@ static int elvees_swic_rx_ring_destroy(struct elvees_swic_private_data *pdata)
 	return 0;
 }
 
-static void elvees_swic_hw_set_speed(struct elvees_swic_private_data *pdata,
-				     unsigned long arg)
-{
-	u32 reg;
-
-	reg = swic_readl(pdata, SWIC_TX_SPEED);
-	reg &= ~SWIC_TX_SPEED_TX_SPEED;
-	reg |= SET_FIELD(SWIC_TX_SPEED_TX_SPEED, arg);
-	swic_writel(pdata, SWIC_TX_SPEED, reg);
-}
-
-static void elvees_swic_stop_dma(struct elvees_swic_private_data *pdata,
-				 u32 base_addr)
-{
-	u32 reg;
-
-	swic_writel(pdata, base_addr + SWIC_DMA_RUN, 0);
-
-	reg = swic_readl(pdata, SWIC_MODE_CR);
-	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_LINK_RESET |
-					 SWIC_MODE_CR_LINK_DISABLE);
-
-	while (swic_readl(pdata, base_addr + SWIC_DMA_RUN) &
-	       SWIC_DMA_CSR_RUN) {
-	}
-
-	/* Set speed to default (4.8 Mbit/s) when link is disabled. */
-	elvees_swic_hw_set_speed(pdata, TX_SPEED_4P8);
-
-	reg = swic_readl(pdata, SWIC_MODE_CR);
-	swic_writel(pdata, SWIC_MODE_CR, (reg & ~SWIC_MODE_CR_LINK_RESET));
-}
-
 static inline void elvees_swic_move_head(struct elvees_swic_ring_head *p)
 {
 	p->desc_num = (p->desc_num == RX_RING_SIZE - 1) ? 0 : p->desc_num + 1;
@@ -301,24 +268,17 @@ static void elvees_swic_stop_all_dma(struct elvees_swic_private_data *pdata)
 	spin_unlock_irqrestore(&pdata->dma_lock, flags);
 }
 
-static void elvees_swic_reset(struct elvees_swic_private_data *pdata)
+static int elvees_swic_dma_reset(struct elvees_swic_private_data *pdata)
 {
-	swic_writel(pdata, SWIC_MODE_CR, SWIC_MODE_CR_LINK_DISABLE |
-					 SWIC_MODE_CR_LINK_RESET);
+	unsigned long flags;
 
-	swic_writel(pdata, SWIC_TX_SPEED, 0);
+	elvees_swic_stop_all_dma(pdata);
 
-	swic_writel(pdata, SWIC_CNT_RX_PACK, 0);
+	spin_lock_irqsave(&pdata->dma_lock, flags);
+	elvees_swic_rx_data_dma_setup(pdata);
+	spin_unlock_irqrestore(&pdata->dma_lock, flags);
 
-	/* Stop RX DATA DMA since it's the only running DMA.
-	 * Stopping DMA resets all FIFOs.
-	 */
-	elvees_swic_stop_dma(pdata, SWIC_DMA_RX_DATA);
-
-	pdata->dma_head.offset = 0;
-	pdata->cpu_head.offset = 0;
-	pdata->dma_head.desc_num = 0;
-	pdata->cpu_head.desc_num = 0;
+	return 0;
 }
 
 static void elvees_swic_init(struct elvees_swic_private_data *pdata)
@@ -500,6 +460,17 @@ static u32 elvees_swic_get_speed(struct elvees_swic_private_data *pdata,
 	return copy_to_user(arg, &speed, sizeof(struct elvees_swic_speed));
 }
 
+static void elvees_swic_hw_set_speed(struct elvees_swic_private_data *pdata,
+				 unsigned long arg)
+{
+	u32 reg;
+
+	reg = swic_readl(pdata, SWIC_TX_SPEED);
+	reg &= ~SWIC_TX_SPEED_TX_SPEED;
+	reg |= SET_FIELD(SWIC_TX_SPEED_TX_SPEED, arg);
+	swic_writel(pdata, SWIC_TX_SPEED, reg);
+}
+
 static int elvees_swic_set_speed(struct elvees_swic_private_data *pdata,
 				 unsigned long arg)
 {
@@ -550,6 +521,8 @@ static long elvees_swic_ioctl(struct file *file,
 		return elvees_swic_set_mtu(pdata, arg);
 	case SWICIOC_GET_MTU:
 		return copy_to_user(uptr, &pdata->mtu, sizeof(unsigned long));
+	case SWICIOC_FLUSH:
+		return elvees_swic_dma_reset(pdata);
 	}
 
 	return -ENOTTY;
