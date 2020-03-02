@@ -2172,6 +2172,7 @@ static void get_active_converter_info(
 	uint8_t data, struct dc_link *link)
 {
 	union dp_downstream_port_present ds_port = { .byte = data };
+	memset(&link->dpcd_caps.dongle_caps, 0, sizeof(link->dpcd_caps.dongle_caps));
 
 	/* decode converter info*/
 	if (!ds_port.fields.PORT_PRESENT) {
@@ -2240,7 +2241,8 @@ static void get_active_converter_info(
 					translate_dpcd_max_bpc(
 						hdmi_color_caps.bits.MAX_BITS_PER_COLOR_COMPONENT);
 
-				link->dpcd_caps.dongle_caps.extendedCapValid = true;
+				if (link->dpcd_caps.dongle_caps.dp_hdmi_max_pixel_clk != 0)
+					link->dpcd_caps.dongle_caps.extendedCapValid = true;
 			}
 
 			break;

@@ -385,6 +385,7 @@ fib_carrier_unicast_test()
 
 	set -e
 	$IP link set dev dummy0 carrier off
+	sleep 1
 	set +e
 
 	echo "    Carrier down"
@@ -601,6 +602,39 @@ run_cmd()
 	return $rc
 }
 
+check_expected()
+{
+	local out="$1"
+	local expected="$2"
+	local rc=0
+
+	[ "${out}" = "${expected}" ] && return 0
+
+	if [ -z "${out}" ]; then
+		if [ "$VERBOSE" = "1" ]; then
+			printf "\nNo route entry found\n"
+			printf "Expected:\n"
+			printf "    ${expected}\n"
+		fi
+		return 1
+	fi
+
+	# tricky way to convert output to 1-line without ip's
+	# messy '\'; this drops all extra white space
+	out=$(echo ${out})
+	if [ "${out}" != "${expected}" ]; then
+		rc=1
+		if [ "${VERBOSE}" = "1" ]; then
+			printf "    Unexpected route entry. Have:\n"
+			printf "        ${out}\n"
+			printf "    Expected:\n"
+			printf "        ${expected}\n\n"
+		fi
+	fi
+
+	return $rc
+}
+
 # add route for a prefix, flushing any existing routes first
 # expected to be the first step of a test
 add_route6()
@@ -645,31 +679,7 @@ check_route6()
 	local rc=0
 
 	out=$($IP -6 ro ls match ${pfx} | sed -e 's/ pref medium//')
-	[ "${out}" = "${expected}" ] && return 0
-
-	if [ -z "${out}" ]; then
-		if [ "$VERBOSE" = "1" ]; then
-			printf "\nNo route entry found\n"
-			printf "Expected:\n"
-			printf "    ${expected}\n"
-		fi
-		return 1
-	fi
-
-	# tricky way to convert output to 1-line without ip's
-	# messy '\'; this drops all extra white space
-	out=$(echo ${out})
-	if [ "${out}" != "${expected}" ]; then
-		rc=1
-		if [ "${VERBOSE}" = "1" ]; then
-			printf "    Unexpected route entry. Have:\n"
-			printf "        ${out}\n"
-			printf "    Expected:\n"
-			printf "        ${expected}\n\n"
-		fi
-	fi
-
-	return $rc
+	check_expected "${out}" "${expected}"
 }
 
 route_cleanup()
@@ -713,7 +723,7 @@ route_setup()
 	$IP addr add 172.16.103.2/24 dev veth4
 	$IP addr add 172.16.104.1/24 dev dummy1
 
-	set +ex
+	set +e
 }
 
 # assumption is that basic add of a single path route works
@@ -948,7 +958,8 @@ ipv6_addr_metric_test()
 	run_cmd "$IP li set dev dummy2 down"
 	rc=$?
 	if [ $rc -eq 0 ]; then
-		check_route6 ""
+		out=$($IP -6 ro ls match 2001:db8:104::/64)
+		check_expected "${out}" ""
 		rc=$?
 	fi
 	log_test $rc 0 "Prefix route removed on link down"
@@ -1008,34 +1019,9 @@ check_route()
 	local pfx="172.16.104.0/24"
 	local expected="$1"
 	local out
-	local rc=0
 
 	out=$($IP ro ls match ${pfx})
-	[ "${out}" = "${expected}" ] && return 0
-
-	if [ -z "${out}" ]; then
-		if [ "$VERBOSE" = "1" ]; then
-			printf "\nNo route entry found\n"
-			printf "Expected:\n"
-			printf "    ${expected}\n"
-		fi
-		return 1
-	fi
-
-	# tricky way to convert output to 1-line without ip's
-	# messy '\'; this drops all extra white space
-	out=$(echo ${out})
-	if [ "${out}" != "${expected}" ]; then
-		rc=1
-		if [ "${VERBOSE}" = "1" ]; then
-			printf "    Unexpected route entry. Have:\n"
-			printf "        ${out}\n"
-			printf "    Expected:\n"
-			printf "        ${expected}\n\n"
-		fi
-	fi
-
-	return $rc
+	check_expected "${out}" "${expected}"
 }
 
 # assumption is that basic add of a single path route works
@@ -1300,7 +1286,8 @@ ipv4_addr_metric_test()
 	run_cmd "$IP li set dev dummy2 down"
 	rc=$?
 	if [ $rc -eq 0 ]; then
-		check_route ""
+		out=$($IP ro ls match 172.16.104.0/24)
+		check_expected "${out}" ""
 		rc=$?
 	fi
 	log_test $rc 0 "Prefix route removed on link down"
@@ -1313,6 +1300,27 @@ ipv4_addr_metric_test()
 		rc=$?
 	fi
 	log_test $rc 0 "Prefix route with metric on link up"
+
+	# explicitly check for metric changes on edge scenarios
+	run_cmd "$IP addr flush dev dummy2"
+	run_cmd "$IP addr add dev dummy2 172.16.104.0/24 metric 259"
+	run_cmd "$IP addr change dev dummy2 172.16.104.0/24 metric 260"
+	rc=$?
+	if [ $rc -eq 0 ]; then
+		check_route "172.16.104.0/24 dev dummy2 proto kernel scope link src 172.16.104.0 metric 260"
+		rc=$?
+	fi
+	log_test $rc 0 "Modify metric of .0/24 address"
+
+	run_cmd "$IP addr flush dev dummy2"
+	run_cmd "$IP addr add dev dummy2 172.16.104.1/32 peer 172.16.104.2 metric 260"
+	run_cmd "$IP addr change dev dummy2 172.16.104.1/32 peer 172.16.104.2 metric 261"
+	rc=$?
+	if [ $rc -eq 0 ]; then
+		check_route "172.16.104.2 dev dummy2 proto kernel scope link src 172.16.104.1 metric 261"
+		rc=$?
+	fi
+	log_test $rc 0 "Modify metric of address with peer route"
 
 	$IP li del dummy1
 	$IP li del dummy2

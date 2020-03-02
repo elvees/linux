@@ -8,6 +8,7 @@
  * Copyright (c) 2006 Novell, Inc.
  */
 
+#include <linux/cpufreq.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/fwnode.h>
@@ -178,10 +179,14 @@ void device_pm_move_to_tail(struct device *dev)
  * of the link.  If DL_FLAG_PM_RUNTIME is not set, DL_FLAG_RPM_ACTIVE will be
  * ignored.
  *
- * If the DL_FLAG_AUTOREMOVE_CONSUMER is set, the link will be removed
- * automatically when the consumer device driver unbinds from it.
- * The combination of both DL_FLAG_AUTOREMOVE_CONSUMER and DL_FLAG_STATELESS
- * set is invalid and will cause NULL to be returned.
+ * If the DL_FLAG_AUTOREMOVE_CONSUMER flag is set, the link will be removed
+ * automatically when the consumer device driver unbinds from it.  Analogously,
+ * if DL_FLAG_AUTOREMOVE_SUPPLIER is set in @flags, the link will be removed
+ * automatically when the supplier device driver unbinds from it.
+ *
+ * The combination of DL_FLAG_STATELESS and either DL_FLAG_AUTOREMOVE_CONSUMER
+ * or DL_FLAG_AUTOREMOVE_SUPPLIER set in @flags at the same time is invalid and
+ * will cause NULL to be returned upfront.
  *
  * A side effect of the link creation is re-ordering of dpm_list and the
  * devices_kset list by moving the consumer device and all devices depending
@@ -198,9 +203,16 @@ struct device_link *device_link_add(struct device *consumer,
 	struct device_link *link;
 
 	if (!consumer || !supplier ||
-	    ((flags & DL_FLAG_STATELESS) &&
-	     (flags & DL_FLAG_AUTOREMOVE_CONSUMER)))
+	    (flags & DL_FLAG_STATELESS &&
+	     flags & (DL_FLAG_AUTOREMOVE_CONSUMER | DL_FLAG_AUTOREMOVE_SUPPLIER)))
 		return NULL;
+
+	if (flags & DL_FLAG_PM_RUNTIME && flags & DL_FLAG_RPM_ACTIVE) {
+		if (pm_runtime_get_sync(supplier) < 0) {
+			pm_runtime_put_noidle(supplier);
+			return NULL;
+		}
+	}
 
 	device_links_write_lock();
 	device_pm_lock();
@@ -216,35 +228,51 @@ struct device_link *device_link_add(struct device *consumer,
 		goto out;
 	}
 
-	list_for_each_entry(link, &supplier->links.consumers, s_node)
-		if (link->consumer == consumer) {
-			kref_get(&link->kref);
+	list_for_each_entry(link, &supplier->links.consumers, s_node) {
+		if (link->consumer != consumer)
+			continue;
+
+		/*
+		 * Don't return a stateless link if the caller wants a stateful
+		 * one and vice versa.
+		 */
+		if (WARN_ON((flags & DL_FLAG_STATELESS) != (link->flags & DL_FLAG_STATELESS))) {
+			link = NULL;
 			goto out;
 		}
+
+		if (flags & DL_FLAG_AUTOREMOVE_CONSUMER)
+			link->flags |= DL_FLAG_AUTOREMOVE_CONSUMER;
+
+		if (flags & DL_FLAG_AUTOREMOVE_SUPPLIER)
+			link->flags |= DL_FLAG_AUTOREMOVE_SUPPLIER;
+
+		if (flags & DL_FLAG_PM_RUNTIME) {
+			if (!(link->flags & DL_FLAG_PM_RUNTIME)) {
+				pm_runtime_new_link(consumer);
+				link->flags |= DL_FLAG_PM_RUNTIME;
+			}
+			if (flags & DL_FLAG_RPM_ACTIVE)
+				refcount_inc(&link->rpm_active);
+		}
+
+		kref_get(&link->kref);
+		goto out;
+	}
 
 	link = kzalloc(sizeof(*link), GFP_KERNEL);
 	if (!link)
 		goto out;
 
+	refcount_set(&link->rpm_active, 1);
+
 	if (flags & DL_FLAG_PM_RUNTIME) {
-		if (flags & DL_FLAG_RPM_ACTIVE) {
-			if (pm_runtime_get_sync(supplier) < 0) {
-				pm_runtime_put_noidle(supplier);
-				kfree(link);
-				link = NULL;
-				goto out;
-			}
-			link->rpm_active = true;
-		}
+		if (flags & DL_FLAG_RPM_ACTIVE)
+			refcount_inc(&link->rpm_active);
+
 		pm_runtime_new_link(consumer);
-		/*
-		 * If the link is being added by the consumer driver at probe
-		 * time, balance the decrementation of the supplier's runtime PM
-		 * usage counter after consumer probe in driver_probe_device().
-		 */
-		if (consumer->links.status == DL_DEV_PROBING)
-			pm_runtime_get_noresume(supplier);
 	}
+
 	get_device(supplier);
 	link->supplier = supplier;
 	INIT_LIST_HEAD(&link->s_node);
@@ -306,12 +334,19 @@ struct device_link *device_link_add(struct device *consumer,
  out:
 	device_pm_unlock();
 	device_links_write_unlock();
+
+	if ((flags & DL_FLAG_PM_RUNTIME && flags & DL_FLAG_RPM_ACTIVE) && !link)
+		pm_runtime_put(supplier);
+
 	return link;
 }
 EXPORT_SYMBOL_GPL(device_link_add);
 
 static void device_link_free(struct device_link *link)
 {
+	while (refcount_dec_not_one(&link->rpm_active))
+		pm_runtime_put(link->supplier);
+
 	put_device(link->consumer);
 	put_device(link->supplier);
 	kfree(link);
@@ -538,11 +573,11 @@ void device_links_no_driver(struct device *dev)
  */
 void device_links_driver_cleanup(struct device *dev)
 {
-	struct device_link *link;
+	struct device_link *link, *ln;
 
 	device_links_write_lock();
 
-	list_for_each_entry(link, &dev->links.consumers, s_node) {
+	list_for_each_entry_safe(link, ln, &dev->links.consumers, s_node) {
 		if (link->flags & DL_FLAG_STATELESS)
 			continue;
 
@@ -1067,8 +1102,14 @@ out:
 static ssize_t uevent_store(struct device *dev, struct device_attribute *attr,
 			    const char *buf, size_t count)
 {
-	if (kobject_synth_uevent(&dev->kobj, buf, count))
+	int rc;
+
+	rc = kobject_synth_uevent(&dev->kobj, buf, count);
+
+	if (rc) {
 		dev_err(dev, "uevent: failed to send synthetic uevent\n");
+		return rc;
+	}
 
 	return count;
 }
@@ -1642,12 +1683,63 @@ static inline struct kobject *get_glue_dir(struct device *dev)
  */
 static void cleanup_glue_dir(struct device *dev, struct kobject *glue_dir)
 {
+	unsigned int ref;
+
 	/* see if we live in a "glue" directory */
 	if (!live_in_glue_dir(glue_dir, dev))
 		return;
 
 	mutex_lock(&gdp_mutex);
-	if (!kobject_has_children(glue_dir))
+	/**
+	 * There is a race condition between removing glue directory
+	 * and adding a new device under the glue directory.
+	 *
+	 * CPU1:                                         CPU2:
+	 *
+	 * device_add()
+	 *   get_device_parent()
+	 *     class_dir_create_and_add()
+	 *       kobject_add_internal()
+	 *         create_dir()    // create glue_dir
+	 *
+	 *                                               device_add()
+	 *                                                 get_device_parent()
+	 *                                                   kobject_get() // get glue_dir
+	 *
+	 * device_del()
+	 *   cleanup_glue_dir()
+	 *     kobject_del(glue_dir)
+	 *
+	 *                                               kobject_add()
+	 *                                                 kobject_add_internal()
+	 *                                                   create_dir() // in glue_dir
+	 *                                                     sysfs_create_dir_ns()
+	 *                                                       kernfs_create_dir_ns(sd)
+	 *
+	 *       sysfs_remove_dir() // glue_dir->sd=NULL
+	 *       sysfs_put()        // free glue_dir->sd
+	 *
+	 *                                                         // sd is freed
+	 *                                                         kernfs_new_node(sd)
+	 *                                                           kernfs_get(glue_dir)
+	 *                                                           kernfs_add_one()
+	 *                                                           kernfs_put()
+	 *
+	 * Before CPU1 remove last child device under glue dir, if CPU2 add
+	 * a new device under glue dir, the glue_dir kobject reference count
+	 * will be increase to 2 in kobject_get(k). And CPU2 has been called
+	 * kernfs_create_dir_ns(). Meanwhile, CPU1 call sysfs_remove_dir()
+	 * and sysfs_put(). This result in glue_dir->sd is freed.
+	 *
+	 * Then the CPU2 will see a stale "empty" but still potentially used
+	 * glue dir around in kernfs_new_node().
+	 *
+	 * In order to avoid this happening, we also should make sure that
+	 * kernfs_node for glue_dir is released in CPU1 only when refcount
+	 * for glue_dir kobj is 1.
+	 */
+	ref = kref_read(&glue_dir->kref);
+	if (!kobject_has_children(glue_dir) && !--ref)
 		kobject_del(glue_dir);
 	kobject_put(glue_dir);
 	mutex_unlock(&gdp_mutex);
@@ -2025,6 +2117,24 @@ void put_device(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(put_device);
 
+bool kill_device(struct device *dev)
+{
+	/*
+	 * Require the device lock and set the "dead" flag to guarantee that
+	 * the update behavior is consistent with the other bitfields near
+	 * it and that we cannot have an asynchronous probe routine trying
+	 * to run while we are tearing out the bus/class/sysfs from
+	 * underneath the device.
+	 */
+	lockdep_assert_held(&dev->mutex);
+
+	if (dev->p->dead)
+		return false;
+	dev->p->dead = true;
+	return true;
+}
+EXPORT_SYMBOL_GPL(kill_device);
+
 /**
  * device_del - delete device from system.
  * @dev: device.
@@ -2043,6 +2153,10 @@ void device_del(struct device *dev)
 	struct device *parent = dev->parent;
 	struct kobject *glue_dir = NULL;
 	struct class_interface *class_intf;
+
+	device_lock(dev);
+	kill_device(dev);
+	device_unlock(dev);
 
 	/* Notify clients of device removal.  This call must come
 	 * before dpm_sysfs_remove().
@@ -2863,6 +2977,8 @@ void device_shutdown(void)
 
 	wait_for_device_probe();
 	device_block_probing();
+
+	cpufreq_suspend();
 
 	spin_lock(&devices_kset->list_lock);
 	/*

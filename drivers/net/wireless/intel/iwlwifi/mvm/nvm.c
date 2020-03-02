@@ -286,7 +286,7 @@ iwl_parse_nvm_sections(struct iwl_mvm *mvm)
 	int regulatory_type;
 
 	/* Checking for required sections */
-	if (mvm->trans->cfg->nvm_type != IWL_NVM_EXT) {
+	if (mvm->trans->cfg->nvm_type == IWL_NVM) {
 		if (!mvm->nvm_sections[NVM_SECTION_TYPE_SW].data ||
 		    !mvm->nvm_sections[mvm->cfg->nvm_hw_section_num].data) {
 			IWL_ERR(mvm, "Can't parse empty OTP/NVM sections\n");
@@ -545,9 +545,8 @@ iwl_mvm_update_mcc(struct iwl_mvm *mvm, const char *alpha2,
 	}
 
 	IWL_DEBUG_LAR(mvm,
-		      "MCC response status: 0x%x. new MCC: 0x%x ('%c%c') change: %d n_chans: %d\n",
-		      status, mcc, mcc >> 8, mcc & 0xff,
-		      !!(status == MCC_RESP_NEW_CHAN_PROFILE), n_channels);
+		      "MCC response status: 0x%x. new MCC: 0x%x ('%c%c') n_chans: %d\n",
+		      status, mcc, mcc >> 8, mcc & 0xff, n_channels);
 
 exit:
 	iwl_free_resp(&cmd);

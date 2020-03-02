@@ -161,6 +161,9 @@ static void mbigen_write_msg(struct msi_desc *desc, struct msi_msg *msg)
 	void __iomem *base = d->chip_data;
 	u32 val;
 
+	if (!msg->address_lo && !msg->address_hi)
+		return;
+ 
 	base += get_mbigen_vec_reg(d->hwirq);
 	val = readl_relaxed(base);
 
@@ -378,6 +381,7 @@ static struct platform_driver mbigen_platform_driver = {
 		.name		= "Hisilicon MBIGEN-V2",
 		.of_match_table	= mbigen_of_match,
 		.acpi_match_table = ACPI_PTR(mbigen_acpi_match),
+		.suppress_bind_attrs = true,
 	},
 	.probe			= mbigen_device_probe,
 };

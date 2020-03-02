@@ -9,14 +9,12 @@
 #include <linux/idr.h>
 #include <linux/nvmem-provider.h>
 #include <linux/pm_runtime.h>
+#include <linux/sched/signal.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 
 #include "tb.h"
-
-/* Switch authorization from userspace is serialized by this lock */
-static DEFINE_MUTEX(switch_lock);
 
 /* Switch NVM support */
 
@@ -169,7 +167,7 @@ static int nvm_validate_and_write(struct tb_switch *sw)
 
 static int nvm_authenticate_host(struct tb_switch *sw)
 {
-	int ret;
+	int ret = 0;
 
 	/*
 	 * Root switch NVM upgrade requires that we disconnect the
@@ -177,6 +175,8 @@ static int nvm_authenticate_host(struct tb_switch *sw)
 	 * already).
 	 */
 	if (!sw->safe_mode) {
+		u32 status;
+
 		ret = tb_domain_disconnect_all_paths(sw->tb);
 		if (ret)
 			return ret;
@@ -185,7 +185,16 @@ static int nvm_authenticate_host(struct tb_switch *sw)
 		 * everything goes well so getting timeout is expected.
 		 */
 		ret = dma_port_flash_update_auth(sw->dma_port);
-		return ret == -ETIMEDOUT ? 0 : ret;
+		if (!ret || ret == -ETIMEDOUT)
+			return 0;
+
+		/*
+		 * Any error from update auth operation requires power
+		 * cycling of the host router.
+		 */
+		tb_sw_warn(sw, "failed to authenticate NVM, power cycling\n");
+		if (dma_port_flash_update_auth_status(sw->dma_port, &status) > 0)
+			nvm_set_auth_status(sw, status);
 	}
 
 	/*
@@ -193,7 +202,7 @@ static int nvm_authenticate_host(struct tb_switch *sw)
 	 * switch.
 	 */
 	dma_port_power_cycle(sw->dma_port);
-	return 0;
+	return ret;
 }
 
 static int nvm_authenticate_device(struct tb_switch *sw)
@@ -201,8 +210,16 @@ static int nvm_authenticate_device(struct tb_switch *sw)
 	int ret, retries = 10;
 
 	ret = dma_port_flash_update_auth(sw->dma_port);
-	if (ret && ret != -ETIMEDOUT)
+	switch (ret) {
+	case 0:
+	case -ETIMEDOUT:
+	case -EACCES:
+	case -EINVAL:
+		/* Power cycle is required */
+		break;
+	default:
 		return ret;
+	}
 
 	/*
 	 * Poll here for the authentication status. It takes some time
@@ -253,8 +270,8 @@ static int tb_switch_nvm_write(void *priv, unsigned int offset, void *val,
 	struct tb_switch *sw = priv;
 	int ret = 0;
 
-	if (mutex_lock_interruptible(&switch_lock))
-		return -ERESTARTSYS;
+	if (!mutex_trylock(&sw->tb->lock))
+		return restart_syscall();
 
 	/*
 	 * Since writing the NVM image might require some special steps,
@@ -274,7 +291,7 @@ static int tb_switch_nvm_write(void *priv, unsigned int offset, void *val,
 	memcpy(sw->nvm->buf + offset, val, bytes);
 
 unlock:
-	mutex_unlock(&switch_lock);
+	mutex_unlock(&sw->tb->lock);
 
 	return ret;
 }
@@ -363,10 +380,7 @@ static int tb_switch_nvm_add(struct tb_switch *sw)
 	}
 	nvm->non_active = nvm_dev;
 
-	mutex_lock(&switch_lock);
 	sw->nvm = nvm;
-	mutex_unlock(&switch_lock);
-
 	return 0;
 
 err_nvm_active:
@@ -383,10 +397,8 @@ static void tb_switch_nvm_remove(struct tb_switch *sw)
 {
 	struct tb_switch_nvm *nvm;
 
-	mutex_lock(&switch_lock);
 	nvm = sw->nvm;
 	sw->nvm = NULL;
-	mutex_unlock(&switch_lock);
 
 	if (!nvm)
 		return;
@@ -717,8 +729,8 @@ static int tb_switch_set_authorized(struct tb_switch *sw, unsigned int val)
 {
 	int ret = -EINVAL;
 
-	if (mutex_lock_interruptible(&switch_lock))
-		return -ERESTARTSYS;
+	if (!mutex_trylock(&sw->tb->lock))
+		return restart_syscall();
 
 	if (sw->authorized)
 		goto unlock;
@@ -761,7 +773,7 @@ static int tb_switch_set_authorized(struct tb_switch *sw, unsigned int val)
 	}
 
 unlock:
-	mutex_unlock(&switch_lock);
+	mutex_unlock(&sw->tb->lock);
 	return ret;
 }
 
@@ -818,15 +830,15 @@ static ssize_t key_show(struct device *dev, struct device_attribute *attr,
 	struct tb_switch *sw = tb_to_switch(dev);
 	ssize_t ret;
 
-	if (mutex_lock_interruptible(&switch_lock))
-		return -ERESTARTSYS;
+	if (!mutex_trylock(&sw->tb->lock))
+		return restart_syscall();
 
 	if (sw->key)
 		ret = sprintf(buf, "%*phN\n", TB_SWITCH_KEY_SIZE, sw->key);
 	else
 		ret = sprintf(buf, "\n");
 
-	mutex_unlock(&switch_lock);
+	mutex_unlock(&sw->tb->lock);
 	return ret;
 }
 
@@ -843,8 +855,8 @@ static ssize_t key_store(struct device *dev, struct device_attribute *attr,
 	else if (hex2bin(key, buf, sizeof(key)))
 		return -EINVAL;
 
-	if (mutex_lock_interruptible(&switch_lock))
-		return -ERESTARTSYS;
+	if (!mutex_trylock(&sw->tb->lock))
+		return restart_syscall();
 
 	if (sw->authorized) {
 		ret = -EBUSY;
@@ -859,10 +871,34 @@ static ssize_t key_store(struct device *dev, struct device_attribute *attr,
 		}
 	}
 
-	mutex_unlock(&switch_lock);
+	mutex_unlock(&sw->tb->lock);
 	return ret;
 }
 static DEVICE_ATTR(key, 0600, key_show, key_store);
+
+static void nvm_authenticate_start(struct tb_switch *sw)
+{
+	struct pci_dev *root_port;
+
+	/*
+	 * During host router NVM upgrade we should not allow root port to
+	 * go into D3cold because some root ports cannot trigger PME
+	 * itself. To be on the safe side keep the root port in D0 during
+	 * the whole upgrade process.
+	 */
+	root_port = pci_find_pcie_root_port(sw->tb->nhi->pdev);
+	if (root_port)
+		pm_runtime_get_noresume(&root_port->dev);
+}
+
+static void nvm_authenticate_complete(struct tb_switch *sw)
+{
+	struct pci_dev *root_port;
+
+	root_port = pci_find_pcie_root_port(sw->tb->nhi->pdev);
+	if (root_port)
+		pm_runtime_put(&root_port->dev);
+}
 
 static ssize_t nvm_authenticate_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -881,8 +917,8 @@ static ssize_t nvm_authenticate_store(struct device *dev,
 	bool val;
 	int ret;
 
-	if (mutex_lock_interruptible(&switch_lock))
-		return -ERESTARTSYS;
+	if (!mutex_trylock(&sw->tb->lock))
+		return restart_syscall();
 
 	/* If NVMem devices are not yet added */
 	if (!sw->nvm) {
@@ -913,16 +949,22 @@ static ssize_t nvm_authenticate_store(struct device *dev,
 
 		sw->nvm->authenticating = true;
 
-		if (!tb_route(sw))
+		if (!tb_route(sw)) {
+			/*
+			 * Keep root port from suspending as long as the
+			 * NVM upgrade process is running.
+			 */
+			nvm_authenticate_start(sw);
 			ret = nvm_authenticate_host(sw);
-		else
+		} else {
 			ret = nvm_authenticate_device(sw);
+		}
 		pm_runtime_mark_last_busy(&sw->dev);
 		pm_runtime_put_autosuspend(&sw->dev);
 	}
 
 exit_unlock:
-	mutex_unlock(&switch_lock);
+	mutex_unlock(&sw->tb->lock);
 
 	if (ret)
 		return ret;
@@ -936,8 +978,8 @@ static ssize_t nvm_version_show(struct device *dev,
 	struct tb_switch *sw = tb_to_switch(dev);
 	int ret;
 
-	if (mutex_lock_interruptible(&switch_lock))
-		return -ERESTARTSYS;
+	if (!mutex_trylock(&sw->tb->lock))
+		return restart_syscall();
 
 	if (sw->safe_mode)
 		ret = -ENODATA;
@@ -946,7 +988,7 @@ static ssize_t nvm_version_show(struct device *dev,
 	else
 		ret = sprintf(buf, "%x.%x\n", sw->nvm->major, sw->nvm->minor);
 
-	mutex_unlock(&switch_lock);
+	mutex_unlock(&sw->tb->lock);
 
 	return ret;
 }
@@ -1264,13 +1306,14 @@ int tb_switch_configure(struct tb_switch *sw)
 	return tb_plug_events_active(sw, true);
 }
 
-static void tb_switch_set_uuid(struct tb_switch *sw)
+static int tb_switch_set_uuid(struct tb_switch *sw)
 {
 	u32 uuid[4];
-	int cap;
+	int cap, ret;
 
+	ret = 0;
 	if (sw->uuid)
-		return;
+		return ret;
 
 	/*
 	 * The newer controllers include fused UUID as part of link
@@ -1278,7 +1321,9 @@ static void tb_switch_set_uuid(struct tb_switch *sw)
 	 */
 	cap = tb_switch_find_vse_cap(sw, TB_VSE_CAP_LINK_CONTROLLER);
 	if (cap > 0) {
-		tb_sw_read(sw, uuid, TB_CFG_SWITCH, cap + 3, 4);
+		ret = tb_sw_read(sw, uuid, TB_CFG_SWITCH, cap + 3, 4);
+		if (ret)
+			return ret;
 	} else {
 		/*
 		 * ICM generates UUID based on UID and fills the upper
@@ -1293,6 +1338,9 @@ static void tb_switch_set_uuid(struct tb_switch *sw)
 	}
 
 	sw->uuid = kmemdup(uuid, sizeof(uuid), GFP_KERNEL);
+	if (!sw->uuid)
+		ret = -ENOMEM;
+	return ret;
 }
 
 static int tb_switch_add_dma_port(struct tb_switch *sw)
@@ -1301,13 +1349,16 @@ static int tb_switch_add_dma_port(struct tb_switch *sw)
 	int ret;
 
 	switch (sw->generation) {
-	case 3:
-		break;
-
 	case 2:
 		/* Only root switch can be upgraded */
 		if (tb_route(sw))
 			return 0;
+
+		/* fallthrough */
+	case 3:
+		ret = tb_switch_set_uuid(sw);
+		if (ret)
+			return ret;
 		break;
 
 	default:
@@ -1328,6 +1379,19 @@ static int tb_switch_add_dma_port(struct tb_switch *sw)
 		return 0;
 
 	/*
+	 * If there is status already set then authentication failed
+	 * when the dma_port_flash_update_auth() returned. Power cycling
+	 * is not needed (it was done already) so only thing we do here
+	 * is to unblock runtime PM of the root port.
+	 */
+	nvm_get_auth_status(sw, &status);
+	if (status) {
+		if (!tb_route(sw))
+			nvm_authenticate_complete(sw);
+		return 0;
+	}
+
+	/*
 	 * Check status of the previous flash authentication. If there
 	 * is one we need to power cycle the switch in any case to make
 	 * it functional again.
@@ -1336,9 +1400,12 @@ static int tb_switch_add_dma_port(struct tb_switch *sw)
 	if (ret <= 0)
 		return ret;
 
+	/* Now we can allow root port to suspend again */
+	if (!tb_route(sw))
+		nvm_authenticate_complete(sw);
+
 	if (status) {
 		tb_sw_info(sw, "switch flash authentication failed\n");
-		tb_switch_set_uuid(sw);
 		nvm_set_auth_status(sw, status);
 	}
 
@@ -1388,7 +1455,9 @@ int tb_switch_add(struct tb_switch *sw)
 		}
 		tb_sw_info(sw, "uid: %#llx\n", sw->uid);
 
-		tb_switch_set_uuid(sw);
+		ret = tb_switch_set_uuid(sw);
+		if (ret)
+			return ret;
 
 		for (i = 0; i <= sw->config.max_port_number; i++) {
 			if (sw->ports[i].disabled) {
