@@ -10,6 +10,8 @@
 #ifndef ELVEES_SWIC_H
 #define ELVEES_SWIC_H
 
+#include <linux/types.h>
+
 #define ELVEES_SWIC_MAX_PACKET_SIZE (1024*1024)
 
 enum swic_link_state {
@@ -39,6 +41,26 @@ struct elvees_swic_speed {
 	unsigned int tx;
 };
 
+struct elvees_swic_stats {
+	__u64 tx_data_bytes;
+	__u64 rx_data_bytes;
+	__u32 tx_packets;
+	__u32 rx_eop_packets;
+	__u32 rx_eep_packets;
+	__u32 dc_err;
+	__u32 parity_err;
+	__u32 escape_err;
+	__u32 credit_err;
+};
+
+struct elvees_swic_lvds_test {
+	unsigned int iters;
+	unsigned int s_lvds_0;
+	unsigned int s_lvds_1;
+	unsigned int d_lvds_0;
+	unsigned int d_lvds_1;
+};
+
 #define SWICIOC_MAGIC 'w'
 
 #define SWICIOC_SET_LINK \
@@ -61,5 +83,14 @@ struct elvees_swic_speed {
 
 #define SWICIOC_FLUSH \
 	_IO(SWICIOC_MAGIC, 7)
+
+#define SWICIOC_GET_STATS \
+	_IOR(SWICIOC_MAGIC, 8, struct elvees_swic_stats *)
+
+#define SWICIOC_RESET_STATS \
+	_IO(SWICIOC_MAGIC, 9)
+
+#define SWICIOC_LVDS_TEST \
+	_IOWR(SWICIOC_MAGIC, 10, struct elvees_swic_lvds_test *)
 
 #endif

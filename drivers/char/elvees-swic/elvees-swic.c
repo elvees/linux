@@ -6,7 +6,6 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
-
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <linux/cdev.h>
@@ -94,6 +93,9 @@ struct elvees_swic_private_data {
 	bool dma_disable;
 	bool epp;
 
+	struct elvees_swic_stats stats;
+	struct elvees_swic_lvds_test lvds;
+
 	wait_queue_head_t write_wq;
 	wait_queue_head_t read_wq;
 
@@ -121,6 +123,20 @@ static void swic_writel(struct elvees_swic_private_data *pdata, u32 reg,
 			u32 value)
 {
 	 writel(value, pdata->regs + reg);
+}
+
+static int elvees_swic_stats_reset(struct elvees_swic_private_data *pdata)
+{
+	pdata->stats.tx_data_bytes = 0;
+	pdata->stats.rx_data_bytes = 0;
+	pdata->stats.rx_eop_packets = 0;
+	pdata->stats.rx_eep_packets = 0;
+	pdata->stats.dc_err = 0;
+	pdata->stats.parity_err = 0;
+	pdata->stats.escape_err = 0;
+	pdata->stats.credit_err = 0;
+
+	return 0;
 }
 
 static void elvees_swic_rx_data_dma_setup(
@@ -499,6 +515,41 @@ static int elvees_swic_set_mtu(struct elvees_swic_private_data *pdata,
 	return 0;
 }
 
+static u32 elvees_swic_lvds_test(struct elvees_swic_private_data *pdata,
+				 void __user *arg)
+{
+	u32 reg, iters;
+	int ret, i;
+
+	ret = copy_from_user(&pdata->lvds, arg,
+			     sizeof(struct elvees_swic_lvds_test));
+	if (ret)
+		return ret;
+
+	iters = pdata->lvds.iters;
+	memset(&pdata->lvds, 0, sizeof(struct elvees_swic_lvds_test));
+
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	reg &= ~(SWIC_MODE_CR_D_LVDS_TX | SWIC_MODE_CR_S_LVDS_TX);
+	swic_writel(pdata, SWIC_MODE_CR, reg | SWIC_MODE_CR_LVDS_MODE);
+
+	for (i = 0; i < iters; i++) {
+		reg = swic_readl(pdata, SWIC_STATUS);
+		reg & SWIC_STATUS_S_LVDS_RX ? pdata->lvds.s_lvds_1++
+					    : pdata->lvds.s_lvds_0++;
+		reg & SWIC_STATUS_D_LVDS_RX ? pdata->lvds.d_lvds_1++
+					    : pdata->lvds.d_lvds_0++;
+		pdata->lvds.iters++;
+	}
+
+	reg = swic_readl(pdata, SWIC_MODE_CR);
+	reg &= ~SWIC_MODE_CR_LVDS_MODE;
+	swic_writel(pdata, SWIC_MODE_CR, reg);
+
+	return copy_to_user(arg, &pdata->lvds,
+			    sizeof(struct elvees_swic_lvds_test));
+}
+
 static long elvees_swic_ioctl(struct file *file,
 			      unsigned int cmd,
 			      unsigned long arg)
@@ -523,6 +574,13 @@ static long elvees_swic_ioctl(struct file *file,
 		return copy_to_user(uptr, &pdata->mtu, sizeof(unsigned long));
 	case SWICIOC_FLUSH:
 		return elvees_swic_dma_reset(pdata);
+	case SWICIOC_GET_STATS:
+		return copy_to_user(uptr, &pdata->stats,
+				    sizeof(struct elvees_swic_stats));
+	case SWICIOC_RESET_STATS:
+		return elvees_swic_stats_reset(pdata);
+	case SWICIOC_LVDS_TEST:
+		return elvees_swic_lvds_test(pdata, uptr);
 	}
 
 	return -ENOTTY;
@@ -597,7 +655,9 @@ static int swic_transmit_packet(struct elvees_swic_private_data *pdata,
 		buf += chunk;
 		*transmitted += chunk;
 		size -= chunk;
+		pdata->stats.tx_data_bytes += chunk;
 	}
+	pdata->stats.tx_packets++;
 
 	return 0;
 
@@ -605,10 +665,11 @@ exit:
 	dma_copied = swic_readl(pdata, SWIC_DMA_TX_DATA + SWIC_DMA_CSR);
 	dma_copied = GET_FIELD(dma_copied, SWIC_DMA_CSR_WCX);
 	if (dma_copied == 0xFFFF)
-		dma_copied = chunk_aligned;
+		dma_copied = chunk;
 	else
 		dma_copied = chunk_aligned - (dma_copied + 1) * 8;
 	*transmitted += dma_copied;
+	pdata->stats.tx_data_bytes += dma_copied;
 
 	return ret;
 }
@@ -750,10 +811,15 @@ static ssize_t elvees_swic_read(struct file *file, char __user *buf,
 	}
 
 	/* If rx_desc received with EEP packet, try read some data */
-	if (pdata->rx_desc->type == ELVEES_SWIC_EEP)
+	if (pdata->rx_desc->type == ELVEES_SWIC_EEP) {
 		pdata->epp = true;
+		pdata->stats.rx_eep_packets++;
+	} else
+		pdata->stats.rx_eop_packets++;
 
 	desc_size = pdata->rx_desc->size;
+	/*TODO: Add actually copied bytes by RX DMA */
+	pdata->stats.rx_data_bytes += desc_size;
 
 	/*TODO: Add waiting for all packet data is actually copied by RX DMA */
 	while (desc_size > 0) {
@@ -951,21 +1017,25 @@ static irqreturn_t elvees_swic_ih(int irq, void *data)
 
 	if (reg & SWIC_STATUS_DC_ERR) {
 		reg |= SWIC_STATUS_DC_ERR;
+		pdata->stats.dc_err++;
 		dev_dbg(pdata->dev, "Disconnection error\n");
 	}
 
 	if (reg & SWIC_STATUS_P_ERR) {
 		reg |= SWIC_STATUS_P_ERR;
+		pdata->stats.parity_err++;
 		dev_dbg(pdata->dev, "Parity error\n");
 	}
 
 	if (reg & SWIC_STATUS_ESC_ERR) {
 		reg |= SWIC_STATUS_ESC_ERR;
+		pdata->stats.escape_err++;
 		dev_dbg(pdata->dev, "ESC sequence error\n");
 	}
 
 	if (reg & SWIC_STATUS_CREDIT_ERR) {
 		reg |= SWIC_STATUS_CREDIT_ERR;
+		pdata->stats.credit_err++;
 		dev_dbg(pdata->dev, "Credit error\n");
 	}
 
@@ -1125,6 +1195,7 @@ static int elvees_swic_probe(struct platform_device *pdev)
 		goto disable_aclk;
 	}
 	elvees_swic_init(pdata);
+	elvees_swic_stats_reset(pdata);
 
 	dev_info(&pdev->dev,
 		 "ELVEES SWIC @ 0x%p; SWIC version %x\n",
