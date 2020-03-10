@@ -1107,8 +1107,7 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 	 * reset of Ethernet PHY from user space (see MII-TOOL utility)
 	 */
 
-	/* Maximum allowing MDC clock is 2.5 MHz */
-	divisor = DIV_ROUND_UP(clk_get_rate(pd->hclk), 2500000);
+	divisor = DIV_ROUND_UP(clk_get_rate(pd->hclk), pd->mdc_freq);
 	arasan_gemac_writel(pd, MAC_MDIO_CLOCK_DIVISION_CONTROL, divisor);
 
 	snprintf(pd->mii_bus->id, MII_BUS_ID_SIZE, "%s-0x%x",
@@ -1323,6 +1322,12 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 			       0, dev->name, dev);
 	if (res)
 		goto err_disable_clocks;
+
+	res = device_property_read_u32(&pdev->dev, "arasan,max-mdc-freq",
+				       &pd->mdc_freq);
+	if (res < 0)
+		/* If the property is missing set MDC frequency to 2.5 MHz. */
+		pd->mdc_freq = 2500000;
 
 	arasan_gemac_reset_phy(pdev);
 
