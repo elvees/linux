@@ -993,15 +993,9 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 	switch (phydev->speed) {
 	case SPEED_100:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(1);
-
-		if (gpio_is_valid(pd->txclk_125en))
-			gpio_set_value(pd->txclk_125en, 0);
 		break;
 	case SPEED_1000:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(2);
-
-		if (gpio_is_valid(pd->txclk_125en))
-			gpio_set_value(pd->txclk_125en, 1);
 		break;
 	default:
 		netdev_err(dev, "Unknown speed (%d)\n", phydev->speed);
@@ -1348,18 +1342,6 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 			phy_modes(res));
 		res = -ENODEV;
 		goto err_disable_clocks;
-	}
-
-	if (res == PHY_INTERFACE_MODE_GMII) {
-		pd->txclk_125en = arasan_gemac_get_gpio(pdev,
-							"txclk-125en-gpios");
-		if (!gpio_is_valid(pd->txclk_125en)) {
-			dev_warn(&pdev->dev,
-				 "Failed to get txclk-125en-gpios\n");
-			dev_warn(&pdev->dev,
-				 "Reverting PHY interface to MII\n");
-			res = PHY_INTERFACE_MODE_MII;
-		}
 	}
 
 	pd->phy_interface = res;
