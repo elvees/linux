@@ -176,7 +176,7 @@ static void arasan_gemac_setup_frame_limits(struct arasan_gemac_pdata *pd,
 static void arasan_gemac_setup_fifo_thresholds(struct arasan_gemac_pdata *pd)
 {
 	/* limitation required by vendor */
-	const int max = ARASAN_FIFO_SZ - 8;
+	const int max = pd->hwfifo_size - 8;
 
 	/* FIXME: It can damp difference between DMA and GEMAC speed.
 	 * DMA has been stopped if it crosses full threshold.
@@ -1352,6 +1352,14 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	else
 		arasan_gemac_get_hwaddr(pd);
 
+	res = device_property_read_u32(&pdev->dev, "arasan,hwfifo-size",
+				       &pd->hwfifo_size);
+	if (res)
+		pd->hwfifo_size = 2048;
+
+	netdev_dbg(dev, "Arasan GEMAC hardware FIFO size: %d\n",
+		   pd->hwfifo_size);
+
 	/* Register the network interface */
 	res = register_netdev(dev);
 	if (res)
@@ -1362,7 +1370,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	arasan_gemac_dma_soft_reset(pd);
 
 	/* Display ethernet banner */
-	netdev_info(dev, "Arasan GEMAC ethernet at 0x%08lx int=%d (%pM)\n",
+	netdev_info(dev, "Arasan GEMAC Ethernet at 0x%08lx int=%d (%pM)\n",
 		    dev->base_addr, dev->irq, dev->dev_addr);
 
 	return 0;

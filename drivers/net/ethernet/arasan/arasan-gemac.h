@@ -16,9 +16,6 @@
  * more than 3500 bytes. This bugs lead to lack of transmission. */
 #define ARASAN_JUMBO_MTU 3500U
 
-/* GEMAC FIFO depth in 32 bit words */
-#define ARASAN_FIFO_SZ 1024
-
 #define mtu_to_frame_sz(x) ((x) + VLAN_ETH_HLEN)
 #define mtu_to_buf_sz(x) (mtu_to_frame_sz(x) + NET_IP_ALIGN + 4)
 
@@ -195,6 +192,7 @@ struct arasan_gemac_pdata {
 	unsigned int        speed;
 	unsigned int        duplex;
 	u32                 msg_enable;
+	u32                 hwfifo_size;
 
 	phy_interface_t     phy_interface;
 	int phy_irq[PHY_MAX_ADDR];
