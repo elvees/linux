@@ -622,7 +622,6 @@ static void arasan_gemac_set_threshold(struct arasan_gemac_pdata *pd)
 {
 	int tx_tr, rx_tr;
 
-	/* set initial TX threshold recommended by vendor */
 	switch (pd->phy_dev->speed) {
 	case SPEED_10:
 		tx_tr = 64;
@@ -634,6 +633,10 @@ static void arasan_gemac_set_threshold(struct arasan_gemac_pdata *pd)
 	default:
 		tx_tr = 1024;
 	}
+
+	/* If DT provides TX start threshold use it. */
+	if (pd->tx_threshold != 0)
+		tx_tr = pd->tx_threshold;
 
 	/* no obvious rules for RX threshold */
 	rx_tr = 64;
@@ -1328,6 +1331,11 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	if (res < 0)
 		/* If the property is missing set MDC frequency to 2.5 MHz. */
 		pd->mdc_freq = 2500000;
+
+	res = device_property_read_u32(&pdev->dev, "arasan,tx-start-threshold",
+				       &pd->tx_threshold);
+	if (res < 0)
+		pd->tx_threshold = 0;
 
 	arasan_gemac_reset_phy(pdev);
 
