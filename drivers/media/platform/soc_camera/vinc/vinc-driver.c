@@ -203,7 +203,6 @@ static int vinc_start_streaming(struct vb2_queue *q, unsigned int count)
 			struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct vinc_dev *priv = ici->priv;
-	int retry_count = 10;
 	unsigned long timeout;
 	const u8 devnum = icd->devnum;
 	const u8 channel = devnum & 0x01;
@@ -220,28 +219,22 @@ static int vinc_start_streaming(struct vb2_queue *q, unsigned int count)
 	v4l2_ctrl_grab(stream->test_pattern, 1);
 	if (stream->video_source == V4L2_MBUS_CSI2) {
 		reg = vinc_read(priv, CSI2_PORT_SYS_CTR(ifacenum));
-		/* Workaround for mcom issue rf#1361 (see errata)
-		 * Check that VINC captures video and reenable MIPI port
-		 * otherwise. */
+		vinc_write(priv, CSI2_PORT_SYS_CTR(ifacenum),
+			   reg & ~CSI2_PORT_SYS_CTR_ENABLE);
+		vinc_write(priv, CSI2_PORT_SYS_CTR(ifacenum),
+			   reg | CSI2_PORT_SYS_CTR_ENABLE);
+		vinc_configure_input(stream);
+
+		timeout = jiffies + msecs_to_jiffies(30);
 		do {
-			vinc_write(priv, CSI2_PORT_SYS_CTR(ifacenum),
-				   reg & ~CSI2_PORT_SYS_CTR_ENABLE);
-			vinc_write(priv, CSI2_PORT_SYS_CTR(ifacenum),
-				   reg | CSI2_PORT_SYS_CTR_ENABLE);
-			vinc_configure_input(stream);
+			csi2_intr = vinc_read(priv, CSI2_INTR(ifacenum));
+			if (!(csi2_intr & BIT(9)))
+				schedule();
+			else
+				break;
+		} while (time_before(jiffies, timeout));
 
-			timeout = jiffies + msecs_to_jiffies(30);
-			do {
-				csi2_intr = vinc_read(priv,
-						      CSI2_INTR(ifacenum));
-				if (!(csi2_intr & BIT(9)))
-					schedule();
-				else
-					break;
-			} while (time_before(jiffies, timeout));
-		} while (!(csi2_intr & BIT(9)) && retry_count--);
-
-		if (retry_count < 0) {
+		if (!(csi2_intr & BIT(9))) {
 			struct vinc_buffer *buf, *tmp;
 
 			list_for_each_entry_safe(buf, tmp,
@@ -252,7 +245,8 @@ static int vinc_start_streaming(struct vb2_queue *q, unsigned int count)
 			}
 			v4l2_ctrl_grab(stream->test_pattern, 0);
 			dev_err(icd->parent,
-				"Can not receive video from sensor\n");
+				"Can not receive video from sensor (%#x)\n",
+				csi2_intr);
 			return -EIO;
 		}
 	} else if (stream->video_source == V4L2_MBUS_PARALLEL)
