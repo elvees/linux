@@ -11,11 +11,16 @@
 #include <linux/init.h>
 
 ENTRY(mcom02_secondary_startup)
+	ldr	r0, =0x38095000		@ PMCTR base address
+	mov	r1, #0
+	str	r1, [r0, #0x10]		@ disable interrupt
+	mov	r1, #0x01
+	str	r1, [r0, #0x1c]		@ clear interrupt
 	ldr	r0, =0x38096000		@ SMCTR base address
 	mov	r1, #0
 	str	r1, [r0, #4]		@ remap BOOT to NORMPORT
 	mrc 	p15, 4, r0, c15, c0, 0	@ get SCU base address
-	mrc     p15, 0, r1, c0, c0, 5	@ read MIPDR
+	mrc     p15, 0, r1, c0, c0, 5	@ read MPIDR
 	and	r1, r1, #3		@ mask out cpu ID
 	lsl	r1, r1, #3		@ we will shift by cpu_id * 8 bits
 	ldr	r2, [r0, #8]		@ SCU Power Status Register
