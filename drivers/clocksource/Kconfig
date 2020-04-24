@@ -62,7 +62,7 @@ config DW_APB_TIMER
 	  Enables the support for the dw_apb timer.
 
 config DW_APB_TIMER_OF
-	bool
+	bool "DW APB OF timer driver"
 	select DW_APB_TIMER
 	select TIMER_OF
 
