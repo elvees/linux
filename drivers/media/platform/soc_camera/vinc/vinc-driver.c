@@ -196,7 +196,6 @@ static void vinc_buf_queue(struct vb2_buffer *vb)
 	spin_unlock_irq(&stream->lock);
 }
 
-
 static int vinc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct soc_camera_device *icd = container_of(q,
@@ -244,6 +243,7 @@ static int vinc_start_streaming(struct vb2_queue *q, unsigned int count)
 						VB2_BUF_STATE_QUEUED);
 			}
 			v4l2_ctrl_grab(stream->test_pattern, 0);
+			stream->active = NULL;
 			dev_err(icd->parent,
 				"Can not receive video from sensor (%#x)\n",
 				csi2_intr);
