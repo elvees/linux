@@ -1959,6 +1959,18 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 					  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
 					  1, 1 << 16, 1, 60);
 
+	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &avico_ctrl_ops,
+		V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+		V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE,
+		~BIT(V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE),
+		V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE);
+
+	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &avico_ctrl_ops,
+			       V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+			       V4L2_MPEG_VIDEO_H264_LEVEL_4_0,
+			       ~BIT(V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
+			       V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+
 	if (ctx->ctrl_handler.error) {
 		int err = ctx->ctrl_handler.error;
 
