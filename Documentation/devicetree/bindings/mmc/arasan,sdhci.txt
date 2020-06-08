@@ -14,6 +14,7 @@ Required Properties:
     - "arasan,sdhci-4.9a": generic Arasan SDHCI 4.9a PHY
     - "arasan,sdhci-5.1": generic Arasan SDHCI 5.1 PHY
     - "rockchip,rk3399-sdhci-5.1", "arasan,sdhci-5.1": rk3399 eMMC PHY
+    - "elvees,mcom03-sdhci-8.9a": MCom-03 SDHCI 8.9a PHY
       For this device it is strongly suggested to include arasan,soc-ctl-syscon.
   - reg: From mmc bindings: Register location and length.
   - clocks: From clock bindings: Handles to clock inputs.
@@ -23,6 +24,10 @@ Required Properties:
 Required Properties for "arasan,sdhci-5.1":
   - phys: From PHY bindings: Phandle for the Generic PHY for arasan.
   - phy-names:  MUST be "phy_arasan".
+
+Required Properties for "elvees,mcom03-sdhci-8.9a":
+  - resets: From resets bindings: Handle to reset input.
+  - elvees,ctrl-id: ID of SDHCI controller, can be <0> or <1>.
 
 Optional Properties:
   - arasan,soc-ctl-syscon: A phandle to a syscon device (see ../mfd/syscon.txt)
@@ -39,6 +44,7 @@ Optional Properties:
     properly. Test mode can be used to force the controller to function.
   - xlnx,int-clock-stable-broken: when present, the controller always reports
     that the internal clock is stable even when it is not.
+  - elvees,broken-hs: When present, denotes that HS mode is not supported.
 
 Example:
 	sdhci@e0100000 {
