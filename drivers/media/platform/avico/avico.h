@@ -26,6 +26,14 @@
 
 #define NCLKS 4
 
+/* Frame bounds */
+#define AVICO_WALIGN 1 /* power of 2 */
+#define AVICO_HALIGN 1 /* power of 2 */
+#define AVICO_WMAX 1920
+#define AVICO_WMIN 16
+#define AVICO_HMAX 4096
+#define AVICO_HMIN 16
+
 #define AVICO_CTRL_BASE     0x00
 #define AVICO_CTRL_EVENTS   0x00
 #define AVICO_CTRL_MSKI_CPU 0x04
@@ -598,11 +606,77 @@ struct avico_enc_params {
 	struct cdc_h264_cfg cdc_h264_cfg;
 };
 
+enum nalu_type {
+	NALU_SLICE = 1,
+	NALU_DPA,
+	NALU_DPB,
+	NALU_DPC,
+	NALU_IDR,
+	NALU_SEI,
+	NALU_SPS,
+	NALU_PPS,
+	NALU_AUD,
+	NALU_EOSEQ,
+	NALU_EOSTREAM,
+	NALU_FILL,
+	NALU_NONE = 32
+};
+
+enum nalu_priority {
+	NALU_PRIOR_DISPOSABLE,
+	NALU_PRIOR_LOW,
+	NALU_PRIOR_HIGH,
+	NALU_PRIOR_HIGHEST,
+	NALU_PRIOR_NONE
+};
+
+struct avico_crop {
+	unsigned int left, right, top, bottom;
+};
+
+/* Sequence Parameter Set */
+struct avico_sps {
+	unsigned int sps_id;
+	int log2_max_frame_num;
+	int poc_type;
+	int log2_max_poc_lsb;
+	int delta_pic_order_always_zero_flag;
+	int offset_for_non_ref_pic;
+	int offset_for_top_to_bottom_field;
+	int poc_cycle_length;
+	short offset_for_ref_frame[256];
+	int gaps_allowed;
+	int mb_width;
+	int mb_height;
+	int crop_flag;
+	struct avico_crop crop;
+	int sar_flag;
+	struct v4l2_fract sar;
+	enum v4l2_colorspace colorspace;
+	enum v4l2_quantization range;
+	enum v4l2_ycbcr_encoding matrix;
+	enum v4l2_xfer_func transfer;
+	int timing_flag;
+	struct v4l2_fract timing;
+	int fixed_framerate;
+};
+
+/* Picture parameter set */
+struct avico_pps {
+	unsigned int sps_id;
+	unsigned int pps_id;
+	int init_qp;
+	int init_qs;
+	int chroma_qp_index_offset;
+	int dbf_ctrl_present;
+};
+
 struct avico_frame_params {
 	uint8_t sps;
 	uint8_t pps;
 	uint32_t gop;
 	uint8_t poc_type;
+	int delta_poc[2];
 	uint8_t qp_i, qp_p, pps_qp;
 	int8_t qpc_offset;
 	int dbf;
@@ -612,9 +686,20 @@ struct avico_frame_params {
 	unsigned int frame;
 	uint8_t log2_max_frame;
 	unsigned int i_period;
-	struct {
-		uint16_t left, right, top, bottom;
-	} crop;
+	struct avico_crop crop;
+};
+
+enum avico_thread_type {
+	AVICO_ENCODER,
+	AVICO_DECODER,
+};
+
+struct avico_q_data {
+	struct v4l2_fmtdesc *f;
+	u32 width;
+	u32 height;
+	u32 sizeimage;
+	u32 bytesperline;
 };
 
 struct avico_ctx {
@@ -625,7 +710,10 @@ struct avico_ctx {
 	int aborting;
 
 	unsigned long state;
+	enum avico_thread_type thread_type;
 
+	struct avico_sps sps;
+	struct avico_pps pps;
 	struct avico_frame_params par;
 
 	/* \todo Crop */
@@ -656,14 +744,15 @@ struct avico_ctx {
 	dma_addr_t dmambref, dmambcur;
 	unsigned int mbrefsize, mbcursize;
 
+	struct avico_q_data out_q;
+	struct avico_q_data cap_q;
+
 	enum v4l2_colorspace colorspace;
 	enum v4l2_quantization range;
 	enum v4l2_ycbcr_encoding matrix;
 	enum v4l2_xfer_func transfer;
 
-	unsigned int width, height;
-	unsigned int capfmt, outfmt;
-	unsigned int outsize, capsize, refsize;
+	unsigned int refsize;
 	unsigned int outseq, capseq;
 
 	struct v4l2_ctrl	*ctrl_qp_i;

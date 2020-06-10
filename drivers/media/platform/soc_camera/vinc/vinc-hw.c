@@ -137,7 +137,9 @@ void vinc_configure_input(struct vinc_stream *stream)
 				((stream->csi2_lanes - 1) & 0x3));
 		vinc_write(priv, CSI2_DPHY_TIM3(ifacenum),
 			   CSI2_TIM3_CLN_CNT_LPX(0xBF) |
-			   CSI2_TIM3_DLN_CNT_LPX(0x12));
+			   CSI2_TIM3_DLN_CNT_LPX(0x12) |
+			   /* Magic value that works */
+			   CSI2_TIM3_CLN_CNT_PLL(0x4e20));
 		vinc_write(priv, CSI2_SYNC_COUNT(ifacenum), 0x14141414);
 		vinc_write(priv, CSI2_RCV_COUNT(ifacenum), 0x04040404);
 
