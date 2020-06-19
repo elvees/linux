@@ -257,26 +257,6 @@ static u16 float_to_u16(double value, u8 fbits)
 	return (u16)(s16)rint(scalbn(value, fbits));
 }
 
-#define TEMP_TABLE_STEP 200
-#define TEMP_TABLE_MIN 2000
-#define TEMP_TABLE_MAX 9000
-#define NUM_TABLE ((TEMP_TABLE_MAX - TEMP_TABLE_MIN) / TEMP_TABLE_STEP + 1)
-
-static const double t2rgb[NUM_TABLE][3] = {
-	{1.000, 0.234, 0.063}, {1.000, 0.281, 0.063}, {1.000, 0.327, 0.063},
-	{1.000, 0.371, 0.082}, {1.000, 0.413, 0.115}, {1.000, 0.454, 0.151},
-	{1.000, 0.494, 0.190}, {1.000, 0.531, 0.232}, {1.000, 0.567, 0.276},
-	{1.000, 0.602, 0.322}, {1.000, 0.635, 0.370}, {1.000, 0.666, 0.419},
-	{1.000, 0.696, 0.468}, {1.000, 0.724, 0.519}, {1.000, 0.752, 0.569},
-	{1.000, 0.778, 0.620}, {1.000, 0.802, 0.671}, {1.000, 0.826, 0.721},
-	{1.000, 0.848, 0.771}, {1.000, 0.870, 0.820}, {1.000, 0.890, 0.869},
-	{1.000, 0.909, 0.917}, {1.000, 0.928, 0.965}, {0.989, 0.935, 1.000},
-	{0.946, 0.910, 1.000}, {0.907, 0.888, 1.000}, {0.841, 0.848, 1.000},
-	{0.813, 0.831, 1.000}, {0.786, 0.815, 1.000}, {0.762, 0.800, 1.000},
-	{0.740, 0.785, 1.000}, {0.720, 0.772, 1.000}, {0.701, 0.760, 1.000},
-	{0.684, 0.749, 1.000}, {0.668, 0.738, 1.000}, {0.668, 0.738, 1.000}
-};
-
 void vinc_neon_calculate_he(struct bc_stat *p_stat, u32 n, u16 h, u16 w,
 			    u32 *conv)
 {
@@ -311,6 +291,17 @@ void vinc_neon_calculate_gamma_curve(int value, u32 *conv, u8 bklight,
 }
 
 /* Matrices and vectors for CC controls */
+void vinc_neon_calculate_v_bl(void *vector, s32 val)
+{
+	struct vector *bl = (struct vector *)vector;
+
+	*bl = (struct vector) {
+		.offset[0] = (double)val,
+		.offset[1] = (double)val,
+		.offset[2] = (double)val,
+	};
+}
+
 void vinc_neon_calculate_v_bri(void *vector, s32 val)
 {
 	struct vector *bri = (struct vector *)vector;
@@ -355,45 +346,104 @@ void vinc_neon_calculate_m_hue(void *matrix, s32 val)
 	};
 }
 
-static void t2rgb_interpolate(u32 t, double rgb[3])
+static void interpolate_wbcc(u32 temp, double rb_gains_ratio,
+			     struct vinc_wb_cc *wbcc, double *gain_r,
+			     double *gain_b, struct matrix *coeff)
 {
-	u32 i, t_index, t_max;
-	double delta[3];
-	double coeff_min[3], coeff_max[3];
+	int i, i0, i1, j;
+	double v_in, v, v0, v1, alpha;
+	const double fp_factor = scalbn(1, -12);
 
-	for (t_index = 1; t_index < NUM_TABLE; t_index++) {
-		t_max = TEMP_TABLE_MIN + TEMP_TABLE_STEP * t_index;
-		if ((t < t_max) || (t_max == TEMP_TABLE_MAX))
-			break;
+	/* Interpolate for temperature or ratio of gains */
+	v_in = temp ? temp : rb_gains_ratio;
+
+	i0 = i1 = -1;
+	v0 = 0; v1 = 1e6;
+	for (i = 0; i < VINC_WB_CC_COUNT; i++) {
+		/* Ignore records with zero temperature */
+		if (!wbcc->temp[i])
+			continue;
+
+		v = temp ? wbcc->temp[i] : (double)wbcc->gain_r[i] / wbcc->gain_b[i];
+		if (v_in < v) {
+			if (v < v1) {
+				i1 = i; v1 = v;
+			}
+		} else {
+			if (v > v0) {
+				i0 = i; v0 = v;
+			}
+		}
 	}
 
-	for (i = 0; i < 3; i++) {
-		coeff_min[i] = t2rgb[t_index-1][i];
-		coeff_max[i] = t2rgb[t_index][i];
-		delta[i] = (coeff_max[i] - coeff_min[i]) / TEMP_TABLE_STEP;
-		rgb[i] = coeff_max[i] - delta[i] * (t_max - t);
+	/* Use identity conversion if wbcc is not configured */
+	if (i0 < 0 && i1 < 0) {
+		if (gain_r != NULL)
+			*gain_r = 1;
+		if (gain_b != NULL)
+			*gain_b = 1;
+		if (coeff != NULL)
+			*coeff = (struct matrix) {
+				.coeff[0] =  1,
+				.coeff[4] =  1,
+				.coeff[8] =  1
+			};
+		return;
 	}
+
+	/* Define interpolation coefficient */
+	alpha = 0;
+	if (i0 < 0)
+		i0 = i1;
+	else if (i1 < 0)
+		i1 = i0;
+	else
+		alpha = (v1 - v_in) / (v1 - v0);
+
+	/* Interpolate gains */
+	if (gain_r != NULL)
+		*gain_r = (alpha * wbcc->gain_r[i0] +
+			(1 - alpha) * wbcc->gain_r[i1]) * fp_factor;
+	if (gain_b != NULL)
+		*gain_b = (alpha * wbcc->gain_b[i0] +
+			(1 - alpha) * wbcc->gain_b[i1]) * fp_factor;
+
+	/* Interpolate matrix */
+	if (coeff != NULL)
+		for (j = 0; j < VINC_CC_COEFF_COUNT; j++)
+			coeff->coeff[j] = fp_factor *
+				(alpha * (s16)wbcc->coeff[i0][j] +
+				(1 - alpha) * (s16)wbcc->coeff[i1][j]);
 }
 
-void vinc_neon_wb_stat(u32 red, u32 green, u32 blue, u32 t, s32 *rb, s32 *bb)
+static s32 gain_to_balance(double gain)
 {
-	double green_level = 1.0;
-	double rgb[3], Kr, Kg, Kb;
+	return rint((gain / (gain + 1)) * 256 - 128);
+}
 
-	if (t) {
-		t2rgb_interpolate(t, rgb);
-		green_level = (rgb[1] / rgb[0]) / ((double)green / red);
-		rgb[1] /= green_level;
-		Kg = 1.0 / rgb[1];
-		Kr = (1.0 / rgb[0]) / Kg;
-		Kb = (1.0 / rgb[2]) / Kg;
-	} else {
-		Kr = (double)green / red;
-		Kb = (double)green / blue;
-	}
+static double balance_to_gain(s32 balance)
+{
+	double v = (balance + 128) / 256.0;
+	return v / (1 - v);
+}
 
-	*rb = rint((Kr / (Kr + 1)) * 256 - 128);
-	*bb = rint((Kb / (Kb + 1)) * 256 - 128);
+void vinc_neon_wb_temp(u32 temp, struct vinc_wb_cc *wbcc, s32 *rb, s32 *bb)
+{
+	double gain_r, gain_b;
+
+	interpolate_wbcc(temp, 0, wbcc, &gain_r, &gain_b, NULL);
+
+	*rb = gain_to_balance(gain_r);
+	*bb = gain_to_balance(gain_b);
+}
+
+void vinc_neon_wb_stat(u32 red, u32 green, u32 blue, s32 *rb, s32 *bb)
+{
+	double gain_r = (double)green / red;
+	double gain_b = (double)green / blue;
+
+	*rb = gain_to_balance(gain_r);
+	*bb = gain_to_balance(gain_b);
 }
 
 void vinc_neon_bc_stat(struct bc_stat *p_stat, s32 *bri, s32 *con)
@@ -417,15 +467,20 @@ void vinc_neon_bc_stat(struct bc_stat *p_stat, s32 *bri, s32 *con)
 	*bri = rint(-alpha * min);
 }
 
-void vinc_neon_calculate_m_wb(u32 rb, u32 bb, void *matrix)
+void vinc_neon_calculate_m_wb(s32 rb, s32 bb, struct vinc_wb_cc *wbcc,
+			      void *matrix)
 {
+	int i;
 	struct matrix *wb = (struct matrix *)matrix;
+	double gain_r = balance_to_gain(rb);
+	double gain_b = balance_to_gain(bb);
 
-	*wb = (struct matrix) {
-		.coeff[0] = ((rb + 128) / 256.0) / (1 - (rb + 128) / 256.0),
-		.coeff[4] = 1,
-		.coeff[8] = ((bb + 128) / 256.0) / (1 - (bb + 128) / 256.0)
-	};
+	interpolate_wbcc(0, gain_r / gain_b, wbcc, NULL, NULL, wb);
+
+	for (i = 0; i < VINC_CC_COEFF_COUNT; i += VINC_CC_OFFSET_COUNT) {
+		wb->coeff[i] *= gain_r;
+		wb->coeff[i + 2] *= gain_b;
+	}
 }
 
 void vinc_neon_calculate_m_ck(void *matrix, s32 val)
@@ -633,6 +688,16 @@ static void vxv_add(struct vector *sum, const struct vector *v1,
 		sum->offset[i] = v1->offset[i] + v2->offset[i];
 }
 
+/*  Vector subtraction. Vectors must have the same size */
+static void vxv_sub(struct vector *res, const struct vector *v1,
+		    const struct vector *v2)
+{
+	u8 i;
+
+	for (i = 0; i < VINC_CC_OFFSET_COUNT; i++)
+		res->offset[i] = v1->offset[i] - v2->offset[i];
+}
+
 /*  Calculate CC coefficient matrix. Uses controls matrices and vectors */
 static void cc_matrix_calc(struct matrix *coeff, struct ctrl_priv *ctrl_privs,
 		enum vinc_ycbcr_encoding ycbcr_enc)
@@ -669,19 +734,16 @@ static void cc_vector_calc(struct vector *offset, struct ctrl_priv *ctrl_privs,
 {
 	struct vector tmp1;
 	struct vector tmp2;
-	struct vector half_plus = {
+	struct vector half = {
 		.offset[0] = 2048,
 		.offset[1] = 2048,
 		.offset[2] = 2048
 	};
-	struct vector half_minus = {
-		.offset[0] = -2048,
-		.offset[1] = -2048,
-		.offset[2] = -2048
-	};
 	struct col_fx *fx = (struct col_fx *)ctrl_privs->fx;
 
 	struct vector *v_bri      = (struct vector *)ctrl_privs->brightness;
+	struct vector *v_bl       = (struct vector *)ctrl_privs->blacklevel;
+	struct matrix *m_wb       = (struct matrix *)ctrl_privs->dowb;
 	struct matrix *m_con      = (struct matrix *)ctrl_privs->contrast;
 	struct matrix *m_sat      = (struct matrix *)ctrl_privs->saturation;
 	struct matrix *m_hue      = (struct matrix *)ctrl_privs->hue;
@@ -692,25 +754,31 @@ static void cc_vector_calc(struct vector *offset, struct ctrl_priv *ctrl_privs,
 	struct vector *v_fx_ycbcr = &(fx->v_fx_ycbcr);
 
 	/* Vcc = Mfx_rgb * (Mrgb * (Mfx_ycbcr * (Mck * Msat * Mcon * Mhue *
-	 *               12      10           8      5      4      3      2
+	 *               15      13           11     8      7      6      5
 	 *
-	 * * (Vycbcr - Vhalf) + Vbri + Vhalf) + Vfx_ycbcr) + Vrgb) + Vfx_rgb
-	 * 2         1        6      7        9            11      13	  */
-	vxv_add(&tmp1, &v_ycbcr, &half_minus);   /* [1] */
-	mxv_mult(&tmp2, m_hue, &tmp1);		 /* [2] */
-	mxv_mult(&tmp1, m_con, &tmp2);		 /* [3] */
-	mxv_mult(&tmp2, m_sat, &tmp1);		 /* [4] */
-	mxv_mult(&tmp1, m_ck, &tmp2);		 /* [5] */
-	vxv_add(&tmp2, v_bri, &tmp1);		 /* [6] */
-	vxv_add(&tmp1, &half_plus, &tmp2);	 /* [7] */
-	mxv_mult(&tmp2, m_fx_ycbcr, &tmp1);	 /* [8] */
-	vxv_add(&tmp1, v_fx_ycbcr, &tmp2);	 /* [9] */
-	mxv_mult(&tmp2, &m_rgb[ycbcr_enc][VINC_QUANTIZATION_FULL_RANGE],
-		 &tmp1);			 /* [10] */
-	vxv_add(&tmp1, &v_rgb[ycbcr_enc][VINC_QUANTIZATION_FULL_RANGE],
-		 &tmp2);			 /* [11] */
-	mxv_mult(&tmp2, m_fx_rgb, &tmp1);	 /* [12] */
-	vxv_add(offset, v_fx_rgb, &tmp2);	 /* [13] */
+	 * * (Vycbcr - Mycbcr * Mwb * Vbl - Vhalf) + Vbri + Vhalf) +
+	 * 5         3        2     1     4        9      10       12
+	 *
+	 * + Vfx_ycbcr) + Vrgb) + Vfx_rgb
+	 * 12           14      16	*/
+	mxv_mult(&tmp1, m_wb, v_bl);			/* [1] */
+	mxv_mult(&tmp2, &m_ycbcr[ycbcr_enc], &tmp1);	/* [2] */
+	vxv_sub(&tmp1, &v_ycbcr, &tmp2);		/* [3] */
+	vxv_sub(&tmp2, &tmp1, &half);			/* [4] */
+	mxv_mult(&tmp1, m_hue, &tmp2);			/* [5] */
+	mxv_mult(&tmp2, m_con, &tmp1);			/* [6] */
+	mxv_mult(&tmp1, m_sat, &tmp2);			/* [7] */
+	mxv_mult(&tmp2, m_ck, &tmp1);			/* [8] */
+	vxv_add(&tmp1, v_bri, &tmp2);			/* [9] */
+	vxv_add(&tmp2, &half, &tmp1);			/* [10] */
+	mxv_mult(&tmp1, m_fx_ycbcr, &tmp2);		/* [11] */
+	vxv_add(&tmp2, v_fx_ycbcr, &tmp1);		/* [12] */
+	mxv_mult(&tmp1, &m_rgb[ycbcr_enc][VINC_QUANTIZATION_FULL_RANGE],
+		 &tmp2);				/* [13] */
+	vxv_add(&tmp2, &v_rgb[ycbcr_enc][VINC_QUANTIZATION_FULL_RANGE],
+		 &tmp1);				/* [14] */
+	mxv_mult(&tmp1, m_fx_rgb, &tmp2);		/* [15] */
+	vxv_add(offset, v_fx_rgb, &tmp1);		/* [16] */
 }
 
 static inline bool check_row_overflow(struct matrix *const coeff,

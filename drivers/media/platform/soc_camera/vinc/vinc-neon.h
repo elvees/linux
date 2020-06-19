@@ -35,6 +35,8 @@ struct bc_stat {
 	u32 cumulate[256];
 };
 
+void vinc_neon_calculate_v_bl(void *vector, s32 val);
+
 void vinc_neon_calculate_v_bri(void *vector, s32 val);
 
 void vinc_neon_calculate_m_con(void *matrix, s32 val);
@@ -45,11 +47,14 @@ void vinc_neon_calculate_m_hue(void *matrix, s32 val);
 
 void vinc_neon_calculate_fx(void *col_fx, s32 cbcr, s32 val);
 
-void vinc_neon_wb_stat(u32 red, u32 green, u32 blue, u32 t, s32 *rb, s32 *bb);
+void vinc_neon_wb_temp(u32 temp, struct vinc_wb_cc *wbcc, s32 *rb, s32 *bb);
+
+void vinc_neon_wb_stat(u32 red, u32 green, u32 blue, s32 *rb, s32 *bb);
 
 void vinc_neon_bc_stat(struct bc_stat *p_stat, s32 *bri, s32 *con);
 
-void vinc_neon_calculate_m_wb(u32 rb, u32 bb, void *matrix);
+void vinc_neon_calculate_m_wb(s32 rb, s32 bb, struct vinc_wb_cc *wbcc,
+			      void *matrix);
 
 void vinc_neon_calculate_m_ck(void *matrix, s32 val);
 

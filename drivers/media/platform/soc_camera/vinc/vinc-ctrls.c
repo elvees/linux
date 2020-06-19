@@ -315,7 +315,8 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 			     cc->hue->is_new      | cc->ck->is_new         |
 			     cc->fx->is_new       | cc->cbcr->is_new       |
 			     cc->rb->is_new       | cc->bb->is_new         |
-			     cc->wbt->is_new;
+			     cc->wbt->is_new      | cc->bl->is_new         |
+			     cc->wbcc->is_new;
 
 		init = cc->enable->is_new & cc->cc->is_new &
 			std_is_new;
@@ -332,37 +333,43 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		if ((cc->dowb->is_new || cc->wbt->is_new) && !init &&
 					!cc->awb->cur.val) {
-			struct vinc_stat_add *add;
-			u32 temp = 0;
-
-			if (cc->wbt->is_new) {
-				temp = cc->wbt->val;
-				change_write_only(ctrl->cluster, 14,
-						  wr_only_num, 0);
-			}
-			add = &stream->summary_stat.add;
-
 			kernel_neon_begin();
-			vinc_neon_wb_stat(add->sum_r, add->sum_g, add->sum_b,
-					  temp, &cc->rb->val, &cc->bb->val);
+			if (cc->wbt->is_new) {
+				u32 temp = cc->wbt->val;
+				change_write_only(ctrl->cluster, &cc->wbt - ctrl->cluster,
+						  wr_only_num, 0);
+				vinc_neon_wb_temp(temp, cc->wbcc->p_new.p,
+						  &cc->rb->val, &cc->bb->val);
+			} else {
+				struct vinc_stat_add *add = &stream->summary_stat.add;
+				vinc_neon_wb_stat(add->sum_r, add->sum_g, add->sum_b,
+						  &cc->rb->val, &cc->bb->val);
+			}
 			kernel_neon_end();
 			cc->rb->has_changed = 1;
 			cc->bb->has_changed = 1;
 		}
 
 		if ((cc->dowb->is_new || cc->rb->is_new || cc->bb->is_new ||
-			cc->wbt->is_new) && !cc->awb->cur.val) {
+			cc->wbt->is_new || cc->wbcc->is_new) && !cc->awb->cur.val) {
 			kernel_neon_begin();
 			vinc_neon_calculate_m_wb(cc->rb->val, cc->bb->val,
-						 cc->dowb->priv);
+						 cc->wbcc->p_new.p, cc->dowb->priv);
 			kernel_neon_end();
 		}
 
 		if ((cc->dowb->is_new || cc->rb->is_new || cc->bb->is_new) &&
 		    !init && !cc->awb->cur.val) {
-			change_write_only(ctrl->cluster, 14, wr_only_num, 1);
+			change_write_only(ctrl->cluster, &cc->wbt - ctrl->cluster,
+					  wr_only_num, 1);
 			/* write only flag for wbt should not reset */
 			wr_only_num--;
+		}
+
+		if (cc->bl->is_new) {
+			kernel_neon_begin();
+			vinc_neon_calculate_v_bl(cc->bl->priv, cc->bl->val);
+			kernel_neon_end();
 		}
 
 		if (cc->brightness->is_new && !cc->ab->cur.val) {
@@ -413,8 +420,8 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 
 		if (cc->awb->is_new || cc->ab->is_new) {
 			if (cc->awb->val || cc->awb->val) {
-				change_write_only(ctrl->cluster, 2, wr_only_num,
-							  0);
+				change_write_only(ctrl->cluster, &cc->ck - ctrl->cluster,
+						  wr_only_num, 0);
 				cc->cc->flags &= ~V4L2_CTRL_FLAG_UPDATE;
 			} else
 				cc->cc->flags |= V4L2_CTRL_FLAG_UPDATE;
@@ -430,12 +437,14 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 			if (rc < 0)
 				return rc;
 
-			change_write_only(ctrl->cluster, 2, wr_only_num, 0);
+			change_write_only(ctrl->cluster, &cc->bl - ctrl->cluster,
+					  wr_only_num, 0);
 			cc->cc->flags |= V4L2_CTRL_FLAG_UPDATE;
 		} else if (cc->cc->is_new && !cc->awb->cur.val &&
 			!cc->ab->cur.val) {
 			p_cc = cc->cc->p_new.p;
-			change_write_only(ctrl->cluster, 2, wr_only_num, 1);
+			change_write_only(ctrl->cluster, &cc->bl - ctrl->cluster,
+					  wr_only_num, 1);
 			cc->cc->flags &= ~V4L2_CTRL_FLAG_UPDATE;
 		}
 		set_cc_ct(priv, channel, p_cc, 0);
@@ -1000,6 +1009,29 @@ static struct v4l2_ctrl_config ctrl_cfg[] = {
 	},
 	{
 		.ops = &ctrl_ops,
+		.id = V4L2_CID_BLACK_LEVEL_CORR,
+		.name = "Black Level Correction",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 0xFFF,
+		.step = 1,
+		.def = 0,
+		.flags = V4L2_CTRL_FLAG_UPDATE
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_WHITE_BALANCE_CC,
+		.name = "White Balance Color Correction",
+		.type = V4L2_CTRL_COMPOUND_TYPES,
+		.min = 0,
+		.max = 0xFF,
+		.step = 1,
+		.def = 0,
+		.dims[0] = sizeof(struct vinc_wb_cc),
+		.flags = V4L2_CTRL_FLAG_HAS_PAYLOAD | V4L2_CTRL_FLAG_UPDATE
+	},
+	{
+		.ops = &ctrl_ops,
 		.id = V4L2_CID_CT_ENABLE,
 		.name = "Color Tranformation Enable",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
@@ -1397,10 +1429,10 @@ static void auto_stat_work(struct work_struct *work)
 	if (cc->awb->val || cc->ab->val) {
 		kernel_neon_begin();
 		if (cc->awb->val) {
-			vinc_neon_wb_stat(add->sum_r, add->sum_g, add->sum_b, 0,
+			vinc_neon_wb_stat(add->sum_r, add->sum_g, add->sum_b,
 					  &cc->rb->val, &cc->bb->val);
 			vinc_neon_calculate_m_wb(cc->rb->val, cc->bb->val,
-						 cc->dowb->priv);
+						 cc->wbcc->p_new.p, cc->dowb->priv);
 		}
 		if (cc->ab->val) {
 			vinc_calculate_cdf(hist, stream->cluster.cc.ab->priv);
@@ -1644,7 +1676,8 @@ int vinc_create_controls(struct v4l2_ctrl_handler *hdl,
 			V4L2_CID_AUTO_WHITE_BALANCE);
 	stream->cluster.cc.ab = v4l2_ctrl_find(hdl,
 			V4L2_CID_AUTOBRIGHTNESS);
-
+	stream->cluster.cc.bl = v4l2_ctrl_find(hdl, V4L2_CID_BLACK_LEVEL_CORR);
+	stream->cluster.cc.wbcc = v4l2_ctrl_find(hdl, V4L2_CID_WHITE_BALANCE_CC);
 	v4l2_ctrl_cluster(CLUSTER_SIZE(struct vinc_cluster_cc),
 			  &stream->cluster.cc.enable);
 
@@ -1688,6 +1721,9 @@ int vinc_create_controls(struct v4l2_ctrl_handler *hdl,
 	stream->sensor_awb = v4l2_ctrl_find(hdl,
 					    V4L2_CID_SENSOR_AUTO_WHITE_BALANCE);
 
+	stream->cluster.cc.bl->priv = devm_kmalloc(
+			priv->ici.v4l2_dev.dev,
+			sizeof(struct vector), GFP_KERNEL);
 	stream->cluster.gamma.bklight->priv = devm_kmalloc(
 			priv->ici.v4l2_dev.dev,
 			256 * sizeof(u32), GFP_KERNEL);
@@ -1715,6 +1751,7 @@ int vinc_create_controls(struct v4l2_ctrl_handler *hdl,
 						   sizeof(struct bc_stat),
 						   GFP_KERNEL);
 
+	stream->ctrl_privs.blacklevel = stream->cluster.cc.bl->priv;
 	stream->ctrl_privs.dowb       = stream->cluster.cc.dowb->priv;
 	stream->ctrl_privs.brightness = stream->cluster.cc.brightness->priv;
 	stream->ctrl_privs.contrast   = stream->cluster.cc.contrast->priv;

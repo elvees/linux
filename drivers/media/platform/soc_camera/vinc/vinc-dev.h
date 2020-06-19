@@ -383,6 +383,8 @@ struct vinc_cluster_gamma {
 struct vinc_cluster_cc {
 	struct v4l2_ctrl *enable;
 	struct v4l2_ctrl *cc;
+	struct v4l2_ctrl *bl;
+	struct v4l2_ctrl *wbcc;
 	struct v4l2_ctrl *ck;
 	struct v4l2_ctrl *ab;
 	struct v4l2_ctrl *brightness;
@@ -435,6 +437,7 @@ struct vinc_cluster {
 };
 
 struct ctrl_priv {
+	void *blacklevel;
 	void *dowb;
 	void *brightness;
 	void *contrast;
