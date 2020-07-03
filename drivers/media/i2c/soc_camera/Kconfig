@@ -50,6 +50,12 @@ config SOC_CAMERA_OV2715
 	help
 	  This is a ov2715 camera driver
 
+config SOC_CAMERA_OV2718
+	tristate "ov2718 camera support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This is a ov2718 camera driver
+
 config SOC_CAMERA_OV5642
 	tristate "ov5642 camera support"
 	depends on SOC_CAMERA && I2C
