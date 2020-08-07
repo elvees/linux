@@ -95,12 +95,40 @@ static int vinc_queue_setup(struct vb2_queue *vq, const void *parg,
 	struct vinc_dev *priv = ici->priv;
 	const struct v4l2_format *fmt = parg;
 
-	if (fmt)
-		return -EINVAL;
+	if (fmt) {
+		const struct soc_camera_format_xlate *xlate;
+		unsigned int bytes_per_line;
+		int ret;
+
+		if (fmt->fmt.pix.sizeimage < icd->sizeimage)
+			return -EINVAL;
+
+		xlate = soc_camera_xlate_by_fourcc(icd,
+						   fmt->fmt.pix.pixelformat);
+		if (!xlate)
+			return -EINVAL;
+		ret = soc_mbus_bytes_per_line(fmt->fmt.pix.width,
+					      xlate->host_fmt);
+		if (ret < 0)
+			return ret;
+
+		bytes_per_line = max_t(u32, fmt->fmt.pix.bytesperline, ret);
+
+		if (xlate->host_fmt->fourcc == V4L2_PIX_FMT_M420)
+			ret = fmt->fmt.pix.height * bytes_per_line * 3 / 2;
+		else
+			ret = soc_mbus_image_size(xlate->host_fmt,
+				bytes_per_line, fmt->fmt.pix.height);
+		if (ret < 0)
+			return ret;
+
+		sizes[0] = max_t(u32, fmt->fmt.pix.sizeimage, ret);
+	} else {
+		sizes[0] = icd->sizeimage;
+	}
 
 	dev_dbg(icd->parent, "Requested %u buffers\n", *count);
 
-	sizes[0] = icd->sizeimage;
 	dev_dbg(icd->parent, "%s: image_size=%d\n", __func__,
 		icd->sizeimage);
 
