@@ -25,6 +25,7 @@
 #include <linux/moduleparam.h>
 #include <linux/of.h>
 #include <linux/of_graph.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/time.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -79,10 +80,6 @@ struct vinc_buffer {
 	struct list_head queue;
 };
 
-static uint memory_per_stream = CONFIG_VIDEO_VINC_MEMORY_PER_STREAM_MB * SZ_1M;
-module_param(memory_per_stream, uint, 0644);
-MODULE_PARM_DESC(memory_per_stream,
-		 "Maximum memory for video buffers in bytes");
 /*
  * .queue_setup() is called to check, whether the driver can accept the
  *		  requested number of buffers and to fill in plane sizes
@@ -97,24 +94,45 @@ static int vinc_queue_setup(struct vb2_queue *vq, const void *parg,
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct vinc_dev *priv = ici->priv;
 	const struct v4l2_format *fmt = parg;
-	unsigned int max_count;
 
-	if (fmt)
-		return -EINVAL;
+	if (fmt) {
+		const struct soc_camera_format_xlate *xlate;
+		unsigned int bytes_per_line;
+		int ret;
+
+		if (fmt->fmt.pix.sizeimage < icd->sizeimage)
+			return -EINVAL;
+
+		xlate = soc_camera_xlate_by_fourcc(icd,
+						   fmt->fmt.pix.pixelformat);
+		if (!xlate)
+			return -EINVAL;
+		ret = soc_mbus_bytes_per_line(fmt->fmt.pix.width,
+					      xlate->host_fmt);
+		if (ret < 0)
+			return ret;
+
+		bytes_per_line = max_t(u32, fmt->fmt.pix.bytesperline, ret);
+
+		if (xlate->host_fmt->fourcc == V4L2_PIX_FMT_M420)
+			ret = fmt->fmt.pix.height * bytes_per_line * 3 / 2;
+		else
+			ret = soc_mbus_image_size(xlate->host_fmt,
+				bytes_per_line, fmt->fmt.pix.height);
+		if (ret < 0)
+			return ret;
+
+		sizes[0] = max_t(u32, fmt->fmt.pix.sizeimage, ret);
+	} else {
+		sizes[0] = icd->sizeimage;
+	}
 
 	dev_dbg(icd->parent, "Requested %u buffers\n", *count);
 
-	sizes[0] = icd->sizeimage;
 	dev_dbg(icd->parent, "%s: image_size=%d\n", __func__,
 		icd->sizeimage);
 
 	alloc_ctxs[0] = priv->stream[icd->devnum].alloc_ctx;
-
-	if (memory_per_stream) {
-		max_count = memory_per_stream / icd->sizeimage;
-		if (*count > max_count)
-			*count = max_count;
-	}
 	*num_planes = 1;
 
 	return 0;
@@ -575,7 +593,7 @@ static int __vinc_try_fmt(struct soc_camera_device *icd, struct v4l2_format *f,
 					    pix->colorspace);
 	pix->ycbcr_enc = ycbcr_enc_adjust(mbus_fmt->ycbcr_enc, pix->ycbcr_enc,
 					  pix->colorspace);
-	pix->quantization = V4L2_QUANTIZATION_FULL_RANGE;
+	pix->quantization = V4L2_QUANTIZATION_DEFAULT;
 
 	pix->width = min3(pix->width, mbus_fmt->width, MAX_WIDTH_HEIGHT);
 	pix->height = min3(pix->height, mbus_fmt->height, MAX_WIDTH_HEIGHT);
@@ -1105,6 +1123,10 @@ static int vinc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	err = of_reserved_mem_device_init(&pdev->dev);
+	if (err && err != -ENODEV)
+		dev_info(&pdev->dev, "Failed to init reserved memory\n");
+
 	/* Try to get and enable clocks */
 	err = vinc_clk_init(priv, pdev);
 	if (err)
@@ -1258,6 +1280,8 @@ static int vinc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(priv->pclk);
 	clk_disable_unprepare(priv->aclk);
 	clk_disable_unprepare(priv->sclk);
+
+	of_reserved_mem_device_release(&pdev->dev);
 
 	return 0;
 }

@@ -29,6 +29,7 @@
 #include <linux/of_mdio.h>
 #include <linux/of_gpio.h>
 #include <linux/clk.h>
+#include <linux/crc32.h>
 #include <generated/utsrelease.h>
 
 #include "arasan_gemac.h"
@@ -216,7 +217,8 @@ static void arasan_gemac_init(struct arasan_gemac_pdata *pd)
 {
 	u32 reg;
 
-	arasan_gemac_writel(pd, MAC_ADDRESS_CONTROL, 1);
+	arasan_gemac_writel(pd, MAC_ADDRESS_CONTROL,
+			    MAC_ADDRESS_CONTROL_ADDRESS_ENABLE(1));
 
 	reg = arasan_gemac_readl(pd, MAC_RECEIVE_CONTROL);
 	reg |= MAC_RECEIVE_CONTROL_STORE_AND_FORWARD;
@@ -1240,6 +1242,44 @@ static int arasan_gemac_open(struct net_device *dev)
 	return 0;
 }
 
+static void arasan_gemac_set_rx_mode(struct net_device *dev)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+	struct netdev_hw_addr *ha;
+	u32 hash[4] = { 0 };
+	u32 reg;
+
+	reg = arasan_gemac_readl(pd, MAC_ADDRESS_CONTROL);
+
+	/* enable promiscuous mode if requested */
+	if (dev->flags & IFF_PROMISC)
+		reg |= MAC_ADDRESS_CONTROL_PROMISCUOUS_MODE;
+	else
+		reg &= ~MAC_ADDRESS_CONTROL_PROMISCUOUS_MODE;
+
+	arasan_gemac_writel(pd, MAC_ADDRESS_CONTROL, reg);
+
+	/* receive multicast frames */
+	if (dev->flags & IFF_ALLMULTI) {
+		hash[0] = 0x0000ffff;
+		hash[1] = 0x0000ffff;
+		hash[2] = 0x0000ffff;
+		hash[3] = 0x0000ffff;
+	} else {
+		netdev_for_each_mc_addr(ha, dev) {
+			u32 crc = ether_crc(ETH_ALEN, ha->addr);
+			int bit = (crc >> 26) & 0x3f;
+
+			hash[bit / 16] |= BIT(bit % 16);
+		}
+	}
+
+	arasan_gemac_writel(pd, MAC_HASH_TABLE1, hash[0]);
+	arasan_gemac_writel(pd, MAC_HASH_TABLE2, hash[1]);
+	arasan_gemac_writel(pd, MAC_HASH_TABLE3, hash[2]);
+	arasan_gemac_writel(pd, MAC_HASH_TABLE4, hash[3]);
+}
+
 static int arasan_gemac_set_mac_address(struct net_device *dev, void *addr)
 {
 	if (netif_running(dev))
@@ -1283,6 +1323,7 @@ static const struct net_device_ops arasan_gemac_netdev_ops = {
 	.ndo_open       = arasan_gemac_open,
 	.ndo_stop       = arasan_gemac_stop,
 	.ndo_start_xmit = arasan_gemac_start_xmit,
+	.ndo_set_rx_mode = arasan_gemac_set_rx_mode,
 	.ndo_set_mac_address = arasan_gemac_set_mac_address,
 	.ndo_change_mtu = arasan_gemac_change_mtu,
 #ifdef CONFIG_NET_POLL_CONTROLLER

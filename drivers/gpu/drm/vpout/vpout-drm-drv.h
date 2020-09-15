@@ -41,6 +41,10 @@ struct connector_proxy {
 
 struct vpout_drm_private {
 	void __iomem *mmio;
+	void __iomem *dsi;
+
+	struct regmap *smctr;
+
 	struct clk *clk;
 	struct workqueue_struct *wq;
 	struct drm_fbdev_cma *fbdev;

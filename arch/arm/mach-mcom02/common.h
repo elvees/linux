@@ -10,8 +10,6 @@
 #ifndef __ARCH_MCOM02_COMMON_H__
 #define __ARCH_MCOM02_COMMON_H__
 
-#define PMCTR_SYS_PWR_UP      0x00
-#define PMCTR_SYS_PWR_DOWN    0x04
 #define PMCTR_SYS_PWR_STATUS  0x0c
 #define PMCTR_SYS_PWR_IMASK   0x10
 #define PMCTR_SYS_PWR_IRSTAT  0x14
@@ -49,6 +47,13 @@
 #define PMCTR_CORE_PWR_ISTAT  0x98
 #define PMCTR_CORE_PWR_ICLR   0x9c
 #define PMCTR_CORE_PWR_DELAY  0xa0
+
+#define PMCTR_SYS_PWR_INT     122
+#define PMCTR_CORE_PWR_INT    123
+
+#define PMCTR_CPU_WKP_BASE(cpu)     (PMCTR_CPU0_WKP_MASK0 + ((cpu) * 0x10))
+#define PMCTR_CPU_WKP_MASK(cpu, n)  (PMCTR_CPU_WKP_BASE(cpu) + (((n) / 32) * 4))
+#define PMCTR_CPU_INT_BIT(n)        (1 << ((n) % 32))
 
 #define SMCTR_BOOT                0x00
 #define SMCTR_BOOT_REMAP          0x04

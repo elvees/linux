@@ -1,4 +1,5 @@
 obj-$(CONFIG_DRM_VPOUT) += vpout-drm.o
+obj-$(CONFIG_DRM_VPOUT) += vpout-drm-dsi.o
 obj-$(CONFIG_DRM_VPOUT) += vpout-drm-panel.o
 
 vpout-drm-y := \

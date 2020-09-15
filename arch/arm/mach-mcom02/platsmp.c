@@ -63,8 +63,12 @@ static int mcom02_boot_secondary(unsigned int cpu, struct task_struct *idle)
 		return -ENXIO;
 	}
 
-	/* Turn on power domain for CPU1 */
-	writel(BIT(cpu + 1), pmctr_base_addr + PMCTR_SYS_PWR_UP);
+	/* Unmask on CPU wake-up register IRQ_PMU0 interrupt */
+	writel(PMCTR_CPU_INT_BIT(PMCTR_SYS_PWR_INT), pmctr_base_addr +
+	       PMCTR_CPU_WKP_MASK(cpu, PMCTR_SYS_PWR_INT));
+	/* Turn on power domain for CPU */
+	writel(BIT(0), pmctr_base_addr + PMCTR_SYS_PWR_IMASK);
+	writel(BIT(0), pmctr_base_addr + PMCTR_SYS_PWR_IRSTAT);
 
 	return 0;
 }
@@ -89,6 +93,10 @@ static void __init mcom02_smp_prepare_cpus(unsigned int max_cpus)
 
 	mcom02_map_device("elvees,mcom-pmctr", &pmctr_base_addr);
 	smctr_regmap = syscon_regmap_lookup_by_compatible("elvees,mcom-smctr");
+
+	/* Disable SYS_PWR_INT interrupt and clean any pending interrupt */
+	writel(0, pmctr_base_addr + PMCTR_SYS_PWR_IMASK);
+	writel(BIT(0), pmctr_base_addr + PMCTR_SYS_PWR_ICLR);
 
 	scu_base_addr = ioremap(scu_a9_get_base(), SZ_4K);
 

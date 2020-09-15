@@ -22,6 +22,7 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/types.h>
 #include <linux/irqreturn.h>
 #include <linux/interrupt.h>
@@ -50,8 +51,6 @@ enum avico_flags {
 
 /* Per queue */
 #define AVICO_DEF_NUM_BUFS VIDEO_MAX_FRAME
-/* In bytes, per queue */
-#define AVICO_QUEUE_MEM_LIMIT (16 * 1024 * 1024)
 
 /* \todo Get value from device tree */
 #define XYRAM_BASE 0x3A400000
@@ -1659,7 +1658,6 @@ static int avico_queue_setup(struct vb2_queue *vq,
 		return -EINVAL;
 
 	sizes[0] = q_data->sizeimage;
-	*nbuffers = min(*nbuffers, AVICO_QUEUE_MEM_LIMIT / sizes[0]);
 	*nplanes = 1;
 
 	alloc_ctxs[0] = ctx->dev->alloc_ctx;
@@ -1959,6 +1957,18 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 					  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
 					  1, 1 << 16, 1, 60);
 
+	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &avico_ctrl_ops,
+		V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+		V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE,
+		~BIT(V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE),
+		V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE);
+
+	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &avico_ctrl_ops,
+			       V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+			       V4L2_MPEG_VIDEO_H264_LEVEL_4_0,
+			       ~BIT(V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
+			       V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+
 	if (ctx->ctrl_handler.error) {
 		int err = ctx->ctrl_handler.error;
 
@@ -2165,12 +2175,17 @@ static int avico_probe(struct platform_device *pdev)
 
 	dev->vram = res->start;
 
+	ret = of_reserved_mem_device_init(dev->dev);
+	if (ret && ret != -ENODEV)
+		dev_info(dev->dev, "Filed to init reserved memory\n");
+
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_MEMCPY, mask);
 	dev->dma_ch = dma_request_channel(mask, NULL, NULL);
 	if (!dev->dma_ch) {
 		dev_err(&pdev->dev, "Failed to request DMA channel\n");
-		return -ENXIO;
+		ret = -ENXIO;
+		goto res_release;
 	}
 
 	irq = platform_get_irq(pdev, 0);
@@ -2235,6 +2250,8 @@ err_m2m:
 	v4l2_device_unregister(&dev->v4l2_dev);
 dma_release:
 	dma_release_channel(dev->dma_ch);
+res_release:
+	of_reserved_mem_device_release(dev->dev);
 
 	return ret;
 }
@@ -2250,6 +2267,8 @@ static int avico_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	v4l2_device_unregister(&dev->v4l2_dev);
 	dma_release_channel(dev->dma_ch);
+
+	of_reserved_mem_device_release(dev->dev);
 
 	return 0;
 }
