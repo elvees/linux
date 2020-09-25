@@ -106,7 +106,7 @@ do {									\
 extern int brcmf_msg_level;
 
 struct brcmf_pub;
-#ifdef DEBUG
+
 void brcmf_debugfs_init(void);
 void brcmf_debugfs_exit(void);
 int brcmf_debug_attach(struct brcmf_pub *drvr);
@@ -114,26 +114,5 @@ void brcmf_debug_detach(struct brcmf_pub *drvr);
 struct dentry *brcmf_debugfs_get_devdir(struct brcmf_pub *drvr);
 int brcmf_debugfs_add_entry(struct brcmf_pub *drvr, const char *fn,
 			    int (*read_fn)(struct seq_file *seq, void *data));
-#else
-static inline void brcmf_debugfs_init(void)
-{
-}
-static inline void brcmf_debugfs_exit(void)
-{
-}
-static inline int brcmf_debug_attach(struct brcmf_pub *drvr)
-{
-	return 0;
-}
-static inline void brcmf_debug_detach(struct brcmf_pub *drvr)
-{
-}
-static inline
-int brcmf_debugfs_add_entry(struct brcmf_pub *drvr, const char *fn,
-			    int (*read_fn)(struct seq_file *seq, void *data))
-{
-	return 0;
-}
-#endif
 
 #endif /* BRCMFMAC_DEBUG_H */
