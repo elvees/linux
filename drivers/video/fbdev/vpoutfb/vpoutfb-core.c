@@ -520,12 +520,13 @@ static int vpoutfb_probe(struct platform_device *pdev)
 		ret = vpoutfb_parse_dt(pdev, &pdata);
 
 	if (ret)
-		return ret;
+		goto put_output;
 
 	info = framebuffer_alloc(sizeof(struct vpoutfb_par), &pdev->dev);
 	if (!info) {
 		dev_err(&pdev->dev, "FB alloc failed");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto put_output;
 	}
 	platform_set_drvdata(pdev, info);
 	par = info->par;
@@ -574,6 +575,10 @@ static int vpoutfb_probe(struct platform_device *pdev)
 	info->var.transp = pdata.format->transp;
 
 	info->mode = kzalloc(sizeof(struct fb_videomode), GFP_KERNEL);
+	if (!info->mode) {
+		ret = -ENOMEM;
+		goto error_cleanup;
+	}
 
 	ret = of_get_fb_videomode(pdata.output_node,
 				  info->mode,
@@ -633,6 +638,8 @@ static int vpoutfb_probe(struct platform_device *pdev)
 		goto error_cleanup;
 	}
 
+	of_node_put(pdata.output_node);
+
 	dev_info(&pdev->dev, "fb%d: vpoutfb registered!\n", info->node);
 
 	return 0;
@@ -642,8 +649,12 @@ error_cleanup:
 		dma_free_coherent(&pdev->dev, par->mem_size,
 				  par->mem_virt, par->mem_phys);
 	vpoutfb_clocks_destroy(par);
-	if (info)
+	if (info) {
+		kfree(info->mode);
 		framebuffer_release(info);
+	}
+put_output:
+	of_node_put(pdata.output_node);
 	return ret;
 }
 
@@ -654,6 +665,7 @@ static int vpoutfb_remove(struct platform_device *pdev)
 
 	unregister_framebuffer(info);
 	vpoutfb_clocks_destroy(par);
+	kfree(info->mode);
 	framebuffer_release(info);
 
 	return 0;
