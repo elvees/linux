@@ -88,6 +88,9 @@ static struct fb_var_screeninfo vpoutfb_var = {
 	.vmode		= FB_VMODE_NONINTERLACED,
 };
 
+static int (*ump_callback)(unsigned long addr, unsigned long size,
+			   void **pbuf, int buf);
+
 static inline u32 hz_to_ps(unsigned int rate)
 {
 	u32 ps_in_us = 1000000;
@@ -304,8 +307,6 @@ static int vpoutfb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
 	struct vpoutfb_par *par = info->par;
-	static int (*ump_callback)(unsigned long addr, unsigned long size,
-				   void **pbuf, int buf);
 
 	switch (cmd) {
 	case VPOUTFB_GET_MEMORY_ID:
@@ -662,6 +663,10 @@ static int vpoutfb_remove(struct platform_device *pdev)
 	struct vpoutfb_par *par = info->par;
 
 	unregister_framebuffer(info);
+	if (ump_callback != NULL) {
+		symbol_put(ump_export_secure_id);
+		ump_callback = NULL;
+	}
 	vpoutfb_clocks_destroy(par);
 	kfree(info->mode);
 	framebuffer_release(info);
