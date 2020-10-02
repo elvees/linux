@@ -464,8 +464,6 @@ static void vpoutfb_clocks_destroy(struct vpoutfb_par *par)
 			clk_put(par->clks[i]);
 		}
 	}
-
-	kfree(par->clks);
 }
 #else
 static int vpoutfb_clocks_init(struct vpoutfb_par *par,
