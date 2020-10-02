@@ -217,7 +217,18 @@ static int vpoutfb_set_par(struct fb_info *info)
 		par->color_fmt->bits_per_pixel / 8;
 	/* If the device is currently on, clear FIFO and power it off */
 	if (ioread32(par->mmio_base + LCDCSR) & CSR_EN) {
+		/*
+		 * Stop VPOUT (lcdscr.RUN=0) and wait for end of frame
+		 * (VSYNC 1->0) because VPOUT isn't stopped until frame is
+		 * finished. If an interrupt occurs here, wait_event_timeout()
+		 * returns only after the timeout elapsed.
+		 */
+		dev_dbg(info->dev, "VPOUT disabling...\n");
 		iowrite32(CSR_EN, par->mmio_base + LCDCSR);
+		par->frame_done = false;
+		if (!wait_event_timeout(par->frame_done_wq, par->frame_done,
+					msecs_to_jiffies(50)))
+			dev_dbg(info->dev, "Timeout of waiting for frame done");
 		ret = vpoutfb_clear_pipeline(info);
 		if (ret) {
 			tasklet_enable(&par->reset_tasklet);
@@ -227,6 +238,7 @@ static int vpoutfb_set_par(struct fb_info *info)
 		iowrite32(0, par->mmio_base + LCDCSR);
 	}
 	/* Turn on and reset the device */
+	dev_dbg(info->dev, "VPOUT enabling...\n");
 	iowrite32(CSR_EN, par->mmio_base + LCDCSR);
 	ret = vpoutfb_clear_pipeline(info);
 	if (ret) {
@@ -244,7 +256,7 @@ static int vpoutfb_set_par(struct fb_info *info)
 	iowrite32(MODE_HDMI + par->color_fmt->hw_modenum,
 		  par->mmio_base + LCDMOD);
 	/* Finally, initialize and run the device */
-	iowrite32(INT_OUTFIFO,
+	iowrite32(INT_OUTFIFO | INT_VSYNC,
 		  par->mmio_base + LCDMSK);
 	iowrite32(CSR_INIT | CSR_EN, par->mmio_base + LCDCSR);
 	for (i = 0; i < CLEAR_MSEC; i++) {
@@ -278,6 +290,13 @@ static irqreturn_t vpoutfb_irq_handler(int irq, void *dev_id)
 
 	if (irqstatus & INT_OUTFIFO)
 		tasklet_schedule(&par->reset_tasklet);
+
+	/* NOTE: This interrupt occurs at the end of each frame. */
+	if (irqstatus & INT_VSYNC) {
+		par->frame_done = true;
+		wake_up(&par->frame_done_wq);
+	}
+
 	iowrite32(irqstatus, par->mmio_base + LCDINT);
 
 	return IRQ_HANDLED;
@@ -338,8 +357,28 @@ static int vpoutfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 static void vpoutfb_destroy(struct fb_info *info)
 {
-	struct vpoutfb_par *par;
-	par = info->par;
+	struct vpoutfb_par *par = info->par;
+
+	tasklet_disable(&par->reset_tasklet);
+
+	/*
+	 * Stop VPOUT (lcdscr.RUN=0) and wait for end of frame (VSYNC 1->0)
+	 * because VPOUT isn't stopped until frame is finished. If an interrupt
+	 * occurs here, wait_event_timeout() returns only after the timeout
+	 * elapsed.
+	 */
+	iowrite32(CSR_EN, par->mmio_base + LCDCSR);
+	par->frame_done = false;
+	if (!wait_event_timeout(par->frame_done_wq, par->frame_done,
+				msecs_to_jiffies(50)))
+		dev_dbg(info->dev, "Timeout of waiting for frame done");
+	/* Disable interrupts */
+	iowrite32(0, par->mmio_base + LCDMSK);
+	/* Clear pipeline of VPOUT */
+	vpoutfb_clear_pipeline(info);
+	/* Switch off VPOUT */
+	iowrite32(0, par->mmio_base + LCDCSR);
+
 	if (info->screen_base)
 		dma_free_coherent(info->dev, par->mem_size,
 				  par->mem_virt, par->mem_phys);
@@ -537,6 +576,8 @@ static int vpoutfb_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, info);
 	par = info->par;
+
+	init_waitqueue_head(&par->frame_done_wq);
 
 	par->mem_size = MAX_BUFSIZE;
 	/* We don't allocate for modes > 1080p since bigger resolutions
