@@ -823,6 +823,7 @@ static unsigned int msm_get_mctrl(struct uart_port *port)
 static void msm_reset(struct uart_port *port)
 {
 	struct msm_port *msm_port = UART_TO_MSM(port);
+	unsigned int mr;
 
 	/* reset everything */
 	msm_write(port, UART_CR_CMD_RESET_RX, UART_CR);
@@ -830,7 +831,10 @@ static void msm_reset(struct uart_port *port)
 	msm_write(port, UART_CR_CMD_RESET_ERR, UART_CR);
 	msm_write(port, UART_CR_CMD_RESET_BREAK_INT, UART_CR);
 	msm_write(port, UART_CR_CMD_RESET_CTS, UART_CR);
-	msm_write(port, UART_CR_CMD_SET_RFR, UART_CR);
+	msm_write(port, UART_CR_CMD_RESET_RFR, UART_CR);
+	mr = msm_read(port, UART_MR1);
+	mr &= ~UART_MR1_RX_RDY_CTL;
+	msm_write(port, mr, UART_MR1);
 
 	/* Disable DM modes */
 	if (msm_port->is_uartdm)
@@ -868,37 +872,72 @@ struct msm_baud_map {
 };
 
 static const struct msm_baud_map *
-msm_find_best_baud(struct uart_port *port, unsigned int baud)
+msm_find_best_baud(struct uart_port *port, unsigned int baud,
+		   unsigned long *rate)
 {
-	unsigned int i, divisor;
-	const struct msm_baud_map *entry;
+	struct msm_port *msm_port = UART_TO_MSM(port);
+	unsigned int divisor, result;
+	unsigned long target, old, best_rate = 0, diff, best_diff = ULONG_MAX;
+	const struct msm_baud_map *entry, *end, *best;
 	static const struct msm_baud_map table[] = {
-		{ 1536, 0x00,  1 },
-		{  768, 0x11,  1 },
-		{  384, 0x22,  1 },
-		{  192, 0x33,  1 },
-		{   96, 0x44,  1 },
-		{   48, 0x55,  1 },
-		{   32, 0x66,  1 },
-		{   24, 0x77,  1 },
-		{   16, 0x88,  1 },
-		{   12, 0x99,  6 },
-		{    8, 0xaa,  6 },
-		{    6, 0xbb,  6 },
-		{    4, 0xcc,  6 },
-		{    3, 0xdd,  8 },
-		{    2, 0xee, 16 },
 		{    1, 0xff, 31 },
-		{    0, 0xff, 31 },
+		{    2, 0xee, 16 },
+		{    3, 0xdd,  8 },
+		{    4, 0xcc,  6 },
+		{    6, 0xbb,  6 },
+		{    8, 0xaa,  6 },
+		{   12, 0x99,  6 },
+		{   16, 0x88,  1 },
+		{   24, 0x77,  1 },
+		{   32, 0x66,  1 },
+		{   48, 0x55,  1 },
+		{   96, 0x44,  1 },
+		{  192, 0x33,  1 },
+		{  384, 0x22,  1 },
+		{  768, 0x11,  1 },
+		{ 1536, 0x00,  1 },
 	};
 
-	divisor = uart_get_divisor(port, baud);
+	best = table; /* Default to smallest divider */
+	target = clk_round_rate(msm_port->clk, 16 * baud);
+	divisor = DIV_ROUND_CLOSEST(target, 16 * baud);
 
-	for (i = 0, entry = table; i < ARRAY_SIZE(table); i++, entry++)
-		if (entry->divisor <= divisor)
-			break;
+	end = table + ARRAY_SIZE(table);
+	entry = table;
+	while (entry < end) {
+		if (entry->divisor <= divisor) {
+			result = target / entry->divisor / 16;
+			diff = abs(result - baud);
 
-	return entry; /* Default to smallest divider */
+			/* Keep track of best entry */
+			if (diff < best_diff) {
+				best_diff = diff;
+				best = entry;
+				best_rate = target;
+			}
+
+			if (result == baud)
+				break;
+		} else if (entry->divisor > divisor) {
+			old = target;
+			target = clk_round_rate(msm_port->clk, old + 1);
+			/*
+			 * The rate didn't get any faster so we can't do
+			 * better at dividing it down
+			 */
+			if (target == old)
+				break;
+
+			/* Start the divisor search over at this new rate */
+			entry = table;
+			divisor = DIV_ROUND_CLOSEST(target, 16 * baud);
+			continue;
+		}
+		entry++;
+	}
+
+	*rate = best_rate;
+	return best;
 }
 
 static int msm_set_baud_rate(struct uart_port *port, unsigned int baud,
@@ -907,22 +946,20 @@ static int msm_set_baud_rate(struct uart_port *port, unsigned int baud,
 	unsigned int rxstale, watermark, mask;
 	struct msm_port *msm_port = UART_TO_MSM(port);
 	const struct msm_baud_map *entry;
-	unsigned long flags;
-
-	entry = msm_find_best_baud(port, baud);
-
-	msm_write(port, entry->code, UART_CSR);
-
-	if (baud > 460800)
-		port->uartclk = baud * 16;
+	unsigned long flags, rate;
 
 	flags = *saved_flags;
 	spin_unlock_irqrestore(&port->lock, flags);
 
-	clk_set_rate(msm_port->clk, port->uartclk);
+	entry = msm_find_best_baud(port, baud, &rate);
+	clk_set_rate(msm_port->clk, rate);
+	baud = rate / 16 / entry->divisor;
 
 	spin_lock_irqsave(&port->lock, flags);
 	*saved_flags = flags;
+	port->uartclk = rate;
+
+	msm_write(port, entry->code, UART_CSR);
 
 	/* RX stale watermark */
 	rxstale = entry->rxstale;
@@ -1377,6 +1414,7 @@ static void __msm_console_write(struct uart_port *port, const char *s,
 	int num_newlines = 0;
 	bool replaced = false;
 	void __iomem *tf;
+	int locked = 1;
 
 	if (is_uartdm)
 		tf = port->membase + UARTDM_TF;
@@ -1389,7 +1427,13 @@ static void __msm_console_write(struct uart_port *port, const char *s,
 			num_newlines++;
 	count += num_newlines;
 
-	spin_lock(&port->lock);
+	if (port->sysrq)
+		locked = 0;
+	else if (oops_in_progress)
+		locked = spin_trylock(&port->lock);
+	else
+		spin_lock(&port->lock);
+
 	if (is_uartdm)
 		msm_reset_dm_count(port, count);
 
@@ -1425,7 +1469,9 @@ static void __msm_console_write(struct uart_port *port, const char *s,
 		iowrite32_rep(tf, buf, 1);
 		i += num_chars;
 	}
-	spin_unlock(&port->lock);
+
+	if (locked)
+		spin_unlock(&port->lock);
 }
 
 static void msm_console_write(struct console *co, const char *s,
