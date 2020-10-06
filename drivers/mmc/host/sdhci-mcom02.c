@@ -162,8 +162,21 @@ static void mcom02_of_parse_clk_phases(struct device *dev,
 		mcom02_of_read_clk_phase(dev, sdhci_mcom02, i, names[i]);
 }
 
+static void sdhci_mcom02_set_power(struct sdhci_host *host, unsigned char mode,
+				   unsigned short vdd)
+{
+	if (!IS_ERR(host->mmc->supply.vmmc)) {
+		struct mmc_host *mmc = host->mmc;
+
+		mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, vdd);
+	}
+
+	sdhci_set_power(host, mode, vdd);
+}
+
 static struct sdhci_ops sdhci_mcom02_ops = {
 	.set_clock = sdhci_mcom02_set_clock,
+	.set_power = sdhci_mcom02_set_power,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.get_timeout_clock = sdhci_mcom02_get_timeout_clock,
 	.set_bus_width = sdhci_set_bus_width,
