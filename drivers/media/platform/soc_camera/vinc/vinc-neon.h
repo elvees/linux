@@ -76,8 +76,8 @@ u32 vinc_neon_calculate_luma_avg(enum vinc_input_format input_format,
 				 struct vinc_stat_zone *zone,
 				 bool pport_low_bits);
 
-void vinc_neon_calculate_gain_exp(u32 luma, u32 cur_gain, u32 cur_exp,
-				  u32 max_gain, u32 max_exp, u32 *gain,
-				  u32 *exp);
+void vinc_neon_calculate_gain_exp(u32 luma, u32 target_lum, u32 cur_gain,
+				  u32 cur_exp, u32 max_gain, u32 max_exp,
+				  u32 *gain, u32 *exp);
 
 #endif /* VINC_NEON_H */

@@ -913,18 +913,18 @@ u32 vinc_neon_calculate_luma_avg(enum vinc_input_format input_format,
 	return rint(luma_average);
 }
 
-void vinc_neon_calculate_gain_exp(u32 luma, u32 cur_gain, u32 cur_exp,
-				  u32 max_gain, u32 max_exp, u32 *gain,
-				  u32 *exp)
+void vinc_neon_calculate_gain_exp(u32 luma, u32 target_lum, u32 cur_gain,
+				  u32 cur_exp, u32 max_gain, u32 max_exp,
+				  u32 *gain, u32 *exp)
 {
-	const double th = 110.0, smoothness = 0.5;
+	const double smoothness = 0.5;
 	double adjustment = 1.0f;
 	double cur_gain_dbl, gain_dbl, exp_dbl, brightness, desired_brightness;
 	double max_gain_dbl;
 
 	max_gain_dbl = ctrl_to_gain(max_gain);
 
-	adjustment = th / luma;
+	adjustment = 1.0 * target_lum / luma;
 
 	adjustment = clamp(adjustment, 1.0 / 16, 4.0);
 
@@ -943,7 +943,7 @@ void vinc_neon_calculate_gain_exp(u32 luma, u32 cur_gain, u32 cur_exp,
 		gain_dbl = 1.0f;
 	}
 	if (gain_dbl > max_gain_dbl) {
-		exp_dbl = desired_brightness/max_gain_dbl;
+		exp_dbl = desired_brightness / max_gain_dbl;
 		gain_dbl = max_gain_dbl;
 	}
 

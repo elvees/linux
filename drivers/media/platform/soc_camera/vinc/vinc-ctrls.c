@@ -533,7 +533,7 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 		exposure = (struct vinc_cluster_exposure *)ctrl->cluster;
 
 		if (exposure->ae->is_new) {
-			int activate_exp = 0, activate_gain = 0;
+			int exp_manual = 0, activate_exp = 0, activate_gain = 0;
 
 			if (exposure->ae->val == V4L2_EXPOSURE_AUTO) {
 				exp.value = V4L2_EXPOSURE_MANUAL;
@@ -548,19 +548,19 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 				if (ret < 0)
 					return ret;
 			}
-			activate_exp = (exposure->ae->val ==
-				V4L2_EXPOSURE_MANUAL &&
+			exp_manual = exposure->ae->val == V4L2_EXPOSURE_MANUAL;
+			activate_exp = (exp_manual &&
 				!exposure->sensor_ae->cur.val) ? 1 : 0;
 			activate_sensor_exp_gain(sd->ctrl_handler,
 						 0, 1, activate_exp);
-			activate_gain = (exposure->ae->val ==
-				V4L2_EXPOSURE_MANUAL &&
+			activate_gain = (exp_manual &&
 				!exposure->sensor_ag->cur.val) ? 1 : 0;
 			activate_sensor_exp_gain(sd->ctrl_handler,
 						 2, 2, activate_gain);
-
-			cluster_activate_only(ctrl->cluster);
-			if (exposure->ae->val == V4L2_EXPOSURE_MANUAL &&
+			v4l2_ctrl_activate(exposure->sensor_ae, exp_manual);
+			v4l2_ctrl_activate(exposure->sensor_ag, exp_manual);
+			v4l2_ctrl_activate(exposure->target_lum, !exp_manual);
+			if (exp_manual &&
 			    !(stream->cluster.cc.awb->cur.val) &&
 			    !(stream->cluster.cc.ab->cur.val))
 				cancel_work_sync(&stream->stat_work);
@@ -911,6 +911,17 @@ static struct v4l2_ctrl_config ctrl_cfg[] = {
 		.step = 0,
 		.def = V4L2_EXPOSURE_MANUAL,
 		.qmenu = vinc_exposure_auto_menu,
+		.flags = V4L2_CTRL_FLAG_UPDATE
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_AE_TARGET_LUM,
+		.name = "Autoexposure target luminance",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 255,
+		.step = 1,
+		.def = 50,
 		.flags = V4L2_CTRL_FLAG_UPDATE
 	},
 	{
@@ -1362,7 +1373,7 @@ static int auto_exp_step(struct v4l2_subdev *sd, struct vinc_dev *priv,
 			 struct vinc_stream *stream, struct vinc_stat_add *add,
 			 struct vinc_stat_zone *zone, u32 value)
 {
-	struct v4l2_control cur_gain, cur_exp;
+	struct v4l2_control cur_gain, cur_exp, target_lum;
 	u32 luma, gain, exp;
 	int rc;
 
@@ -1377,14 +1388,18 @@ static int auto_exp_step(struct v4l2_subdev *sd, struct vinc_dev *priv,
 	rc = v4l2_subdev_g_ctrl(sd, &cur_exp);
 	if (rc < 0)
 		return rc;
+	target_lum.id = V4L2_CID_AE_TARGET_LUM;
+	rc = v4l2_g_ctrl(stream->cluster.exp.target_lum->handler, &target_lum);
+	if (rc < 0)
+		return rc;
 
 	kernel_neon_begin();
 	luma = vinc_neon_calculate_luma_avg(stream->input_format, add,
 					    stream->ycbcr_enc, zone,
 					    stream->pport_low_bits);
-	vinc_neon_calculate_gain_exp(luma, cur_gain.value, cur_exp.value * 100,
-				     priv->max_gain, priv->max_exp * 100, &gain,
-					&exp);
+	vinc_neon_calculate_gain_exp(luma, target_lum.value, cur_gain.value,
+				     cur_exp.value * 100, priv->max_gain,
+				     priv->max_exp * 100, &gain, &exp);
 	kernel_neon_end();
 	if (cur_gain.value != gain) {
 		cur_gain.value = gain;
@@ -1713,6 +1728,8 @@ int vinc_create_controls(struct v4l2_ctrl_handler *hdl,
 	stream->cluster.exp.sensor_ag = v4l2_ctrl_find(hdl,
 						V4L2_CID_SENSOR_AUTOGAIN);
 	stream->cluster.exp.ae = v4l2_ctrl_find(hdl, V4L2_CID_EXPOSURE_AUTO);
+	stream->cluster.exp.target_lum = v4l2_ctrl_find(hdl,
+						V4L2_CID_AE_TARGET_LUM);
 	v4l2_ctrl_cluster(CLUSTER_SIZE(struct vinc_cluster_exposure),
 			  &stream->cluster.exp.ae);
 

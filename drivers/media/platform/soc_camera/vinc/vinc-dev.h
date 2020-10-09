@@ -424,6 +424,7 @@ struct vinc_cluster_exposure {
 	struct v4l2_ctrl *ae;
 	struct v4l2_ctrl *sensor_ae;
 	struct v4l2_ctrl *sensor_ag;
+	struct v4l2_ctrl *target_lum;
 };
 
 struct vinc_cluster {
