@@ -1243,7 +1243,7 @@ static int vinc_probe(struct platform_device *pdev)
 
 	/* GLOBAL_ENABLE need for generate clocks to sensor */
 	vinc_write(priv, AXI_MASTER_CFG, AXI_MASTER_CFG_MAX_BURST(2) |
-			AXI_MASTER_CFG_MAX_WR_ID(1) |
+			AXI_MASTER_CFG_MAX_WR_ID(2) |
 			AXI_MASTER_CFG_BUF_LAYOUT(0x5) |
 			AXI_MASTER_CFG_4K_BOUND_EN |
 			AXI_MASTER_CFG_GLOBAL_EN);
