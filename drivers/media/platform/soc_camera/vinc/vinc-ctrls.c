@@ -703,6 +703,7 @@ static int vinc_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_SENSOR_EXPOSURE_AUTO:
 	case V4L2_CID_SENSOR_AUTOGAIN:
 	case V4L2_CID_SENSOR_AUTO_WHITE_BALANCE:
+	case V4L2_CID_SENSOR_NAME:
 	case V4L2_CID_EXPOSURE_AUTO:
 		return 0;
 	default:
@@ -1367,6 +1368,15 @@ static struct v4l2_ctrl_config ctrl_cfg[] = {
 		.def = 1,
 		.flags = 0
 	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_SENSOR_NAME,
+		.name = "Sensor Name",
+		.type = V4L2_CTRL_TYPE_STRING,
+		.max = V4L2_SUBDEV_NAME_SIZE,
+		.step = 1,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY
+	},
 };
 
 static int auto_exp_step(struct v4l2_subdev *sd, struct vinc_dev *priv,
@@ -1640,6 +1650,9 @@ int vinc_create_controls(struct v4l2_ctrl_handler *hdl,
 	const u8 devnum = stream->devnum;
 	struct vinc_dev *priv = container_of(stream, struct vinc_dev,
 					     stream[devnum]);
+	struct soc_camera_device *icd = container_of(hdl,
+			struct soc_camera_device, ctrl_handler);
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 
 	for (i = 0; i < ARRAY_SIZE(ctrl_cfg); i++) {
 		if (!ctrl_cfg[i].name)
@@ -1737,6 +1750,11 @@ int vinc_create_controls(struct v4l2_ctrl_handler *hdl,
 
 	stream->sensor_awb = v4l2_ctrl_find(hdl,
 					    V4L2_CID_SENSOR_AUTO_WHITE_BALANCE);
+
+	stream->sensor_name = v4l2_ctrl_find(hdl, V4L2_CID_SENSOR_NAME);
+	strcpy(stream->sensor_name->p_cur.p_char, sd->name);
+	/* Truncate to first word: "ov2718 0-0036" -> "ov2718" */
+	*strchrnul(stream->sensor_name->p_cur.p_char, ' ') = '\0';
 
 	stream->cluster.cc.bl->priv = devm_kmalloc(
 			priv->ici.v4l2_dev.dev,
