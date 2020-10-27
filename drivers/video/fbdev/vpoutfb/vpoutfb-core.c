@@ -170,11 +170,31 @@ static int vpoutfb_check_var(struct fb_var_screeninfo *var,
 	return 0;
 }
 
+static int vpoutfb_clear_pipeline(struct fb_info *info)
+{
+	struct vpoutfb_par *par = info->par;
+	int i;
+
+	iowrite32(CSR_EN | CSR_CLR, par->mmio_base + LCDCSR);
+	for (i = 0; i < CLEAR_MSEC; i++) {
+		if (!(ioread32(par->mmio_base + LCDCSR) & CSR_CLR))
+			break;
+		usleep_range(1000, 2000);
+	}
+	if (i == CLEAR_MSEC) {
+		dev_err(info->dev, "Failed to clear FIFO\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
 static int vpoutfb_set_par(struct fb_info *info)
 {
 	int hsw, hgdel, hgate, hlen, vsw, vgdel, vgate, vlen, div, i, undiv;
 	struct fb_var_screeninfo *var = &info->var;
 	struct vpoutfb_par *par = info->par;
+	int ret = 0;
 
 	tasklet_disable(&par->reset_tasklet);
 
@@ -198,32 +218,20 @@ static int vpoutfb_set_par(struct fb_info *info)
 	/* If the device is currently on, clear FIFO and power it off */
 	if (ioread32(par->mmio_base + LCDCSR) & CSR_EN) {
 		iowrite32(CSR_EN, par->mmio_base + LCDCSR);
-		iowrite32(CSR_EN|CSR_CLR, par->mmio_base + LCDCSR);
-		for (i = 0; i < CLEAR_MSEC; i++) {
-			if (!(ioread32(par->mmio_base + LCDCSR) & CSR_CLR))
-				break;
-			usleep_range(1000, 2000);
-		}
-		if (i == CLEAR_MSEC) {
-			dev_err(info->dev, "FIFO clear looped\n");
+		ret = vpoutfb_clear_pipeline(info);
+		if (ret) {
 			tasklet_enable(&par->reset_tasklet);
 			/* FIXME: VPOUT isn't in operable condition */
-			return -EBUSY;
+			return ret;
 		}
 		iowrite32(0, par->mmio_base + LCDCSR);
 	}
 	/* Turn on and reset the device */
 	iowrite32(CSR_EN, par->mmio_base + LCDCSR);
-	iowrite32(CSR_EN|CSR_CLR, par->mmio_base + LCDCSR);
-	for (i = 0; i < CLEAR_MSEC; i++) {
-		if (!(ioread32(par->mmio_base + LCDCSR) & CSR_CLR))
-			break;
-		usleep_range(1000, 2000);
-	}
-	if (i == CLEAR_MSEC) {
-		dev_err(info->dev, "FIFO clear looped\n");
+	ret = vpoutfb_clear_pipeline(info);
+	if (ret) {
 		tasklet_enable(&par->reset_tasklet);
-		return -EBUSY;
+		return ret;
 	}
 	/* Configure video mode */
 	iowrite32(hgdel << 16 | hsw, par->mmio_base + LCDHT0);
