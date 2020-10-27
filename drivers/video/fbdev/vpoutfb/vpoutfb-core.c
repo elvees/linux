@@ -663,6 +663,9 @@ static int vpoutfb_probe(struct platform_device *pdev)
 		it66121_probe(&par->hdmidata, pdata.output_node);
 	}
 
+	if (ioread32(par->mmio_base + LCDCSR) & CSR_EN)
+		dev_err(&pdev->dev,
+			"Device is enabled in probe() but expected to be disabled\n");
 	ret = vpoutfb_set_par(info);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Unable to set resolution: %d\n", ret);
