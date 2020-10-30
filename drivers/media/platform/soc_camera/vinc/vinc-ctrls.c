@@ -194,6 +194,35 @@ static void vinc_calculate_cdf(struct vinc_stat_hist *p_hist,
 	}
 }
 
+static void get_sensor_wb(struct v4l2_subdev *sd, s32 *rb, s32 *bb)
+{
+	int rc;
+	struct v4l2_control ctrl;
+
+	ctrl.id = V4L2_CID_RED_BALANCE;
+	rc = v4l2_subdev_g_ctrl(sd, &ctrl);
+	*rb = rc ? 0 : ctrl.value;
+
+	ctrl.id = V4L2_CID_BLUE_BALANCE;
+	rc = v4l2_subdev_g_ctrl(sd, &ctrl);
+	*bb = rc ? 0 : ctrl.value;
+}
+
+static void set_sensor_wb(struct v4l2_subdev *sd, s32 rb, s32 bb)
+{
+	struct v4l2_control rb_ctrl = {
+		.id = V4L2_CID_RED_BALANCE,
+		.value = rb
+	};
+	struct v4l2_control bb_ctrl = {
+		.id = V4L2_CID_BLUE_BALANCE,
+		.value = bb
+	};
+
+	v4l2_subdev_s_ctrl(sd, &rb_ctrl);
+	v4l2_subdev_s_ctrl(sd, &bb_ctrl);
+}
+
 static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct soc_camera_device *icd = container_of(ctrl->handler,
@@ -302,6 +331,7 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 		struct vinc_cc *p_cc;
 		bool activate;
 		u8 wr_only_num;
+		s32 sensor_rb, sensor_bb;
 
 		cc = (struct vinc_cluster_cc *)ctrl->cluster;
 		wr_only_num = cc->enable->ncontrols;
@@ -333,28 +363,36 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		if ((cc->dowb->is_new || cc->wbt->is_new) && !init &&
 					!cc->awb->cur.val) {
-			kernel_neon_begin();
 			if (cc->wbt->is_new) {
 				u32 temp = cc->wbt->val;
 				change_write_only(ctrl->cluster, &cc->wbt - ctrl->cluster,
 						  wr_only_num, 0);
+				kernel_neon_begin();
 				vinc_neon_wb_temp(temp, cc->wbcc->p_new.p,
 						  &cc->rb->val, &cc->bb->val);
+				kernel_neon_end();
 			} else {
 				struct vinc_stat_add *add = &stream->summary_stat.add;
+				get_sensor_wb(sd, &sensor_rb, &sensor_bb);
+				kernel_neon_begin();
 				vinc_neon_wb_stat(add->sum_r, add->sum_g, add->sum_b,
+						  sensor_rb, sensor_bb,
 						  &cc->rb->val, &cc->bb->val);
+				kernel_neon_end();
 			}
-			kernel_neon_end();
 			cc->rb->has_changed = 1;
 			cc->bb->has_changed = 1;
 		}
 
 		if ((cc->dowb->is_new || cc->rb->is_new || cc->bb->is_new ||
 			cc->wbt->is_new || cc->wbcc->is_new) && !cc->awb->cur.val) {
+			set_sensor_wb(sd, cc->rb->val, cc->bb->val);
+			get_sensor_wb(sd, &sensor_rb, &sensor_bb);
 			kernel_neon_begin();
 			vinc_neon_calculate_m_wb(cc->rb->val, cc->bb->val,
-						 cc->wbcc->p_new.p, cc->dowb->priv);
+						 sensor_rb, sensor_bb,
+						 cc->wbcc->p_new.p,
+						 cc->dowb->priv);
 			kernel_neon_end();
 		}
 
@@ -1452,15 +1490,32 @@ static void auto_stat_work(struct work_struct *work)
 		vinc_calculate_cdf(hist, stream->cluster.cc.ab->priv);
 
 	if (cc->awb->val || cc->ab->val) {
-		kernel_neon_begin();
-		if (cc->awb->val) {
+		/* We should skip several frames to get statistics consistent
+		 * with sensor settings of white balance as sensor settings
+		 * don't apply immediately.
+		 */
+		if (cc->awb->val && (stream->sequence / 2) % 2) {
+			s32 sensor_rb, sensor_bb;
+
+			get_sensor_wb(sd, &sensor_rb, &sensor_bb);
+			kernel_neon_begin();
 			vinc_neon_wb_stat(add->sum_r, add->sum_g, add->sum_b,
+					  sensor_rb, sensor_bb,
 					  &cc->rb->val, &cc->bb->val);
+			kernel_neon_end();
+
+			set_sensor_wb(sd, cc->rb->val, cc->bb->val);
+			get_sensor_wb(sd, &sensor_rb, &sensor_bb);
+			kernel_neon_begin();
 			vinc_neon_calculate_m_wb(cc->rb->val, cc->bb->val,
-						 cc->wbcc->p_new.p, cc->dowb->priv);
+						 sensor_rb, sensor_bb,
+						 cc->wbcc->p_new.p,
+						 cc->dowb->priv);
+			kernel_neon_end();
 		}
 		if (cc->ab->val) {
 			vinc_calculate_cdf(hist, stream->cluster.cc.ab->priv);
+			kernel_neon_begin();
 			vinc_neon_bc_stat(stream->cluster.cc.ab->priv,
 					  &cc->brightness->val,
 					  &cc->contrast->val);
@@ -1468,12 +1523,13 @@ static void auto_stat_work(struct work_struct *work)
 						  cc->brightness->val);
 			vinc_neon_calculate_m_con(cc->contrast->priv,
 						  cc->contrast->val);
+			kernel_neon_end();
 		}
 
+		kernel_neon_begin();
 		rc = vinc_neon_calculate_cc(&stream->ctrl_privs,
 					    stream->ycbcr_enc,
 					    cc->cc->p_new.p);
-
 		kernel_neon_end();
 
 		if (rc < 0)

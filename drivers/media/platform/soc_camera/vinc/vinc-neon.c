@@ -437,10 +437,14 @@ void vinc_neon_wb_temp(u32 temp, struct vinc_wb_cc *wbcc, s32 *rb, s32 *bb)
 	*bb = gain_to_balance(gain_b);
 }
 
-void vinc_neon_wb_stat(u32 red, u32 green, u32 blue, s32 *rb, s32 *bb)
+void vinc_neon_wb_stat(u32 red, u32 green, u32 blue,
+		       s32 sensor_rb, s32 sensor_bb, s32 *rb, s32 *bb)
 {
 	double gain_r = (double)green / red;
 	double gain_b = (double)green / blue;
+
+	gain_r *= balance_to_gain(sensor_rb);
+	gain_b *= balance_to_gain(sensor_bb);
 
 	*rb = gain_to_balance(gain_r);
 	*bb = gain_to_balance(gain_b);
@@ -467,8 +471,8 @@ void vinc_neon_bc_stat(struct bc_stat *p_stat, s32 *bri, s32 *con)
 	*bri = rint(-alpha * min);
 }
 
-void vinc_neon_calculate_m_wb(s32 rb, s32 bb, struct vinc_wb_cc *wbcc,
-			      void *matrix)
+void vinc_neon_calculate_m_wb(s32 rb, s32 bb, s32 sensor_rb, s32 sensor_bb,
+			      struct vinc_wb_cc *wbcc, void *matrix)
 {
 	int i;
 	struct matrix *wb = (struct matrix *)matrix;
@@ -476,6 +480,9 @@ void vinc_neon_calculate_m_wb(s32 rb, s32 bb, struct vinc_wb_cc *wbcc,
 	double gain_b = balance_to_gain(bb);
 
 	interpolate_wbcc(0, gain_r / gain_b, wbcc, NULL, NULL, wb);
+
+	gain_r /= balance_to_gain(sensor_rb);
+	gain_b /= balance_to_gain(sensor_bb);
 
 	for (i = 0; i < VINC_CC_COEFF_COUNT; i += VINC_CC_OFFSET_COUNT) {
 		wb->coeff[i] *= gain_r;
