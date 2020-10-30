@@ -949,6 +949,8 @@ static void vinc_next_buffer(struct vinc_stream *stream,
 		vinc_write(priv, STREAM_DMA_WR_CTR(channel, 0), wr_ctr);
 	}
 
+	vbuf->field = V4L2_FIELD_NONE;
+
 	v4l2_get_timestamp(&vbuf->timestamp);
 
 	vbuf->sequence = stream->sequence++;

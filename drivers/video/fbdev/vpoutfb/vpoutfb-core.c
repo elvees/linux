@@ -88,6 +88,9 @@ static struct fb_var_screeninfo vpoutfb_var = {
 	.vmode		= FB_VMODE_NONINTERLACED,
 };
 
+static int (*ump_callback)(unsigned long addr, unsigned long size,
+			   void **pbuf, int buf);
+
 static inline u32 hz_to_ps(unsigned int rate)
 {
 	u32 ps_in_us = 1000000;
@@ -304,8 +307,6 @@ static int vpoutfb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
 	struct vpoutfb_par *par = info->par;
-	static int (*ump_callback)(unsigned long addr, unsigned long size,
-				   void **pbuf, int buf);
 
 	switch (cmd) {
 	case VPOUTFB_GET_MEMORY_ID:
@@ -464,8 +465,6 @@ static void vpoutfb_clocks_destroy(struct vpoutfb_par *par)
 			clk_put(par->clks[i]);
 		}
 	}
-
-	kfree(par->clks);
 }
 #else
 static int vpoutfb_clocks_init(struct vpoutfb_par *par,
@@ -520,12 +519,13 @@ static int vpoutfb_probe(struct platform_device *pdev)
 		ret = vpoutfb_parse_dt(pdev, &pdata);
 
 	if (ret)
-		return ret;
+		goto put_output;
 
 	info = framebuffer_alloc(sizeof(struct vpoutfb_par), &pdev->dev);
 	if (!info) {
 		dev_err(&pdev->dev, "FB alloc failed");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto put_output;
 	}
 	platform_set_drvdata(pdev, info);
 	par = info->par;
@@ -574,6 +574,10 @@ static int vpoutfb_probe(struct platform_device *pdev)
 	info->var.transp = pdata.format->transp;
 
 	info->mode = kzalloc(sizeof(struct fb_videomode), GFP_KERNEL);
+	if (!info->mode) {
+		ret = -ENOMEM;
+		goto error_cleanup;
+	}
 
 	ret = of_get_fb_videomode(pdata.output_node,
 				  info->mode,
@@ -633,6 +637,8 @@ static int vpoutfb_probe(struct platform_device *pdev)
 		goto error_cleanup;
 	}
 
+	of_node_put(pdata.output_node);
+
 	dev_info(&pdev->dev, "fb%d: vpoutfb registered!\n", info->node);
 
 	return 0;
@@ -642,8 +648,12 @@ error_cleanup:
 		dma_free_coherent(&pdev->dev, par->mem_size,
 				  par->mem_virt, par->mem_phys);
 	vpoutfb_clocks_destroy(par);
-	if (info)
+	if (info) {
+		kfree(info->mode);
 		framebuffer_release(info);
+	}
+put_output:
+	of_node_put(pdata.output_node);
 	return ret;
 }
 
@@ -653,7 +663,12 @@ static int vpoutfb_remove(struct platform_device *pdev)
 	struct vpoutfb_par *par = info->par;
 
 	unregister_framebuffer(info);
+	if (ump_callback != NULL) {
+		symbol_put(ump_export_secure_id);
+		ump_callback = NULL;
+	}
 	vpoutfb_clocks_destroy(par);
+	kfree(info->mode);
 	framebuffer_release(info);
 
 	return 0;
