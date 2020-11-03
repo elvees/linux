@@ -213,8 +213,7 @@ static int vpoutfb_set_par(struct fb_info *info)
 	else
 		undiv = UNDIVPIXCLK;
 	div = DIV_ROUND_CLOSEST(var->pixclock, undiv) - 1;
-	info->fix.line_length = var->xres *
-		par->color_fmt->bits_per_pixel / 8;
+
 	/* If the device is currently on, clear FIFO and power it off */
 	if (ioread32(par->mmio_base + LCDCSR) & CSR_EN) {
 		/*
@@ -255,6 +254,10 @@ static int vpoutfb_set_par(struct fb_info *info)
 	iowrite32(par->mem_phys, par->mmio_base + LCDAB1);
 	iowrite32(MODE_HDMI + par->color_fmt->hw_modenum,
 		  par->mmio_base + LCDMOD);
+
+	info->fix.line_length = var->xres *
+		par->color_fmt->bits_per_pixel / 8;
+
 	/* Finally, initialize and run the device */
 	iowrite32(INT_OUTFIFO | INT_VSYNC,
 		  par->mmio_base + LCDMSK);
