@@ -28,6 +28,7 @@
 #include <linux/interrupt.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
+#include <linux/math64.h>
 
 #include <media/v4l2-mem2mem.h>
 #include <media/v4l2-device.h>
@@ -72,6 +73,14 @@ enum avico_flags {
 #define BOUNCE_BUF_SIZE roundup(AVICO_WMAX / 16 * MB_SIZE, DMA_CBS_LEN)
 
 static const char *clknames[NCLKS] = { "pclk", "aclk", "sclk", "dsp_aclk" };
+
+static unsigned int debug;
+module_param(debug, uint, 0644);
+MODULE_PARM_DESC(debug, "Debug level (0-1)");
+
+static bool rc_hrd;
+module_param(rc_hrd, bool, 0644);
+MODULE_PARM_DESC(rc_hrd, "Enable HRD conformance in rate control");
 
 static inline void avico_write(u32 const value,
 			       struct avico_ctx const *const ctx,
@@ -729,6 +738,136 @@ static void avico_save(struct avico_ctx *ctx)
 	avico_dma_write(1, ctx, ctx->id * 4 + 1, AVICO_VDMA_CHANNEL_IMRDY);
 }
 
+static void avico_control_bitrate(struct avico_ctx *ctx)
+{
+	struct avico_frame_params *par = &ctx->par;
+	s64 avg_cp_bits = div_s64((s64)ctx->rc_br * ctx->timeperframe.numerator,
+				  ctx->timeperframe.denominator);
+
+	if (par->idr) {
+		if (rc_hrd) {
+			ctx->z_bits = ctx->gop_bits + avg_cp_bits;
+			/*
+			 * TODO: Add bits according to initial_cpb_removal_delay
+			 * and pass initial_cpb_removal_delay via SPS
+			 */
+			ctx->u_bits = ctx->gop_bits;
+		}
+		/*
+		 * Total number of bits allocated for a GOP depends on virtual
+		 * buffer size in JVT-G012 but it doesn't depend on virtual
+		 * buffer size in JVT-K049.
+		 */
+		ctx->gop_bits = par->gop * avg_cp_bits - ctx->vb_bits;
+
+		if (ctx->last_gop_sumpqp != 0 && ctx->last_gop > 1) {
+			int avg_pqp = ctx->last_gop_sumpqp /
+				      (ctx->last_gop - 1);
+			int arg = avg_pqp - min(2, ctx->last_gop / 15);
+
+			par->qp_i = clamp(arg, par->qp_i - 2, par->qp_i + 2);
+
+			if (par->qp_i > par->qp_p - 2)
+				par->qp_i--;
+
+			par->qp_i = clamp((int)par->qp_i, 1, 51);
+
+			ctx->last_gop_sumpqp = 0;
+		} else {
+			/* First GOP after RC enabling */
+			s64 bpp = div_s64(avg_cp_bits * 5, ctx->out_q.width *
+							   ctx->out_q.height);
+
+			/* BPP < 0.6 bit */
+			if (bpp <= 3)
+				par->qp_i = 40;
+			else if (bpp <= 7)
+				par->qp_i = 30;
+			else if (bpp <= 12)
+				par->qp_i = 20;
+			else
+				par->qp_i = 10;
+		}
+
+		v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+			 "I #%u: avg_cp=%lld tgop=%lld\n",
+			 ctx->par.frame, avg_cp_bits, ctx->gop_bits);
+	} else {
+		/*
+		 * In JVT-G012 virtual buffer occupancy is clamped to * [0; Bs],
+		 * where Bs - virtual buffer size, but in JVT-K049 it isn't
+		 * clamped.
+		 * TODO: Buffer size should be sent via SPS.
+		 */
+		ctx->vb_bits = ctx->vb_bits + ctx->last_cp_bits - avg_cp_bits;
+		ctx->gop_bits = ctx->gop_bits - ctx->last_cp_bits;
+
+		if (ctx->par.frame == 1) {
+			par->qp_p = par->qp_i;
+			ctx->target_vb_bits = ctx->vb_bits;
+			ctx->init_target_vb_bits = ctx->vb_bits;
+
+			v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+				 "P #%u: avg_cp=%lld tgop=%lld vb=%lld tvb=%lld\n",
+				 ctx->par.frame, avg_cp_bits, ctx->gop_bits,
+				 ctx->vb_bits, ctx->target_vb_bits);
+		} else {
+			s64 tmp1, target_bits, rem_bits;
+
+			tmp1 = div_s64(ctx->init_target_vb_bits, par->gop - 2);
+
+			ctx->target_vb_bits = ctx->target_vb_bits - tmp1;
+
+			target_bits = avg_cp_bits +
+				      div_s64(ctx->target_vb_bits -
+					      ctx->vb_bits, 2);
+
+			rem_bits = div_s64(ctx->gop_bits,
+					   par->gop - par->frame);
+
+			target_bits = div_s64(target_bits + rem_bits, 2);
+
+			if (rc_hrd) {
+				ctx->z_bits = ctx->z_bits + avg_cp_bits -
+					      ctx->last_cp_bits;
+				tmp1 = (avg_cp_bits - ctx->last_cp_bits) * 9;
+				ctx->u_bits = ctx->u_bits + div_s64(tmp1, 10);
+
+				target_bits = clamp(target_bits, ctx->z_bits,
+						    ctx->u_bits);
+			}
+
+			if (target_bits < ctx->last_cp_bits) {
+				s64 bq1 = (s64)ctx->last_cp_bits * 22;
+
+				bq1 = div_s64(bq1, 25);
+
+				if (target_bits >= bq1)
+					par->qp_p = clamp(par->qp_p + 1, 1, 51);
+				else
+					par->qp_p = clamp(par->qp_p + 2, 1, 51);
+			} else {
+				s64 bq1 = (s64)ctx->last_cp_bits * 57;
+				s64 bq2 = (s64)ctx->last_cp_bits * 13;
+
+				bq1 = div_s64(bq1, 50);
+				bq2 = div_s64(bq2, 10);
+
+				if (target_bits >= bq2)
+					par->qp_p = clamp(par->qp_p - 2, 1, 51);
+				else if (target_bits >= bq1)
+					par->qp_p = clamp(par->qp_p - 1, 1, 51);
+			}
+
+			v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+				 "P #%u: avg_cp=%lld tgop=%lld vb=%lld tvb=%lld z=%lld u=%lld tcp=%lld\n",
+				 ctx->par.frame, avg_cp_bits, ctx->gop_bits,
+				 ctx->vb_bits, ctx->target_vb_bits, ctx->z_bits,
+				 ctx->u_bits, target_bits);
+		}
+	}
+}
+
 static void avico_start(struct avico_ctx *ctx)
 {
 	struct vb2_buffer *src, *dst;
@@ -762,32 +901,49 @@ static void avico_start(struct avico_ctx *ctx)
 	 * it can be called in atomic context so we don't support atomic
 	 * reading of controls.
 	 */
-	par->qp_i = ctx->ctrl_qp_i->cur.val;
-	par->qp_p = ctx->ctrl_qp_p->cur.val;
-	qpc_offset = ctx->ctrl_qpc_off->cur.val;
 	if (ctx->force_key) {
 		ctx->force_key = false;
 		par->idr = true;
 	}
 
 	if (par->idr) {
+		ctx->last_gop = par->gop;
 		par->gop = ctx->ctrl_gop->cur.val;
 		par->log2_max_frame = max(4, order_base_2(par->gop));
 		par->frame_type = VE_FR_I;
 		par->idr_id++;
 		par->frame = 0;
 		write_pps = true;
+		ctx->rc_en = ctx->ctrl_rc_en->cur.val;
+		ctx->rc_br = ctx->ctrl_rc_br->cur.val;
 	} else if (par->i_period > 0 && par->frame % par->i_period == 0) {
 		par->frame_type = VE_FR_I;
 	} else {
 		par->frame_type  = VE_FR_P;
 	}
 
+	if (ctx->rc_en) {
+		avico_control_bitrate(ctx);
+	} else {
+		par->qp_i = ctx->ctrl_qp_i->cur.val;
+		par->qp_p = ctx->ctrl_qp_p->cur.val;
+	}
+
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+		 "%c #%u: tpf=%u/%u QP=%d\n",
+		 par->frame_type == VE_FR_I ? 'I' : 'P', ctx->par.frame,
+		 ctx->timeperframe.numerator, ctx->timeperframe.denominator,
+		 par->frame_type == VE_FR_I ? par->qp_i : par->qp_p);
+
+	if (ctx->par.frame != 0)
+		ctx->last_gop_sumpqp += par->qp_p;
+
 	/*
 	 * Write PPS if chroma_qp_index_offset has been changed. qpc_offset is
 	 * used instead of ctx->ctrl_qpc_off->cur.val to read control
 	 * atomically.
 	 */
+	qpc_offset = ctx->ctrl_qpc_off->cur.val;
 	if (par->qpc_offset != qpc_offset) {
 		write_pps = true;
 		par->qpc_offset = qpc_offset;
@@ -896,6 +1052,11 @@ static void avico_eof_sdma_callback(void *data)
 	WARN_ON(encoded % 8 != 0);
 	ctx->bs.p += encoded / 8;
 	vb2_set_plane_payload(&dst->vb2_buf, 0, ctx->bs.p - ctx->bs.start);
+	ctx->last_cp_bits = (ctx->bs.p - ctx->bs.start) * 8;
+
+	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "%c #%u: cp=%d\n",
+		 ctx->par.frame_type == VE_FR_I ? 'I' : 'P', ctx->par.frame,
+		 ctx->last_cp_bits);
 
 	/*
 	 * If offset in output buffer calculated from bounce-to-DDR DMA
@@ -1717,6 +1878,15 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 		goto err_ret;
 	}
 
+	/*
+	 * In JVT-G012 initial buffer occupancy is Bs/8, where Bs - virtual
+	 * buffer size, but it is 0 in JVT-K049.
+	 */
+	ctx->vb_bits = 0;
+	ctx->last_gop_sumpqp = 0;
+	ctx->last_gop = 0;
+	ctx->gop_bits = 0;
+
 	ctx->outseq = ctx->capseq = 0;
 
 	/* \todo Assert that width and height < 4096 */
@@ -1926,6 +2096,15 @@ static int avico_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME:
 		ctx->force_key = true;
 		break;
+	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
+		/* Rate control requires GOP size 3 or greater */
+		if (ctrl->val < 3) {
+			__v4l2_ctrl_s_ctrl(ctx->ctrl_rc_en, 0);
+			v4l2_ctrl_activate(ctx->ctrl_rc_en, false);
+		} else {
+			v4l2_ctrl_activate(ctx->ctrl_rc_en, true);
+		}
+		break;
 	}
 
 	return 0;
@@ -1968,6 +2147,11 @@ static int avico_ctrls_create(struct avico_ctx *ctx)
 			       V4L2_MPEG_VIDEO_H264_LEVEL_4_0,
 			       ~BIT(V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
 			       V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+
+	ctx->ctrl_rc_en = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+		V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE, 0, 1, 1, 0);
+	ctx->ctrl_rc_br = v4l2_ctrl_new_std(&ctx->ctrl_handler, &avico_ctrl_ops,
+		V4L2_CID_MPEG_VIDEO_BITRATE, SZ_1K, SZ_128M, 1, SZ_512K);
 
 	if (ctx->ctrl_handler.error) {
 		int err = ctx->ctrl_handler.error;

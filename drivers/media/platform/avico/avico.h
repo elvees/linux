@@ -737,6 +737,18 @@ struct avico_ctx {
 	uint32_t ref_ptr_off, out_ptr_off;  /* Offsets for new data */
 	int bounce_active;  /* Active bounce buffer */
 
+	bool rc_en;
+	s32 rc_br;
+	s64 gop_bits;
+	s64 vb_bits;
+	s64 init_target_vb_bits;
+	s64 target_vb_bits;
+	s32 last_cp_bits;
+	s32 last_gop_sumpqp;
+	s32 last_gop;
+	s64 z_bits;
+	s64 u_bits;
+
 	int bounce_count;
 	spinlock_t bounce_lock;
 
@@ -759,6 +771,8 @@ struct avico_ctx {
 	struct v4l2_ctrl	*ctrl_qp_p;
 	struct v4l2_ctrl	*ctrl_qpc_off;
 	struct v4l2_ctrl	*ctrl_gop;
+	struct v4l2_ctrl	*ctrl_rc_en;
+	struct v4l2_ctrl	*ctrl_rc_br;
 	struct v4l2_ctrl_handler ctrl_handler;
 };
 
