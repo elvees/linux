@@ -737,6 +737,10 @@ struct avico_ctx {
 	uint32_t ref_ptr_off, out_ptr_off;  /* Offsets for new data */
 	int bounce_active;  /* Active bounce buffer */
 
+	void *vu2c;
+	dma_addr_t dmau2c;
+	unsigned int u2csize;
+
 	bool rc_en;
 	s32 rc_br;
 	s64 gop_bits;

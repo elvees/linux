@@ -889,7 +889,10 @@ static void avico_start(struct avico_ctx *ctx)
 	out = vb2_plane_vaddr(dst, 0);
 	WARN_ON(out == NULL);
 
-	ctx->dmainp = vb2_dma_contig_plane_dma_addr(src, 0);
+	if (vb2_dma_contig_is_nc_userptr(src, 0))
+		ctx->dmainp = ctx->dmau2c;
+	else
+		ctx->dmainp = vb2_dma_contig_plane_dma_addr(src, 0);
 	ctx->dmaout = vb2_dma_contig_plane_dma_addr(dst, 0);
 
 	ctx->error = false;
@@ -1020,6 +1023,53 @@ static void avico_start(struct avico_ctx *ctx)
 
 	/* Run slice data encoding */
 	avico_codec_run(ctx);
+}
+
+/*
+ * This function will be called by SDMA after last data from userptr memory is
+ * copied to contiguous memory
+ */
+static void avico_u2c_sdma_callback(void *data)
+{
+	struct avico_ctx *ctx = (struct avico_ctx *)data;
+
+	avico_start(ctx);
+}
+
+static bool avico_u2c(struct avico_ctx *ctx)
+{
+	struct vb2_buffer *src = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
+
+	if (vb2_dma_contig_is_nc_userptr(src, 0)) {
+		struct sg_table *sgt;
+		struct scatterlist *sg;
+		struct dma_chan *dma_ch = ctx->dev->dma_ch;
+		dma_addr_t dst = ctx->dmau2c;
+		int i;
+
+		sgt = vb2_dma_contig_nc_userptr_plane_desc(src, 0);
+
+		for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+			unsigned int len = sg_dma_len(sg);
+			struct dma_async_tx_descriptor *tx;
+
+			tx = dma_ch->device->device_prep_dma_memcpy(dma_ch,
+				dst, sg_dma_address(sg), len, 0);
+			dst += len;
+
+			if (i + 1 == sgt->nents) {
+				tx->callback_param = ctx;
+				tx->callback = avico_u2c_sdma_callback;
+			}
+			dmaengine_submit(tx);
+		}
+
+		dma_async_issue_pending(dma_ch);
+
+		return true;
+	}
+
+	return false;
 }
 
 /*
@@ -1378,7 +1428,8 @@ static irqreturn_t avico_irq(int irq, void *data)
 		avico_clear_disable_events(ctx);
 
 		if (ctx->state == AVICO_ST_RESTORING) {
-			avico_start(ctx);
+			if (!avico_u2c(ctx))
+				avico_start(ctx);
 		} else {
 			ctx->state = AVICO_ST_NONE;
 			v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
@@ -1938,6 +1989,11 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 	}
 
 	if (ctx->thread_type == AVICO_ENCODER) {
+		struct vb2_queue *vq;
+
+		vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx,
+				     V4L2_BUF_TYPE_VIDEO_OUTPUT);
+
 		ctx->mbrefsize = MB_REF_SIZE * ctx->mbx * 2;
 		ctx->vmbref = dma_alloc_coherent(ctx->dev->v4l2_dev.dev,
 						 ctx->mbrefsize, &ctx->dmambref,
@@ -1955,10 +2011,25 @@ static int avico_init_streaming(struct avico_ctx *ctx)
 			ret = -ENOMEM;
 			goto free_mbref;
 		}
+
+		if (vq->memory == VB2_MEMORY_USERPTR) {
+			ctx->u2csize = ctx->out_q.sizeimage;
+			ctx->vu2c = dma_alloc_coherent(ctx->dev->v4l2_dev.dev,
+						       ctx->u2csize,
+						       &ctx->dmau2c,
+						       GFP_KERNEL);
+			if (!ctx->vu2c) {
+				ret = -ENOMEM;
+				goto free_mbcur;
+			}
+		}
 	}
 
 	return 0;
 
+free_mbcur:
+	dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->mbcursize, ctx->vmbcur,
+			  ctx->dmambcur);
 free_mbref:
 	dma_free_coherent(ctx->dev->v4l2_dev.dev, ctx->mbrefsize, ctx->vmbref,
 			  ctx->dmambref);
@@ -2047,6 +2118,9 @@ static void avico_stop_streaming(struct vb2_queue *q)
 				  ctx->vref, ctx->dmaref);
 
 		if (ctx->thread_type == AVICO_ENCODER) {
+			struct vb2_queue *oq = V4L2_TYPE_IS_OUTPUT(q->type) ?
+					       q : other_vq;
+
 			dma_free_coherent(ctx->dev->v4l2_dev.dev,
 					  ctx->mbrefsize, ctx->vmbref,
 					  ctx->dmambref);
@@ -2054,6 +2128,11 @@ static void avico_stop_streaming(struct vb2_queue *q)
 			dma_free_coherent(ctx->dev->v4l2_dev.dev,
 					  ctx->mbcursize, ctx->vmbcur,
 					  ctx->dmambcur);
+
+			if (oq->memory == VB2_MEMORY_USERPTR)
+				dma_free_coherent(ctx->dev->v4l2_dev.dev,
+						  ctx->u2csize, ctx->vu2c,
+						  ctx->dmau2c);
 		}
 		ctx->aborting = 0;
 	}
@@ -2077,7 +2156,7 @@ static int queue_init(void *priv, struct vb2_queue *src, struct vb2_queue *dst)
 	int rc;
 
 	src->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-	src->io_modes = VB2_MMAP | VB2_DMABUF;
+	src->io_modes = VB2_MMAP | VB2_DMABUF | VB2_USERPTR;
 	src->drv_priv = ctx;
 	src->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	src->ops = &avico_qops;
@@ -2417,7 +2496,7 @@ static int avico_probe(struct platform_device *pdev)
 		goto err_m2m;
 	}
 
-	dev->alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
+	dev->alloc_ctx = vb2_dma_contig_init_ctx_with_nc_userptr(&pdev->dev);
 	if (IS_ERR(dev->alloc_ctx)) {
 		v4l2_err(&dev->v4l2_dev, "Failed to alloc vb2 context\n");
 		ret = PTR_ERR(dev->alloc_ctx);
