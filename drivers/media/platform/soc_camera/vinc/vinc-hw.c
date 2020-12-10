@@ -289,12 +289,14 @@ static void vinc_configure_bgr(struct vinc_dev *priv,
 }
 
 /* TODO: Add support for YCbCr input format */
-static void vinc_configure_m420(struct vinc_dev *priv,
+static void vinc_configure_yuv420(struct vinc_dev *priv,
 				struct soc_camera_device *icd)
 {
 	u32 proc_cfg;
 	const u8 devnum = icd->devnum;
 	const u8 channel = devnum & 0x01;
+	const bool ism420 =
+		icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_M420;
 	struct vinc_stream * const stream = &priv->stream[devnum];
 	struct vinc_cc *ct = stream->cluster.ct.ct->p_cur.p;
 	int i;
@@ -326,7 +328,7 @@ static void vinc_configure_m420(struct vinc_dev *priv,
 	vinc_write(priv, STREAM_DMA_FBUF_CFG(channel, 0), 0x00001);
 	for (i = 0; i < 2; i++) {
 		vinc_write(priv, STREAM_DMA_FBUF_LSTEP(channel, 0, i),
-			   icd->bytesperline | BIT(31));
+			   icd->bytesperline | (ism420 ? BIT(31) : 0));
 		vinc_write(priv, STREAM_DMA_FBUF_FSTEP(channel, 0, i),
 			   icd->sizeimage);
 	}
@@ -386,7 +388,8 @@ void vinc_configure(struct vinc_dev *priv, struct soc_camera_device *icd)
 		vinc_configure_bgr(priv, icd);
 		break;
 	case V4L2_PIX_FMT_M420:
-		vinc_configure_m420(priv, icd);
+	case V4L2_PIX_FMT_NV12:
+		vinc_configure_yuv420(priv, icd);
 		break;
 	default:
 		dev_warn(priv->ici.v4l2_dev.dev, "Unknown output format %#x\n",

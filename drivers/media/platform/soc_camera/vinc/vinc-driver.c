@@ -55,6 +55,12 @@ struct vinc_cam {
 	u32 code;
 };
 
+/*
+ * Definition of NV12 format is taken from sh_mobile_ceu_camera driver.
+ * Although there is no example of M420 format definition it should be
+ * similar to NV12 format (same packing and layout) for correct results
+ * of soc_mbus_bytes_per_line() and soc_mbus_image_size() function calls.
+ */
 static struct soc_mbus_pixelfmt vinc_formats[] = {
 	{
 		.name = "BGR 8+8+8+8",
@@ -67,9 +73,17 @@ static struct soc_mbus_pixelfmt vinc_formats[] = {
 	{
 		.name = "YUV 4:2:0 2 lines Y, 1 line UV interleaved",
 		.fourcc = V4L2_PIX_FMT_M420,
-		.packing = SOC_MBUS_PACKING_NONE,
+		.packing = SOC_MBUS_PACKING_1_5X8,
 		.order = SOC_MBUS_ORDER_LE,
-		.layout = SOC_MBUS_LAYOUT_PACKED,
+		.layout = SOC_MBUS_LAYOUT_PLANAR_2Y_C,
+		.bits_per_sample = 8,
+	},
+	{
+		.name = "NV12",
+		.fourcc = V4L2_PIX_FMT_NV12,
+		.packing = SOC_MBUS_PACKING_1_5X8,
+		.order = SOC_MBUS_ORDER_LE,
+		.layout = SOC_MBUS_LAYOUT_PLANAR_2Y_C,
 		.bits_per_sample = 8,
 	},
 };
@@ -114,11 +128,8 @@ static int vinc_queue_setup(struct vb2_queue *vq, const void *parg,
 
 		bytes_per_line = max_t(u32, fmt->fmt.pix.bytesperline, ret);
 
-		if (xlate->host_fmt->fourcc == V4L2_PIX_FMT_M420)
-			ret = fmt->fmt.pix.height * bytes_per_line * 3 / 2;
-		else
-			ret = soc_mbus_image_size(xlate->host_fmt,
-				bytes_per_line, fmt->fmt.pix.height);
+		ret = soc_mbus_image_size(xlate->host_fmt,
+					  bytes_per_line, fmt->fmt.pix.height);
 		if (ret < 0)
 			return ret;
 
@@ -173,6 +184,13 @@ static void vinc_start_capture(struct vinc_dev *priv,
 	case V4L2_PIX_FMT_M420:
 		vinc_write(priv, STREAM_DMA_FBUF_BASE(channel, 0, 0),
 			   phys_addr_top + (stream->crop2.c.width << 1));
+		vinc_write(priv, STREAM_DMA_FBUF_BASE(channel, 0, 1),
+			   phys_addr_top);
+		break;
+	case V4L2_PIX_FMT_NV12:
+		vinc_write(priv, STREAM_DMA_FBUF_BASE(channel, 0, 0),
+			   phys_addr_top + stream->crop2.c.width *
+			   stream->crop2.c.height);
 		vinc_write(priv, STREAM_DMA_FBUF_BASE(channel, 0, 1),
 			   phys_addr_top);
 		break;
@@ -608,6 +626,7 @@ static int __vinc_try_fmt(struct soc_camera_device *icd, struct v4l2_format *f,
 
 	switch (pixelfmt->fourcc) {
 	case V4L2_PIX_FMT_M420:
+	case V4L2_PIX_FMT_NV12:
 		pix->sizeimage = pix->bytesperline * ((pix->height * 3) / 2);
 		break;
 	default:

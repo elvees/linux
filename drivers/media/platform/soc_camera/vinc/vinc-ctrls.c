@@ -23,6 +23,7 @@ static u32 vinc_get_dma_src(struct vinc_dev *priv,
 		return (priv->stream[icd->devnum].cluster.ct.enable->val ?
 				DMA_SRC_CT : DMA_SRC_444);
 	case V4L2_PIX_FMT_M420:
+	case V4L2_PIX_FMT_NV12:
 		return DMA_SRC_420;
 	default:
 		dev_warn(priv->ici.v4l2_dev.dev, "Unknown output format %#x\n",
