@@ -23,6 +23,9 @@
 
 struct vb2_dc_conf {
 	struct device		*dev;
+
+	/* USERPTR related */
+	int			allow_nc_userptr;
 };
 
 struct vb2_dc_buf {
@@ -41,6 +44,9 @@ struct vb2_dc_buf {
 
 	/* DMABUF related */
 	struct dma_buf_attachment	*db_attach;
+
+	/* USERPTR related */
+	bool				is_nc_userptr;
 };
 
 /*********************************************/
@@ -70,6 +76,9 @@ static unsigned long vb2_dc_get_contiguous_size(struct sg_table *sgt)
 static void *vb2_dc_cookie(void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
+
+	if (buf->is_nc_userptr)
+		return buf->dma_sgt;
 
 	return &buf->dma_addr;
 }
@@ -482,14 +491,20 @@ static void *vb2_dc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	struct sg_table *sgt;
 	unsigned long contig_size;
 	unsigned long dma_align = dma_get_cache_alignment();
+	bool is_nc_userptr = false;
 	DEFINE_DMA_ATTRS(attrs);
 
 	dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
 
 	/* Only cache aligned DMA transfers are reliable */
 	if (!IS_ALIGNED(vaddr | size, dma_align)) {
-		pr_debug("user data must be aligned to %lu bytes\n", dma_align);
-		return ERR_PTR(-EINVAL);
+		if (!conf->allow_nc_userptr) {
+			pr_debug("user data must be aligned to %lu bytes\n",
+				 dma_align);
+			return ERR_PTR(-EINVAL);
+		}
+
+		is_nc_userptr = true;
 	}
 
 	if (!size) {
@@ -514,7 +529,12 @@ static void *vb2_dc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	n_pages = frame_vector_count(vec);
 	ret = frame_vector_to_pages(vec);
 	if (ret < 0) {
-		unsigned long *nums = frame_vector_pfns(vec);
+		unsigned long *nums;
+
+		if (is_nc_userptr)
+			goto fail_pfnvec;
+
+		nums = frame_vector_pfns(vec);
 
 		/*
 		 * Failed to convert to pages... Check the memory is physically
@@ -555,14 +575,19 @@ static void *vb2_dc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 
 	contig_size = vb2_dc_get_contiguous_size(sgt);
 	if (contig_size < size) {
-		pr_err("contiguous mapping is too small %lu/%lu\n",
-			contig_size, size);
-		ret = -EFAULT;
-		goto fail_map_sg;
+		if (!conf->allow_nc_userptr) {
+			pr_err("contiguous mapping is too small %lu/%lu\n",
+				contig_size, size);
+			ret = -EFAULT;
+			goto fail_map_sg;
+		}
+
+		is_nc_userptr = true;
 	}
 
 	buf->dma_addr = sg_dma_address(sgt->sgl);
 	buf->dma_sgt = sgt;
+	buf->is_nc_userptr = is_nc_userptr;
 out:
 	buf->size = size;
 
@@ -735,12 +760,31 @@ void *vb2_dma_contig_init_ctx(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(vb2_dma_contig_init_ctx);
 
+void *vb2_dma_contig_init_ctx_with_nc_userptr(struct device *dev)
+{
+	struct vb2_dc_conf *conf = vb2_dma_contig_init_ctx(dev);
+
+	if (!IS_ERR_OR_NULL(conf))
+		conf->allow_nc_userptr = 1;
+
+	return conf;
+}
+EXPORT_SYMBOL_GPL(vb2_dma_contig_init_ctx_with_nc_userptr);
+
 void vb2_dma_contig_cleanup_ctx(void *alloc_ctx)
 {
 	if (!IS_ERR_OR_NULL(alloc_ctx))
 		kfree(alloc_ctx);
 }
 EXPORT_SYMBOL_GPL(vb2_dma_contig_cleanup_ctx);
+
+bool vb2_dma_contig_is_nc_userptr(struct vb2_buffer *vb, unsigned int plane_no)
+{
+	struct vb2_dc_buf *buf = vb->planes[plane_no].mem_priv;
+
+	return buf->is_nc_userptr;
+}
+EXPORT_SYMBOL_GPL(vb2_dma_contig_is_nc_userptr);
 
 MODULE_DESCRIPTION("DMA-contig memory handling routines for videobuf2");
 MODULE_AUTHOR("Pawel Osciak <pawel@osciak.com>");

@@ -16,6 +16,12 @@
 #include <media/videobuf2-v4l2.h>
 #include <linux/dma-mapping.h>
 
+static inline struct sg_table *vb2_dma_contig_nc_userptr_plane_desc(
+		struct vb2_buffer *vb, unsigned int plane_no)
+{
+	return (struct sg_table *)vb2_plane_cookie(vb, plane_no);
+}
+
 static inline dma_addr_t
 vb2_dma_contig_plane_dma_addr(struct vb2_buffer *vb, unsigned int plane_no)
 {
@@ -25,7 +31,9 @@ vb2_dma_contig_plane_dma_addr(struct vb2_buffer *vb, unsigned int plane_no)
 }
 
 void *vb2_dma_contig_init_ctx(struct device *dev);
+void *vb2_dma_contig_init_ctx_with_nc_userptr(struct device *dev);
 void vb2_dma_contig_cleanup_ctx(void *alloc_ctx);
+bool vb2_dma_contig_is_nc_userptr(struct vb2_buffer *vb, unsigned int plane_no);
 
 extern const struct vb2_mem_ops vb2_dma_contig_memops;
 
