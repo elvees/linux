@@ -963,14 +963,23 @@ static void vinc_eof_handler(struct vinc_stream *stream)
 {
 	struct vinc_dev *priv = container_of(stream, struct vinc_dev,
 					     stream[stream->devnum]);
+	const u8 channel = stream->devnum & 0x01;
 
 	if (stream->cluster.stat.enable->val) {
 		/* TODO: Tasklet must complete before the next frame starts.
 		 * Otherwise it will read broken statistic. We need to take
 		 * into account that tasklet can run when the next frame starts
 		 * (or protect ourselves from this situation). */
-		if (stream->stat_odd)
-			tasklet_schedule(&stream->stat_tasklet);
+		if (stream->stat_odd) {
+			if (stream->stat_skip) {
+				vinc_write(priv, STREAM_PROC_CLEAR(channel),
+					   STREAM_PROC_CLEAR_AF_CLR |
+					   STREAM_PROC_CLEAR_ADD_CLR);
+				stream->stat_skip = false;
+			} else {
+				tasklet_schedule(&stream->stat_tasklet);
+			}
+		}
 		stream->stat_odd = !stream->stat_odd;
 	}
 	if (stream->active) {
@@ -1032,6 +1041,10 @@ static irqreturn_t vinc_irq_stream(int irq, void *data)
 				 "s%dd0: DMA overflow\n", devnum);
 			stream_ctr |= STREAM_CTR_DMA_CHANNELS_ENABLE;
 			vinc_write(priv, STREAM_CTR, stream_ctr);
+			vinc_write(priv, STREAM_PROC_CLEAR(channel),
+				   STREAM_PROC_CLEAR_THR_CLR);
+			stream->stat_odd = true;
+			stream->stat_skip = true;
 		}
 	}
 	if (int_status & STREAM_INTERRUPT_DMA1) {
