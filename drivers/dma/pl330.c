@@ -488,6 +488,9 @@ struct pl330_dmac {
 	/* Holds list of reqs with due callbacks */
 	struct list_head        req_done;
 
+	/* Maximum burst length */
+	unsigned int	max_brst_len;
+
 	/* Peripheral channels connected to this DMAC */
 	unsigned int num_peripherals;
 	struct dma_pl330_chan *peripherals; /* keep at end */
@@ -2637,6 +2640,9 @@ pl330_prep_dma_memcpy(struct dma_chan *chan, dma_addr_t dst,
 	if (burst * 8 < pl330->pcfg.data_bus_width)
 		desc->rqcfg.brst_len = 1;
 
+	if (pl330->max_brst_len && desc->rqcfg.brst_len > pl330->max_brst_len)
+		desc->rqcfg.brst_len = pl330->max_brst_len;
+
 	desc->bytes_requested = len;
 
 	desc->txd.flags = flags;
@@ -2914,6 +2920,13 @@ pl330_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 
 	if (adev->dev.of_node) {
+		of_property_read_u32(adev->dev.of_node,
+				     "memcpy-max-burst-length",
+				     &pl330->max_brst_len);
+		if (pl330->max_brst_len != 0)
+			dev_info(&adev->dev, "memcpy max burst length: %u\n",
+				 pl330->max_brst_len);
+
 		ret = of_dma_controller_register(adev->dev.of_node,
 					 of_dma_pl330_xlate, pl330);
 		if (ret) {
