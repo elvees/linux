@@ -15,6 +15,8 @@ Optional properties:
     cells in the dmas property of client device.
   - dma-channels: contains the total number of DMA channels supported by the DMAC
   - dma-requests: contains the total number of DMA requests supported by the DMAC
+  - memcpy-max-burst-length: the maximum burst length for memcpy: 1 to 16 are
+    legal values
 
 Example:
 
@@ -25,6 +27,7 @@ Example:
 		#dma-cells = <1>;
 		#dma-channels = <8>;
 		#dma-requests = <32>;
+		memcpy-max-burst-length = <1>;
 	};
 
 Client drivers (device nodes requiring dma transfers from dev-to-mem or
