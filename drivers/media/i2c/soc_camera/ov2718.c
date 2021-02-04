@@ -1989,6 +1989,38 @@ static int ov2718_s_ctrl(struct v4l2_ctrl *ctrl)
 	return -EINVAL;
 }
 
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+static int ov2718_get_register(struct v4l2_subdev *sd,
+			       struct v4l2_dbg_register *reg)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+	u8 val;
+
+	if (reg->reg & ~0xffff)
+		return -EINVAL;
+
+	reg->size = 1;
+
+	ret = reg_read(client, reg->reg, &val);
+	if (!ret)
+		reg->val = (__u64)val;
+
+	return ret;
+}
+
+static int ov2718_set_register(struct v4l2_subdev *sd,
+			       const struct v4l2_dbg_register *reg)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	if (reg->reg & ~0xffff || reg->val & ~0xff)
+		return -EINVAL;
+
+	return reg_write(client, reg->reg, reg->val);
+}
+#endif
+
 static int ov2718_s_power(struct v4l2_subdev *sd, int on)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -2032,6 +2064,10 @@ static const struct v4l2_ctrl_ops ov2718_ctrl_ops = {
 };
 
 static struct v4l2_subdev_core_ops ov2718_subdev_core_ops = {
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	.g_register = ov2718_get_register,
+	.s_register = ov2718_set_register,
+#endif
 	.s_power = ov2718_s_power,
 };
 
