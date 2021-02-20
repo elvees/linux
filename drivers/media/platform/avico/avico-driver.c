@@ -791,7 +791,7 @@ static void avico_control_bitrate(struct avico_ctx *ctx)
 
 		v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
 			 "I #%u: avg_cp=%lld tgop=%lld\n",
-			 ctx->par.frame, avg_cp_bits, ctx->gop_bits);
+			 ctx->capseq, avg_cp_bits, ctx->gop_bits);
 	} else {
 		/*
 		 * In JVT-G012 virtual buffer occupancy is clamped to * [0; Bs],
@@ -809,7 +809,7 @@ static void avico_control_bitrate(struct avico_ctx *ctx)
 
 			v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
 				 "P #%u: avg_cp=%lld tgop=%lld vb=%lld tvb=%lld\n",
-				 ctx->par.frame, avg_cp_bits, ctx->gop_bits,
+				 ctx->capseq, avg_cp_bits, ctx->gop_bits,
 				 ctx->vb_bits, ctx->target_vb_bits);
 		} else {
 			s64 tmp1, target_bits, rem_bits;
@@ -861,7 +861,7 @@ static void avico_control_bitrate(struct avico_ctx *ctx)
 
 			v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
 				 "P #%u: avg_cp=%lld tgop=%lld vb=%lld tvb=%lld z=%lld u=%lld tcp=%lld\n",
-				 ctx->par.frame, avg_cp_bits, ctx->gop_bits,
+				 ctx->capseq, avg_cp_bits, ctx->gop_bits,
 				 ctx->vb_bits, ctx->target_vb_bits, ctx->z_bits,
 				 ctx->u_bits, target_bits);
 		}
@@ -930,9 +930,10 @@ static void avico_start(struct avico_ctx *ctx)
 	}
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
-		 "%c #%u: tpf=%u/%u QP=%d\n",
-		 par->frame_type == VE_FR_I ? 'I' : 'P', ctx->par.frame,
-		 ctx->timeperframe.numerator, ctx->timeperframe.denominator,
+		 "%c #%u: frame_num=%u tpf=%u/%u QP=%d\n",
+		 par->frame_type == VE_FR_I ? 'I' : 'P', ctx->capseq,
+		 ctx->par.frame, ctx->timeperframe.numerator,
+		 ctx->timeperframe.denominator,
 		 par->frame_type == VE_FR_I ? par->qp_i : par->qp_p);
 
 	if (ctx->par.frame != 0)
@@ -1055,7 +1056,7 @@ static void avico_eof_sdma_callback(void *data)
 	ctx->last_cp_bits = (ctx->bs.p - ctx->bs.start) * 8;
 
 	v4l2_dbg(1, debug, &ctx->dev->v4l2_dev, "%c #%u: cp=%d\n",
-		 ctx->par.frame_type == VE_FR_I ? 'I' : 'P', ctx->par.frame,
+		 ctx->par.frame_type == VE_FR_I ? 'I' : 'P', ctx->capseq,
 		 ctx->last_cp_bits);
 
 	/*
