@@ -1,0 +1,1 @@
+obj-$(CONFIG_PINCTRL_MCOM03_HSPERIPH)	+= pinctrl-mcom03-hsperiph.o
