@@ -1051,7 +1051,8 @@ static void avico_eof_sdma_callback(void *data)
 	encoded = avico_read(ctx, AVICO_EC_BASE(ctx->id) + AVICO_EC_PACKER +
 				  AVICO_PACKER_CBS_TOTAL_LEN);
 	WARN_ON(encoded % 8 != 0);
-	ctx->bs.p += encoded / 8;
+	encoded /= 8;
+	ctx->bs.p += encoded;
 	vb2_set_plane_payload(&dst->vb2_buf, 0, ctx->bs.p - ctx->bs.start);
 	ctx->last_cp_bits = (ctx->bs.p - ctx->bs.start) * 8;
 
@@ -1060,15 +1061,27 @@ static void avico_eof_sdma_callback(void *data)
 		 ctx->last_cp_bits);
 
 	/*
-	 * If offset in output buffer calculated from bounce-to-DDR DMA
-	 * transfers differs from size of encoded data from VPU (rounded to
-	 * minimal VRAM-to-bounce DMA transfer size), that means that
-	 * bounce buffer was overflowed at least once and data is corrupted.
+	 * The offset in capture buffer calculated from bounce-to-DDR DMA
+	 * transfers (ctx->out_ptr_off) should be equal to the encoded data
+	 * size from VPU register (encoded) rounded to minimal VRAM-to-bounce
+	 * DMA transfer size.
+	 *
+	 * Violation of this condition indicates that bounce buffer was
+	 * overflowed at least once and encoded data is corrupted.
+	 *
+	 * However it was experimentally confirmed that violation occurs when
+	 * size of encoded data (encoded) is a multiple of DMA_CBS_LEN.
+	 * VDMA transfers extra DMA_CBS_LEN bytes in this case for unknown
+	 * reason and no data corruption is observed.
 	 */
-	if (ctx->out_ptr_off != roundup(encoded / 8, DMA_CBS_LEN)) {
-		v4l2_err(&ctx->dev->v4l2_dev,
-			 "frame %u: insufficient data in capture buffer\n",
-			 ctx->capseq);
+	if (encoded % DMA_CBS_LEN == 0 && ctx->out_ptr_off > encoded) {
+		v4l2_dbg(1, debug, &ctx->dev->v4l2_dev,
+			 "frame %u: VDMA transfers %u extra bytes\n",
+			 ctx->capseq, ctx->out_ptr_off - encoded);
+	} else if (ctx->out_ptr_off != roundup(encoded, DMA_CBS_LEN)) {
+		v4l2_warn(&ctx->dev->v4l2_dev,
+			  "frame %u: overflow in bounce buffer\n",
+			  ctx->capseq);
 		error = true;
 	}
 
