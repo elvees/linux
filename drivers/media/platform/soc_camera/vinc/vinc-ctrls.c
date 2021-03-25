@@ -469,7 +469,7 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 		if (std_is_new) {
 			kernel_neon_begin();
 			rc = vinc_neon_calculate_cc(&stream->ctrl_privs,
-						    stream->ycbcr_enc,
+						    stream->clrspc_ycbcr_enc,
 						    cc->cc->p_cur.p);
 			kernel_neon_end();
 
@@ -1444,7 +1444,7 @@ static int auto_exp_step(struct v4l2_subdev *sd, struct vinc_dev *priv,
 
 	kernel_neon_begin();
 	luma = vinc_neon_calculate_luma_avg(stream->input_format, add,
-					    stream->ycbcr_enc, zone,
+					    stream->clrspc_ycbcr_enc, zone,
 					    stream->pport_low_bits);
 	vinc_neon_calculate_gain_exp(luma, target_lum.value, cur_gain.value,
 				     cur_exp.value * 100, priv->max_gain,
@@ -1529,7 +1529,7 @@ static void auto_stat_work(struct work_struct *work)
 
 		kernel_neon_begin();
 		rc = vinc_neon_calculate_cc(&stream->ctrl_privs,
-					    stream->ycbcr_enc,
+					    stream->clrspc_ycbcr_enc,
 					    cc->cc->p_new.p);
 		kernel_neon_end();
 

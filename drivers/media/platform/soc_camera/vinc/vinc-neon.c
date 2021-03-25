@@ -15,50 +15,32 @@
 
 #define is_in_range(val, min, max) ((val) >= (min) && (val) <= (max))
 
-/* Matrices for RGB->YCbCr conversion depends on YCbCr ENCODING.
- * Output QUANTIZATION is always in FULL RANGE.
+/* Matrices for RGB->YCbCr conversion.
+ * Depend on YCbCr ENCODING and output QUANTIZATION.
  * Table of coefficients:
 
    coefficient || R  G  B
    =======================
      for Y     || 0  1  2
      for Cb    || 3  4  5
-     for Cr    || 6  7  8 */
-const struct matrix m_ycbcr[4] = {
-	[VINC_YCBCR_ENC_601] = {
-		.coeff[0] =  0.299,
-		.coeff[1] =  0.587,
-		.coeff[2] =  0.114,
-		.coeff[3] = -0.168735891647856,
-		.coeff[4] = -0.331264108352144,
-		.coeff[5] =  0.5,
-		.coeff[6] =  0.5,
-		.coeff[7] = -0.418687589158345,
-		.coeff[8] = -0.0813124108416548,
+     for Cr    || 6  7  8
+
+ * See https://www.linuxtv.org/downloads/v4l-dvb-apis-new/userspace-api/v4l/colorspaces-details.html
+ * for details.
+ */
+const struct matrix m_ycbcr[3][2] = {
+	[VINC_YCBCR_ENC_601][VINC_QUANTIZATION_LIM_RANGE] = {
+		.coeff[0] =  0.2568,
+		.coeff[1] =  0.5041,
+		.coeff[2] =  0.0979,
+		.coeff[3] = -0.1482,
+		.coeff[4] = -0.291,
+		.coeff[5] =  0.4392,
+		.coeff[6] =  0.4392,
+		.coeff[7] = -0.3678,
+		.coeff[8] = -0.0714,
 	},
-	[VINC_YCBCR_ENC_709] = {
-		.coeff[0] =  0.2126,
-		.coeff[1] =  0.7152,
-		.coeff[2] =  0.0722,
-		.coeff[3] = -0.11457210605734,
-		.coeff[4] = -0.38542789394266,
-		.coeff[5] =  0.5,
-		.coeff[6] =  0.5,
-		.coeff[7] = -0.454152908305817,
-		.coeff[8] = -0.0458470916941834,
-	},
-	[VINC_YCBCR_ENC_BT2020] = {
-		.coeff[0] =  0.2627,
-		.coeff[1] =  0.678,
-		.coeff[2] =  0.0593,
-		.coeff[3] = -0.139630062719252,
-		.coeff[4] = -0.38542789394266,
-		.coeff[5] =  0.5,
-		.coeff[6] =  0.5,
-		.coeff[7] = -0.459785704597857,
-		.coeff[8] = -0.040214295402143,
-	},
-	[VINC_YCBCR_ENC_SYCC] = {
+	[VINC_YCBCR_ENC_601][VINC_QUANTIZATION_FULL_RANGE] = {
 		.coeff[0] =  0.299,
 		.coeff[1] =  0.587,
 		.coeff[2] =  0.114,
@@ -68,23 +50,76 @@ const struct matrix m_ycbcr[4] = {
 		.coeff[6] =  0.5,
 		.coeff[7] = -0.4187,
 		.coeff[8] = -0.0813,
+	},
+
+	[VINC_YCBCR_ENC_709][VINC_QUANTIZATION_LIM_RANGE] = {
+		.coeff[0] =  0.1826,
+		.coeff[1] =  0.6142,
+		.coeff[2] =  0.062,
+		.coeff[3] = -0.1006,
+		.coeff[4] = -0.3386,
+		.coeff[5] =  0.4392,
+		.coeff[6] =  0.4392,
+		.coeff[7] = -0.3989,
+		.coeff[8] = -0.0403,
+	},
+	[VINC_YCBCR_ENC_709][VINC_QUANTIZATION_FULL_RANGE] = {
+		.coeff[0] =  0.2126,
+		.coeff[1] =  0.7152,
+		.coeff[2] =  0.0722,
+		.coeff[3] = -0.1146,
+		.coeff[4] = -0.3854,
+		.coeff[5] =  0.5,
+		.coeff[6] =  0.5,
+		.coeff[7] = -0.4542,
+		.coeff[8] = -0.0458,
+	},
+
+	[VINC_YCBCR_ENC_BT2020][VINC_QUANTIZATION_LIM_RANGE] = {
+		.coeff[0] =  0.2256,
+		.coeff[1] =  0.5823,
+		.coeff[2] =  0.0509,
+		.coeff[3] = -0.1227,
+		.coeff[4] = -0.3166,
+		.coeff[5] =  0.4392,
+		.coeff[6] =  0.4392,
+		.coeff[7] = -0.4039,
+		.coeff[8] = -0.0353,
+	},
+	[VINC_YCBCR_ENC_BT2020][VINC_QUANTIZATION_FULL_RANGE] = {
+		.coeff[0] =  0.2627,
+		.coeff[1] =  0.678,
+		.coeff[2] =  0.0593,
+		.coeff[3] = -0.1396,
+		.coeff[4] = -0.3604,
+		.coeff[5] =  0.5,
+		.coeff[6] =  0.5,
+		.coeff[7] = -0.4598,
+		.coeff[8] = -0.0402,
 	}
 };
 
 /* Offsets for RGB->YCbCr conversion.
- * Output QUANTIZATION is always in FULL RANGE.
+ * Depend on output QUANTIZATION.
  * Vector elements go in this order:
  * 0: Y offset
  * 1: Cb offset
  * 2: Cr offset */
-const struct vector v_ycbcr = {
-	.offset[0] = 0,
-	.offset[1] = 2048,
-	.offset[2] = 2048,
+const struct vector v_ycbcr[2] = {
+	[VINC_QUANTIZATION_LIM_RANGE] = {
+		.offset[0] = 256,
+		.offset[1] = 2048,
+		.offset[2] = 2048
+	},
+	[VINC_QUANTIZATION_FULL_RANGE] = {
+		.offset[0] = 0,
+		.offset[1] = 2048,
+		.offset[2] = 2048
+	}
 };
 
 /* Matrices for YCbCr->RGB conversion.
- * Depend on YCbCr ENCODING and input QUANTIZATION.
+ * Depend on YCbCr ENCODING and output QUANTIZATION.
  * Table of coefficients:
 
    coefficient || Y Cb Cr
@@ -92,151 +127,156 @@ const struct vector v_ycbcr = {
      for R     || 0  1  2
      for G     || 3  4  5
      for B     || 6  7  8 */
-const struct matrix m_rgb[4][2] = {
+const struct matrix m_rgb[3][2] = {
 	[VINC_YCBCR_ENC_601][VINC_QUANTIZATION_LIM_RANGE] = {
-		.coeff[0] =  1.16438356164384,
-		.coeff[1] =  5.59894392753486e-17,
-		.coeff[2] =  1.59602678571429,
-		.coeff[3] =  1.16438356164384,
-		.coeff[4] = -0.391762290094914,
-		.coeff[5] = -0.81296764723777,
-		.coeff[6] =  1.16438356164384,
-		.coeff[7] =  2.01723214285714,
-		.coeff[8] =  1.11022302462516e-16,
-
+		.coeff[0] =  0.8588,
+		.coeff[1] =  0,
+		.coeff[2] =  1.2041,
+		.coeff[3] =  0.8588,
+		.coeff[4] = -0.2956,
+		.coeff[5] = -0.6133,
+		.coeff[6] =  0.8588,
+		.coeff[7] =  1.5218,
+		.coeff[8] =  0,
 	},
 	[VINC_YCBCR_ENC_601][VINC_QUANTIZATION_FULL_RANGE] = {
 		.coeff[0] =  1,
-		.coeff[1] =  4.91828799908944e-17,
+		.coeff[1] =  0,
 		.coeff[2] =  1.402,
 		.coeff[3] =  1,
-		.coeff[4] = -0.344136286201022,
-		.coeff[5] = -0.714136286201022,
+		.coeff[4] = -0.3441,
+		.coeff[5] = -0.7141,
 		.coeff[6] =  1,
 		.coeff[7] =  1.772,
 		.coeff[8] =  0,
 	},
 
 	[VINC_YCBCR_ENC_709][VINC_QUANTIZATION_LIM_RANGE] = {
-		.coeff[0] =  1.16438356164384,
+		.coeff[0] =  0.8588,
 		.coeff[1] =  0,
-		.coeff[2] =  1.79274107142857,
-		.coeff[3] =  1.16438356164384,
-		.coeff[4] = -0.21324861427373,
-		.coeff[5] = -0.532909328559444,
-		.coeff[6] =  1.16438356164384,
-		.coeff[7] =  2.11240178571429,
-		.coeff[8] = -5.55111512312578e-17,
+		.coeff[2] =  1.3525,
+		.coeff[3] =  0.8588,
+		.coeff[4] = -0.1609,
+		.coeff[5] = -0.402,
+		.coeff[6] =  0.8588,
+		.coeff[7] =  1.5936,
+		.coeff[8] =  0,
 	},
 	[VINC_YCBCR_ENC_709][VINC_QUANTIZATION_FULL_RANGE] = {
 		.coeff[0] =  1,
 		.coeff[1] =  0,
 		.coeff[2] =  1.5748,
 		.coeff[3] =  1,
-		.coeff[4] = -0.187324272930649,
-		.coeff[5] = -0.468124272930649,
+		.coeff[4] = -0.1873,
+		.coeff[5] = -0.4681,
 		.coeff[6] =  1,
 		.coeff[7] =  1.8556,
-		.coeff[8] =  5.55111512312578e-17,
+		.coeff[8] =  0,
 	},
 
 	[VINC_YCBCR_ENC_BT2020][VINC_QUANTIZATION_LIM_RANGE] = {
-		.coeff[0] =  1.16438356164384,
-		.coeff[1] = -5.94461236188718e-17,
-		.coeff[2] =  1.67867410714286,
-		.coeff[3] =  1.16438356164384,
-		.coeff[4] = -0.187326104219343,
-		.coeff[5] = -0.650424318505057,
-		.coeff[6] =  1.16438356164384,
-		.coeff[7] =  2.14177232142857,
+		.coeff[0] =  0.8588,
+		.coeff[1] =  0,
+		.coeff[2] =  1.2664,
+		.coeff[3] =  0.8588,
+		.coeff[4] = -0.1413,
+		.coeff[5] = -0.4907,
+		.coeff[6] =  0.8588,
+		.coeff[7] =  1.6158,
 		.coeff[8] =  0,
 	},
 	[VINC_YCBCR_ENC_BT2020][VINC_QUANTIZATION_FULL_RANGE] = {
 		.coeff[0] =  1,
-		.coeff[1] = -2.61096699816221e-17,
+		.coeff[1] =  0,
 		.coeff[2] =  1.4746,
 		.coeff[3] =  1,
-		.coeff[4] = -0.164553126843658,
-		.coeff[5] = -0.571353126843658,
+		.coeff[4] = -0.1646,
+		.coeff[5] = -0.5714,
 		.coeff[6] =  1,
 		.coeff[7] =  1.8814,
 		.coeff[8] =  0,
-	},
-
-	[VINC_YCBCR_ENC_SYCC][VINC_QUANTIZATION_LIM_RANGE] = {
-		.coeff[0] =  1.16438356164384,
-		.coeff[1] = -4.19156139872783e-05,
-		.coeff[2] =  1.59601264338613,
-		.coeff[3] =  1.16438356164384,
-		.coeff[4] = -0.391736101495071,
-		.coeff[5] = -0.812930689215866,
-		.coeff[6] =  1.16438356164384,
-		.coeff[7] =  2.01720723110692,
-		.coeff[8] = -0.000153208795953375,
-	},
-	[VINC_YCBCR_ENC_SYCC][VINC_QUANTIZATION_FULL_RANGE] = {
-		.coeff[0] =  1,
-		.coeff[1] = -3.68199903261289e-05,
-		.coeff[2] =  1.40198757693526,
-		.coeff[3] =  1,
-		.coeff[4] = -0.344113281313317,
-		.coeff[5] = -0.714103821115113,
-		.coeff[6] =  1,
-		.coeff[7] =  1.77197811673706,
-		.coeff[8] = -0.000134583412916056,
 	}
 };
 
 /* Offsets for YCbCr->RGB conversion.
- * Depend on YCbCr ENCODING and input QUANTIZATION
+ * Depend on YCbCr ENCODING and output QUANTIZATION.
  * Vector elements go in this order:
  * 0: R offset
  * 1: G offset
  * 2: B offset */
-const struct vector v_rgb[4][2] = {
+const struct vector v_rgb[3][2] = {
 	[VINC_YCBCR_ENC_601][VINC_QUANTIZATION_LIM_RANGE] = {
-		.offset[0] = -3566.74504892368,
-		.offset[1] =  2169.20471987651,
-		.offset[2] = -4429.37362035225,
+		.offset[0] = -2209.9366,
+		.offset[1] =  2117.3645,
+		.offset[2] = -2860.7187,
 	},
 	[VINC_YCBCR_ENC_601][VINC_QUANTIZATION_FULL_RANGE] = {
 		.offset[0] = -2871.296,
-		.offset[1] =  2167.34222827939,
+		.offset[1] =  2167.3422,
 		.offset[2] = -3629.056,
 	},
 
 	[VINC_YCBCR_ENC_709][VINC_QUANTIZATION_LIM_RANGE] = {
-		.offset[0] = -3969.61590606654,
-		.offset[1] =  1230.04927514152,
-		.offset[2] = -4624.28104892368,
+		.offset[0] = -2513.8694,
+		.offset[1] =  1408.8492,
+		.offset[2] = -3007.7603,
 	},
 	[VINC_YCBCR_ENC_709][VINC_QUANTIZATION_FULL_RANGE] = {
 		.offset[0] = -3225.1904,
-		.offset[1] =  1342.35862192394,
+		.offset[1] =  1342.3586,
 		.offset[2] = -3800.2688,
 	},
 
 	[VINC_YCBCR_ENC_BT2020][VINC_QUANTIZATION_LIM_RANGE] = {
-		.offset[0] = -3736.00676320939,
-		.offset[1] =  1417.63067395875,
-		.offset[2] = -4684.43190606654,
+		.offset[0] = -2337.6306,
+		.offset[1] =  1550.3639,
+		.offset[2] = -3053.1391,
 	},
 	[VINC_YCBCR_ENC_BT2020][VINC_QUANTIZATION_FULL_RANGE] = {
 		.offset[0] = -3019.9808,
-		.offset[1] =  1507.13600755162,
+		.offset[1] =  1507.136,
 		.offset[2] = -3853.1072,
-	},
-
-	[VINC_YCBCR_ENC_SYCC][VINC_QUANTIZATION_LIM_RANGE] = {
-		.offset[0] = -3566.63024225816,
-		.offset[1] =  2169.07539559518,
-		.offset[2] = -4429.00882947368,
-	},
-	[VINC_YCBCR_ENC_SYCC][VINC_QUANTIZATION_FULL_RANGE] = {
-		.offset[0] = -2871.19515022323,
-		.offset[1] =  2167.22862577343,
-		.offset[2] = -3628.73555624785,
 	}
+};
+
+/* Matrix for YCbCr conversion from full to limited range. */
+const struct matrix m_ycbcr_f2l = {
+	.coeff[0] = 0.8588,
+	.coeff[1] = 0,
+	.coeff[2] = 0,
+	.coeff[3] = 0,
+	.coeff[4] = 0.8784,
+	.coeff[5] = 0,
+	.coeff[6] = 0,
+	.coeff[7] = 0,
+	.coeff[8] = 0.8784,
+};
+
+/* Offsets for YCbCr conversion from full to limited range. */
+const struct vector v_ycbcr_f2l = {
+	.offset[0] = 256,
+	.offset[1] = 248.9725,
+	.offset[2] = 248.9725,
+};
+
+/* Matrix for RGB conversion from full to limited range. */
+const struct matrix m_rgb_f2l = {
+	.coeff[0] = 0.8588,
+	.coeff[1] = 0,
+	.coeff[2] = 0,
+	.coeff[3] = 0,
+	.coeff[4] = 0.8588,
+	.coeff[5] = 0,
+	.coeff[6] = 0,
+	.coeff[7] = 0,
+	.coeff[8] = 0.8588,
+};
+
+/* Offsets for RGB conversion from full to limited range. */
+const struct vector v_rgb_f2l = {
+	.offset[0] = 256,
+	.offset[1] = 256,
+	.offset[2] = 256,
 };
 
 /**
@@ -685,6 +725,15 @@ static void mxv_mult(struct vector *prod, const struct matrix *m,
 	}
 }
 
+/* Matrix multiplication by a scalar. */
+static void mxa_mult(struct matrix *m, double a)
+{
+	u8 i;
+
+	for (i = 0; i < VINC_CC_COEFF_COUNT; i++)
+		m->coeff[i] *= a;
+}
+
 /*  Vector addition. Vectors must have the same size */
 static void vxv_add(struct vector *sum, const struct vector *v1,
 		    const struct vector *v2)
@@ -724,7 +773,8 @@ static void cc_matrix_calc(struct matrix *coeff, struct ctrl_priv *ctrl_privs,
 
 	/* M_cc = M_fx_rgb*M_rgb*M_fx_ycbcr*M_ck*M_sat*M_con*M_hue*M_ycbcr*M_wb
 	 *                8     7          6    5     4     3     2       1  */
-	mxm_mult(&tmp1, &m_ycbcr[ycbcr_enc], m_wb);   /* [1] */
+	mxm_mult(&tmp1, &m_ycbcr[ycbcr_enc][VINC_QUANTIZATION_FULL_RANGE],
+		 m_wb);				      /* [1] */
 	mxm_mult(&tmp2, m_hue, &tmp1);		      /* [2] */
 	mxm_mult(&tmp1, m_con, &tmp2);		      /* [3] */
 	mxm_mult(&tmp2, m_sat, &tmp1);		      /* [4] */
@@ -769,8 +819,10 @@ static void cc_vector_calc(struct vector *offset, struct ctrl_priv *ctrl_privs,
 	 * + Vfx_ycbcr) + Vrgb) + Vfx_rgb
 	 * 12           14      16	*/
 	mxv_mult(&tmp1, m_wb, v_bl);			/* [1] */
-	mxv_mult(&tmp2, &m_ycbcr[ycbcr_enc], &tmp1);	/* [2] */
-	vxv_sub(&tmp1, &v_ycbcr, &tmp2);		/* [3] */
+	mxv_mult(&tmp2, &m_ycbcr[ycbcr_enc][VINC_QUANTIZATION_FULL_RANGE],
+		 &tmp1);				/* [2] */
+	vxv_sub(&tmp1, &v_ycbcr[VINC_QUANTIZATION_FULL_RANGE],
+		&tmp2);					/* [3] */
 	vxv_sub(&tmp2, &tmp1, &half);			/* [4] */
 	mxv_mult(&tmp1, m_hue, &tmp2);			/* [5] */
 	mxv_mult(&tmp2, m_con, &tmp1);			/* [6] */
@@ -819,29 +871,18 @@ static bool check_cc_overflow(struct matrix *coeff, struct vector *offset)
 			    CC_OFFSET_MAX - 1);
 }
 
-/* Color Correction coefficient matrix, offset vector and scaling register
- * calculation routine */
-int vinc_neon_calculate_cc(struct ctrl_priv *ctrl_privs,
-			   enum vinc_ycbcr_encoding ycbcr_enc,
-			   struct vinc_cc *cc)
+static void convert_cc_ct(const struct matrix *coeff,
+			  const struct vector *offset,
+			  struct vinc_cc *cc, bool is_ct)
 {
-	struct matrix coeff;
-	struct vector offset;
+	int i;
 	u8 scaling;
-
-	u16 i;
 	double max_abs = 0;
-
-	cc_matrix_calc(&coeff, ctrl_privs, ycbcr_enc);
-	cc_vector_calc(&offset, ctrl_privs, ycbcr_enc);
-
-	if (check_cc_overflow(&coeff, &offset))
-		return -ERANGE;
 
 	/*  Scaling calculation */
 	for (i = 0; i < VINC_CC_COEFF_COUNT; i++)
-		if (fabs(coeff.coeff[i]) > max_abs)
-			max_abs = fabs(coeff.coeff[i]);
+		if (fabs(coeff->coeff[i]) > max_abs)
+			max_abs = fabs(coeff->coeff[i]);
 
 	if (max_abs < 1)
 		scaling = 0;
@@ -858,11 +899,99 @@ int vinc_neon_calculate_cc(struct ctrl_priv *ctrl_privs,
 	/* Vector, matrix and scaling write to CC cache */
 	cc->scaling = scaling;
 	for (i = 0; i < VINC_CC_COEFF_COUNT; i++)
-		cc->coeff[i] = float_to_u16(coeff.coeff[i], 15 - scaling);
+		cc->coeff[i] = float_to_u16(coeff->coeff[i], 15 - scaling);
 	for (i = 0; i < VINC_CC_OFFSET_COUNT; i++)
-		cc->offset[i] = float_to_u16(offset.offset[i], 0);
+		cc->offset[i] = float_to_u16(offset->offset[i], is_ct ? 2 : 0);
+}
 
+#define RGB2GBR(c0, c1, c2)		\
+do {					\
+	typeof(c0) tmp = c0;		\
+	c0 = c1; c1 = c2; c2 = tmp;	\
+} while (0)
+
+static void convert_input_rgb2gbr(struct vinc_cc *cc)
+{
+	int i;
+
+	for (i = 0; i < VINC_CC_COEFF_COUNT; i += VINC_CC_OFFSET_COUNT)
+		RGB2GBR(cc->coeff[i], cc->coeff[i + 1], cc->coeff[i + 2]);
+}
+
+static void convert_output_rgb2gbr(struct vinc_cc *cc)
+{
+	int i;
+
+	for (i = 0; i < VINC_CC_OFFSET_COUNT; i++)
+		RGB2GBR(cc->coeff[i],
+			cc->coeff[i + VINC_CC_OFFSET_COUNT],
+			cc->coeff[i + 2 * VINC_CC_OFFSET_COUNT]);
+
+	RGB2GBR(cc->offset[0], cc->offset[1], cc->offset[2]);
+}
+
+/* Color Correction coefficient matrix, offset vector and scaling register
+ * calculation routine */
+int vinc_neon_calculate_cc(struct ctrl_priv *ctrl_privs,
+			   enum vinc_ycbcr_encoding ycbcr_enc,
+			   struct vinc_cc *cc)
+{
+	struct matrix coeff;
+	struct vector offset;
+
+	cc_matrix_calc(&coeff, ctrl_privs, ycbcr_enc);
+	cc_vector_calc(&offset, ctrl_privs, ycbcr_enc);
+
+	if (check_cc_overflow(&coeff, &offset))
+		return -ERANGE;
+
+	convert_cc_ct(&coeff, &offset, cc, 0);
 	return 0;
+}
+
+/* Color Transform coefficient matrix, offset vector and scaling register
+ * calculation routine */
+void vinc_neon_calculate_ct(enum vinc_input_format input_format,
+			    enum vinc_ycbcr_encoding ycbcr_enc,
+			    enum vinc_quantization quantization,
+			    bool format_conversion, bool pport_low_bits,
+			    struct vinc_cc *ct)
+{
+	struct matrix coeff = {
+		.coeff[0] =  1,
+		.coeff[4] =  1,
+		.coeff[8] =  1
+	};
+	struct vector offset = {};
+
+	if (input_format == YCbCr) {
+		if (format_conversion) {
+			coeff = m_rgb[ycbcr_enc][quantization];
+			offset = v_rgb[ycbcr_enc][quantization];
+		} else if (quantization == VINC_QUANTIZATION_LIM_RANGE) {
+			coeff = m_ycbcr_f2l;
+			offset = v_ycbcr_f2l;
+		}
+		if (pport_low_bits)
+			mxa_mult(&coeff, 4);
+	} else { /* BAYER or RGB */
+		if (format_conversion) {
+			coeff = m_ycbcr[ycbcr_enc][quantization];
+			offset = v_ycbcr[quantization];
+		} else if (quantization == VINC_QUANTIZATION_LIM_RANGE) {
+			coeff = m_rgb_f2l;
+			offset = v_rgb_f2l;
+		}
+	}
+	convert_cc_ct(&coeff, &offset, ct, 1);
+
+	// CT block assumes {Y(G), Cb(B), Cr(R)} order of components
+	if (format_conversion) {
+		if (input_format == YCbCr)
+			convert_output_rgb2gbr(ct);
+		else
+			convert_input_rgb2gbr(ct);
+	}
 }
 
 /*
@@ -911,10 +1040,13 @@ u32 vinc_neon_calculate_luma_avg(enum vinc_input_format input_format,
 		luma_stat = add->sum_g;
 		if (pport_low_bits)
 			luma_stat *= 4;
-	} else
-		luma_stat = m_ycbcr[ycbcr_enc].coeff[0] * add->sum_r +
-			    m_ycbcr[ycbcr_enc].coeff[1] * add->sum_g +
-			    m_ycbcr[ycbcr_enc].coeff[2] * add->sum_b;
+	} else {
+		const struct matrix *m =
+			&m_ycbcr[ycbcr_enc][VINC_QUANTIZATION_FULL_RANGE];
+		luma_stat = m->coeff[0] * add->sum_r +
+			    m->coeff[1] * add->sum_g +
+			    m->coeff[2] * add->sum_b;
+	}
 
 	luma_average = luma_stat / ((zone->x_rb + 1) * (zone->y_rb + 1));
 	return rint(luma_average);

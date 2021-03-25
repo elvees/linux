@@ -70,6 +70,13 @@ int vinc_neon_calculate_cc(struct ctrl_priv *ctrl_privs,
 			   enum vinc_ycbcr_encoding ycbcr_enc,
 			   struct vinc_cc *cc);
 
+/* Calculate CT matrix and offset */
+void vinc_neon_calculate_ct(enum vinc_input_format input_format,
+			    enum vinc_ycbcr_encoding ycbcr_enc,
+			    enum vinc_quantization quantization,
+			    bool format_conversion, bool pport_low_bits,
+			    struct vinc_cc *ct);
+
 /* Calculate gain and exposure values */
 u32 vinc_neon_calculate_luma_avg(enum vinc_input_format input_format,
 				 struct vinc_stat_add *add,

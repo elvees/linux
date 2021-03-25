@@ -564,6 +564,21 @@ static u32 ycbcr_enc_adjust(u16 ycbcr_enc_cam, u32 ycbcr_enc_user,
 	return ycbcr_enc;
 }
 
+static u32 quantization_adjust(u32 quantization, u32 pixelformat)
+{
+	if (quantization == V4L2_QUANTIZATION_FULL_RANGE ||
+	    quantization == V4L2_QUANTIZATION_LIM_RANGE)
+		return quantization;
+
+	switch (pixelformat) {
+	case V4L2_PIX_FMT_M420:
+	case V4L2_PIX_FMT_NV12:
+		return V4L2_QUANTIZATION_LIM_RANGE;
+	default:
+		return V4L2_QUANTIZATION_FULL_RANGE;
+	}
+}
+
 static int __vinc_try_fmt(struct soc_camera_device *icd, struct v4l2_format *f,
 			  struct v4l2_subdev_format *format)
 {
@@ -615,7 +630,8 @@ static int __vinc_try_fmt(struct soc_camera_device *icd, struct v4l2_format *f,
 					    pix->colorspace);
 	pix->ycbcr_enc = ycbcr_enc_adjust(mbus_fmt->ycbcr_enc, pix->ycbcr_enc,
 					  pix->colorspace);
-	pix->quantization = V4L2_QUANTIZATION_DEFAULT;
+	pix->quantization = quantization_adjust(pix->quantization,
+						pix->pixelformat);
 
 	pix->width = min3(pix->width, mbus_fmt->width, MAX_WIDTH_HEIGHT);
 	pix->height = min3(pix->height, mbus_fmt->height, MAX_WIDTH_HEIGHT);
@@ -655,6 +671,19 @@ static int vinc_try_fmt(struct soc_camera_device *icd, struct v4l2_format *f)
 	return __vinc_try_fmt(icd, f, &format);
 }
 
+static enum vinc_ycbcr_encoding stream_set_clrspc_ycbcr_enc(u32 colorspace)
+{
+	switch (colorspace) {
+	case V4L2_COLORSPACE_REC709:
+	case V4L2_COLORSPACE_SRGB:
+		return VINC_YCBCR_ENC_709;
+	case V4L2_COLORSPACE_BT2020:
+		return VINC_YCBCR_ENC_BT2020;
+	default:
+		return VINC_YCBCR_ENC_601;
+	}
+}
+
 static enum vinc_ycbcr_encoding stream_set_ycbcr_enc(u32 ycbcr_enc)
 {
 	switch (ycbcr_enc) {
@@ -662,8 +691,6 @@ static enum vinc_ycbcr_encoding stream_set_ycbcr_enc(u32 ycbcr_enc)
 		return VINC_YCBCR_ENC_709;
 	case V4L2_YCBCR_ENC_BT2020:
 		return VINC_YCBCR_ENC_BT2020;
-	case V4L2_YCBCR_ENC_SYCC:
-		return VINC_YCBCR_ENC_SYCC;
 	default:
 		return VINC_YCBCR_ENC_601;
 	}
@@ -699,8 +726,9 @@ static int vinc_set_fmt(struct soc_camera_device *icd, struct v4l2_format *f)
 	if (ret)
 		return ret;
 
+	stream->clrspc_ycbcr_enc = stream_set_clrspc_ycbcr_enc(pix->colorspace);
 	stream->ycbcr_enc = stream_set_ycbcr_enc(pix->ycbcr_enc);
-	stream->quantization = stream_set_quantization(mbus_fmt->quantization);
+	stream->quantization = stream_set_quantization(pix->quantization);
 	stream->input_framefmt = *mbus_fmt;
 
 	switch (mbus_fmt->code) {

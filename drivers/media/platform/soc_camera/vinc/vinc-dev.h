@@ -451,8 +451,7 @@ struct ctrl_priv {
 enum vinc_ycbcr_encoding {
 	VINC_YCBCR_ENC_601            = 0,
 	VINC_YCBCR_ENC_709            = 1,
-	VINC_YCBCR_ENC_BT2020         = 2,
-	VINC_YCBCR_ENC_SYCC           = 3
+	VINC_YCBCR_ENC_BT2020         = 2
 };
 
 enum vinc_quantization {
@@ -490,6 +489,13 @@ struct vinc_stream {
 
 	struct ctrl_priv ctrl_privs;
 
+	/*
+	 * clrspc_ycbcr_enc is used for internal YCbCr <-> RGB conversions when
+	 * calculating CC matrix, whereas ycbcr_enc is used for output color
+	 * conversion when calculating CT matrix. In general clrspc_ycbcr_enc
+	 * and ycbcr_enc may be different.
+	 */
+	enum vinc_ycbcr_encoding clrspc_ycbcr_enc;
 	enum vinc_ycbcr_encoding ycbcr_enc;
 	enum vinc_quantization quantization;
 

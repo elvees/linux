@@ -7,7 +7,10 @@
  * (at your option) any later version.
  */
 
+#include <asm/neon.h>
+
 #include "vinc-hw.h"
+#include "vinc-neon.h"
 
 void vinc_write(struct vinc_dev *priv,
 		unsigned long reg_offs, u32 data)
@@ -220,15 +223,6 @@ void vinc_configure_input(struct vinc_stream *stream)
 			stream->video_source);
 }
 
-/*
- * TODO: These macros are here to support vinc_configure_m420(). When they will
- * be converted to use functions from vinc-neon.c, the macros must be removed.
- */
-#define COEFF_FLOAT_TO_U16(coeff, scaling) ((u16)((s16)((coeff) *  \
-		(1 << (15 - (scaling))) + ((coeff) < 0 ? -0.5 : 0.5))))
-
-#define OFFSET_FLOAT_TO_U16(offset) ((u16)((s16)(offset * 4)))
-
 static void vinc_configure_bgr(struct vinc_dev *priv,
 			       struct soc_camera_device *icd)
 {
@@ -239,40 +233,22 @@ static void vinc_configure_bgr(struct vinc_dev *priv,
 	const u8 channel = devnum & 0x01;
 	struct vinc_cc *ct = stream->cluster.ct.ct->p_cur.p;
 
-	if (stream->input_format == YCbCr) {
+	if (stream->input_format == YCbCr ||
+	    stream->quantization == VINC_QUANTIZATION_LIM_RANGE) {
 		ct_en = 1;
 		proc_cfg = vinc_read(priv, STREAM_PROC_CFG(channel));
-		proc_cfg |= STREAM_PROC_CFG_422TO444_EN |
-				STREAM_PROC_CFG_CT_SRC(1);
+		proc_cfg |= STREAM_PROC_CFG_CT_SRC(1);
+		if (stream->input_format == YCbCr)
+			proc_cfg |= STREAM_PROC_CFG_422TO444_EN;
 		vinc_write(priv, STREAM_PROC_CFG(channel), proc_cfg);
-		if (stream->pport_low_bits) {
-			/* YCbCr->RGB conversion matrix and Y*4, Cb*4, Cr*4 */
-			ct->scaling = 3;
-			ct->coeff[0] = COEFF_FLOAT_TO_U16(4, 3);
-			ct->coeff[1] = COEFF_FLOAT_TO_U16(-1.376, 3);
-			ct->coeff[2] = COEFF_FLOAT_TO_U16(-2.856, 3);
-			ct->coeff[3] = COEFF_FLOAT_TO_U16(4, 3);
-			ct->coeff[4] = COEFF_FLOAT_TO_U16(7.088, 3);
-			ct->coeff[5] = COEFF_FLOAT_TO_U16(0, 3);
-			ct->coeff[6] = COEFF_FLOAT_TO_U16(4, 3);
-			ct->coeff[7] = COEFF_FLOAT_TO_U16(0, 3);
-			ct->coeff[8] = COEFF_FLOAT_TO_U16(5.608, 3);
-		} else {
-			ct->scaling = 1;
-			ct->coeff[0] = COEFF_FLOAT_TO_U16(1, 1);
-			ct->coeff[1] = COEFF_FLOAT_TO_U16(-0.3918, 1);
-			ct->coeff[2] = COEFF_FLOAT_TO_U16(-0.7141, 1);
-			ct->coeff[3] = COEFF_FLOAT_TO_U16(1, 1);
-			ct->coeff[4] = COEFF_FLOAT_TO_U16(1.772, 1);
-			ct->coeff[5] = COEFF_FLOAT_TO_U16(0, 1);
-			ct->coeff[6] = COEFF_FLOAT_TO_U16(1, 1);
-			ct->coeff[7] = COEFF_FLOAT_TO_U16(0, 1);
-			ct->coeff[8] = COEFF_FLOAT_TO_U16(1.402, 1);
-		}
-		ct->offset[0] = OFFSET_FLOAT_TO_U16(2167.3422);
-		ct->offset[1] = OFFSET_FLOAT_TO_U16(-3629.056);
-		ct->offset[2] = OFFSET_FLOAT_TO_U16(-2871.296);
 
+		kernel_neon_begin();
+		vinc_neon_calculate_ct(stream->input_format,
+				       stream->ycbcr_enc,
+				       stream->quantization,
+				       stream->input_format == YCbCr,
+				       stream->pport_low_bits, ct);
+		kernel_neon_end();
 		set_cc_ct(priv, channel, ct, 1);
 	} else
 		ct_en = 0;
@@ -288,7 +264,6 @@ static void vinc_configure_bgr(struct vinc_dev *priv,
 		   STREAM_DMA_PIXEL_FMT_FORMAT(FORMAT_BGR));
 }
 
-/* TODO: Add support for YCbCr input format */
 static void vinc_configure_yuv420(struct vinc_dev *priv,
 				struct soc_camera_device *icd)
 {
@@ -301,19 +276,13 @@ static void vinc_configure_yuv420(struct vinc_dev *priv,
 	struct vinc_cc *ct = stream->cluster.ct.ct->p_cur.p;
 	int i;
 
-	ct->scaling = 0;
-	ct->coeff[0] = COEFF_FLOAT_TO_U16(0.587005, 0);
-	ct->coeff[1] = COEFF_FLOAT_TO_U16(0.113983, 0);
-	ct->coeff[2] = COEFF_FLOAT_TO_U16(0.299011, 0);
-	ct->coeff[3] = COEFF_FLOAT_TO_U16(-0.338836, 0);
-	ct->coeff[4] = COEFF_FLOAT_TO_U16(0.511413, 0);
-	ct->coeff[5] = COEFF_FLOAT_TO_U16(-0.172576, 0);
-	ct->coeff[6] = COEFF_FLOAT_TO_U16(-0.428253, 0);
-	ct->coeff[7] = COEFF_FLOAT_TO_U16(-0.083160, 0);
-	ct->coeff[8] = COEFF_FLOAT_TO_U16(0.511413, 0);
-	ct->offset[0] = 0x0;
-	ct->offset[1] = 0x2000;
-	ct->offset[2] = 0x2000;
+	kernel_neon_begin();
+	vinc_neon_calculate_ct(stream->input_format,
+			       stream->ycbcr_enc,
+			       stream->quantization,
+			       stream->input_format != YCbCr,
+			       stream->pport_low_bits, ct);
+	kernel_neon_end();
 	set_cc_ct(priv, channel, ct, 1);
 	v4l2_ctrl_s_ctrl(stream->cluster.ct.enable, 1);
 
