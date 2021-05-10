@@ -3295,6 +3295,7 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/net/can/
 F:	Documentation/devicetree/bindings/phy/ti,tcan104x-can.yaml
 F:	drivers/net/can/
+F:	drivers/phy/phy-can-transceiver.c
 F:	include/linux/can/dev.h
 F:	include/linux/can/platform/
 F:	include/uapi/linux/can/error.h
