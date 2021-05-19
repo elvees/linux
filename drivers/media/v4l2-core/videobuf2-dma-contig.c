@@ -24,6 +24,9 @@
 struct vb2_dc_conf {
 	struct device		*dev;
 
+	/* MMAP related */
+	bool			cacheable;
+
 	/* USERPTR related */
 	int			allow_nc_userptr;
 };
@@ -41,6 +44,7 @@ struct vb2_dc_buf {
 	struct vb2_vmarea_handler	handler;
 	atomic_t			refcount;
 	struct sg_table			*sgt_base;
+	bool				cacheable;
 
 	/* DMABUF related */
 	struct dma_buf_attachment	*db_attach;
@@ -105,12 +109,17 @@ static void vb2_dc_prepare(void *buf_priv)
 	struct vb2_dc_buf *buf = buf_priv;
 	struct sg_table *sgt = buf->dma_sgt;
 
-	/* DMABUF exporter will flush the cache for us */
-	if (!sgt || buf->db_attach)
-		return;
+	if (sgt) {
+		/* DMABUF exporter will flush the cache for us */
+		if (buf->db_attach)
+			return;
 
-	dma_sync_sg_for_device(buf->dev, sgt->sgl, sgt->orig_nents,
-			       buf->dma_dir);
+		dma_sync_sg_for_device(buf->dev, sgt->sgl, sgt->orig_nents,
+					buf->dma_dir);
+	} else if (buf->cacheable) {
+		dma_sync_single_for_device(buf->dev, buf->dma_addr, buf->size,
+					   buf->dma_dir);
+	}
 }
 
 static void vb2_dc_finish(void *buf_priv)
@@ -140,7 +149,15 @@ static void vb2_dc_put(void *buf_priv)
 		sg_free_table(buf->sgt_base);
 		kfree(buf->sgt_base);
 	}
-	dma_free_coherent(buf->dev, buf->size, buf->vaddr, buf->dma_addr);
+	if (buf->cacheable) {
+		dma_unmap_single(buf->dev, buf->dma_addr, buf->size,
+				 buf->dma_dir);
+		dma_free_noncoherent(buf->dev, buf->size, buf->vaddr,
+				     buf->dma_addr);
+	} else {
+		dma_free_coherent(buf->dev, buf->size, buf->vaddr,
+				  buf->dma_addr);
+	}
 	put_device(buf->dev);
 	kfree(buf);
 }
@@ -156,12 +173,29 @@ static void *vb2_dc_alloc(void *alloc_ctx, unsigned long size,
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
-	buf->vaddr = dma_alloc_coherent(dev, size, &buf->dma_addr,
+	if (conf->cacheable)
+		buf->vaddr = dma_alloc_noncoherent(dev, size, &buf->dma_addr,
+						   GFP_KERNEL | gfp_flags);
+	else
+		buf->vaddr = dma_alloc_coherent(dev, size, &buf->dma_addr,
 						GFP_KERNEL | gfp_flags);
 	if (!buf->vaddr) {
-		dev_err(dev, "dma_alloc_coherent of size %ld failed\n", size);
+		dev_err(dev, "dma allocation of size %ld failed\n", size);
 		kfree(buf);
 		return ERR_PTR(-ENOMEM);
+	}
+
+	if (conf->cacheable) {
+		dma_addr_t dma_addr =
+			dma_map_single(dev, buf->vaddr, size, dma_dir);
+		if (dma_mapping_error(dev, dma_addr)) {
+			dev_err(dev, "dma_map_single failed\n");
+			dma_free_noncoherent(dev, size, buf->vaddr,
+					     buf->dma_addr);
+			kfree(buf);
+			return ERR_PTR(-ENOMEM);
+		}
+		buf->cacheable = true;
 	}
 
 	/* Prevent the device from being released while the buffer is used */
@@ -194,8 +228,16 @@ static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 	 */
 	vma->vm_pgoff = 0;
 
-	ret = dma_mmap_coherent(buf->dev, vma, buf->vaddr,
-		buf->dma_addr, buf->size);
+	if (buf->cacheable) {
+		DEFINE_DMA_ATTRS(attrs);
+
+		dma_set_attr(DMA_ATTR_NON_CONSISTENT, &attrs);
+		ret = dma_mmap_attrs(buf->dev, vma, buf->vaddr,
+				     buf->dma_addr, buf->size, &attrs);
+	} else {
+		ret = dma_mmap_coherent(buf->dev, vma, buf->vaddr,
+					buf->dma_addr, buf->size);
+	}
 
 	if (ret) {
 		pr_err("Remapping memory failed, error: %d\n", ret);
@@ -759,6 +801,17 @@ void *vb2_dma_contig_init_ctx(struct device *dev)
 	return conf;
 }
 EXPORT_SYMBOL_GPL(vb2_dma_contig_init_ctx);
+
+void *vb2_dma_contig_init_ctx_cacheable(struct device *dev)
+{
+	struct vb2_dc_conf *conf = vb2_dma_contig_init_ctx(dev);
+
+	if (!IS_ERR_OR_NULL(conf))
+		conf->cacheable = true;
+
+	return conf;
+}
+EXPORT_SYMBOL_GPL(vb2_dma_contig_init_ctx_cacheable);
 
 void *vb2_dma_contig_init_ctx_with_nc_userptr(struct device *dev)
 {
