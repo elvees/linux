@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom02-salute-el24pm2-r1.0-1.1.dtsi"
+
+/ {
+	model = "Salute-EL24PM2 r1.0-1.1, Salute-PM-UKF r1.1";
+	compatible = "elvees,salute-el24pm2-r1.1-pm-ukf-r1.1",
+		     "elvees,salute-el24pm2-r1.0-pm-ukf-r1.1",
+		     "elvees,salute-el24pm2-pm-ukf",
+		     "elvees,salute-pm-ukf-r1.1",
+		     "elvees,salute-pm-ukf",
+		     "elvees,salute-el24pm2-r1.1",
+		     "elvees,salute-el24pm2-r1.0",
+		     "elvees,salute-el24pm2",
+		     "elvees,mcom02";
+
+	leds {
+		dbgled2 {
+			label = "salute:green:dbgled2";
+			gpios = <&gpioa 6 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	aliases {
+		spi0 = &spi0;
+	};
+
+};
+
+&dpllclk {
+	clk-mult-initial = <29>;
+};
+
+&upllclk {
+	clk-mult-initial = <16>;
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+};
+
+&ethernet {
+	status = "okay";
+};
+
+&spi0 {
+	num-cs = <2>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	* because it is ignored by the SPI driver. */
+	cs-gpios = <&gpiod 18 0>, <&gpiod 19 0>;
+
+	mram: mram@1 {
+		#address-cells = <1>;
+		compatible = "everspin,mr25h40", "spi-flash";
+		reg = <0x1>;
+		spi-max-frequency = <20000000>;
+	};
+};
+
+&sd1 {
+	status = "okay";
+	non-removable;
+	bus-width = <4>;
+};
+
+&swic0 {
+	status = "okay";
+};
+
+&swic1 {
+	status = "okay";
+};
+
+&vinc {
+	status = "okay";
+	ports {
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			vinc_endpoint0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&tc358748_0endpoint>;
+				elvees,ifacenum = /bits/ 8 <2>;
+			};
+
+			vinc_endpoint1: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&tc358748_1endpoint>;
+				elvees,ifacenum = /bits/ 8 <3>;
+			};
+		};
+	};
+};
+
+&sound {
+	status = "okay";
+};
+
+&i2c0 {
+	fram0: fram0@50 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,24c16", "i2c-eeprom";
+		reg = <0x50>;
+	};
+
+	tc358748_0@0e {
+		compatible = "toshiba,tc358748";
+		reg = <0x0e>;
+		clock-frequency = <40000000>;
+		pixel-frequency = <126000000>;
+		vvalid-invert;
+		port {
+			tc358748_0endpoint: endpoint {
+				remote = <&vinc_endpoint0>;
+			};
+		};
+	};
+};
+
+&i2c1 {
+	fram1: fram1@50 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,24c16", "i2c-eeprom";
+		reg = <0x50>;
+	};
+
+	tc358748_1@0e {
+		compatible = "toshiba,tc358748";
+		reg = <0x0e>;
+		clock-frequency = <40000000>;
+		pixel-frequency = <126000000>;
+		vvalid-invert;
+		port {
+			tc358748_1endpoint: endpoint {
+				remote = <&vinc_endpoint1>;
+			};
+		};
+	};
+};
+
+&i2c2 {
+	fram2: fram2@50 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,24c16", "i2c-eeprom";
+		reg = <0x50>;
+	};
+};
+
+&framebuffer {
+	status = "okay";
+};

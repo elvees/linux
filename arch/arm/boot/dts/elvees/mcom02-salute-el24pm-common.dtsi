@@ -1,0 +1,189 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2017 RnD Center "ELVEES", JSC
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom02.dtsi"
+
+/ {
+	memory {
+		device_type = "memory";
+		reg = <0x40000000 0x40000000>,
+		      <0xa0000000 0x40000000>;
+	};
+
+	/*
+	 * VPU decoder must use memory in DDR0 and DDR1 in order to implement
+	 * workaround #1 to prevent DDR-VDMA deadlock (issue rf#1382).
+	 */
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		vpu_ddr0_reserved: vpu_ddr0@0x7f800000 {
+			no-map;
+			reg = <0x7f800000 0x800000>;
+		};
+
+		vpu_ddr1_reserved: vpu_ddr1@0xdf800000 {
+			no-map;
+			reg = <0xdf800000 0x800000>;
+		};
+	};
+
+	clocks {
+		audio_codec_clk: audio_codec_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <12288000>;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		dbgled0 {
+			label = "salute:green:dbgled0";
+			gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		dbgled1 {
+			label = "salute:green:dbgled1";
+			gpios = <&gpiod 31 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "mmc0";
+		};
+	};
+
+	regulators {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "simple-bus";
+
+		audio_codec_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0x0>;
+			regulator-name = "audio-codec";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-always-on;
+		};
+	};
+
+	sound: sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "Salute-EL24PM";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "disabled";
+
+		simple-audio-card,cpu {
+			sound-dai = <&mfbsp0>;
+		};
+
+		dailink0_master: simple-audio-card,codec {
+			sound-dai = <&sgtl5000>;
+		};
+	};
+};
+
+&cpllclk {
+	clock-mult = <21>;
+};
+
+&ethernet {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	phy-mode = "gmii";
+	phy-handle = <&ethernet_phy>;
+	phy-reset-gpios = <&gpioc 20 GPIO_ACTIVE_LOW>;
+	txclk-125en-gpios = <&gpioa 3 GPIO_ACTIVE_HIGH>;
+
+	ethernet_phy: ethernet-phy@1 {
+		reg = <0x1>;
+		interrupt-parent = <&gpioa>;
+		interrupts = <2 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	sgtl5000: audio-codec@0a {
+		#sound-dai-cells = <0>;
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		clocks = <&audio_codec_clk>;
+		VDDA-supply = <&audio_codec_reg>;
+		VDDIO-supply = <&audio_codec_reg>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	clock-frequency = <100000>;
+	/* For correct work of Si514 generator */
+	i2c-sda-hold-time-ns = <700>;
+};
+
+&mfbsp0 {
+	status = "okay";
+};
+
+&nfc {
+	status = "okay";
+};
+
+&sd0 {
+	/*
+	 * Connected to eMMC
+	 *
+	 * BUG: eMMC supports DDR only in Linux, not in U-Boot
+	 */
+	status = "okay";
+	non-removable;
+	mmc-ddr-3_3v;
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <1>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	 * because it is ignored by the SPI driver. */
+	cs-gpios = <&gpiod 18 0>;
+
+	flash: flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* The data transfer is not stable at a higher frequency. */
+		spi-max-frequency = <36000000>;
+		m25p,fast-read;
+		u-boot,dm-pre-reloc;
+	};
+};
+
+&vpu {
+	mem0 {
+		memory-region = <&vpu_ddr0_reserved>;
+	};
+
+	mem1 {
+		memory-region = <&vpu_ddr1_reserved>;
+	};
+};

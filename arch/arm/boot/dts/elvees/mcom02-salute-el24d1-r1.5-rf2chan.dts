@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright 2020 RnD Center "ELVEES", JSC
+ *
+ */
+
+/dts-v1/;
+
+#include "mcom02-salute-el24d1-r1.5.dts"
+
+&mcc {
+	status = "okay";
+};
+
+&xtimcc {
+	status = "okay";
+};

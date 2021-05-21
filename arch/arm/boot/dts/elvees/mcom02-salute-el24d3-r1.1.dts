@@ -1,0 +1,276 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2017 RnD Center "ELVEES", JSC
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "mcom02.dtsi"
+
+/ {
+	model = "Salute-EL24D3 r1.1";
+	compatible = "elvees,salute-el24d3-r1.1",
+		     "elvees,salute-el24d3",
+		     "elvees,mcom02";
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	aliases {
+		spi0 = &spi0;
+		spi1 = &spi1;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x40000000 0x40000000>,
+		      <0xa0000000 0x40000000>;
+	};
+
+	clocks {
+		can_clk: can_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <16000000>;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		dbgled0 {
+			label = "salute:red:dbgled0";
+			gpios = <&gpiob 0 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		dbgled1 {
+			label = "salute:red:dbgled1";
+			gpios = <&gpiob 1 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "mmc0";
+		};
+
+		dbgled2 {
+			label = "salute:red:dbgled2";
+			gpios = <&gpiob 2 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		dbgled3 {
+			label = "salute:red:dbgled3";
+			gpios = <&gpiob 3 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		dbgled4 {
+			label = "salute:red:dbgled4";
+			gpios = <&gpiob 4 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		dbgled5 {
+			label = "salute:red:dbgled5";
+			gpios = <&gpiob 5 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		dbgled6 {
+			label = "salute:red:dbgled6";
+			gpios = <&gpiob 6 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		dbgled7 {
+			label = "salute:red:dbgled7";
+			gpios = <&gpiob 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	regulators {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "simple-bus";
+
+		can_xceiver_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0x0>;
+			regulator-name = "can-xceiver";
+			gpio = <&gpioa 12 0>;
+		};
+	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "Salute-EL24D3";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+
+		simple-audio-card,cpu {
+			sound-dai = <&mfbsp0>;
+		};
+
+		dailink0_master: simple-audio-card,codec {
+			sound-dai = <&alc5623>;
+			system-clock-frequency = <24576000>;
+		};
+	};
+};
+
+&ethernet {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	phy-mode = "gmii";
+	phy-handle = <&ethernet_phy>;
+	phy-reset-gpios = <&gpioa 8 GPIO_ACTIVE_LOW>;
+	txclk-125en-gpios = <&gpioa 3 GPIO_ACTIVE_HIGH>;
+
+	ethernet_phy: ethernet-phy@1 {
+		reg = <0x1>;
+	};
+};
+
+&framebuffer {
+	status = "okay";
+	output = <&it66121>;
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	camera@36 {
+		compatible = "ovti,ov2715";
+		reg = <0x36>;
+
+		port {
+			ov2715_endpoint: endpoint {
+				remote-endpoint = <&vinc_endpoint>;
+			};
+		};
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	alc5623: audio-codec@1a {
+		#sound-dai-cells = <0>;
+		compatible = "realtek,alc5623";
+		reg = <0x1a>;
+	};
+
+	it66121: hdmi@4c {
+		compatible = "ite,it66121";
+		reg = <0x4c>;
+		reset-gpios = <&gpiob 14 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&i2c2 {
+	/* Wired to PI connector */
+	status = "okay";
+};
+
+&mfbsp0 {
+	status = "okay";
+};
+
+&nfc {
+	status = "okay";
+};
+
+&sd0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	 * because it is ignored by the SPI driver. */
+	cs-gpios = <&gpiod 18 0>, <&gpiod 19 0>;
+
+	flash: flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* The data transfer is not stable at a higher frequency. */
+		spi-max-frequency = <36000000>;
+		m25p,fast-read;
+		u-boot,dm-pre-reloc;
+	};
+
+	can: can@1 {
+		compatible = "microchip,mcp2515";
+		reg = <0x1>;
+		spi-max-frequency = <10000000>;
+		clocks = <&can_clk>;
+		interrupt-parent = <&gpioa>;
+		interrupts = <20 IRQ_TYPE_LEVEL_LOW>;
+		reset-gpios = <&gpioa 16 GPIO_ACTIVE_LOW>;
+		xceiver-supply = <&can_xceiver_reg>;
+	};
+};
+
+&spi1 {
+	/* SPI1_nSS0 and SPI1_nSS1 are wired to PI connector */
+	status = "okay";
+
+	zigbee: zigbee@2 {
+		compatible = "atmel,at86rf231";
+		reg = <0x2>;
+		/* Max clock frequency, specified in the AT86RF231 datasheet,
+		 * is 8 MHz for synchronous mode and 7.5 MHz for asynchronous.
+		 * It is set to 6 MHz, because the controller works not stable
+		 * at the max frequency. */
+		spi-max-frequency = <6000000>;
+		interrupt-parent = <&gpioa>;
+		interrupts = <21 IRQ_TYPE_LEVEL_HIGH>;
+		reset-gpio = <&gpioa 7 GPIO_ACTIVE_LOW>;
+		sleep-gpio = <&gpioa 9 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/* RS-485 is used as physical layer for UART2 */
+&uart2 {
+	status = "okay";
+};
+
+/* RS-232 is used as physical layer for UART3 */
+&uart3 {
+	status = "okay";
+};
+
+&vinc {
+	status = "okay";
+	elvees,pixel-clock-divider = <16>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+
+			vinc_endpoint: endpoint@0 {
+				reg = <0x0>;
+				remote-endpoint = <&ov2715_endpoint>;
+			};
+		};
+	};
+};

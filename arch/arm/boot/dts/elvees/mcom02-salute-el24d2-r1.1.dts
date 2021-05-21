@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2015-2016 ELVEES NeoTek JSC
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom02.dtsi"
+
+/ {
+	model = "Salute-EL24D2 r1.1";
+	compatible = "elvees,salute-el24d2-r1.1",
+		     "elvees,salute-el24d2",
+		     "elvees,mcom02";
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	aliases {
+		spi0 = &spi0;
+		spi1 = &spi1;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x40000000 0x40000000>;
+	};
+
+	clocks {
+		can_clk: can_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <16000000>;
+		};
+	};
+
+	regulators {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "simple-bus";
+
+		can_xceiver_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0x0>;
+			regulator-name = "can-xceiver";
+			gpio = <&gpiob 7 0>;
+		};
+	};
+};
+
+&cpllclk {
+	clock-mult = <21>;
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	 * because it is ignored by the SPI driver. */
+	cs-gpios = <&gpiod 18 0>, <&gpiod 19 0>;
+
+	flash: flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0>;
+		/* The data transfer is not stable at a higher frequency. */
+		spi-max-frequency = <36000000>;
+		m25p,fast-read;
+		u-boot,dm-pre-reloc;
+	};
+
+	can: can@1 {
+		compatible = "microchip,mcp2515";
+		reg = <1>;
+		clocks = <&can_clk>;
+		interrupt-parent = <&gpioa>;
+		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+		reset-gpios = <&gpiob 16 GPIO_ACTIVE_LOW>;
+		spi-max-frequency = <10000000>;
+		xceiver-supply = <&can_xceiver_reg>;
+	};
+};
+
+&spi1 {
+	/* Synopsys SPI has hardware Chip Select support.
+	 * SPI1_nSS0 and SPI1_nSS1 are wired to X4, SPI1_nSS2
+	 * is wired to Zigbee. */
+
+	status = "okay";
+
+	zigbee: zigbee@2 {
+		compatible = "atmel,at86rf231";
+		/* max-frequency for at86rf231 is 7500000, but we
+		 * set it to 6000000 because controller works more stable.
+		 */
+		spi-max-frequency = <6000000>;
+		reg = <2>;
+		interrupts = <21 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gpioa>;
+		reset-gpio = <&gpiob 0 GPIO_ACTIVE_LOW>;
+		sleep-gpio = <&gpiob 2 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&sd0 {
+	status = "okay";
+};
+
+&sd1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	non-removable;
+	broken-cd;
+	bus-width = <4>;
+	max-frequency = <50000000>;
+	keep-power-in-suspend;
+	status = "okay";
+
+	wifi: wifi {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+		reg-on-gpio = <&gpiob 8 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&usb {
+	status = "okay";
+};
+
+&vinc {
+	status = "okay";
+	elvees,pixel-clock-divider = <16>;
+	elvees,pixel-clock-over-fsync;
+	ports {
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			vinc_endpoint0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&ov2715endpoint>;
+				elvees,ifacenum = /bits/ 8 <2>;
+			};
+		};
+	};
+};
+
+&ethernet {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	phy-mode = "mii";
+	phy-handle = <&ethernet_phy>;
+	phy-reset-gpios = <&gpiob 1 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy: ethernet-phy@7 {
+		reg = <7>;
+	};
+};
+
+/*
+ * RS-485 is used as physical layer for UART2
+ */
+
+&uart2 {
+	status = "okay";
+};
+
+&i2c0 {
+	/* Connected to voltage regulator */
+	status = "okay";
+};
+
+&i2c1 {
+	/* Connected to HDMI transmitter */
+	status = "okay";
+	clock-frequency = <100000>;
+	hdmi: it66121@4c {
+		compatible = "ite,it66121";
+		reg = <0x4c>;
+		reset-gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&i2c2 {
+	/* Wired out to sensors */
+	status = "okay";
+	camera@36 {
+		compatible = "ovti,ov2715";
+		reg = <0x36>;
+		port {
+			ov2715endpoint: endpoint {
+				remote = <&vinc_endpoint0>;
+			};
+		};
+	};
+};
+
+&framebuffer {
+	status = "okay";
+	output = <&hdmi>;
+};
+
+&nfc {
+	status = "okay";
+};

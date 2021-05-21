@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2015-2016 ELVEES NeoTek JSC
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "mcom02.dtsi"
+
+/ {
+	model = "IP-KU r1.1";
+	compatible = "elvees,ip-ku-r1.1",
+		     "elvees,ip-ku",
+		     "elvees,mcom02";
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	aliases {
+		spi0 = &spi0;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x40000000 0x40000000
+		       0xa0000000 0x40000000>;
+	};
+};
+
+&cpllclk {
+	clock-mult = <14>;
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <1>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	 * because it is ignored by the SPI driver. */
+	cs-gpios = <&gpiod 18 0>;
+
+	flash: flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0>;
+		spi-max-frequency = <36000000>;
+		m25p,fast-read;
+		u-boot,dm-pre-reloc;
+	};
+};
+
+&sd0 {
+	status = "okay";
+};
+
+&usb {
+	status = "okay";
+};
+
+/* IP-KU hangs at high SPLL values, so we should decrease it. */
+&spllclk {
+	clk-mult-initial = <6>;
+};
+
+&l3_pclk {
+	clock-div = <1>;
+};

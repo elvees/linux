@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom02-salute-el24pm2-r1.0-1.1.dtsi"
+#include "mcom02-salute-el24om1-r1.1-1.2.dtsi"
+
+/ {
+	model = "MCom-02 Border Gateway Prototype";
+	compatible = "elvees,bgproto",
+		     "elvees,salute-el24pm2-r1.1-om1-r1.2",
+		     "elvees,salute-el24pm2-r1.0-om1-r1.2",
+		     "elvees,salute-el24pm2-om1",
+		     "elvees,salute-el24om1-r1.2",
+		     "elvees,salute-el24om1",
+		     "elvees,salute-el24pm2-r1.1",
+		     "elvees,salute-el24pm2-r1.0",
+		     "elvees,salute-el24pm2",
+		     "elvees,mcom02";
+};
+
+&usb {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+
+	num-cs = <1>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	 * because it is ignored by the SPI driver. */
+	cs-gpios = <&gpioa 25 0>;
+
+	lora@0 {
+		/* FIXME: This will cause WARN() in driver but provide right
+		 * device ID to autoload spidev module. */
+		compatible = "spidev";
+		reg = <0x0>;
+		spi-max-frequency = <2000000>;
+	};
+};
