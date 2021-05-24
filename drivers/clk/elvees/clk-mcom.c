@@ -55,7 +55,7 @@ static int mcom_clk_pll_enable(struct clk_hw *hw)
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(pll->lock, flags);
-	writel((pll->mult - 1), pll->reg);
+	writel(pll->mult - 1, pll->reg);
 	spin_unlock_irqrestore(pll->lock, flags);
 
 	/* We should wait for PLL lock before exiting */
@@ -116,7 +116,7 @@ static int mcom_clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	mult =  rate / parent_rate;
 
 	spin_lock_irqsave(pll->lock, flags);
-	writel((mult - 1), pll->reg);
+	writel(mult - 1, pll->reg);
 	spin_unlock_irqrestore(pll->lock, flags);
 
 	/* We should wait for PLL lock before exiting */
@@ -168,7 +168,7 @@ static __init void mcom_clk_pll_init(struct device_node *node)
 
 		pll->mult = clk_mult;
 		spin_lock_irqsave(&mcom_clk_lock, flags);
-		writel((clk_mult - 1), pll->reg);
+		writel(clk_mult - 1, pll->reg);
 		/* Wait for pll lock ? */
 		spin_unlock_irqrestore(&mcom_clk_lock, flags);
 	}
@@ -191,7 +191,7 @@ static __init void mcom_clk_pll_init(struct device_node *node)
 		return;
 	}
 
-	rc = of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	rc = of_clk_add_hw_provider(node, of_clk_hw_simple_get, clk);
 	if (rc) {
 		pr_err("%s: Can not add clk provider\n", clk_name);
 		return;
@@ -227,15 +227,15 @@ static void __init mcom_clk_gate_init(struct device_node *node)
 
 	clk = clk_register_gate(NULL, clk_name, parent_name,
 				CLK_SET_RATE_PARENT,
-				cmctr_base + reg,
-				bit, 0, &mcom_clk_lock);
+				cmctr_base + reg, bit,
+				0, &mcom_clk_lock);
 
 	if (IS_ERR(clk)) {
 		pr_err("%s: Can not register clk\n", clk_name);
 		return;
 	}
 
-	rc = of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	rc = of_clk_add_hw_provider(node, of_clk_hw_simple_get, clk);
 	if (rc) {
 		pr_err("%s: Can not add clk provider\n", clk_name);
 		return;
@@ -294,7 +294,7 @@ static __init void mcom_clk_divider_init(struct device_node *node)
 		return;
 	}
 
-	rc = of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	rc = of_clk_add_hw_provider(node, of_clk_hw_simple_get, clk);
 	if (rc) {
 		pr_err("%s: Can not add clk provider\n", clk_name);
 		return;
