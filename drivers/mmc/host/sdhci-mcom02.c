@@ -68,7 +68,7 @@ static inline u32 prep_field(u32 value, u32 mask)
 static void sdhci_mcom02_set_clk_delays(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_mcom02_data *sdhci_mcom02 = pltfm_host->priv;
+	struct sdhci_mcom02_data *sdhci_mcom02 = sdhci_pltfm_priv(pltfm_host);
 	u32 reg;
 
 	/* Set Tap Delay Lines */
@@ -205,7 +205,7 @@ static int sdhci_mcom02_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_mcom02_data *sdhci_mcom02 = pltfm_host->priv;
+	struct sdhci_mcom02_data *sdhci_mcom02 = sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
 	ret = sdhci_suspend_host(host);
@@ -230,7 +230,7 @@ static int sdhci_mcom02_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_mcom02_data *sdhci_mcom02 = pltfm_host->priv;
+	struct sdhci_mcom02_data *sdhci_mcom02 = sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
 	ret = clk_enable(sdhci_mcom02->clk_ahb);
@@ -261,27 +261,32 @@ static int sdhci_mcom02_probe(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_mcom02_data *sdhci_mcom02;
 
-	sdhci_mcom02 = devm_kzalloc(&pdev->dev, sizeof(*sdhci_mcom02),
-				    GFP_KERNEL);
-	if (!sdhci_mcom02)
-		return -ENOMEM;
+	host = sdhci_pltfm_init(pdev, &sdhci_mcom02_pdata,
+				sizeof(*sdhci_mcom02));
+	if (IS_ERR(host))
+		return PTR_ERR(host);
+
+	pltfm_host = sdhci_priv(host);
+	sdhci_mcom02 = sdhci_pltfm_priv(pltfm_host);
 
 	sdhci_mcom02->clk_ahb = devm_clk_get(&pdev->dev, "clk_ahb");
 	if (IS_ERR(sdhci_mcom02->clk_ahb)) {
 		dev_err(&pdev->dev, "clk_ahb clock not found.\n");
-		return PTR_ERR(sdhci_mcom02->clk_ahb);
+		ret = PTR_ERR(sdhci_mcom02->clk_ahb);
+		goto err_pltfm_free;
 	}
 
 	clk_xin = devm_clk_get(&pdev->dev, "clk_xin");
 	if (IS_ERR(clk_xin)) {
 		dev_err(&pdev->dev, "clk_xin clock not found.\n");
-		return PTR_ERR(clk_xin);
+		ret = PTR_ERR(clk_xin);
+		goto err_pltfm_free;
 	}
 
 	ret = clk_prepare_enable(sdhci_mcom02->clk_ahb);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to enable AHB clock.\n");
-		return ret;
+		goto err_pltfm_free;
 	}
 
 	ret = clk_prepare_enable(clk_xin);
@@ -290,37 +295,31 @@ static int sdhci_mcom02_probe(struct platform_device *pdev)
 		goto clk_dis_ahb;
 	}
 
-	host = sdhci_pltfm_init(pdev, &sdhci_mcom02_pdata, 0);
-	if (IS_ERR(host)) {
-		ret = PTR_ERR(host);
-		goto clk_disable_all;
-	}
-
 	sdhci_get_of_property(pdev);
-	pltfm_host = sdhci_priv(host);
-	pltfm_host->priv = sdhci_mcom02;
+
 	pltfm_host->clk = clk_xin;
 
 	mcom02_of_parse_clk_phases(&pdev->dev, sdhci_mcom02);
 
 	ret = mmc_of_parse(host->mmc);
 	if (ret) {
-		dev_err(&pdev->dev, "parsing dt failed (%u)\n", ret);
-		goto err_pltfm_free;
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "parsing dt failed (%u)\n", ret);
+		goto clk_disable_all;
 	}
 
 	ret = sdhci_add_host(host);
 	if (ret)
-		goto err_pltfm_free;
+		goto clk_disable_all;
 
 	return 0;
 
-err_pltfm_free:
-	sdhci_pltfm_free(pdev);
 clk_disable_all:
 	clk_disable_unprepare(clk_xin);
 clk_dis_ahb:
 	clk_disable_unprepare(sdhci_mcom02->clk_ahb);
+err_pltfm_free:
+	sdhci_pltfm_free(pdev);
 
 	return ret;
 }
@@ -329,7 +328,7 @@ static int sdhci_mcom02_remove(struct platform_device *pdev)
 {
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_mcom02_data *sdhci_mcom02 = pltfm_host->priv;
+	struct sdhci_mcom02_data *sdhci_mcom02 = sdhci_pltfm_priv(pltfm_host);
 
 	clk_disable_unprepare(sdhci_mcom02->clk_ahb);
 
