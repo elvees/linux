@@ -1270,6 +1270,10 @@ static int anfc_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_controller_clk;
 
+	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret)
+		goto disable_bus_clk;
+
 	ret = anfc_chips_init(nfc);
 	if (ret)
 		goto disable_bus_clk;
