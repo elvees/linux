@@ -83,24 +83,27 @@ static void arasan_gemac_get_drvinfo(struct net_device *dev,
 	strlcpy(info->version, UTS_RELEASE, sizeof(info->version));
 }
 
-static int arasan_gemac_get_settings(struct net_device *dev,
-				     struct ethtool_cmd *ecmd)
+static int arasan_gemac_get_link_ksettings(struct net_device *dev,
+					   struct ethtool_link_ksettings *cmd)
 {
 	struct arasan_gemac_pdata *priv = netdev_priv(dev);
 
 	if (!priv->phy_dev)
 		return -ENODEV;
-	return phy_ethtool_gset(priv->phy_dev, ecmd);
+
+	phy_ethtool_ksettings_get(priv->phy_dev, cmd);
+
+	return 0;
 }
 
-static int arasan_gemac_set_settings(struct net_device *dev,
-				     struct ethtool_cmd *ecmd)
+static int arasan_gemac_set_link_ksettings(struct net_device *dev,
+					   const struct ethtool_link_ksettings *cmd)
 {
 	struct arasan_gemac_pdata *priv = netdev_priv(dev);
 
 	if (!priv->phy_dev)
 		return -ENODEV;
-	return phy_ethtool_sset(priv->phy_dev, ecmd);
+	return phy_ethtool_ksettings_set(priv->phy_dev, cmd);
 }
 
 static u32 arasan_gemac_get_msglevel(struct net_device *dev)
@@ -129,8 +132,8 @@ static int arasan_gemac_nway_reset(struct net_device *dev)
 
 static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.get_drvinfo = arasan_gemac_get_drvinfo,
-	.get_settings = arasan_gemac_get_settings,
-	.set_settings = arasan_gemac_set_settings,
+	.get_link_ksettings = arasan_gemac_get_link_ksettings,
+	.set_link_ksettings = arasan_gemac_set_link_ksettings,
 	.get_msglevel = arasan_gemac_get_msglevel,
 	.set_msglevel = arasan_gemac_set_msglevel,
 	.get_link = ethtool_op_get_link,
@@ -356,8 +359,8 @@ static int arasan_gemac_alloc_tx_ring(struct arasan_gemac_pdata *pd)
 	int dma_sz = TX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc);
 	int cpu_sz = TX_RING_SIZE * sizeof(struct arasan_gemac_ring_info);
 
-	pd->tx_ring = dma_zalloc_coherent(&pd->pdev->dev, dma_sz,
-					  &pd->tx_dma_addr, GFP_KERNEL);
+	pd->tx_ring = dma_alloc_coherent(&pd->pdev->dev, dma_sz,
+					 &pd->tx_dma_addr, GFP_KERNEL);
 	if (!pd->tx_ring)
 		return -ENOMEM;
 
@@ -381,8 +384,8 @@ static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 	int dma_sz = RX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc);
 	int cpu_sz = RX_RING_SIZE * sizeof(struct arasan_gemac_ring_info);
 
-	pd->rx_ring = dma_zalloc_coherent(&pd->pdev->dev, dma_sz,
-					  &pd->rx_dma_addr, GFP_KERNEL);
+	pd->rx_ring = dma_alloc_coherent(&pd->pdev->dev, dma_sz,
+					 &pd->rx_dma_addr, GFP_KERNEL);
 	if (!pd->rx_ring)
 		return -ENOMEM;
 
@@ -1088,7 +1091,7 @@ static int arasan_gemac_mii_probe(struct net_device *dev)
 		return -ENXIO;
 	}
 
-	phydev = phy_connect(dev, dev_name(&phydev->dev),
+	phydev = phy_connect(dev, dev_name(&phydev->mdio.dev),
 			     arasan_gemac_handle_link_change,
 			     pd->phy_interface);
 
@@ -1097,20 +1100,25 @@ static int arasan_gemac_mii_probe(struct net_device *dev)
 		return PTR_ERR(phydev);
 	}
 
-	netdev_info(dev,
-		    "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
-		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
+	// TODO: Intersect PHY supported features with MAC features
+	// phydev->supported &= ARASAN_GEMAC_FEATURES;
 
-	phydev->supported &= ARASAN_GEMAC_FEATURES;
-	if (pd->phy_interface == PHY_INTERFACE_MODE_MII)
-		phydev->supported &= ~PHY_1000BT_FEATURES;
+	if (pd->phy_interface == PHY_INTERFACE_MODE_MII) {
+		int rc = phy_set_max_speed(phydev, SPEED_100);
 
-	phydev->advertising = phydev->supported;
+		if (rc) {
+			netdev_err(dev, "Failed to limit PHY to 100 Mb/s\n");
+			phy_disconnect(phydev);
+			return rc;
+		}
+	}
 
 	pd->link = 0;
 	pd->speed = 0;
 	pd->duplex = -1;
 	pd->phy_dev = phydev;
+
+	phy_attached_info(phydev);
 
 	return 0;
 }
@@ -1144,8 +1152,6 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 
 	pd->mii_bus->priv = pd;
 	pd->mii_bus->parent = &pd->dev->dev;
-
-	pd->mii_bus->irq = pd->phy_irq;
 
 	np = pd->pdev->dev.of_node;
 	if (np) {
