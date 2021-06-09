@@ -45,6 +45,10 @@
 #include "vinc-hw.h"
 #include "vinc-ctrls.h"
 
+static bool cacheable;
+module_param(cacheable, bool, 0644);
+MODULE_PARM_DESC(cacheable, "Use cacheable DMA buffers");
+
 /* Maximum PCLK divider. Determined by hardware. */
 #define PCLKDIV_MAX 30
 
@@ -1206,7 +1210,9 @@ static int vinc_probe(struct platform_device *pdev)
 	priv->ici.capabilities = SOCAM_HOST_CAP_STRIDE;
 
 	for (i = 0; i < ARRAY_SIZE(priv->stream); i++) {
-		priv->stream[i].alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
+		priv->stream[i].alloc_ctx = cacheable ?
+			vb2_dma_contig_init_ctx_cacheable(&pdev->dev) :
+			vb2_dma_contig_init_ctx(&pdev->dev);
 		if (IS_ERR(priv->stream[i].alloc_ctx))
 			return PTR_ERR(priv->stream[i].alloc_ctx);
 	}
