@@ -1049,19 +1049,40 @@ static irqreturn_t vinc_irq_stream(int irq, void *data)
 		stream_ctr |= STREAM_CTR_STREAM_ENABLE(channel);
 		vinc_write(priv, STREAM_CTR, stream_ctr);
 	}
+
 	if (int_status & STREAM_INTERRUPT_DMA0) {
 		u32 int_d0 = vinc_read(priv, STREAM_DMA_WR_STATUS(channel, 0));
+		bool dma_error = false;
 
-		if (int_d0 & DMA_WR_STATUS_FRAME_END)
-			vinc_eof_handler(stream);
+		if (int_d0 & DMA_WR_STATUS_FRAME_END) {
+			u32 count = vinc_read(priv,
+				STREAM_DMA_WR_COUNT(channel, 0, 0));
+			u32 pixel_count = count & 0xffff;
+			u32 line_count = count >> 16;
+
+			if (pixel_count != stream->crop2.c.width ||
+			    line_count != stream->crop2.c.height) {
+				dev_warn(priv->ici.v4l2_dev.dev,
+					 "s%dd0: Bad pixel/line count: %u/%u\n",
+					 devnum, pixel_count, line_count);
+				dma_error = true;
+			} else {
+				vinc_eof_handler(stream);
+			}
+		}
+
 		if (int_d0 & DMA_WR_STATUS_DMA_OVF) {
+			dev_warn(priv->ici.v4l2_dev.dev,
+				 "s%dd0: DMA overflow\n", devnum);
+			dma_error = true;
+		}
+
+		if (dma_error) {
 			u32 stream_ctr = vinc_read(priv, STREAM_CTR);
 
 			stream_ctr &= ~STREAM_CTR_DMA_CHANNELS_ENABLE;
 			vinc_write(priv, STREAM_CTR, stream_ctr);
 			vinc_next_buffer(stream, VB2_BUF_STATE_ERROR);
-			dev_warn(priv->ici.v4l2_dev.dev,
-				 "s%dd0: DMA overflow\n", devnum);
 			stream_ctr |= STREAM_CTR_DMA_CHANNELS_ENABLE;
 			vinc_write(priv, STREAM_CTR, stream_ctr);
 			vinc_write(priv, STREAM_PROC_CLEAR(channel),
@@ -1070,6 +1091,7 @@ static irqreturn_t vinc_irq_stream(int irq, void *data)
 			stream->stat_skip = true;
 		}
 	}
+
 	if (int_status & STREAM_INTERRUPT_DMA1) {
 		u32 int_d1 = vinc_read(priv, STREAM_DMA_WR_STATUS(channel, 1));
 
