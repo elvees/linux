@@ -579,6 +579,11 @@ static inline pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot)
 	prot = dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs) ?
 			    pgprot_writecombine(prot) :
 			    pgprot_dmacoherent(prot);
+
+	/* Allow caching for non-consistent memory */
+	if (dma_get_attr(DMA_ATTR_NON_CONSISTENT, attrs))
+		prot = __pgprot_modify(prot, L_PTE_MT_MASK, L_PTE_MT_WRITEBACK);
+
 	return prot;
 }
 
