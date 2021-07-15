@@ -1350,7 +1350,9 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	if (res < 0)
 		goto err_disable_clocks;
 
-	if (res != PHY_INTERFACE_MODE_MII && res != PHY_INTERFACE_MODE_GMII) {
+	if (res != PHY_INTERFACE_MODE_MII &&
+	    res != PHY_INTERFACE_MODE_GMII &&
+	    res != PHY_INTERFACE_MODE_RGMII) {
 		dev_err(&pdev->dev, "\"%s\" PHY interface is not supported\n",
 			phy_modes(res));
 		res = -ENODEV;
