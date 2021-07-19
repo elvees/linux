@@ -1,0 +1,356 @@
+# SPDX-License-Identifier: GPL-2.0+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pinctrl/elvees,mcom03-hsperiph-pinctrl.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Pin controller for HSPERIPH subsystem in ELVEES MCom-03 SoC
+
+maintainers:
+  - Omar Al-Wadi <oalwadi@elvees.com>
+
+properties:
+  compatible:
+    const: "elvees,mcom03-hsperiph-pinctrl"
+
+  elvees,hsurb-syscon:
+    description:
+      A phandle to the syscon node describing URB registers.
+    $ref: /schemas/types.yaml#/definitions/phandle
+
+  '#address-cells':
+    const: 0
+  '#size-cells':
+    const: 0
+
+additionalProperties:
+  if:
+    type: object
+    description: |
+      All additional object properties are pin configuration nodes that client
+      devices reference.
+  then:
+    properties:
+      phandle: true
+
+    additionalProperties:
+      description: |
+        Configuration subnodes must contain either groups or pins.
+        All groups/pins in the subnode must have identical configuration
+        possibilities.
+      anyOf:
+        - type: object
+          description: |
+            sdmmc0_ctrl: Contains SDMMC0_* pins except SDMMC0_18EN and
+            SDMMC0_PWD.
+            sdmmc1_ctrl: Contains SDMMC1_* pins except SDMMC1_18EN and
+            SDMMC1_PWD.
+            hsperiph_misc: Contains SDMMC{0,1}_WP, SDMMC{0,1}_CDN,
+            SDMMC{0,1}_18EN, SDMMC{0,1}_PWR, USB{0,1}_EN_OCN pins.
+
+          properties:
+            groups:
+              enum: [sdmmc0_ctrl, sdmmc1_ctrl, hsperiph_misc]
+
+            elvees,pad-enable:
+              description: Enabling pads.
+              type: boolean
+            elvees,pad-disable:
+              description: Disabling pads.
+              type: boolean
+
+          additionalProperties: false
+
+        - type: object
+          description: |
+            sdmmc0_data: Contains SDMMC0_DAT* pins.
+            sdmmc1_data: Contains SDMMC1_DAT* pins.
+
+          properties:
+            groups:
+              enum: [sdmmc0_data, sdmmc1_data]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+            drive-open-drain:
+              $ref: pincfg-node.yaml#/properties/drive-open-drain
+            drive-strength:
+              $ref: pincfg-node.yaml#/properties/drive-strength
+              enum: [0, 2, 4, 6, 8, 10, 12]
+              description: 0mA puts the pads in high impedance mode.
+            input-schmitt-enable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
+            input-schmitt-disable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
+            slew-rate:
+              $ref: pincfg-node.yaml#/properties/slew-rate
+              enum: [0, 3]
+              default: 3
+              description: |
+                0: Lower Slew rate (slower edges)
+                3: Higher Slew rate (faster edges)
+
+          additionalProperties: false
+
+        - type: object
+          description: |
+                sdmmc_wp: Contains SDMMC{0,1}_WP pins.
+                sdmmc_cdn: Contains SDMMC{0,1}_CDN pins.
+
+          properties:
+            groups:
+              enum: [sdmmc_wp, sdmmc_cdn]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+
+          additionalProperties: false
+
+        - type: object
+          description: |
+                sdmmc_18en_pwr: Contains SDMMC{0,1}_18EN and SDMMC{0,1}_PWR
+                pins.
+
+          properties:
+            groups:
+              enum: [sdmmc_18en_pwr]
+
+            drive-strength:
+              $ref: pincfg-node.yaml#/properties/drive-strength
+              enum: [0, 2, 4, 6, 8, 10, 12]
+              description: 0mA puts the pads in high impedance mode.
+
+          additionalProperties: false
+
+        - type: object
+
+          properties:
+            pins:
+              enum: [SDMMC0_CMD, SDMMC0_CLK, SDMMC1_CMD, SDMMC1_CLK]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+            drive-open-drain:
+              $ref: pincfg-node.yaml#/properties/drive-open-drain
+            drive-strength:
+              $ref: pincfg-node.yaml#/properties/drive-strength
+              enum: [0, 2, 4, 6, 8, 10, 12]
+              description: 0mA puts the pads in high impedance mode.
+            input-schmitt-enable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
+            input-schmitt-disable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
+            slew-rate:
+              $ref: pincfg-node.yaml#/properties/slew-rate
+              enum: [0, 3]
+              default: 3
+              description: |
+                0: Lower Slew rate (slower edges)
+                3: Higher Slew rate (faster edges)
+
+          additionalProperties: false
+
+        - type: object
+          description: |
+                emac0_ctrl: Contains EMAC0_RGMII_* pins.
+                emac1_ctrl: Contains EMAC1_RGMII_* pins.
+
+          properties:
+            groups:
+              enum: [emac0_ctrl, emac1_ctrl]
+
+            elvees,pad-enable:
+              description: Enabling pads.
+              type: boolean
+            elvees,pad-disable:
+              description: Disabling pads.
+              type: boolean
+            drive-open-drain:
+              $ref: pincfg-node.yaml#/properties/drive-open-drain
+
+          additionalProperties: false
+
+        - type: object
+          description: |
+            emac0_tx: Contains EMAC0_RGMII_TXD* and EMAC0_RGMII_TXCTL pins.
+            emac1_tx: Contains EMAC1_RGMII_TXD* and EMAC1_RGMII_TXCTL pins.
+
+          properties:
+            groups:
+              enum: [emac0_tx, emac1_tx]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+            drive-strength:
+              $ref: pincfg-node.yaml#/properties/drive-strength
+              enum: [0, 2, 4, 6, 8, 10, 12]
+              description: 0mA puts the pads in high impedance mode.
+            slew-rate:
+              $ref: pincfg-node.yaml#/properties/slew-rate
+              enum: [0, 3]
+              default: 3
+              description: |
+                0: Lower Slew rate (slower edges)
+                3: Higher Slew rate (faster edges)
+
+          additionalProperties: false
+
+        - type: object
+          description: |
+            emac0_rx: Contains EMAC0_RGMII_RXD* and EMAC0_RGMII_RXCTL pins.
+            emac1_rx: Contains EMAC1_RGMII_RXD* and EMAC1_RGMII_RXCTL pins.
+
+          properties:
+            groups:
+              enum: [emac0_rx, emac1_rx]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+            input-schmitt-enable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
+            input-schmitt-disable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
+
+          additionalProperties: false
+
+        - type: object
+          description: |
+            emac_v18: Contains EMAC{0,1}_* pins.
+
+          properties:
+            groups:
+              enum: [emac_v18]
+
+            power-source:
+              $ref: pincfg-node.yaml#/properties/power-source
+              enum: [1800, 3300]
+              description: 1800 is for 1.8v mode, 3300 is for 3.3v mode.
+
+          additionalProperties: false
+
+        - type: object
+
+          properties:
+            pins:
+              enum: [EMAC0_RGMII_MDIO, EMAC1_RGMII_MDIO]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+            drive-strength:
+              $ref: pincfg-node.yaml#/properties/drive-strength
+              enum: [0, 2, 4, 6, 8, 10, 12]
+              description: 0mA puts the pads in high impedance mode.
+            input-schmitt-enable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
+            input-schmitt-disable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
+            slew-rate:
+              $ref: pincfg-node.yaml#/properties/slew-rate
+              enum: [0, 3]
+              default: 3
+              description: |
+                0: Lower Slew rate (slower edges)
+                3: Higher Slew rate (faster edges)
+
+          additionalProperties: false
+
+        - type: object
+
+          properties:
+            pins:
+              enum: [EMAC0_RGMII_MDC, EMAC0_RGMII_TXC, EMAC1_RGMII_MDC,
+                     EMAC1_RGMII_TXC]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+            drive-strength:
+              $ref: pincfg-node.yaml#/properties/drive-strength
+              enum: [0, 2, 4, 6, 8, 10, 12]
+              description: 0mA puts the pads in high impedance mode.
+            input-schmitt-enable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
+            input-schmitt-disable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
+
+          additionalProperties: false
+
+required:
+  - compatible
+  - elvees,hsurb-syscon
+  - '#address-cells'
+  - '#size-cells'
+
+examples:
+  - |
+    pinctrl: pinctrl-hsperiph {
+        compatible = "elvees,mcom03-hsperiph-pinctrl";
+        #address-cells = <0>;
+        #size-cells = <0>;
+        elvees,hsurb-syscon = <&hsurb>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&hsperiph_misc_global>;
+
+        sdhci0_default: sdhci0-default {
+            ctrl {
+                groups = "sdmmc0_ctrl";
+                elvees,pad-enable;
+            };
+            data {
+                groups = "sdmmc0_data";
+                bias-pull-up;
+            };
+            cmd {
+                pins = "SDMMC0_CMD";
+                bias-pull-up;
+            };
+        };
+
+        hsperiph_misc_global: hsperiph-misc-global {
+            misc {
+                groups = "hsperiph_misc";
+                elvees,pad-enable;
+            };
+        };
+    };
