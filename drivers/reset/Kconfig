@@ -247,6 +247,12 @@ config RESET_ZYNQ
 	help
 	  This enables the reset controller driver for Xilinx Zynq SoCs.
 
+config RESET_MCOM03_HSPERIPH
+	bool "MCom-03 HSPERIPH reset driver" if COMPILE_TEST
+	default ARCH_MCOM03
+	help
+	  This enables the reset controller driver for HSPERIPH in MCom-03 SoC.
+
 source "drivers/reset/sti/Kconfig"
 source "drivers/reset/hisilicon/Kconfig"
 source "drivers/reset/tegra/Kconfig"
