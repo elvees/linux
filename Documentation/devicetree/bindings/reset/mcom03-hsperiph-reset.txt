@@ -1,0 +1,31 @@
+MCom-03 HSPERIPH reset controller
+=================================
+
+Required properties:
+- compatible : "elvees,mcom03-hsperiph-reset"
+- reg : register offset and size in HSPERIPH Universal Register Block (URB)
+- urb : phandle to HSPERIPH URB node
+- #reset-cells: 1
+
+Please also refer to reset.txt in this directory for common reset
+controller binding usage.
+
+Example:
+	hsperiph@0 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		hsurb: urb@10400000 {
+			compatible = "elvees,mcom03-urb", "syscon";
+			reg = <0x10400000 0x200>;
+		};
+
+		hsreset: reset-controller@8 {
+			compatible = "elvees,mcom03-hsperiph-reset";
+			reg = <0x8 0x4>;
+			urb = <&hsurb>;
+			#reset-cells = <1>;
+		};
+	};
