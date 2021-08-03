@@ -349,6 +349,7 @@ struct adv7511 {
 
 	struct drm_bridge bridge;
 	struct drm_connector connector;
+	struct drm_encoder encoder;
 
 	bool embedded_sync;
 	enum adv7511_sync_polarity vsync_polarity;

@@ -6,6 +6,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/component.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
@@ -17,6 +18,7 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_edid.h>
+#include <drm/drm_of.h>
 
 #include <media/cec.h>
 
@@ -1089,6 +1091,68 @@ static int adv7511_parse_dt(struct device_node *np,
 	return 0;
 }
 
+static void adv7511_encoder_destroy(struct drm_encoder *encoder)
+{
+	drm_encoder_cleanup(encoder);
+}
+
+static const struct drm_encoder_funcs adv7511_encoder_funcs = {
+	.destroy = adv7511_encoder_destroy,
+};
+
+/* FIXME: Attach TMDS (HDMI) encoder and add component_add() call
+ * to make it possible to use this driver with display controller
+ * drivers based on the component framework. This is a temporary
+ * solution. The code will be moved to separate driver in future.
+ */
+static int adv7511_bind(struct device *dev, struct device *master, void *data)
+{
+	struct drm_device *drm = data;
+	struct adv7511 *priv = dev_get_drvdata(dev);
+	u32 crtcs = 0;
+	int ret;
+
+	if (dev->of_node)
+		crtcs = drm_of_find_possible_crtcs(drm, dev->of_node);
+
+	/* If no CRTCs were found, fall back to our old behaviour */
+	if (crtcs == 0) {
+		dev_warn(dev, "Falling back to first CRTC\n");
+		crtcs = 1 << 0;
+	}
+
+	priv->encoder.possible_crtcs = crtcs;
+
+	ret = drm_encoder_init(drm, &priv->encoder, &adv7511_encoder_funcs,
+			       DRM_MODE_ENCODER_TMDS, NULL);
+	if (ret)
+		goto err_encoder;
+
+	ret = drm_bridge_attach(&priv->encoder, &priv->bridge, NULL);
+	if (ret)
+		goto err_bridge;
+
+	return 0;
+
+err_bridge:
+	drm_encoder_cleanup(&priv->encoder);
+err_encoder:
+	return ret;
+}
+
+static void adv7511_unbind(struct device *dev, struct device *master,
+			   void *data)
+{
+	struct adv7511 *priv = dev_get_drvdata(dev);
+
+	drm_encoder_cleanup(&priv->encoder);
+}
+
+static const struct component_ops adv7511_ops = {
+	.bind = adv7511_bind,
+	.unbind = adv7511_unbind,
+};
+
 static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 {
 	struct adv7511_link_config link_config;
@@ -1103,6 +1167,8 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	adv7511 = devm_kzalloc(dev, sizeof(*adv7511), GFP_KERNEL);
 	if (!adv7511)
 		return -ENOMEM;
+
+	dev_set_drvdata(dev, adv7511);
 
 	adv7511->i2c_main = i2c;
 	adv7511->powered = false;
@@ -1222,8 +1288,15 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	drm_bridge_add(&adv7511->bridge);
 
 	adv7511_audio_init(dev, adv7511);
+	ret = component_add(&i2c->dev, &adv7511_ops);
+	if (ret)
+		goto err_bridge_remove;
+
 	return 0;
 
+err_bridge_remove:
+	drm_bridge_remove(&adv7511->bridge);
+	adv7511_audio_exit(adv7511);
 err_unregister_cec:
 	i2c_unregister_device(adv7511->i2c_cec);
 	if (adv7511->cec_clk)
@@ -1242,6 +1315,7 @@ static int adv7511_remove(struct i2c_client *i2c)
 {
 	struct adv7511 *adv7511 = i2c_get_clientdata(i2c);
 
+	component_del(&i2c->dev, &adv7511_ops);
 	if (adv7511->type == ADV7533)
 		adv7533_detach_dsi(adv7511);
 	i2c_unregister_device(adv7511->i2c_cec);
