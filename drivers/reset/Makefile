@@ -24,4 +24,4 @@ obj-$(CONFIG_RESET_TI_SYSCON) += reset-ti-syscon.o
 obj-$(CONFIG_RESET_UNIPHIER) += reset-uniphier.o
 obj-$(CONFIG_RESET_UNIPHIER_USB3) += reset-uniphier-usb3.o
 obj-$(CONFIG_RESET_ZYNQ) += reset-zynq.o
-obj-$(CONFIG_RESET_MCOM03_HSPERIPH) += reset-mcom03-hsperiph.o
+obj-$(CONFIG_RESET_MCOM03) += reset-mcom03.o
