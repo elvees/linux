@@ -20,14 +20,66 @@
 #define WRITE_ENABLE_OFFSET	16
 
 static const unsigned int nr_resets[MCOM03_SUBSYSTEM_MAX] = {
+	[MCOM03_SUBSYSTEM_MEDIA] = 4,
 	[MCOM03_SUBSYSTEM_HSPERIPH] = 10
 };
+
+#define PP_MASK		GENMASK(4, 0)
+#define PP_ON		BIT(4)
+#define PP_WARM_RST	BIT(3)
+#define PP_OFF		BIT(0)
+
+#define BTN_RST_N	BIT(1)
 
 struct mcom03_reset_private {
 	struct reset_controller_dev rcdev;
 	struct regmap *urb;
 	u32 offset;
 	u32 subsystem;
+};
+
+static int mcom03_reset_media_assert(struct reset_controller_dev *rcdev,
+				     unsigned long id)
+{
+	struct mcom03_reset_private *priv =
+		(struct mcom03_reset_private *)rcdev;
+
+	return regmap_update_bits(priv->urb, priv->offset + 0x8 * id,
+				  PP_MASK, PP_WARM_RST);
+}
+
+static int mcom03_reset_media_deassert(struct reset_controller_dev *rcdev,
+				       unsigned long id)
+{
+	struct mcom03_reset_private *priv =
+		(struct mcom03_reset_private *)rcdev;
+
+	return regmap_update_bits(priv->urb, priv->offset + 0x8 * id,
+				  PP_MASK, PP_ON);
+}
+
+static int mcom03_reset_media_status(struct reset_controller_dev *rcdev,
+				     unsigned long id)
+{
+	struct mcom03_reset_private *priv =
+		(struct mcom03_reset_private *)rcdev;
+	unsigned long reg;
+	int ret;
+
+	ret = regmap_read(priv->urb, priv->offset + 0x8 * id + 0x4,
+			  (unsigned int *)&reg);
+	if (ret)
+		return ret;
+
+	reg = (reg & PP_MASK) == PP_WARM_RST;
+
+	return reg;
+}
+
+static const struct reset_control_ops mcom03_reset_media_ops = {
+	.assert		= mcom03_reset_media_assert,
+	.deassert	= mcom03_reset_media_deassert,
+	.status		= mcom03_reset_media_status,
 };
 
 static int mcom03_reset_hsperiph_assert(struct reset_controller_dev *rcdev,
@@ -124,6 +176,9 @@ static int mcom03_reset_probe(struct platform_device *pdev)
 	priv->rcdev.nr_resets = nr_resets[priv->subsystem];
 
 	switch (priv->subsystem) {
+	case MCOM03_SUBSYSTEM_MEDIA:
+		priv->rcdev.ops = &mcom03_reset_media_ops;
+		break;
 	case MCOM03_SUBSYSTEM_HSPERIPH:
 		priv->rcdev.ops = &mcom03_reset_hsperiph_ops;
 		break;
