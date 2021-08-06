@@ -18,6 +18,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/pm_runtime.h>
 #include <linux/debugfs.h>
+#include <linux/reset.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
@@ -600,6 +601,8 @@ static int malidp_runtime_pm_suspend(struct device *dev)
 	clk_disable_unprepare(hwdev->aclk);
 	clk_disable_unprepare(hwdev->pclk);
 
+	reset_control_assert(hwdev->reset);
+
 	return 0;
 }
 
@@ -612,6 +615,9 @@ static int malidp_runtime_pm_resume(struct device *dev)
 	clk_prepare_enable(hwdev->pclk);
 	clk_prepare_enable(hwdev->aclk);
 	clk_prepare_enable(hwdev->mclk);
+
+	reset_control_deassert(hwdev->reset);
+
 	hwdev->pm_suspended = false;
 	malidp_de_irq_hw_init(hwdev);
 	malidp_se_irq_hw_init(hwdev);
@@ -664,6 +670,10 @@ static int malidp_bind(struct device *dev)
 	hwdev->pxlclk = devm_clk_get(dev, "pxlclk");
 	if (IS_ERR(hwdev->pxlclk))
 		return PTR_ERR(hwdev->pxlclk);
+
+	hwdev->reset = devm_reset_control_get(dev, NULL);
+	if (IS_ERR(hwdev->reset))
+		return PTR_ERR(hwdev->reset);
 
 	/* Get the optional framebuffer memory resource */
 	ret = of_reserved_mem_device_init(dev);
