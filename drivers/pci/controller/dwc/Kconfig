@@ -312,4 +312,12 @@ config PCIE_AL
 	  required only for DT-based platforms. ACPI platforms with the
 	  Annapurna Labs PCIe controller don't need to enable this.
 
+config PCIE_MCOM03
+	tristate "ELVEES MCom-03 SoC PCIe controller"
+	depends on OF && (ARCH_MCOM03 || COMPILE_TEST)
+	depends on PCI_MSI_IRQ_DOMAIN
+	select PCIE_DW_HOST
+	help
+          Say Y here if you want PCIe controller support on ELVEES MCom-03 SoC
+
 endmenu
