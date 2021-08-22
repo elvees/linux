@@ -580,6 +580,16 @@ struct gpio_desc *gpiochip_request_own_desc(struct gpio_chip *chip, u16 hwnum,
 					    const char *label);
 void gpiochip_free_own_desc(struct gpio_desc *desc);
 
+#ifdef CONFIG_GPIO_ACPI
+
+void acpi_gpiochip_request_interrupts(struct gpio_chip *chip);
+
+#else
+
+static inline void
+acpi_gpiochip_request_interrupts(struct gpio_chip *chip) { }
+
+#endif
 #else /* CONFIG_GPIOLIB */
 
 static inline struct gpio_chip *gpiod_to_chip(const struct gpio_desc *desc)

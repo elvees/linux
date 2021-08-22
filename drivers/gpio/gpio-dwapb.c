@@ -29,8 +29,6 @@
 #include <linux/platform_data/gpio-dwapb.h>
 #include <linux/slab.h>
 
-#include "gpiolib.h"
-
 #define GPIO_SWPORTA_DR		0x00
 #define GPIO_SWPORTA_DDR	0x04
 #define GPIO_SWPORTB_DR		0x0c

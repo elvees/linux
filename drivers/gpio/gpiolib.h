@@ -124,7 +124,6 @@ static inline void of_gpiochip_remove(struct gpio_chip *gc) { }
 void acpi_gpiochip_add(struct gpio_chip *chip);
 void acpi_gpiochip_remove(struct gpio_chip *chip);
 
-void acpi_gpiochip_request_interrupts(struct gpio_chip *chip);
 void acpi_gpiochip_free_interrupts(struct gpio_chip *chip);
 
 int acpi_gpio_update_gpiod_flags(enum gpiod_flags *flags,
@@ -145,9 +144,6 @@ bool acpi_can_fallback_to_crs(struct acpi_device *adev, const char *con_id);
 #else
 static inline void acpi_gpiochip_add(struct gpio_chip *chip) { }
 static inline void acpi_gpiochip_remove(struct gpio_chip *chip) { }
-
-static inline void
-acpi_gpiochip_request_interrupts(struct gpio_chip *chip) { }
 
 static inline void
 acpi_gpiochip_free_interrupts(struct gpio_chip *chip) { }
