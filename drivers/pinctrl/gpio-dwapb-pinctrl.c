@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2011 Jamie Iles
+ * Copyright 2021 RnD Center "ELVEES", JSC
  *
  * All enquiries to support@picochip.com
  */
@@ -25,8 +26,6 @@
 #include <linux/platform_data/gpio-dwapb.h>
 #include <linux/slab.h>
 
-#include "gpiolib.h"
-#include "gpiolib-acpi.h"
 
 #define GPIO_SWPORTA_DR		0x00
 #define GPIO_SWPORTA_DDR	0x04

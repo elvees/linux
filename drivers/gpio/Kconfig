@@ -224,14 +224,6 @@ config GPIO_DAVINCI
 	help
 	  Say yes here to enable GPIO support for TI Davinci/Keystone SoCs.
 
-config GPIO_DWAPB
-	tristate "Synopsys DesignWare APB GPIO driver"
-	select GPIO_GENERIC
-	select GPIOLIB_IRQCHIP
-	help
-	  Say Y or M here to build support for the Synopsys DesignWare APB
-	  GPIO block.
-
 config GPIO_EIC_SPRD
 	tristate "Spreadtrum EIC support"
 	depends on ARCH_SPRD || COMPILE_TEST

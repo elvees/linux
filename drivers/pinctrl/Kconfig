@@ -145,6 +145,16 @@ config PINCTRL_DIGICOLOR
 	select PINMUX
 	select GENERIC_PINCONF
 
+config PINCTRL_DWAPB
+	tristate "Synopsys DesignWare APB GPIO driver"
+	depends on HAS_IOMEM
+	select GPIOLIB
+	select GPIO_GENERIC
+	select GENERIC_IRQ_CHIP
+	help
+	  Say Y or M here to build support for the Synopsys DesignWare APB
+	  GPIO block.
+
 config PINCTRL_LANTIQ
 	bool
 	depends on LANTIQ
