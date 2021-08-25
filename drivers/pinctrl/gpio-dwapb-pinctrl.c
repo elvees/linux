@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011 Jamie Iles
+ * Copyright 2021 RnD Center "ELVEES", JSC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
