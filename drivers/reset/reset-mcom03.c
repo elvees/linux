@@ -20,8 +20,48 @@
 #define WRITE_ENABLE_OFFSET	16
 
 static const unsigned int nr_resets[MCOM03_SUBSYSTEM_MAX] = {
+	[MCOM03_SUBSYSTEM_SDR] = 26,
 	[MCOM03_SUBSYSTEM_MEDIA] = 4,
 	[MCOM03_SUBSYSTEM_HSPERIPH] = 10
+};
+
+enum rst_reg_type {
+	RST_PP,
+	RST_MONO,
+};
+
+struct sdr_reset {
+	u32 id;
+	u32 offset;
+	enum rst_reg_type type;
+};
+
+static const struct sdr_reset sdr_reset_map[] = {
+	{
+		.id = SDR_RST_DSP0,
+		.offset = 0x0,
+		.type = RST_PP,
+	},
+	{
+		.id = SDR_RST_DSP1,
+		.offset = 0x8,
+		.type = RST_PP,
+	},
+	{
+		.id = SDR_RST_EXT_ICT,
+		.offset = 0x30,
+		.type = RST_MONO,
+	},
+	{
+		.id = SDR_RST_BBD_ICT,
+		.offset = 0x34,
+		.type = RST_MONO,
+	},
+	{
+		.id = SDR_RST_PCI_ICT,
+		.offset = 0x38,
+		.type = RST_MONO,
+	},
 };
 
 #define PP_MASK		GENMASK(4, 0)
@@ -29,13 +69,118 @@ static const unsigned int nr_resets[MCOM03_SUBSYSTEM_MAX] = {
 #define PP_WARM_RST	BIT(3)
 #define PP_OFF		BIT(0)
 
-#define BTN_RST_N	BIT(1)
+#define RST_MONO_ON	BIT(0)
 
 struct mcom03_reset_private {
 	struct reset_controller_dev rcdev;
 	struct regmap *urb;
 	u32 offset;
 	u32 subsystem;
+};
+
+static int mcom03_reset_sdr_assert(struct reset_controller_dev *rcdev,
+				   unsigned long id)
+{
+	int i;
+	struct mcom03_reset_private *priv =
+		(struct mcom03_reset_private *)rcdev;
+	const struct sdr_reset *desc = NULL;
+
+	for (i = 0; i < sizeof(sdr_reset_map); i++) {
+		if (sdr_reset_map[i].id == id) {
+			desc = &sdr_reset_map[i];
+			break;
+		}
+	}
+	if (!desc)
+		return -ENOTSUPP;
+
+	switch (desc->type) {
+	case RST_PP:
+		return regmap_update_bits(priv->urb,
+					  priv->offset + desc->offset,
+					  PP_MASK, PP_WARM_RST);
+	case RST_MONO:
+		return regmap_write(priv->urb,
+				    priv->offset + desc->offset, 0);
+	}
+	return 0;
+}
+
+static int mcom03_reset_sdr_deassert(struct reset_controller_dev *rcdev,
+				     unsigned long id)
+{
+	int i;
+	struct mcom03_reset_private *priv =
+		(struct mcom03_reset_private *)rcdev;
+	const struct sdr_reset *desc = NULL;
+
+	for (i = 0; i < sizeof(sdr_reset_map); i++) {
+		if (sdr_reset_map[i].id == id) {
+			desc = &sdr_reset_map[i];
+			break;
+		}
+	}
+	if (!desc)
+		return -ENOTSUPP;
+
+	switch (desc->type) {
+	case RST_PP:
+		return regmap_update_bits(priv->urb,
+					  priv->offset + desc->offset,
+					  PP_MASK, PP_ON);
+	case RST_MONO:
+		return regmap_write(priv->urb,
+				    priv->offset + desc->offset,
+				    RST_MONO_ON);
+	}
+	return 0;
+}
+
+static int mcom03_reset_sdr_status(struct reset_controller_dev *rcdev,
+				   unsigned long id)
+{
+	int i;
+	struct mcom03_reset_private *priv =
+		(struct mcom03_reset_private *)rcdev;
+	unsigned int reg;
+	int ret;
+	const struct sdr_reset *desc = NULL;
+
+	for (i = 0; i < sizeof(sdr_reset_map); i++) {
+		if (sdr_reset_map[i].id == id) {
+			desc = &sdr_reset_map[i];
+			break;
+		}
+	}
+	if (!desc)
+		return -ENOTSUPP;
+
+
+	switch (desc->type) {
+	case RST_PP:
+		ret = regmap_read(priv->urb,
+				  priv->offset + desc->offset + 0x4,
+				  &reg);
+		reg = (reg & PP_MASK) == PP_WARM_RST;
+		break;
+	case RST_MONO:
+		ret = regmap_read(priv->urb,
+				  priv->offset + desc->offset,
+				  &reg);
+		reg = !!reg;
+		break;
+	}
+	if (ret)
+		return ret;
+
+	return reg;
+}
+
+static const struct reset_control_ops mcom03_reset_sdr_ops = {
+	.assert		= mcom03_reset_sdr_assert,
+	.deassert	= mcom03_reset_sdr_deassert,
+	.status		= mcom03_reset_sdr_status,
 };
 
 static int mcom03_reset_media_assert(struct reset_controller_dev *rcdev,
@@ -176,6 +321,9 @@ static int mcom03_reset_probe(struct platform_device *pdev)
 	priv->rcdev.nr_resets = nr_resets[priv->subsystem];
 
 	switch (priv->subsystem) {
+	case MCOM03_SUBSYSTEM_SDR:
+		priv->rcdev.ops = &mcom03_reset_sdr_ops;
+		break;
 	case MCOM03_SUBSYSTEM_MEDIA:
 		priv->rcdev.ops = &mcom03_reset_media_ops;
 		break;
