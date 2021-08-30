@@ -1529,23 +1529,14 @@ struct ov2718_mode {
 struct ov2718_priv {
 	struct v4l2_subdev subdev;
 	struct v4l2_ctrl_handler hdl;
-	struct {
-		/* gain cluster */
-		struct v4l2_ctrl *auto_gain;
-		struct v4l2_ctrl *gain;
-	};
+	struct v4l2_ctrl *gain;
 	struct {
 		/* exposure cluster */
-		struct v4l2_ctrl *auto_exp;
 		struct v4l2_ctrl *exp;
 		struct v4l2_ctrl *exp_abs;
 	};
-	struct {
-		/* white balance cluster */
-		struct v4l2_ctrl *awb;
-		struct v4l2_ctrl *red_balance;
-		struct v4l2_ctrl *blue_balance;
-	};
+	struct v4l2_ctrl *red_balance;
+	struct v4l2_ctrl *blue_balance;
 	struct v4l2_ctrl *hflip;
 	struct v4l2_ctrl *vflip;
 	const struct ov2718_reg *regs_init;
@@ -1733,8 +1724,8 @@ static u16 balance_to_gain(s32 balance)
 	return 256 * (128 + balance) / (128 - balance);
 }
 
-static int ov2718_set_white_balance(struct i2c_client *client,
-				    s32 red_balance, s32 blue_balance)
+static int ov2718_set_red_balance(struct i2c_client *client,
+				  s32 red_balance)
 {
 	u16 gain;
 	int ret;
@@ -1745,8 +1736,14 @@ static int ov2718_set_white_balance(struct i2c_client *client,
 	if (ret)
 		return ret;
 	ret = reg_write(client, REG_RED_GAIN_HCG_LOW, gain & 0xff);
-	if (ret)
-		return ret;
+	return ret;
+}
+
+static int ov2718_set_blue_balance(struct i2c_client *client,
+				   s32 blue_balance)
+{
+	u16 gain;
+	int ret;
 
 	// Set blue gain
 	gain = balance_to_gain(blue_balance);
@@ -1958,10 +1955,10 @@ static int ov2718_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	// Note: Autogain, AE & AWB are not working - no support by sensor.
 	switch (ctrl->id) {
-	case V4L2_CID_AUTOGAIN:
+	case V4L2_CID_GAIN:
 		return ov2718_set_gain(client, priv->gain->val);
 
-	case V4L2_CID_EXPOSURE_AUTO: {
+	case V4L2_CID_EXPOSURE: {
 		u32 exposure;
 
 		if (priv->exp_abs->is_new) {
@@ -1976,9 +1973,11 @@ static int ov2718_s_ctrl(struct v4l2_ctrl *ctrl)
 		return ov2718_set_exposure(client, exposure);
 	}
 
-	case V4L2_CID_AUTO_WHITE_BALANCE:
-		return ov2718_set_white_balance(client, priv->red_balance->val,
-						priv->blue_balance->val);
+	case V4L2_CID_RED_BALANCE:
+		return ov2718_set_red_balance(client, priv->red_balance->val);
+
+	case V4L2_CID_BLUE_BALANCE:
+		return ov2718_set_blue_balance(client, priv->blue_balance->val);
 
 	case V4L2_CID_HFLIP:
 		return ov2718_set_hflip(client, ctrl->val);
@@ -2055,8 +2054,11 @@ static int ov2718_s_power(struct v4l2_subdev *sd, int on)
 	if (ret < 0)
 		return ret;
 
-	return ov2718_set_white_balance(client, priv->red_balance->cur.val,
-					priv->blue_balance->cur.val);
+	ret = ov2718_set_red_balance(client, priv->red_balance->cur.val);
+	if (ret < 0)
+		return ret;
+
+	return ov2718_set_blue_balance(client, priv->blue_balance->cur.val);
 }
 
 static const struct v4l2_ctrl_ops ov2718_ctrl_ops = {
@@ -2152,22 +2154,12 @@ static int ov2718_probe(struct i2c_client *client,
 
 	v4l2_i2c_subdev_init(&priv->subdev, client, &ov2718_subdev_ops);
 	v4l2_ctrl_handler_init(&priv->hdl, 0);
-	priv->auto_gain = v4l2_ctrl_new_std(&priv->hdl, &ov2718_ctrl_ops,
-		V4L2_CID_AUTOGAIN, 0, 1, 1, 0);
-	priv->auto_gain->is_private = 1;
 	priv->gain = v4l2_ctrl_new_std(&priv->hdl, &ov2718_ctrl_ops,
 		V4L2_CID_GAIN, 0, 95, 1, 0);
-	priv->auto_exp = v4l2_ctrl_new_std_menu(&priv->hdl, &ov2718_ctrl_ops,
-		V4L2_CID_EXPOSURE_AUTO,
-		V4L2_EXPOSURE_MANUAL, 0, V4L2_EXPOSURE_MANUAL);
-	priv->auto_exp->is_private = 1;
 	priv->exp = v4l2_ctrl_new_std(&priv->hdl, &ov2718_ctrl_ops,
 		V4L2_CID_EXPOSURE, 1, 17600, 1, 17280);
 	priv->exp_abs = v4l2_ctrl_new_std(&priv->hdl, &ov2718_ctrl_ops,
 		V4L2_CID_EXPOSURE_ABSOLUTE, 1, 332, 1, 326);
-	priv->awb = v4l2_ctrl_new_std(&priv->hdl, &ov2718_ctrl_ops,
-		V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
-	priv->awb->is_private = 1;
 	priv->red_balance = v4l2_ctrl_new_std(&priv->hdl, &ov2718_ctrl_ops,
 		V4L2_CID_RED_BALANCE, -112, 112, 1, 0);
 	priv->red_balance->is_private = 1;
@@ -2181,9 +2173,7 @@ static int ov2718_probe(struct i2c_client *client,
 	priv->subdev.ctrl_handler = &priv->hdl;
 	if (priv->hdl.error)
 		return priv->hdl.error;
-	v4l2_ctrl_cluster(2, &priv->auto_gain);
-	v4l2_ctrl_cluster(3, &priv->auto_exp);
-	v4l2_ctrl_cluster(3, &priv->awb);
+	v4l2_ctrl_cluster(2, &priv->exp);
 	v4l2_ctrl_handler_setup(&priv->hdl);
 	v4l2_async_register_subdev(&priv->subdev);
 
