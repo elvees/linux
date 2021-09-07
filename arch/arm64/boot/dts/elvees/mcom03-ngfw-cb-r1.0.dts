@@ -1,0 +1,202 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03.dtsi"
+
+/ {	model = "MCom-03 NGFW-CB r1.0";
+	compatible = "elvees,mcom03-ngfw-cb-r1.0";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		cpu_reserved: cpu_reserved@C0000000 {
+			reg = <0 0xC0080000 0 0x1000>;
+			no-map;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+	clock-frequency = <27000000>;
+};
+
+&sdhci0 {
+	status = "okay";
+
+	/* Unstable at 25 MHz on NGFW CB */
+	max-frequency = <12000000>;
+	non-removable;
+	bus-width = <8>;
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Unstable at 25 MHz on NGFW CB */
+	max-frequency = <12000000>;
+
+	/* Disable High Speed support
+	 * Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4200000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&timer0 {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&gpio1d {
+	/* RESET_nOUT signal should be high for LAN, WAN, PEX, USB HUB) */
+	reset-nout-hog {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&i2c0 {
+	/* USB HUB USB5807 supports only 100kHz */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	usb-hub@2d {
+		/* USB HUB USB5807 is supported by driver usb4604 */
+		compatible = "smsc,usb4604";
+		reg = <0x2d>;
+		reset-gpios = <&gpio_exp 4 GPIO_ACTIVE_HIGH>;
+		initial-mode = <1>;
+	};
+};
+
+&i2c1 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	adv7513: hdmi@39 {
+		compatible = "adi,adv7513";
+		reg = <0x39>, <0x3f>;
+		reg-names = "main", "edid";
+		interrupt-parent = <&gpio1a>;
+		interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+		adi,input-depth = <8>;
+		adi,input-colorspace = "rgb";
+		adi,input-clock = "1x";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			adv7513_in: endpoint {
+				remote-endpoint = <&dp_out>;
+			};
+		};
+	};
+};
+
+&i2c2 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	gpio_exp: gpio-expander@22 {
+		compatible = "ti,tca6424";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupts-extended = <&gpio0a 3 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		gpio-line-names =
+			"WAN_nRST", "LAN_nRST", "WAN_nPERST", "LAN_nPERST",
+			"USB_HUB_nRST", "PEX_THRM_ALERT", "PE_X4_nRST",
+			"PE_X4_nPRSNT", "WIFI_nPERST", "WIFI_nDISABLE_1",
+			"WIFI_nDISABLE_2", "mPCIE_PERST", "mPCIE_WDISABLE",
+			"5G_RESET", "5G_nPOWER_OFF", "5G_nPERSTR",
+			"5G_nW_DISABLE1", "5G_nW_DISABLE1", "EN_3V3_WIFI",
+			"EN_3V3_mPCIe", "EN_3V8_5G", "EN_3V3_SATA", "EN_5V_USB",
+			"USER_LED";
+		usb-hub-hog {
+			gpio-hog;
+			gpios = <22 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		wan-hog {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_HIGH>, <2 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		lan-hog {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_HIGH>, <3 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		pe-x4-hog {
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		wifi-hog {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_HIGH>, <9 GPIO_ACTIVE_HIGH>,
+				<10 GPIO_ACTIVE_HIGH>, <18 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		mpcie-hog {
+			gpio-hog;
+			gpios = <11 GPIO_ACTIVE_HIGH>, <12 GPIO_ACTIVE_HIGH>,
+				<19 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		5g-hog {
+			gpio-hog;
+			gpios = <13 GPIO_ACTIVE_LOW>, <14 GPIO_ACTIVE_HIGH>,
+				<15 GPIO_ACTIVE_HIGH>, <16 GPIO_ACTIVE_HIGH>,
+				<17 GPIO_ACTIVE_HIGH>, <20 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+	};
+};
+
+&i2c3 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&dp {
+	status = "okay";
+	port {
+		dp_out: endpoint {
+			remote-endpoint = <&adv7513_in>;
+		};
+	};
+};
