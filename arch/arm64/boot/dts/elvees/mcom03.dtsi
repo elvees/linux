@@ -1,0 +1,668 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 RnD Center "ELVEES", JSC
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/soc/elvees,mcom03.h>
+
+/ {
+	compatible = "elvees,mcom03";
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			compatible = "arm,cortex-a53", "arm,armv8";
+			device_type = "cpu";
+			enable-method = "psci";
+			reg = <0x0>;
+			i-cache-size = <0x8000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <128>;
+			next-level-cache = <&l2>;
+		};
+
+		cpu1: cpu@1 {
+			compatible = "arm,cortex-a53", "arm,armv8";
+			device_type = "cpu";
+			enable-method = "psci";
+			reg = <0x1>;
+			i-cache-size = <0x8000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <128>;
+			next-level-cache = <&l2>;
+		};
+
+		cpu2: cpu@2 {
+			compatible = "arm,cortex-a53", "arm,armv8";
+			device_type = "cpu";
+			enable-method = "psci";
+			reg = <0x2>;
+			i-cache-size = <0x8000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <128>;
+			next-level-cache = <&l2>;
+		};
+
+		cpu3: cpu@3 {
+			compatible = "arm,cortex-a53", "arm,armv8";
+			device_type = "cpu";
+			enable-method = "psci";
+			reg = <0x3>;
+			i-cache-size = <0x8000>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <0x8000>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <128>;
+			next-level-cache = <&l2>;
+		};
+
+		l2: cache {
+			cache-unified;
+			cache-size = <0x100000>;
+			cache-line-size = <64>;
+			cache-sets = <1024>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	wdt0: watchdog@1f080000 {
+		compatible = "snps,dw-wdt";
+		reg = < 0 0x1f080000 0 0x1000>;
+		/* TODO: Add clocks property here */
+	};
+
+	pmu {
+		compatible = "arm,cortex-a53-pmu";
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	gic: interrupt-controller@1100000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		reg = <0 0x1100000 0 0x10000>, /* GICD */
+		      <0 0x1180000 0 0x80000>; /* GICR */
+		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	media@1200000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		media_urb: urb@1320000 {
+			compatible = "elvees,mcom03-urb", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0 0x1320000 0 0x10000>;
+			ranges = <0 0 0 0x10000>;
+
+			media_reset: reset-controller@1000 {
+				compatible = "elvees,mcom03-reset";
+				reg = <0x1000 0x20>;
+				elvees,subsystem = <MCOM03_SUBSYSTEM_MEDIA>;
+				#reset-cells = <1>;
+			};
+		};
+
+		gpu: gpu@1200000 {
+			compatible = "img,gpu";
+			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0 0x1200000 0 0x80000>;
+			resets = <&media_reset MEDIA_RST_GPU>;
+			status = "disabled";
+		};
+
+		vpu: vpu@1280000 {
+			compatible = "arm,mali-v500";
+			interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0 0x1280000 0 0x10000>;
+			resets = <&media_reset MEDIA_RST_VPU>;
+			status = "disabled";
+		};
+
+		isp: isp@12a0000 {
+			compatible = "img,v2505-isp";
+			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0 0x12a0000 0 0x10000>;
+			/* TODO: Add clocks property here */
+			clock-names = "core";
+			resets = <&media_reset MEDIA_RST_ISP>;
+			status = "disabled";
+		};
+
+		dp: dp@1300000 {
+			compatible = "arm,mali-dp550";
+			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "DE", "SE";
+			reg = <0 0x1300000 0 0x10000>;
+			resets = <&media_reset MEDIA_RST_DISPLAY>;
+			clocks = <&dp_dummy_clk>, <&dp_dummy_clk>,
+				 <&dp_pix_clk>, <&dp_pix_clk>;
+			clock-names = "pclk", "aclk", "mclk", "pxlclk";
+			arm,malidp-output-port-lines = /bits/ 8 <8 8 8>;
+			status = "disabled";
+		};
+	};
+
+	lsperiph0@1600000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		i2c0: i2c@1630000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			reg = <0 0x1630000 0 0x10000>;
+			clocks = <&i2c0_clk>;
+			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		uart1: serial0@1640000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0 0x1640000 0 0x1000>;
+			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		uart2: serial0@1650000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0 0x1650000 0 0x1000>;
+			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		uart3: serial0@1660000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0 0x1660000 0 0x1000>;
+			interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		gpio0: gpio@1610000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0 0x1610000 0 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpio0a: gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <0>;
+				bank-name = "gpioa";
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&gic>;
+				interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			gpio0b: gpio-controller@1 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <1>;
+				bank-name = "gpiob";
+			};
+
+			gpio0c: gpio-controller@2 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <2>;
+				bank-name = "gpioc";
+			};
+
+			gpio0d: gpio-controller@3 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <3>;
+				bank-name = "gpiod";
+			};
+		};
+	};
+
+	hsperiph@0 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		hsperiph_urb: urb@10400000 {
+			compatible = "elvees,mcom03-urb", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0 0x10400000 0 0x200>;
+			ranges = <0 0 0 0x200>;
+
+			hsperiph_reset: reset-controller@8 {
+				compatible = "elvees,mcom03-reset";
+				reg = <0x8 0x4>;
+				elvees,subsystem = <MCOM03_SUBSYSTEM_HSPERIPH>;
+				#reset-cells = <1>;
+			};
+		};
+
+		emac0: ethernet@10200000 {
+			compatible = "elvees,arasan-gemac";
+			reg = <0 0x10200000 0 0x1000>;
+			clocks = <&eth_bus_clk>;
+			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+			resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
+			elvees,ctrl-id = <0>;
+			status = "disabled";
+		};
+
+		emac1: ethernet@10210000 {
+			compatible = "elvees,arasan-gemac";
+			reg = <0 0x10210000 0 0x1000>;
+			clocks = <&eth_bus_clk>;
+			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+			resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
+			elvees,ctrl-id = <1>;
+			status = "disabled";
+		};
+
+		sdhci0: sdhci0@10220000 {
+			compatible = "elvees,mcom03-sdhci-8.9a";
+			reg = <0 0x10220000 0 0x10000>;
+			arasan,soc-ctl-syscon = <&hsperiph_urb>;
+			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+			/* Linux driver requires the following clock names */
+			clock-names = "clk_xin", "clk_ahb";
+			clocks = <&sdmmc_clk>, <&sdmmc_clk>;
+			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC0>;
+			elvees,ctrl-id = <0>;
+			status = "disabled";
+		};
+
+		sdhci1: sdhci1@10230000 {
+			compatible = "elvees,mcom03-sdhci-8.9a";
+			reg = <0 0x10230000 0 0x10000>;
+			arasan,soc-ctl-syscon = <&hsperiph_urb>;
+			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "clk_xin", "clk_ahb";
+			clocks = <&sdmmc_clk>, <&sdmmc_clk>;
+			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC1>;
+			elvees,ctrl-id = <1>;
+			status = "disabled";
+		};
+
+		qspi: spi@10260000 {
+			compatible = "silvaco,axi-qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0 0x10260000 0 0x10000>;
+			clock-names = "clk_axi", "clk_ext";
+			clocks = <&qspi_clk>, <&qspi_clk>;
+			resets = <&hsperiph_reset HSPERIPH_RST_QSPI>;
+			arasan,soc-ctl-syscon = <&hsperiph_urb>;
+			num-cs = <4>;
+			status = "disabled";
+		};
+
+		usb0: usb@10000000 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			compatible = "elvees,mcom03-dwc3";
+			clock-names = "bus_early", "ref", "suspend";
+			clocks = <&usb_bus_clk>, <&usb_suspend_clk>, <&usb_suspend_clk>;
+			resets = <&hsperiph_reset HSPERIPH_RST_USB0>;
+			status = "disabled";
+
+			dwc3@10000000 {
+				compatible = "snps,dwc3";
+				reg = <0 0x10000000 0 0x100000>;
+				interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+			};
+		};
+
+		usb1: usb@10100000 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			compatible = "elvees,mcom03-dwc3";
+			clock-names = "bus_early", "ref", "suspend";
+			clocks = <&usb_bus_clk>, <&usb_suspend_clk>, <&usb_suspend_clk>;
+			resets = <&hsperiph_reset HSPERIPH_RST_USB1>;
+			status = "disabled";
+
+			dwc3@10100000 {
+				compatible = "snps,dwc3";
+				reg = <0 0x10100000 0 0x100000>;
+				interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+			};
+		};
+	};
+
+	sdr@1900000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* For DeviceTree bindings see linux/modules/velcore3
+		 * repository
+		 */
+		qlic0: interrupt-controller@1940000 {
+			compatible = "elvees,qlic";
+			interrupt-controller;
+			targets = <16>;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0 0x1940000 0 0x40000>;
+			status = "disabled";
+		};
+
+		elcore0: elcore@1980000 {
+			compatible = "elvees,elcore50";
+			reg = <0 0x1980000 0 0x40000>,
+			      <0 0x3000000 0 0x200000>;
+			interrupt-parent = <&qlic0>;
+			interrupts = <16>, <17>, <18>,
+				     <19>, <20>;
+			status = "disabled";
+		};
+
+		elcore1: elcore@1c80000 {
+			compatible = "elvees,elcore50";
+			reg = <0 0x1C80000 0 0x40000>,
+			      <0 0x3200000 0 0x200000>;
+			interrupt-parent = <&qlic0>;
+			interrupts = <23>, <24>, <25>,
+				     <26>, <27>;
+			status = "disabled";
+		};
+	};
+
+	lsperiph1@1700000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		i2c1: i2c@1710000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			reg = <0 0x1710000 0 0x10000>;
+			clocks = <&i2c_clk>;
+			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@1720000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			reg = <0 0x1720000 0 0x10000>;
+			clocks = <&i2c_clk>;
+			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		i2c3: i2c@1730000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			reg = <0 0x1730000 0 0x10000>;
+			clocks = <&i2c_clk>;
+			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		uart0: serial0@1750000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0 0x1750000 0 0x1000>;
+			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		timer0: timer@1790000 {
+			compatible = "snps,dw-apb-timer";
+			reg = <0 0x1790000 0 0x14>;
+			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "timer";
+			clocks = <&xti_clk>;
+			status = "disabled";
+		};
+
+		timer1: timer@1790014 {
+			compatible = "snps,dw-apb-timer";
+			reg = <0 0x1790014 0 0x14>;
+			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "timer";
+			clocks = <&xti_clk>;
+			status = "disabled";
+		};
+
+		timer2: timer@1790028 {
+			compatible = "snps,dw-apb-timer";
+			reg = <0 0x1790028 0 0x14>;
+			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "timer";
+			clocks = <&xti_clk>;
+			status = "disabled";
+		};
+
+		timer3: timer@179003c {
+			compatible = "snps,dw-apb-timer";
+			reg = <0 0x179003C 0 0x14>;
+			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "timer";
+			clocks = <&xti_clk>;
+			status = "disabled";
+		};
+
+		timer4: timer@1790050 {
+			compatible = "snps,dw-apb-timer";
+			reg = <0 0x1790050 0 0x14>;
+			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "timer";
+			clocks = <&xti_clk>;
+			status = "disabled";
+		};
+
+		timer5: timer@1790064 {
+			compatible = "snps,dw-apb-timer";
+			reg = <0 0x1790064 0 0x14>;
+			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "timer";
+			clocks = <&xti_clk>;
+			status = "disabled";
+		};
+
+		timer6: timer@1790078 {
+			compatible = "snps,dw-apb-timer";
+			reg = <0 0x1790078 0 0x14>;
+			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "timer";
+			clocks = <&xti_clk>;
+			status = "disabled";
+		};
+
+		timer7: timer@179008c {
+			compatible = "snps,dw-apb-timer";
+			reg = <0 0x179008C 0 0x14>;
+			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "timer";
+			clocks = <&xti_clk>;
+			status = "disabled";
+		};
+
+		gpio1: gpio@1780000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0 0x1780000 0 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpio1a: gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <0>;
+				bank-name = "gpioa";
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&gic>;
+				interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			gpio1b: gpio-controller@1 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <1>;
+				bank-name = "gpiob";
+			};
+
+			gpio1c: gpio-controller@2 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <2>;
+				bank-name = "gpioc";
+			};
+
+			gpio1d: gpio-controller@3 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <3>;
+				bank-name = "gpiod";
+			};
+		};
+	};
+
+	cpu_clk: cpu_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <1400000000>;
+	};
+
+	xti_clk: xti_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <27000000>;
+	};
+
+	eth_bus_clk: eth_bus_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <125000000>;
+	};
+
+	sdmmc_clk: sdmmc_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <125000000>;
+	};
+
+	usb_suspend_clk: usb_suspend_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <25000000>;
+	};
+
+	usb_bus_clk: usb_bus_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <125000000>;
+	};
+
+	i2c0_clk: i2c0_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <94500000>;
+	};
+
+	i2c_clk: i2c_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <102375000>;
+	};
+
+	qspi_clk: qspi_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <25000000>;
+	};
+
+	dp_pix_clk: dp_pix_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <148500000>;
+	};
+
+	dp_dummy_clk: dp_dummy_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <594000000>;
+	};
+};

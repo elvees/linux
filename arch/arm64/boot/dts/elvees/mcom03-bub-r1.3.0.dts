@@ -1,0 +1,183 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03.dtsi"
+
+/ {	model = "MCom-03 Bring-Up Board r1.3.0";
+	compatible = "elvees,mcom03-bub-r1.3.0";
+
+	aliases {
+		serial0 = &uart0;
+		spi0 = &qspi;
+	};
+
+	adv7513_cec_clk: adv7513_cec_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12000000>;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		cpu_reserved: cpu_reserved@C0000000 {
+			reg = <0 0xC0080000 0 0x1000>;
+			no-map;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+	clock-frequency = <27000000>;
+};
+
+&sdhci0 {
+	status = "okay";
+
+	/* Disable High Speed support
+	 * Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4200000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&sdhci1 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+};
+
+&timer0 {
+	status = "okay";
+};
+
+&emac0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	phy-mode = "rgmii";
+	phy-handle = <&ethernet_phy0>;
+	phy-reset-gpios = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		reg = <0x1>;
+		txc-skew-ps = <2000>;
+		max-speed = <100>;
+	};
+};
+
+&emac1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	phy-mode = "rgmii";
+	phy-handle = <&ethernet_phy1>;
+	phy-reset-gpios = <&gpio0c 7 GPIO_ACTIVE_HIGH>;
+
+	ethernet_phy1: ethernet-phy@5 {
+		reg = <0x5>;
+		txc-skew-ps = <2000>;
+		max-speed = <100>;
+	};
+};
+
+&usb0 {
+	status = "okay";
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
+};
+
+&i2c0 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	fram1: fram1@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	fram2: fram2@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+
+	adv7513: hdmi@3d {
+		compatible = "adi,adv7513";
+		reg = <0x3d>, <0x3f>;
+		reg-names = "main", "edid";
+		interrupt-parent = <&gpio0a>;
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
+		clocks = <&adv7513_cec_clk>;
+		clock-names = "cec";
+		adi,input-depth = <8>;
+		adi,input-colorspace = "rgb";
+		adi,input-clock = "1x";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			adv7513_in: endpoint {
+				remote-endpoint = <&dp_out>;
+			};
+		};
+	};
+};
+
+&dp {
+	status = "okay";
+	port {
+		dp_out: endpoint {
+			remote-endpoint = <&adv7513_in>;
+		};
+	};
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	fram3: fram3@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+&vpu {
+	status = "okay";
+};
