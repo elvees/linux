@@ -1,0 +1,169 @@
+# SPDX-License-Identifier: GPL-2.0+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pinctrl/elvees,pinctrl-mcom03-lsperiph.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Pin controller for LSPERIPH0/1 subsystems in ELVEES MCom-03 SoC
+
+maintainers:
+  - Omar Al-Wadi <oalwadi@elvees.com>
+
+oneOf:
+  - properties:
+      compatible:
+        const: "elvees,mcom03-lsperiph0-pinctrl"
+    elvees,urb:
+      description:
+        A phandle to the syscon node describing URB registers.
+      $ref: /schemas/types.yaml#/definitions/phandle
+    '#address-cells':
+      const: 0
+    '#size-cells':
+      const: 0
+    additionalProperties:
+      if:
+        type: object
+      then:
+        additionalProperties:
+          type: object
+          properties:
+            pins:
+              enum: [GPIOA_0, GPIOA_1, GPIOA_2, GPIOA_3,
+                     GPIOA_4, GPIOA_5, GPIOA_6, GPIOA_7,
+                     GPIOB_0, GPIOB_1, GPIOB_2, GPIOB_3,
+                     GPIOB_4, GPIOB_5, GPIOB_6, GPIOB_7,
+                     GPIOC_0, GPIOC_1, GPIOC_2, GPIOC_3,
+                     GPIOC_4, GPIOC_5, GPIOC_6, GPIOC_7,
+                     GPIOD_0, GPIOD_1, GPIOD_2, GPIOD_3,
+                     GPIOD_4, GPIOD_5, GPIOD_6, GPIOD_7]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+              default: false
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+              default: true
+
+          additionalProperties: false
+
+  - properties:
+      compatible:
+        const: "elvees,mcom03-lsperiph1-pinctrl"
+    elvees,urb:
+      description:
+        A phandle to the syscon node describing URB registers.
+      $ref: /schemas/types.yaml#/definitions/phandle
+    '#address-cells':
+      const: 0
+    '#size-cells':
+      const: 0
+    additionalProperties:
+      if:
+        type: object
+      then:
+        additionalProperties:
+          anyOf:
+            - type: object
+              properties:
+                description: |
+                  Every property will be set to default value unless it is
+                  specified in DeviceTree for a certain pin.
+                pins:
+                  enum: [GPIOA_0, GPIOA_1, GPIOA_2, GPIOA_3,
+                         GPIOA_4, GPIOA_5, GPIOA_6, GPIOA_7,
+                         GPIOB_0, GPIOB_1, GPIOB_2, GPIOB_3,
+                         GPIOB_4, GPIOB_5, GPIOB_6, GPIOB_7,
+                         GPIOC_0, GPIOC_1, GPIOC_2, GPIOC_3,
+                         GPIOC_4, GPIOC_5, GPIOC_6, GPIOC_7,
+                         GPIOD_0, GPIOD_1, GPIOD_2, GPIOD_3,
+                         GPIOD_4, GPIOD_5, GPIOD_6, GPIOD_7]
+
+                bias-disable:
+                  $ref: pincfg-node.yaml#/properties/bias-disable
+                  default: true
+                bias-bus-hold:
+                  $ref: pincfg-node.yaml#/properties/bias-bus-hold
+                  default: false
+                bias-pull-up:
+                  $ref: pincfg-node.yaml#/properties/bias-pull-up
+                  default: false
+                bias-pull-down:
+                  $ref: pincfg-node.yaml#/properties/bias-pull-down
+                  default: false
+                drive-open-drain:
+                  $ref: pincfg-node.yaml#/properties/drive-open-drain
+                  default: false
+                drive-strength:
+                  $ref: pincfg-node.yaml#/properties/drive-strength
+                  enum: [0, 2, 4, 6, 8, 10, 12]
+                  description: 0mA puts the pads in high impedance mode.
+                  default: 6
+                input-enable:
+                  $ref: pincfg-node.yaml#/properties/input-enable
+                  description: Enable input on a line
+                  default: false
+                input-disable:
+                  $ref: pincfg-node.yaml#/properties/input-disable
+                  description: Disable input on a line
+                  default: true
+                slew-rate:
+                  $ref: pincfg-node.yaml#/properties/slew-rate
+                  enum: [0, 3]
+                  default: 3
+                  description: |
+                    0: Lower Slew rate (slower edges)
+                    3: Higher Slew rate (faster edges)
+
+              additionalProperties: false
+
+            - type: object
+              properties:
+                groups:
+                  enum: [all]
+
+                power-source:
+                  $ref: pincfg-node.yaml#/properties/power-source
+                  enum: [1800, 3300]
+                  description: 1800 is for 1.8V mode, 3300 is for 3.3V mode.
+                  default: 3300
+
+              additionalProperties: false
+
+additionalProperties: false
+
+required:
+  - compatible
+  - elvees,urb
+  - '#address-cells'
+  - '#size-cells'
+
+examples:
+  - |
+    lsperiph1_pinctrl: lsperiph1-pinctrl {
+        compatible = "elvees,mcom03-lsperiph1-pinctrl";
+        #address-cells = <0>;
+        #size-cells = <0>;
+        elvees,urb = <&lsperiph1_urb>;
+
+        uart0_cfg: uart0-cfg {
+          tx_cfg {
+            pins = "GPIOB_6";
+            bias-pull-down;
+            drive-strength = <4>;
+            slew-rate = <3>;
+          };
+
+          rx_cfg {
+            pins = "GPIOB_7";
+            input-enable;
+          };
+        };
+
+        lsperiph1_default: lsperiph1-default {
+          all {
+            groups = "all";
+            power-source = <3300>;
+          };
+        };
+    };
