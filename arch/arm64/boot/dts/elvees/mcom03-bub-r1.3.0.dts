@@ -98,6 +98,18 @@
 	status = "okay";
 };
 
+&nand {
+	status = "okay";
+	chip@0 {
+		reg = <0>;
+		nand-ecc-mode="hw";
+	};
+	chip@1 {
+		reg = <1>;
+		nand-ecc-mode="hw";
+	};
+};
+
 &qspi {
 	status = "okay";
 };
