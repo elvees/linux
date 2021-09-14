@@ -337,6 +337,18 @@
 			status = "disabled";
 		};
 
+		nand: nfc@10240000 {
+			compatible = "arasan,nfc-v3p16";
+			reg = <0 0x10240000 0 0x10000>;
+			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			resets = <&hsperiph_reset HSPERIPH_RST_NFC>;
+			clocks = <&nfc_clk>, <&nfc_axi_clk>;
+			clock-names = "clk_flash", "clk_sys";
+			status = "disabled";
+		};
+
 		qspi: spi@10260000 {
 			compatible = "silvaco,axi-qspi";
 			#address-cells = <1>;
@@ -674,5 +686,17 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <594000000>;
+	};
+
+	nfc_axi_clk: nfc_axi_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <125000000>;
+	};
+
+	nfc_clk: nfc_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <93750000>;
 	};
 };
