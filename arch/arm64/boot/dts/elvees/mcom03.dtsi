@@ -391,6 +391,21 @@
 		#size-cells = <2>;
 		ranges;
 
+		sdr_urb: urb@1910000 {
+			compatible = "elvees,mcom03-urb", "syscon",
+				     "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0 0x1910000 0 0x4000>;
+			ranges = <0 0 0 0x4000>;
+
+			sdr_reset: reset-controller@50 {
+				compatible = "elvees,mcom03-reset";
+				reg = <0x60 0x38>;
+				elvees,subsystem = <MCOM03_SUBSYSTEM_SDR>;
+				#reset-cells = <1>;
+			};
+		};
 		/* For DeviceTree bindings see linux/modules/velcore3
 		 * repository
 		 */
@@ -411,6 +426,10 @@
 			interrupt-parent = <&qlic0>;
 			interrupts = <16>, <17>, <18>,
 				     <19>, <20>;
+			resets = <&sdr_reset SDR_RST_DSP0>,
+				 <&sdr_reset SDR_RST_EXT_ICT>,
+				 <&sdr_reset SDR_RST_BBD_ICT>,
+				 <&sdr_reset SDR_RST_PCI_ICT>;;
 		};
 
 		elcore1: elcore@1c80000 {
@@ -420,6 +439,10 @@
 			interrupt-parent = <&qlic0>;
 			interrupts = <23>, <24>, <25>,
 				     <26>, <27>;
+			resets = <&sdr_reset SDR_RST_DSP1>,
+				 <&sdr_reset SDR_RST_EXT_ICT>,
+				 <&sdr_reset SDR_RST_BBD_ICT>,
+				 <&sdr_reset SDR_RST_PCI_ICT>;;
 		};
 	};
 
