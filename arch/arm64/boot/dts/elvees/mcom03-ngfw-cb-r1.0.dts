@@ -173,6 +173,11 @@
 				<17 GPIO_ACTIVE_HIGH>, <20 GPIO_ACTIVE_HIGH>;
 			output-high;
 		};
+		sata-hog {
+			gpio-hog;
+			gpios = <21 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
 	};
 };
 
