@@ -61,10 +61,6 @@
 	sdhci-caps = <0x0 0x0>;
 };
 
-&timer0 {
-	status = "okay";
-};
-
 &usb0 {
 	status = "okay";
 };

@@ -62,10 +62,6 @@
 	bus-width = <8>;
 };
 
-&timer0 {
-	status = "okay";
-};
-
 &emac0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -176,8 +172,4 @@
 		compatible = "atmel,24c01";
 		reg = <0x50>;
 	};
-};
-
-&vpu {
-	status = "okay";
 };

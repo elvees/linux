@@ -139,7 +139,6 @@
 			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1200000 0 0x80000>;
 			resets = <&media_reset MEDIA_RST_GPU>;
-			status = "disabled";
 		};
 
 		vpu: vpu@1280000 {
@@ -147,7 +146,6 @@
 			interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1280000 0 0x10000>;
 			resets = <&media_reset MEDIA_RST_VPU>;
-			status = "disabled";
 		};
 
 		isp: isp@12a0000 {
@@ -404,7 +402,6 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1940000 0 0x40000>;
-			status = "disabled";
 		};
 
 		elcore0: elcore@1980000 {
@@ -414,7 +411,6 @@
 			interrupt-parent = <&qlic0>;
 			interrupts = <16>, <17>, <18>,
 				     <19>, <20>;
-			status = "disabled";
 		};
 
 		elcore1: elcore@1c80000 {
@@ -424,7 +420,6 @@
 			interrupt-parent = <&qlic0>;
 			interrupts = <23>, <24>, <25>,
 				     <26>, <27>;
-			status = "disabled";
 		};
 	};
 
@@ -479,7 +474,6 @@
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&xti_clk>;
-			status = "disabled";
 		};
 
 		timer1: timer@1790014 {
@@ -488,7 +482,6 @@
 			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&xti_clk>;
-			status = "disabled";
 		};
 
 		timer2: timer@1790028 {
@@ -497,7 +490,6 @@
 			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&xti_clk>;
-			status = "disabled";
 		};
 
 		timer3: timer@179003c {
@@ -506,7 +498,6 @@
 			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&xti_clk>;
-			status = "disabled";
 		};
 
 		timer4: timer@1790050 {
@@ -515,7 +506,6 @@
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&xti_clk>;
-			status = "disabled";
 		};
 
 		timer5: timer@1790064 {
@@ -524,7 +514,6 @@
 			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&xti_clk>;
-			status = "disabled";
 		};
 
 		timer6: timer@1790078 {
@@ -533,7 +522,6 @@
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&xti_clk>;
-			status = "disabled";
 		};
 
 		timer7: timer@179008c {
@@ -542,7 +530,6 @@
 			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&xti_clk>;
-			status = "disabled";
 		};
 
 		gpio1: gpio@1780000 {
