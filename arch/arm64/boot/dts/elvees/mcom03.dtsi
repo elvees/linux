@@ -662,7 +662,7 @@
 			reg = <0 0x1790000 0 0x14>;
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&xti_clk>;
+			clocks = <&timer_clk>;
 		};
 
 		timer1: timer@1790014 {
@@ -670,7 +670,7 @@
 			reg = <0 0x1790014 0 0x14>;
 			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&xti_clk>;
+			clocks = <&timer_clk>;
 		};
 
 		timer2: timer@1790028 {
@@ -678,7 +678,7 @@
 			reg = <0 0x1790028 0 0x14>;
 			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&xti_clk>;
+			clocks = <&timer_clk>;
 		};
 
 		timer3: timer@179003c {
@@ -686,7 +686,7 @@
 			reg = <0 0x179003C 0 0x14>;
 			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&xti_clk>;
+			clocks = <&timer_clk>;
 		};
 
 		timer4: timer@1790050 {
@@ -694,7 +694,7 @@
 			reg = <0 0x1790050 0 0x14>;
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&xti_clk>;
+			clocks = <&timer_clk>;
 		};
 
 		timer5: timer@1790064 {
@@ -702,7 +702,7 @@
 			reg = <0 0x1790064 0 0x14>;
 			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&xti_clk>;
+			clocks = <&timer_clk>;
 		};
 
 		timer6: timer@1790078 {
@@ -710,7 +710,7 @@
 			reg = <0 0x1790078 0 0x14>;
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&xti_clk>;
+			clocks = <&timer_clk>;
 		};
 
 		timer7: timer@179008c {
@@ -718,7 +718,7 @@
 			reg = <0 0x179008C 0 0x14>;
 			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&xti_clk>;
+			clocks = <&timer_clk>;
 		};
 
 		gpio1: gpio@1780000 {
@@ -773,6 +773,12 @@
 				reg = <3>;
 				bank-name = "gpiod";
 			};
+		};
+
+		timer_clk: timer_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <87750000>;
 		};
 	};
 
