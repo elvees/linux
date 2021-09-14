@@ -22,11 +22,32 @@
 #define MCOM03_SUBSYSTEM_SERVICE	10
 #define MCOM03_SUBSYSTEM_MAX		11
 
-#define SDR_RST_PCI0			0
-#define SDR_RST_PCI1			1
-#define SDR_RST_DSP0			2
-#define SDR_RST_DSP1			3
-#define SDR_RST_RISC1			4
+#define SDR_RST_PCI0_REF		0
+#define SDR_RST_JESD0_TX_REF		1
+#define SDR_RST_JESD0_RX_REF		2
+#define SDR_RST_PCI1_REF		3
+#define SDR_RST_JESD1_TX_REF		4
+#define SDR_RST_JESD1_RX_REF		5
+#define SDR_RST_UCGN_DFE		6
+#define SDR_RST_PCI0_BTN		7
+#define SDR_RST_PCI1_BTN		8
+#define SDR_RST_DSP0			9
+#define SDR_RST_DSP1			10
+#define SDR_RST_RISC1			11
+#define SDR_RST_ACC0			12
+#define SDR_RST_ACC1			13
+#define SDR_RST_ACC2			14
+#define SDR_RST_GNSS			15
+#define SDR_RST_GNSS_CMOS		16
+#define SDR_RST_A_DFE			17
+#define SDR_RST_JESD0_CORE		18
+#define SDR_RST_JESD0_CSR		19
+#define SDR_RST_JESD1_CORE		20
+#define SDR_RST_JESD1_CSR		21
+#define SDR_RST_N_DFE			22
+#define SDR_RST_EXT_ICT			23
+#define SDR_RST_BBD_ICT			24
+#define SDR_RST_PCI_ICT			25
 
 #define MEDIA_RST_ISP			0
 #define MEDIA_RST_GPU			1
