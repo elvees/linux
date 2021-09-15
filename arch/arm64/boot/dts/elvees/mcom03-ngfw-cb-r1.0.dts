@@ -72,15 +72,6 @@
 	status = "okay";
 };
 
-&gpio1d {
-	/* RESET_nOUT signal should be high for LAN, WAN, PEX, USB HUB) */
-	reset-nout-hog {
-		gpio-hog;
-		gpios = <7 GPIO_ACTIVE_HIGH>;
-		output-high;
-	};
-};
-
 &i2c0 {
 	/* USB HUB USB5807 supports only 100kHz */
 	clock-frequency = <100000>;
