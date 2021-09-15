@@ -302,6 +302,20 @@
 		#size-cells = <2>;
 		ranges;
 
+		spram: spram@0 {
+			compatible = "mmio-sram";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			reg = <0 0 0 0x10000>;
+			no-memory-wc;
+
+			emac_desc_pool: sram-pool@0 {
+				reg = <0 0 0 0x2000>;
+				pool;
+			};
+		};
+
 		hsperiph_urb: urb@10400000 {
 			compatible = "elvees,mcom03-urb", "syscon", "simple-mfd";
 			#address-cells = <1>;
@@ -324,6 +338,7 @@
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
 			elvees,ctrl-id = <0>;
+			arasan,desc-pool = <&emac_desc_pool>;
 			status = "disabled";
 		};
 
@@ -334,6 +349,7 @@
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
 			elvees,ctrl-id = <1>;
+			arasan,desc-pool = <&emac_desc_pool>;
 			status = "disabled";
 		};
 
