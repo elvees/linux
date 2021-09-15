@@ -46,6 +46,7 @@
 };
 
 &emac0 {
+	status = "okay";
 	phy-handle = <&ethernet_phy0>;
 	phy-reset-gpios = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
 
@@ -57,6 +58,7 @@
 };
 
 &emac1 {
+	status = "okay";
 	phy-handle = <&ethernet_phy1>;
 	phy-reset-gpios = <&gpio0c 7 GPIO_ACTIVE_HIGH>;
 
