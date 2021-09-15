@@ -185,6 +185,7 @@ struct arasan_gemac_pdata {
 	int rx_ring_head, rx_ring_tail;
 
 	struct napi_struct napi;
+	struct gen_pool *desc_pool;
 
 	struct mii_bus      *mii_bus;
 	struct phy_device   *phy_dev;

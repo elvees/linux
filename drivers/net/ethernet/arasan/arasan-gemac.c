@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/genalloc.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
@@ -297,8 +298,11 @@ static void arasan_gemac_free_tx_ring(struct arasan_gemac_pdata *pd)
 	}
 
 	if (pd->tx_ring) {
-		dma_free_coherent(&pd->pdev->dev, dma_sz, pd->tx_ring,
-				  pd->tx_dma_addr);
+		if (pd->desc_pool)
+			gen_pool_free(pd->desc_pool, pd->tx_dma_addr, dma_sz);
+		else
+			dma_free_coherent(&pd->pdev->dev, dma_sz, pd->tx_ring,
+					  pd->tx_dma_addr);
 		pd->tx_ring = NULL;
 	}
 
@@ -320,8 +324,11 @@ static void arasan_gemac_free_rx_ring(struct arasan_gemac_pdata *pd)
 	}
 
 	if (pd->rx_ring) {
-		dma_free_coherent(&pd->pdev->dev, dma_sz, pd->rx_ring,
-				  pd->rx_dma_addr);
+		if (pd->desc_pool)
+			gen_pool_free(pd->desc_pool, pd->rx_dma_addr, dma_sz);
+		else
+			dma_free_coherent(&pd->pdev->dev, dma_sz, pd->rx_ring,
+					  pd->rx_dma_addr);
 		pd->rx_ring = NULL;
 	}
 
@@ -334,10 +341,18 @@ static int arasan_gemac_alloc_tx_ring(struct arasan_gemac_pdata *pd)
 	int dma_sz = TX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc);
 	int cpu_sz = TX_RING_SIZE * sizeof(struct arasan_gemac_ring_info);
 
-	pd->tx_ring = dma_zalloc_coherent(&pd->pdev->dev, dma_sz,
-					  &pd->tx_dma_addr, GFP_KERNEL);
+	if (pd->desc_pool)
+		pd->tx_ring = gen_pool_dma_alloc(pd->desc_pool, dma_sz,
+						 &pd->tx_dma_addr);
+	else
+		pd->tx_ring = dma_alloc_coherent(&pd->pdev->dev, dma_sz,
+						 &pd->tx_dma_addr, GFP_KERNEL);
+
 	if (!pd->tx_ring)
 		return -ENOMEM;
+
+	/* Memory for descriptors may not support byte access */
+	memset32((u32 *)pd->tx_ring, 0, dma_sz / 4);
 
 	pd->tx_buffers = kzalloc(cpu_sz, GFP_KERNEL);
 
@@ -359,10 +374,18 @@ static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 	int dma_sz = RX_RING_SIZE * sizeof(struct arasan_gemac_dma_desc);
 	int cpu_sz = RX_RING_SIZE * sizeof(struct arasan_gemac_ring_info);
 
-	pd->rx_ring = dma_zalloc_coherent(&pd->pdev->dev, dma_sz,
-					  &pd->rx_dma_addr, GFP_KERNEL);
+	if (pd->desc_pool)
+		pd->rx_ring = gen_pool_dma_alloc(pd->desc_pool, dma_sz,
+						 &pd->rx_dma_addr);
+	else
+		pd->rx_ring = dma_alloc_coherent(&pd->pdev->dev, dma_sz,
+						 &pd->rx_dma_addr, GFP_KERNEL);
+
 	if (!pd->rx_ring)
 		return -ENOMEM;
+
+	/* Memory for descriptors may not support byte access */
+	memset32((u32 *)pd->rx_ring, 0, dma_sz / 4);
 
 	pd->rx_buffers = kzalloc(cpu_sz, GFP_KERNEL);
 
@@ -1336,6 +1359,12 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 				       &pd->tx_threshold);
 	if (res < 0)
 		pd->tx_threshold = 0;
+
+	pd->desc_pool = of_gen_pool_get(pdev->dev.of_node,
+					"arasan,desc-pool", 0);
+	if (pd->desc_pool)
+		netdev_info(dev, "Using gen_pool %s for DMA descriptors",
+			    pd->desc_pool->name);
 
 	arasan_gemac_reset_phy(pdev);
 
