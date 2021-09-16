@@ -139,4 +139,12 @@ config USB_DWC3_QCOM
 	  for peripheral mode support.
 	  Say 'Y' or 'M' if you have one such device.
 
+config USB_DWC3_MCOM03
+	tristate "MCom-03 Platform"
+	depends on ARCH_MCOM03 || COMPILE_TEST
+	depends on OF && COMMON_CLK
+	default USB_DWC3
+	help
+	  Support USB2/3 functionality for ELVEES MCom-03 SoC.
+	  Say 'Y' or 'M' if you have one such device.
 endif
