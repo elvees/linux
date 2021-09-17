@@ -171,6 +171,8 @@ static void activate_sensor_exp_gain(struct v4l2_ctrl_handler *hdl, u8 first,
 	s_exp[1] = v4l2_ctrl_find(hdl, V4L2_CID_EXPOSURE_ABSOLUTE);
 	s_exp[2] = v4l2_ctrl_find(hdl, V4L2_CID_GAIN);
 	for (i = first; i <= last; i++) {
+		if (s_exp[i] == NULL)
+			continue;
 		if (!activate) {
 			s_exp[i]->flags |= V4L2_CTRL_FLAG_INACTIVE;
 		} else {
@@ -222,6 +224,11 @@ static void set_sensor_wb(struct v4l2_subdev *sd, s32 rb, s32 bb)
 
 	v4l2_subdev_s_ctrl(sd, &rb_ctrl);
 	v4l2_subdev_s_ctrl(sd, &bb_ctrl);
+}
+
+static inline bool v4l2_ctrl_disabled(struct v4l2_ctrl *ctrl)
+{
+	return ctrl->flags & V4L2_CTRL_FLAG_DISABLED;
 }
 
 static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
@@ -559,9 +566,10 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 		};
 
 		ret = v4l2_subdev_s_ctrl(sd, &awb);
-		return ret;
+		if (ret < 0)
+			return ret;
+		break;
 	}
-
 	case V4L2_CID_EXPOSURE_AUTO: {
 		struct  v4l2_control exp = {
 			.id = V4L2_CID_EXPOSURE_AUTO
@@ -575,17 +583,20 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 			int exp_manual = 0, activate_exp = 0, activate_gain = 0;
 
 			if (exposure->ae->val == V4L2_EXPOSURE_AUTO) {
-				exp.value = V4L2_EXPOSURE_MANUAL;
-				gain.value = 0;
-				exposure->sensor_ae->cur.val = 0;
-				exposure->sensor_ag->cur.val = 0;
-
-				ret = v4l2_subdev_s_ctrl(sd, &exp);
-				if (ret < 0)
-					return ret;
-				ret = v4l2_subdev_s_ctrl(sd, &gain);
-				if (ret < 0)
-					return ret;
+				if (!v4l2_ctrl_disabled(exposure->sensor_ae)) {
+					exp.value = V4L2_EXPOSURE_MANUAL;
+					exposure->sensor_ae->cur.val = 0;
+					ret = v4l2_subdev_s_ctrl(sd, &exp);
+					if (ret < 0)
+						return ret;
+				}
+				if (!v4l2_ctrl_disabled(exposure->sensor_ag)) {
+					gain.value = 0;
+					exposure->sensor_ag->cur.val = 0;
+					ret = v4l2_subdev_s_ctrl(sd, &gain);
+					if (ret < 0)
+						return ret;
+				}
 			}
 			exp_manual = exposure->ae->val == V4L2_EXPOSURE_MANUAL;
 			activate_exp = (exp_manual &&
@@ -596,8 +607,12 @@ static int vinc_s_ctrl(struct v4l2_ctrl *ctrl)
 				!exposure->sensor_ag->cur.val) ? 1 : 0;
 			activate_sensor_exp_gain(sd->ctrl_handler,
 						 2, 2, activate_gain);
-			v4l2_ctrl_activate(exposure->sensor_ae, exp_manual);
-			v4l2_ctrl_activate(exposure->sensor_ag, exp_manual);
+			if (!v4l2_ctrl_disabled(exposure->sensor_ae))
+				v4l2_ctrl_activate(exposure->sensor_ae,
+						   exp_manual);
+			if (!v4l2_ctrl_disabled(exposure->sensor_ag))
+				v4l2_ctrl_activate(exposure->sensor_ag,
+						   exp_manual);
 			v4l2_ctrl_activate(exposure->target_lum, !exp_manual);
 			if (exp_manual &&
 			    !(stream->cluster.cc.awb->cur.val) &&
@@ -939,7 +954,7 @@ static struct v4l2_ctrl_config ctrl_cfg[] = {
 		.min = 0,
 		.max = 1,
 		.step = 1,
-		.def = 0,
+		.def = 1,
 		.flags = V4L2_CTRL_FLAG_UPDATE
 	},
 	{
@@ -949,7 +964,7 @@ static struct v4l2_ctrl_config ctrl_cfg[] = {
 		.min = V4L2_EXPOSURE_AUTO,
 		.max = ARRAY_SIZE(vinc_exposure_auto_menu) - 1,
 		.step = 0,
-		.def = V4L2_EXPOSURE_MANUAL,
+		.def = V4L2_EXPOSURE_AUTO,
 		.qmenu = vinc_exposure_auto_menu,
 		.flags = V4L2_CTRL_FLAG_UPDATE
 	},
@@ -1382,7 +1397,7 @@ static struct v4l2_ctrl_config ctrl_cfg[] = {
 		.min = 0,
 		.max = 1,
 		.step = 1,
-		.def = 1,
+		.def = 0,
 		.flags = 0
 	},
 	{
@@ -1393,7 +1408,7 @@ static struct v4l2_ctrl_config ctrl_cfg[] = {
 		.min = 0,
 		.max = 1,
 		.step = 1,
-		.def = 1,
+		.def = 0,
 		.flags = 0
 	},
 	{
@@ -1404,7 +1419,7 @@ static struct v4l2_ctrl_config ctrl_cfg[] = {
 		.min = 0,
 		.max = 1,
 		.step = 1,
-		.def = 1,
+		.def = 0,
 		.flags = 0
 	},
 	{
@@ -1807,6 +1822,14 @@ int vinc_create_controls(struct v4l2_ctrl_handler *hdl,
 
 	stream->sensor_awb = v4l2_ctrl_find(hdl,
 					    V4L2_CID_SENSOR_AUTO_WHITE_BALANCE);
+
+	if (v4l2_ctrl_find(sd->ctrl_handler, V4L2_CID_EXPOSURE_AUTO) == NULL)
+		stream->cluster.exp.sensor_ae->flags |= V4L2_CTRL_FLAG_DISABLED;
+	if (v4l2_ctrl_find(sd->ctrl_handler, V4L2_CID_AUTOGAIN) == NULL)
+		stream->cluster.exp.sensor_ag->flags |= V4L2_CTRL_FLAG_DISABLED;
+	if (v4l2_ctrl_find(sd->ctrl_handler,
+			   V4L2_CID_AUTO_WHITE_BALANCE) == NULL)
+		stream->sensor_awb->flags |= V4L2_CTRL_FLAG_DISABLED;
 
 	stream->sensor_name = v4l2_ctrl_find(hdl, V4L2_CID_SENSOR_NAME);
 	strcpy(stream->sensor_name->p_cur.p_char, sd->name);
