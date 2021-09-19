@@ -453,6 +453,7 @@
 				compatible = "snps,dwc3";
 				reg = <0 0x10000000 0 0x100000>;
 				interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+				snps,dis_u2_susphy_quirk;
 			};
 		};
 
@@ -472,6 +473,7 @@
 				compatible = "snps,dwc3";
 				reg = <0 0x10100000 0 0x100000>;
 				interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+				snps,dis_u2_susphy_quirk;
 			};
 		};
 	};
