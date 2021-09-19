@@ -442,9 +442,11 @@
 			#size-cells = <2>;
 			ranges;
 			compatible = "elvees,mcom03-dwc3";
-			clock-names = "bus_early", "ref", "suspend";
-			clocks = <&usb_bus_clk>, <&usb_suspend_clk>, <&usb_suspend_clk>;
+			clock-names = "sys", "ref", "suspend";
+			clocks = <&usb_sys_clk>, <&usb_ref_clk>, <&usb_suspend_clk>;
 			resets = <&hsperiph_reset HSPERIPH_RST_USB0>;
+			elvees,urb = <&hsperiph_urb>;
+			elvees,ctrl-id = <0>;
 			status = "disabled";
 
 			dwc3@10000000 {
@@ -459,9 +461,11 @@
 			#size-cells = <2>;
 			ranges;
 			compatible = "elvees,mcom03-dwc3";
-			clock-names = "bus_early", "ref", "suspend";
-			clocks = <&usb_bus_clk>, <&usb_suspend_clk>, <&usb_suspend_clk>;
+			clock-names = "sys", "ref", "suspend";
+			clocks = <&usb_sys_clk>, <&usb_ref_clk>, <&usb_suspend_clk>;
 			resets = <&hsperiph_reset HSPERIPH_RST_USB1>;
+			elvees,urb = <&hsperiph_urb>;
+			elvees,ctrl-id = <1>;
 			status = "disabled";
 
 			dwc3@10100000 {
@@ -783,10 +787,16 @@
 		clock-frequency = <25000000>;
 	};
 
-	usb_bus_clk: usb_bus_clk {
+	usb_sys_clk: usb_sys_clk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <125000000>;
+	};
+
+	usb_ref_clk: usb_ref_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <100000000>;
 	};
 
 	i2c0_clk: i2c0_clk {
