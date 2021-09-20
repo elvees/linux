@@ -39,6 +39,14 @@
 	};
 };
 
+&gpio0d {
+	reset-usb2517-hub-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
 &sdhci0 {
 	status = "okay";
 
