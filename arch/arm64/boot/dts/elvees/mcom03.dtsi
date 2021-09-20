@@ -546,6 +546,104 @@
 				elvees,subsystem = <MCOM03_SUBSYSTEM_HSPERIPH>;
 				#reset-cells = <1>;
 			};
+
+			hsperiph_pinctrl: hsperiph-pinctrl {
+				compatible = "elvees,mcom03-hsperiph-pinctrl";
+				#address-cells = <0>;
+				#size-cells = <0>;
+				elvees,urb = <&hsperiph_urb>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&hsperiph_misc_default>;
+
+				sdhci0_default: sdhci0-default {
+					ctrl {
+						groups = "sdmmc0_ctrl";
+						elvees,pad-enable;
+					};
+
+					data {
+						groups = "sdmmc0_data";
+						bias-pull-up;
+					};
+
+					cmd {
+						pins = "SDMMC0_CMD";
+						bias-pull-up;
+					};
+				};
+
+				sdhci1_default: sdhci1-default {
+					ctrl {
+						groups = "sdmmc1_ctrl";
+						elvees,pad-enable;
+					};
+
+					data {
+						groups = "sdmmc1_data";
+						bias-pull-up;
+					};
+
+					cmd {
+						pins = "SDMMC1_CMD";
+						bias-pull-up;
+					};
+				};
+
+				hsperiph_misc_default: hsperiph-misc-default {
+					misc {
+						groups = "hsperiph_misc";
+						elvees,pad-enable;
+					};
+				};
+
+				emac0_default: emac0-default {
+					ctrl {
+						groups = "emac0_ctrl";
+						elvees,pad-enable;
+					};
+				};
+
+				emac1_default: emac1-default {
+					ctrl {
+						groups = "emac1_ctrl";
+						elvees,pad-enable;
+					};
+				};
+
+				emac_v18: emac-v18 {
+					groups = "emac_v18";
+					power-source = <1800>;
+				};
+
+				qspi1_default: qspi1-default {
+					ctrl {
+						groups = "qspi1_ctrl";
+						elvees,pad-enable;
+					};
+
+					data_and_ss {
+						groups = "qspi1_data",
+							 "qspi1_ss";
+						bias-pull-up;
+					};
+
+					clk {
+						pins = "QSPI1_SCLK";
+						bias-pull-up;
+					};
+				};
+
+				qspi1_default_18: qspi1-default-18 {
+					groups = "qspi1_ctrl";
+					power-source = <1800>;
+				};
+
+				qspi1_default_33: qspi1-default-33 {
+					groups = "qspi1_ctrl";
+					power-source = <3300>;
+				};
+			};
 		};
 
 		hsperiph_pll: hsperiph_pll {
@@ -665,6 +763,9 @@
 				phy-mode = "rgmii-id";
 				arasan,axi-bus-width64;
 				status = "disabled";
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&emac0_default>;
 			};
 
 			emac1: ethernet@10210000 {
@@ -682,6 +783,9 @@
 				phy-mode = "rgmii-id";
 				arasan,axi-bus-width64;
 				status = "disabled";
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&emac1_default>;
 			};
 		};
 
@@ -715,6 +819,9 @@
 			clk-phase-uhs-ddr50 = <0>, <8>;
 			clk-phase-mmc-ddr52 = <0>, <8>;
 			clk-phase-mmc-hs200 = <0>, <8>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdhci0_default>;
 		};
 
 		sdhci1: sdhci1@10230000 {
@@ -740,6 +847,9 @@
 			clk-phase-uhs-ddr50 = <0>, <8>;
 			clk-phase-mmc-ddr52 = <0>, <8>;
 			clk-phase-mmc-hs200 = <0>, <8>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdhci1_default>;
 		};
 
 		nand: nfc@10240000 {
@@ -767,6 +877,9 @@
 			arasan,soc-ctl-syscon = <&hsperiph_urb>;
 			num-cs = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&qspi1_default>;
 		};
 
 		usb0: usb@10000000 {
