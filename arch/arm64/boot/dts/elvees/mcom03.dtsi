@@ -329,6 +329,57 @@
 				elvees,subsystem = <MCOM03_SUBSYSTEM_HSPERIPH>;
 				#reset-cells = <1>;
 			};
+
+			hsperiph_pinctrl: hsperiph-pinctrl {
+				compatible = "elvees,mcom03-hsperiph-pinctrl";
+				#address-cells = <0>;
+				#size-cells = <0>;
+				elvees,urb = <&hsperiph_urb>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&hsperiph_misc_default>;
+
+				sdhci0_default: sdhci0-default {
+					ctrl {
+						groups = "sdmmc0_ctrl";
+						elvees,pad-enable;
+					};
+
+					data {
+						groups = "sdmmc0_data";
+						bias-pull-up;
+					};
+
+					cmd {
+						pins = "SDMMC0_CMD";
+						bias-pull-up;
+					};
+				};
+
+				sdhci1_default: sdhci1-default {
+					ctrl {
+						groups = "sdmmc1_ctrl";
+						elvees,pad-enable;
+					};
+
+					data {
+						groups = "sdmmc1_data";
+						bias-pull-up;
+					};
+
+					cmd {
+						pins = "SDMMC1_CMD";
+						bias-pull-up;
+					};
+				};
+
+				hsperiph_misc_default: hsperiph-misc-default {
+					misc {
+						groups = "hsperiph_misc";
+						elvees,pad-enable;
+					};
+				};
+			};
 		};
 
 		emac0: ethernet@10200000 {
@@ -370,6 +421,9 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC0>;
 			elvees,ctrl-id = <0>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdhci0_default>;
 		};
 
 		sdhci1: sdhci1@10230000 {
@@ -382,6 +436,9 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC1>;
 			elvees,ctrl-id = <1>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdhci1_default>;
 		};
 
 		nand: nfc@10240000 {
