@@ -1251,7 +1251,8 @@ static int anfc_nand_chip_init(struct anfc_nand_controller *nfc,
 
 	chip->chip_delay = 30;
 	chip->controller = &nfc->controller;
-	chip->options = NAND_BUSWIDTH_AUTO | NAND_NO_SUBPAGE_WRITE;
+	chip->options = NAND_BUSWIDTH_AUTO | NAND_NO_SUBPAGE_WRITE
+			| NAND_USE_BOUNCE_BUFFER;
 	chip->bbt_options = NAND_BBT_USE_FLASH;
 	chip->select_chip = anfc_select_chip;
 	chip->exec_op = anfc_exec_op;
