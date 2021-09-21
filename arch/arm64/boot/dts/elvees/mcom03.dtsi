@@ -135,10 +135,13 @@
 		};
 
 		gpu: gpu@1200000 {
+			clocks = <&gpu_core_clk>;
+			clock-names = "core";
 			compatible = "img,gpu";
 			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1200000 0 0x80000>;
 			resets = <&media_reset MEDIA_RST_GPU>;
+			status = "okay";
 		};
 
 		vpu: vpu@1280000 {
@@ -747,5 +750,11 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <93750000>;
+	};
+
+	gpu_core_clk: gpu_core_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <247500000>;
 	};
 };
