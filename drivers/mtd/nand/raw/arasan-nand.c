@@ -390,11 +390,13 @@ static void anfc_rw_pio_op(struct mtd_info *mtd, u8 *buf, int len,
 
 	anfc_enable_intrs(nfc, intr);
 	writel(prog, nfc->base + PROG_OFST);
+	udelay(1000);
 	while (cnt < pktcount) {
 		anfc_wait_for_event(nfc);
 		cnt++;
 		if (cnt == pktcount)
 			anfc_enable_intrs(nfc, XFER_COMPLETE);
+		udelay(1000);
 		if (do_read)
 			ioread32_rep(nfc->base + DATA_PORT_OFST, bufptr,
 				     pktsize / 4);
