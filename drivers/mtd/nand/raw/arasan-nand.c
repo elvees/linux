@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 
 #define EVENT_TIMEOUT_MSEC	1000
 #define ANFC_PM_TIMEOUT		1000	/* ms */
@@ -166,6 +167,7 @@ struct anfc_nand_controller {
 	struct nand_controller controller;
 	struct list_head chips;
 	struct device *dev;
+	struct reset_control *rst;
 	void __iomem *base;
 	int curr_cmd;
 	struct clk *clk_sys;
@@ -1328,6 +1330,13 @@ static int anfc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to enable flash clock.\n");
 		goto clk_dis_sys;
 	}
+	nfc->rst = devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
+	if (IS_ERR(nfc->rst)) {
+		err = PTR_ERR(nfc->rst);
+		goto clk_dis_flash;
+	} else {
+		reset_control_deassert(nfc->rst);
+	}
 
 	pm_runtime_set_autosuspend_delay(nfc->dev, ANFC_PM_TIMEOUT);
 	pm_runtime_use_autosuspend(nfc->dev);
@@ -1359,6 +1368,8 @@ nandchip_clean_up:
 		nand_release(nand_to_mtd(&anand_chip->chip));
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
+	reset_control_assert(nfc->rst);
+clk_dis_flash:
 	clk_disable_unprepare(nfc->clk_flash);
 clk_dis_sys:
 	clk_disable_unprepare(nfc->clk_sys);
@@ -1377,6 +1388,7 @@ static int anfc_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	reset_control_assert(nfc->rst);
 
 	clk_disable_unprepare(nfc->clk_sys);
 	clk_disable_unprepare(nfc->clk_flash);
