@@ -39,6 +39,7 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
 #define MCOM03_DRIVE_STRENGTH		BIT(PIN_CONFIG_DRIVE_STRENGTH)
 #define MCOM03_INPUT_SCHMITT_ENABLE	BIT(PIN_CONFIG_INPUT_SCHMITT_ENABLE)
 #define MCOM03_SLEW_RATE		BIT(PIN_CONFIG_SLEW_RATE)
+#define MCOM03_POWER_SOURCE		BIT(PIN_CONFIG_POWER_SOURCE)
 
 /*
  * MCom-03 config sets
@@ -53,6 +54,11 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
 			   MCOM03_DRIVE_STRENGTH |			\
 			   MCOM03_INPUT_SCHMITT_ENABLE |		\
 			   MCOM03_SLEW_RATE)
+#define MCOM03_PCONF_SET2 (MCOM03_PULLS | MCOM03_SLEW_RATE |		\
+			   MCOM03_DRIVE_STRENGTH | MCOM03_INPUT_SCHMITT_ENABLE)
+#define MCOM03_PCONF_SET3 (MCOM03_PULLS | MCOM03_SLEW_RATE |		\
+			   MCOM03_DRIVE_STRENGTH)
+#define MCOM03_PCONF_SET4 (MCOM03_PULLS | MCOM03_INPUT_SCHMITT_ENABLE)
 
 /* HSPERIPH common masks */
 #define HS_PAD_EN_MASK		BIT(0)
@@ -77,6 +83,7 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
 #define HS_10mA			(HS_DRIVE_STRENGTH_MASK >> 1)
 #define HS_12mA			HS_DRIVE_STRENGTH_MASK
 #define HS_MISC_PAD_EN		BIT(8)
+#define HS_OPEN_DRAIN		BIT(3)
 
 /* Controller specific masks */
 #define SDMMC_OPEN_DRAIN_MASK	BIT(16)
@@ -86,11 +93,15 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
 #define SDMMC_TO_HS_DRIVE(v)	((v) >> 5)
 #define SDMMC_OPEN_DRAIN_EN	BIT(16)
 #define SDMMC_SOFT_CTL_EN	BIT(17)
+#define EMAC_V18		BIT(0)
 
 enum mcom03_hsperiph_periph_ids {
 	SDMMC0,
 	SDMMC1,
 	HSPERIPH_MISC,
+	EMAC0,
+	EMAC1,
+	EMAC_GLOBAL,
 };
 
 struct mcom03_hsperiph_pinctrl {
@@ -188,6 +199,14 @@ enum special_pins {
 	SDMMC0_CLK = 9,
 	SDMMC1_CMD = 14,
 	SDMMC1_CLK = 23,
+	EMAC0_RGMII_MDIO = 29,
+	EMAC0_RGMII_MDC = 30,
+	EMAC0_RGMII_TXC = 31,
+	EMAC0_RGMII_RXC = 32,
+	EMAC1_RGMII_MDIO = 43,
+	EMAC1_RGMII_MDC = 44,
+	EMAC1_RGMII_TXC = 45,
+	EMAC1_RGMII_RXC = 46,
 };
 
 static const struct pinctrl_pin_desc mcom03_hsperiph_pins[] = {
@@ -222,6 +241,41 @@ static const struct pinctrl_pin_desc mcom03_hsperiph_pins[] = {
 	PINCTRL_PIN(25, "SDMMC1_WP"),
 	PINCTRL_PIN(26, "SDMMC1_18EN"),
 	PINCTRL_PIN(27, "SDMMC1_PWR"),
+
+	/* EMAC0/1 */
+	PINCTRL_PIN(28, "CLK125"),
+
+	/* EMAC0 */
+	PINCTRL_PIN(EMAC0_RGMII_MDIO, "EMAC0_RGMII_MDIO"),
+	PINCTRL_PIN(EMAC0_RGMII_MDC, "EMAC0_RGMII_MDC"),
+	PINCTRL_PIN(EMAC0_RGMII_TXC, "EMAC0_RGMII_TXC"),
+	PINCTRL_PIN(EMAC0_RGMII_RXC, "EMAC0_RGMII_RXC"),
+	PINCTRL_PIN(33, "EMAC0_RGMII_TXD0"),
+	PINCTRL_PIN(34, "EMAC0_RGMII_TXD1"),
+	PINCTRL_PIN(35, "EMAC0_RGMII_TXD2"),
+	PINCTRL_PIN(36, "EMAC0_RGMII_TXD3"),
+	PINCTRL_PIN(37, "EMAC0_RGMII_RXD0"),
+	PINCTRL_PIN(38, "EMAC0_RGMII_RXD1"),
+	PINCTRL_PIN(39, "EMAC0_RGMII_RXD2"),
+	PINCTRL_PIN(40, "EMAC0_RGMII_RXD3"),
+	PINCTRL_PIN(41, "EMAC0_RGMII_TXCTL"),
+	PINCTRL_PIN(42, "EMAC0_RGMII_RXCTL"),
+
+	/* EMAC1 */
+	PINCTRL_PIN(EMAC1_RGMII_MDIO, "EMAC1_RGMII_MDIO"),
+	PINCTRL_PIN(EMAC1_RGMII_MDC, "EMAC1_RGMII_MDC"),
+	PINCTRL_PIN(EMAC1_RGMII_TXC, "EMAC1_RGMII_TXC"),
+	PINCTRL_PIN(EMAC1_RGMII_RXC, "EMAC1_RGMII_RXC"),
+	PINCTRL_PIN(47, "EMAC1_RGMII_TXD0"),
+	PINCTRL_PIN(48, "EMAC1_RGMII_TXD1"),
+	PINCTRL_PIN(49, "EMAC1_RGMII_TXD2"),
+	PINCTRL_PIN(50, "EMAC1_RGMII_TXD3"),
+	PINCTRL_PIN(51, "EMAC1_RGMII_RXD0"),
+	PINCTRL_PIN(52, "EMAC1_RGMII_RXD1"),
+	PINCTRL_PIN(53, "EMAC1_RGMII_RXD2"),
+	PINCTRL_PIN(54, "EMAC1_RGMII_RXD3"),
+	PINCTRL_PIN(55, "EMAC1_RGMII_TXCTL"),
+	PINCTRL_PIN(56, "EMAC1_RGMII_RXCTL"),
 };
 
 static struct mcom03_hsperiph_pin mcom03_hsperiph_special_pins[] = {
@@ -232,6 +286,22 @@ static struct mcom03_hsperiph_pin mcom03_hsperiph_special_pins[] = {
 	MCOM03_HSPERIPH_PIN(SDMMC1_CMD, 0x70, MCOM03_PCONF_SET1, SDMMC1,
 			    GENMASK(2, 0)),
 	MCOM03_HSPERIPH_PIN(SDMMC1_CLK, 0x6C, MCOM03_PCONF_SET1, SDMMC1,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(EMAC0_RGMII_MDIO, 0x158, MCOM03_PCONF_SET2, EMAC0,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(EMAC0_RGMII_MDC, 0x15C, MCOM03_PCONF_SET3, EMAC0,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(EMAC0_RGMII_TXC, 0x14C, MCOM03_PCONF_SET3, EMAC0,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(EMAC0_RGMII_RXC, 0x154, MCOM03_PCONF_SET4, EMAC0,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(EMAC1_RGMII_MDIO, 0x178, MCOM03_PCONF_SET2, EMAC1,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(EMAC1_RGMII_MDC, 0x17C, MCOM03_PCONF_SET3, EMAC1,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(EMAC1_RGMII_TXC, 0x16C, MCOM03_PCONF_SET3, EMAC1,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(EMAC1_RGMII_RXC, 0x174,  MCOM03_PCONF_SET4, EMAC1,
 			    GENMASK(2, 0)),
 };
 
@@ -249,6 +319,17 @@ MCOM03_HSPERIPH_DEF_GRP(sdmmc_cdn, 10, 24);
  */
 MCOM03_HSPERIPH_DEF_GRP(hsperiph_misc, 10, 11, 12, 13, 24, 25, 26, 27);
 MCOM03_HSPERIPH_DEF_GRP(sdmmc_18en_pwr, 12, 13, 26, 27);
+MCOM03_HSPERIPH_DEF_GRP(emac_v18, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38,
+			39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52,
+			53, 54, 55, 56);
+MCOM03_HSPERIPH_DEF_GRP(emac0_ctrl, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+			40, 41, 42);
+MCOM03_HSPERIPH_DEF_GRP(emac0_tx, 31, 33, 34, 35, 36);
+MCOM03_HSPERIPH_DEF_GRP(emac0_rx, 32, 37, 38, 39, 40);
+MCOM03_HSPERIPH_DEF_GRP(emac1_ctrl, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
+			54, 55, 56);
+MCOM03_HSPERIPH_DEF_GRP(emac1_tx, 45, 47, 48, 49, 50);
+MCOM03_HSPERIPH_DEF_GRP(emac1_rx, 46, 51, 52, 53, 54);
 
 static struct mcom03_hsperiph_grp mcom03_hsperiph_groups[] = {
 	/* HSPERIPH:SD/MMC groups */
@@ -266,6 +347,22 @@ static struct mcom03_hsperiph_grp mcom03_hsperiph_groups[] = {
 			    HSPERIPH_MISC, 0),
 	MCOM03_HSPERIPH_GRP(sdmmc_18en_pwr, 0x1A4, MCOM03_DRIVE_STRENGTH,
 			    HSPERIPH_MISC, 0),
+
+	/* HSPERIPH:EMAC groups */
+	MCOM03_HSPERIPH_GRP(emac_v18, 0x140, MCOM03_POWER_SOURCE,
+			    EMAC_GLOBAL, 0),
+	MCOM03_HSPERIPH_GRP(emac0_ctrl, 0x144, MCOM03_PAD_ENABLE |
+			    MCOM03_DRIVE_OPEN_DRAIN, EMAC0, 0),
+	MCOM03_HSPERIPH_GRP(emac0_tx, 0x148, MCOM03_PCONF_SET3, EMAC0,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_GRP(emac0_rx, 0x150, MCOM03_PCONF_SET4, EMAC0,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_GRP(emac1_ctrl, 0x164, MCOM03_PAD_ENABLE |
+			    MCOM03_DRIVE_OPEN_DRAIN, EMAC1, 0),
+	MCOM03_HSPERIPH_GRP(emac1_tx, 0x168, MCOM03_PCONF_SET3, EMAC1,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_GRP(emac1_rx, 0x170, MCOM03_PCONF_SET4, EMAC1,
+			    GENMASK(2, 0)),
 };
 
 static bool mcom03_hsperiph_pinconf_param_supported(
@@ -351,12 +448,16 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 			return -EINVAL;
 		break;
 	case PIN_CONFIG_DRIVE_OPEN_DRAIN:
-		if (periph_id == SDMMC0 || periph_id == SDMMC1)
+		if (periph_id == SDMMC0 || periph_id == SDMMC1) {
 			if (!(val & SDMMC_OPEN_DRAIN_EN))
+				return -EINVAL;
+		} else
+			if (!(val & HS_OPEN_DRAIN))
 				return -EINVAL;
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
-		if (periph_id == SDMMC0 || periph_id == SDMMC1)
+		if (periph_id == SDMMC0 || periph_id == SDMMC1 ||
+		    periph_id == EMAC0 || periph_id == EMAC1)
 			val = SDMMC_TO_HS_DRIVE(val);
 
 		val &= HS_DRIVE_STRENGTH_MASK;
@@ -382,6 +483,14 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 		}
 
 		arg = val;
+		break;
+	case PIN_CONFIG_POWER_SOURCE:
+		switch (periph_id) {
+		case EMAC_GLOBAL:
+			arg = val & EMAC_V18 ? 1800 : 3300;
+			break;
+		}
+
 		break;
 	}
 
@@ -484,6 +593,9 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 			regmap_update_bits(regmap, offset,
 					   SDMMC_OPEN_DRAIN_MASK,
 					   SDMMC_OPEN_DRAIN_EN);
+		else
+			regmap_update_bits(regmap, offset, HS_OPEN_DRAIN,
+					   HS_OPEN_DRAIN);
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		switch (arg) {
@@ -526,7 +638,21 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 			/* Installing CTL */
 			regmap_update_bits(regmap, offset, HS_CTL_MASK,
 					   HS_CTL(arg));
+		} else
+			regmap_update_bits(regmap, offset, HS_CTL_MASK,
+					   HS_CTL(arg));
+	break;
+	case PIN_CONFIG_POWER_SOURCE:
+		if (arg != 1800 && arg != 3300)
+			return -EINVAL;
+
+		switch (periph_id) {
+		case EMAC_GLOBAL:
+			regmap_update_bits(regmap, offset, EMAC_V18,
+					   arg == 1800 ? EMAC_V18 : 0);
+			break;
 		}
+
 		break;
 	}
 
