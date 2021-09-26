@@ -222,6 +222,10 @@
 	};
 };
 
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
 &emac0 {
 	status = "okay";
 };

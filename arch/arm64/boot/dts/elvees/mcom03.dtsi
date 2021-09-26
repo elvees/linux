@@ -767,6 +767,25 @@
 						elvees,pad-enable;
 					};
 				};
+
+				emac0_default: emac0-default {
+					ctrl {
+						groups = "emac0_ctrl";
+						elvees,pad-enable;
+					};
+				};
+
+				emac1_default: emac1-default {
+					ctrl {
+						groups = "emac1_ctrl";
+						elvees,pad-enable;
+					};
+				};
+
+				emac_v18: emac-v18 {
+					groups = "emac_v18";
+					power-source = <1800>;
+				};
 			};
 		};
 
@@ -879,6 +898,9 @@
 			arasan,desc-pool = <&emac_desc_pool>;
 			phy-mode = "rgmii";
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&emac0_default>;
 		};
 
 		emac1: ethernet@10210000 {
@@ -895,6 +917,9 @@
 			arasan,desc-pool = <&emac_desc_pool>;
 			phy-mode = "rgmii";
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&emac1_default>;
 		};
 
 		sdhci0: sdhci0@10220000 {

@@ -63,6 +63,18 @@
 	vqmmc-supply = <&sdhci1_supply>;
 };
 
+&emac0_default {
+	tx_data {
+		groups = "emac0_tx";
+		drive-strength = <12>;
+	};
+
+	txc {
+		pins = "EMAC0_RGMII_TXC";
+		drive-strength = <8>;
+	};
+};
+
 &emac0 {
 	status = "okay";
 	phy-handle = <&ethernet_phy0>;
@@ -82,6 +94,18 @@
 		txc-skew-ps = <1860>;
 		interrupt-parent = <&gpio1a>;
 		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&emac1_default {
+	tx_data {
+		groups = "emac1_tx";
+		drive-strength = <12>;
+	};
+
+	txc {
+		pins = "EMAC1_RGMII_TXC";
+		drive-strength = <8>;
 	};
 };
 

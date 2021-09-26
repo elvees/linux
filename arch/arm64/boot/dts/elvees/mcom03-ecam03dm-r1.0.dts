@@ -44,6 +44,10 @@
 	clock-frequency = <27000000>;
 };
 
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
 /* Connected to MicroSD card */
 &sdhci0 {
 	status = "okay";

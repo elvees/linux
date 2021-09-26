@@ -131,6 +131,10 @@
 		"LCD0_BKLT_EN", "PSTANDBY", "GPIO6", "RESET_OUT#";
 };
 
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
 /* Connected to USB 2.0 hub */
 &usb1 {
 	status = "okay";
