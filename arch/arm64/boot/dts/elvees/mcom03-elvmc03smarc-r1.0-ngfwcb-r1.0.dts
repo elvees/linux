@@ -30,6 +30,11 @@
 	status = "okay";
 };
 
+/* Connected to mPCIe */
+&uart1 {
+	status = "okay";
+};
+
 &sdhci1 {
 	status = "okay";
 
