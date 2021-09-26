@@ -7,10 +7,17 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-#include "mcom03.dtsi"
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
 
-/ {	model = "MCom-03 NGFW-CB r1.0";
-	compatible = "elvees,mcom03-ngfw-cb-r1.0";
+/ {
+	model = "ELV-MC03-SMARC r1.0, NGFW-CB r1.0";
+	compatible = "elvees,elvmc03smarc-r1.0-ngfwcb-r1.0",
+		     "elvees,elvmc03smarc-ngfwcb",
+		     "elvees,ngfwcb-r1.0",
+		     "elvees,ngfwcb",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
 
 	aliases {
 		serial0 = &uart0;
