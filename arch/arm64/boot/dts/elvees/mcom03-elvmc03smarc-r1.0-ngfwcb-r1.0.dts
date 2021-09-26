@@ -42,7 +42,6 @@
 
 &uart0 {
 	status = "okay";
-	clock-frequency = <27000000>;
 };
 
 &sdhci0 {
