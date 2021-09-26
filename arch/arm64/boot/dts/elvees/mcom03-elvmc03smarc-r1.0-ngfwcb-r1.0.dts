@@ -19,10 +19,6 @@
 		     "elvees,elvmc03smarc",
 		     "elvees,mcom03";
 
-	aliases {
-		serial0 = &uart0;
-	};
-
 	chosen {
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon console=ttyS0,115200";
