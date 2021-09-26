@@ -12,11 +12,6 @@
 / {	model = "MCom-03 Bring-Up Board r1.3.0";
 	compatible = "elvees,mcom03-bub-r1.3.0";
 
-	aliases {
-		serial0 = &uart0;
-		spi0 = &qspi;
-	};
-
 	adv7513_cec_clk: adv7513_cec_clk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
