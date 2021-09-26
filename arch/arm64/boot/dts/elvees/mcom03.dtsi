@@ -203,6 +203,7 @@
 		uart1: serial0@1640000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1640000 0 0x1000>;
+			clock-frequency = <13500000>;
 			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -212,6 +213,7 @@
 		uart2: serial0@1650000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1650000 0 0x1000>;
+			clock-frequency = <13500000>;
 			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -221,6 +223,7 @@
 		uart3: serial0@1660000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1660000 0 0x1000>;
+			clock-frequency = <13500000>;
 			interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
