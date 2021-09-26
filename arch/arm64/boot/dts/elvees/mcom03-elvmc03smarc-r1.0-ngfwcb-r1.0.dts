@@ -35,6 +35,11 @@
 	status = "okay";
 };
 
+/* Connected to RJ-45 through RS-485 transceiver */
+&uart2 {
+	status = "okay";
+};
+
 &sdhci1 {
 	status = "okay";
 
