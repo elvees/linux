@@ -13,7 +13,7 @@ properties:
   compatible:
     const: "elvees,mcom03-hsperiph-pinctrl"
 
-  elvees,hsurb-syscon:
+  elvees,urb:
     description:
       A phandle to the syscon node describing URB registers.
     $ref: /schemas/types.yaml#/definitions/phandle
@@ -318,7 +318,7 @@ additionalProperties:
 
 required:
   - compatible
-  - elvees,hsurb-syscon
+  - elvees,urb
   - '#address-cells'
   - '#size-cells'
 
@@ -328,7 +328,7 @@ examples:
         compatible = "elvees,mcom03-hsperiph-pinctrl";
         #address-cells = <0>;
         #size-cells = <0>;
-        elvees,hsurb-syscon = <&hsurb>;
+        elvees,urb = <&hsperiph_urb>;
         pinctrl-names = "default";
         pinctrl-0 = <&hsperiph_misc_global>;
 
