@@ -823,6 +823,8 @@ static int vinc_querycap(struct soc_camera_host *ici,
 	 */
 	strlcpy(cap->card, "VINC", sizeof(cap->card));
 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
+	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
+		 ici->drv_name);
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
