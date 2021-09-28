@@ -20,6 +20,17 @@
 		spi0 = &qspi;
 	};
 
+	reserved_memory: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		cpu_reserved: cpu_reserved@C0000000 {
+			reg = <0 0xC0080000 0 0x1000>;
+			no-map;
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
