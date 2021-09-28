@@ -308,6 +308,9 @@
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart1_mux_data>;
 		};
 
 		uart2: serial0@1650000 {
@@ -318,6 +321,10 @@
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart2_portd_mux_data
+				     &uart2_portb_mux_data>;
 		};
 
 		uart3: serial0@1660000 {
