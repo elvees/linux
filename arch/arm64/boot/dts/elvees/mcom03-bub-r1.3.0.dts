@@ -125,6 +125,8 @@
 &i2c0 {
 	clock-frequency = <400000>;
 	status = "okay";
+
+	pinctrl-0 = <&i2c0_mux_data &i2c0_mux_smbalert &i2c0_mux_smbus>;
 };
 
 &i2c1 {

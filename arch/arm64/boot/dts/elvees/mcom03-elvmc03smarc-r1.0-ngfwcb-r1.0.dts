@@ -65,6 +65,8 @@
 	clock-frequency = <100000>;
 	status = "okay";
 
+	pinctrl-0 = <&i2c0_mux_data &i2c0_mux_smbalert>;
+
 	usb-hub@2d {
 		/* USB HUB USB5807 is supported by driver usb4604 */
 		compatible = "smsc,usb4604";
