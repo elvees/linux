@@ -112,12 +112,6 @@
 			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	wdt0: watchdog@1f080000 {
-		compatible = "snps,dw-wdt";
-		reg = < 0 0x1f080000 0 0x1000>;
-		/* TODO: Add clocks property here */
-	};
-
 	pmu {
 		compatible = "arm,cortex-a53-pmu";
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
@@ -130,6 +124,19 @@
 		reg = <0 0x1100000 0 0x10000>, /* GICD */
 		      <0 0x1180000 0 0x80000>; /* GICR */
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	service@1f000000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		wdt0: watchdog@1f080000 {
+			compatible = "snps,dw-wdt";
+			reg = < 0 0x1f080000 0 0x1000>;
+			/* TODO: Add clocks property here */
+		};
 	};
 
 	media@1200000 {
