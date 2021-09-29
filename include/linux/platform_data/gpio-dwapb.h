@@ -15,6 +15,8 @@ struct dwapb_port_property {
 	unsigned int	gpio_base;
 	int		irq[DWAPB_MAX_GPIOS];
 	bool		irq_shared;
+	bool		has_pinctrl;
+	bool		mux_individual_pins;
 };
 
 struct dwapb_platform_data {
