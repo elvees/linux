@@ -22,6 +22,8 @@ struct dwapb_port_property {
 	int		irq[32];
 	bool		has_irq;
 	bool		irq_shared;
+	bool		has_pinctrl;
+	bool		mux_individual_pins;
 };
 
 struct dwapb_platform_data {

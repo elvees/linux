@@ -114,6 +114,8 @@ config PINCTRL_DWAPB
 	select GPIOLIB
 	select GPIO_GENERIC
 	select GENERIC_IRQ_CHIP
+	select GENERIC_PINCONF
+	select GENERIC_PINMUX_FUNCTIONS
 	help
 	  Say Y or M here to build support for the Synopsys DesignWare APB
 	  GPIO block.

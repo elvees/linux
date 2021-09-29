@@ -29,15 +29,25 @@
 #include <linux/spinlock.h>
 #include <linux/platform_data/gpio-dwapb.h>
 #include <linux/slab.h>
+#include <linux/device.h>
+
+#include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinconf-generic.h>
+#include <linux/pinctrl/pinmux.h>
+#include "pinctrl-utils.h"
 
 #define GPIO_SWPORTA_DR		0x00
 #define GPIO_SWPORTA_DDR	0x04
+#define GPIO_SWPORTA_CTL	0x08
 #define GPIO_SWPORTB_DR		0x0c
 #define GPIO_SWPORTB_DDR	0x10
+#define GPIO_SWPORTB_CTL	0x14
 #define GPIO_SWPORTC_DR		0x18
 #define GPIO_SWPORTC_DDR	0x1c
+#define GPIO_SWPORTC_CTL	0x20
 #define GPIO_SWPORTD_DR		0x24
 #define GPIO_SWPORTD_DDR	0x28
+#define GPIO_SWPORTD_CTL	0x2c
 #define GPIO_INTEN		0x30
 #define GPIO_INTMASK		0x34
 #define GPIO_INTTYPE_LEVEL	0x38
@@ -54,6 +64,7 @@
 #define GPIO_EXT_PORT_STRIDE	0x04 /* register stride 32 bits */
 #define GPIO_SWPORT_DR_STRIDE	0x0c /* register stride 3*32 bits */
 #define GPIO_SWPORT_DDR_STRIDE	0x0c /* register stride 3*32 bits */
+#define GPIO_SWPORT_CTL_STRIDE	0x0c /* register stride 3*32 bits */
 
 #define GPIO_REG_OFFSET_V2	1
 
@@ -80,6 +91,13 @@ struct dwapb_context {
 };
 #endif
 
+struct dwapb_pinctrl {
+	bool			mux_individual_pins;
+	struct device		*device_node;
+	struct pinctrl_dev	*pctrl_dev;
+	struct pinctrl_desc	pctrl_desc;
+};
+
 struct dwapb_gpio_port {
 	struct gpio_chip	gc;
 	bool			is_registered;
@@ -88,6 +106,7 @@ struct dwapb_gpio_port {
 	struct dwapb_context	*ctx;
 #endif
 	unsigned int		idx;
+	struct dwapb_pinctrl	pinctrl;
 };
 
 struct dwapb_gpio {
@@ -100,6 +119,112 @@ struct dwapb_gpio {
 	struct reset_control	*rst;
 	struct clk		*clk;
 };
+
+struct dwapb_pinctrl_group {
+	const char	*name;
+	const u32	*pins;
+};
+
+enum dwapb_pinmux_func_types {
+	DWAPB_PINMUX_SW,
+	DWAPB_PINMUX_HW
+};
+
+static const char * const dwapb_grp_pins_names[] = {
+	"pin0",
+	"pin1",
+	"pin2",
+	"pin3",
+	"pin4",
+	"pin5",
+	"pin6",
+	"pin7",
+	"pin8",
+	"pin9",
+	"pin10",
+	"pin11",
+	"pin12",
+	"pin13",
+	"pin14",
+	"pin15",
+	"pin16",
+	"pin17",
+	"pin18",
+	"pin19",
+	"pin20",
+	"pin21",
+	"pin22",
+	"pin23",
+	"pin24",
+	"pin25",
+	"pin26",
+	"pin27",
+	"pin28",
+	"pin29",
+	"pin30",
+	"pin31"
+};
+
+static const struct pinctrl_pin_desc dwapb_port_pins[] = {
+	PINCTRL_PIN(0, "pin0"),
+	PINCTRL_PIN(1, "pin1"),
+	PINCTRL_PIN(2, "pin2"),
+	PINCTRL_PIN(3, "pin3"),
+	PINCTRL_PIN(4, "pin4"),
+	PINCTRL_PIN(5, "pin5"),
+	PINCTRL_PIN(6, "pin6"),
+	PINCTRL_PIN(7, "pin7"),
+	PINCTRL_PIN(8, "pin8"),
+	PINCTRL_PIN(9, "pin9"),
+	PINCTRL_PIN(10, "pin10"),
+	PINCTRL_PIN(11, "pin11"),
+	PINCTRL_PIN(12, "pin12"),
+	PINCTRL_PIN(13, "pin13"),
+	PINCTRL_PIN(14, "pin14"),
+	PINCTRL_PIN(15, "pin15"),
+	PINCTRL_PIN(16, "pin16"),
+	PINCTRL_PIN(17, "pin17"),
+	PINCTRL_PIN(18, "pin18"),
+	PINCTRL_PIN(19, "pin19"),
+	PINCTRL_PIN(20, "pin20"),
+	PINCTRL_PIN(21, "pin21"),
+	PINCTRL_PIN(22, "pin22"),
+	PINCTRL_PIN(23, "pin23"),
+	PINCTRL_PIN(24, "pin24"),
+	PINCTRL_PIN(25, "pin25"),
+	PINCTRL_PIN(26, "pin26"),
+	PINCTRL_PIN(27, "pin27"),
+	PINCTRL_PIN(28, "pin28"),
+	PINCTRL_PIN(29, "pin29"),
+	PINCTRL_PIN(30, "pin30"),
+	PINCTRL_PIN(31, "pin31"),
+};
+
+static unsigned int dwapb_grp_pins[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+	12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+	30, 31, };
+
+struct dwapb_pinctrl_group dwapb_pinctrl_groups[DWAPB_MAX_PORTS] = {
+	{ "gpioA_grp", dwapb_grp_pins},
+	{ "gpioB_grp", dwapb_grp_pins},
+	{ "gpioC_grp", dwapb_grp_pins},
+	{ "gpioD_grp", dwapb_grp_pins},
+};
+
+#define DWAPB_HW_MODE	"HW"
+
+static const char *const dwapb_pinmux_functions[] = {
+	[DWAPB_PINMUX_SW] = "Software",
+	[DWAPB_PINMUX_HW] = "Hardware",
+};
+
+static const char *const dwapb_pinctrl_names[] = {
+	"pinctrl-portA", "pinctrl-portB", "pinctrl-portC", "pinctrl-portD",
+};
+
+static int dwapb_add_pinctrl(struct dwapb_gpio *gpio,
+			     struct dwapb_port_property *pp,
+			     struct dwapb_gpio_port *port);
 
 static inline u32 gpio_reg_v2_convert(unsigned int offset)
 {
@@ -533,6 +658,15 @@ static int dwapb_gpio_add_port(struct dwapb_gpio *gpio,
 	if (pp->has_irq)
 		dwapb_configure_irqs(gpio, port, pp);
 
+	/*
+	 * Pinctrl device should be registered before adding gpio chip to proper
+	 * handling gpio-ranges attribute
+	 */
+	if (pp->has_pinctrl)
+		err = dwapb_add_pinctrl(gpio, pp, port);
+	if (err)
+		return err;
+
 	err = gpiochip_add_data(&port->gc, port);
 	if (err)
 		dev_err(gpio->dev, "failed to register gpiochip for port%d\n",
@@ -551,9 +685,20 @@ static void dwapb_gpio_unregister(struct dwapb_gpio *gpio)
 {
 	unsigned int m;
 
-	for (m = 0; m < gpio->nr_ports; ++m)
+	for (m = 0; m < gpio->nr_ports; ++m) {
 		if (gpio->ports[m].is_registered)
 			gpiochip_remove(&gpio->ports[m].gc);
+
+		if (gpio->ports[m].pinctrl.device_node) {
+			if (gpio->ports[m].pinctrl.pctrl_dev) {
+				devm_pinctrl_unregister(
+					gpio->ports[m].pinctrl.device_node,
+					gpio->ports[m].pinctrl.pctrl_dev);
+			}
+
+			put_device(gpio->ports[m].pinctrl.device_node);
+		}
+	}
 }
 
 static struct dwapb_platform_data *
@@ -605,6 +750,13 @@ dwapb_gpio_get_pdata(struct device *dev)
 		pp->irq_shared	= false;
 		pp->gpio_base	= -1;
 
+		pp->has_pinctrl = fwnode_property_read_bool(fwnode,
+						"snps,has-mux");
+		if (pp->has_pinctrl)
+			pp->mux_individual_pins =
+				fwnode_property_read_bool(fwnode,
+						"snps,mux-individual-pins");
+
 		/*
 		 * Only port A can provide interrupts in all configurations of
 		 * the IP.
@@ -636,6 +788,224 @@ dwapb_gpio_get_pdata(struct device *dev)
 	return pdata;
 }
 
+static int dwapb_set_mux_by_function(struct pinctrl_dev *pctldev,
+				     unsigned int func_selector,
+				     unsigned int group_selector)
+{
+	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
+	struct dwapb_gpio *gpio = port->gpio;
+	struct gpio_chip *gc = &port->gc;
+	unsigned int reg_off;
+	unsigned long flags;
+	u32 val;
+
+	dev_dbg(gpio->dev, "Setting [%s] mode for %s on port %c\n",
+		dwapb_pinmux_functions[func_selector],
+		port->pinctrl.mux_individual_pins ?
+			dwapb_grp_pins_names[group_selector] :
+			dwapb_pinctrl_groups[group_selector].name,
+		port->idx + 'A');
+
+	reg_off = GPIO_SWPORTA_CTL + (port->idx * GPIO_SWPORT_CTL_STRIDE);
+	spin_lock_irqsave(&gc->bgpio_lock, flags);
+	val = dwapb_read(gpio, reg_off);
+	if (func_selector == DWAPB_PINMUX_SW)
+		val &= ~BIT(port->pinctrl.mux_individual_pins ?
+							group_selector : 0);
+	else
+		val |= BIT(port->pinctrl.mux_individual_pins ?
+							group_selector : 0);
+	dwapb_write(gpio, reg_off, val);
+	spin_unlock_irqrestore(&gc->bgpio_lock, flags);
+
+	return 0;
+}
+
+static int dwapb_set_mux(struct pinctrl_dev *pctldev,
+			 unsigned int func_selector,
+			 unsigned int group_selector)
+{
+	/*
+	 * Setting the pin in hardware mode is handled by Devicetree.
+	 */
+	return dwapb_set_mux_by_function(pctldev, DWAPB_PINMUX_HW,
+					 group_selector);
+}
+
+static int dwapb_gpio_request_enable(struct pinctrl_dev *pctldev,
+				     struct pinctrl_gpio_range *range,
+				     unsigned int offset)
+{
+	/*
+	 * Setting the pin in software mode is handled by the GPIO subsystem.
+	 */
+	return dwapb_set_mux_by_function(pctldev, DWAPB_PINMUX_SW, offset);
+}
+
+static int dwapb_get_functions_count(struct pinctrl_dev *pctldev)
+{
+	/*
+	 * This pinctrl has only one function("HW")
+	 */
+	return 1;
+}
+
+static const char *dwapb_get_function_name(struct pinctrl_dev *pctldev,
+					   unsigned int selector)
+{
+	return DWAPB_HW_MODE;
+}
+
+static int dwapb_get_function_groups(struct pinctrl_dev *pctldev,
+				     unsigned int selector,
+				     const char * const **groups,
+				     unsigned int *num_groups)
+{
+	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
+
+	if (port->pinctrl.mux_individual_pins) {
+		*groups = dwapb_grp_pins_names;
+		*num_groups = port->gc.ngpio;
+	} else {
+		*groups = &dwapb_pinctrl_groups[port->idx].name;
+		*num_groups = 1;
+	}
+
+	return 0;
+}
+
+static const struct pinmux_ops dwapb_pinmux_ops = {
+	.strict			= true,
+	.set_mux		= dwapb_set_mux,
+	.gpio_request_enable	= dwapb_gpio_request_enable,
+	.get_functions_count	= dwapb_get_functions_count,
+	.get_function_name	= dwapb_get_function_name,
+	.get_function_groups	= dwapb_get_function_groups,
+};
+
+static int dwapb_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
+{
+	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
+
+	return port->pinctrl.mux_individual_pins ? port->gc.ngpio : 1;
+}
+
+static const char *dwapb_pinctrl_get_group_name(struct pinctrl_dev *pctldev,
+						unsigned int selector)
+{
+	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
+
+
+	return port->pinctrl.mux_individual_pins ?
+					dwapb_grp_pins_names[selector] :
+					dwapb_pinctrl_groups[port->idx].name;
+}
+
+static int dwapb_pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
+					unsigned int selector,
+					const unsigned int **pins,
+					unsigned int *num_pins)
+{
+	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
+
+	*pins = port->pinctrl.mux_individual_pins ? &dwapb_grp_pins[selector] :
+					dwapb_pinctrl_groups[port->idx].pins;
+	*num_pins = port->pinctrl.mux_individual_pins ? 1 : port->gc.ngpio;
+
+	return 0;
+}
+
+static const struct pinctrl_ops dwapb_pinctrl_ops = {
+	.dt_node_to_map		= pinconf_generic_dt_node_to_map_all,
+	.dt_free_map		= pinctrl_utils_free_map,
+	.get_groups_count	= dwapb_pinctrl_get_groups_count,
+	.get_group_name		= dwapb_pinctrl_get_group_name,
+	.get_group_pins		= dwapb_pinctrl_get_group_pins,
+};
+
+static void dwapb_pinctrl_release(struct device *dev)
+{
+	/**
+	 * This function is used to prevent warning
+	 * WARN(1, KERN_ERR "Device '%s' does not have a release() "
+	 *	"function, it is broken and must be fixed.\n",
+	 *		dev_name(dev));
+	 */
+}
+
+static int dwapb_pinctrl_generic_request(struct gpio_chip *chip,
+					 unsigned int offset)
+{
+	if (offset >= chip->ngpio)
+		return -EINVAL;
+
+	return gpiochip_generic_request(chip, offset);
+}
+
+static int dwapb_add_pinctrl(struct dwapb_gpio *gpio,
+			     struct dwapb_port_property *pp,
+			     struct dwapb_gpio_port *port)
+{
+	int ret;
+	struct device *dev;
+	struct pinctrl_desc *desc;
+
+	/*
+	 * Overriding the request callback that being set in bgpio_init() to
+	 * redirect the request to pinctrl subsystem.
+	 */
+	port->gc.request = dwapb_pinctrl_generic_request;
+	port->gc.free = gpiochip_generic_free;
+
+	port->pinctrl.mux_individual_pins = pp->mux_individual_pins;
+
+	dev = devm_kzalloc(gpio->dev, sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	dev_set_name(dev, "%s", devm_kasprintf(gpio->dev, GFP_KERNEL,
+					       "%s-%s", dev_name(gpio->dev),
+					       dwapb_pinctrl_names[pp->idx]));
+	dev->of_node = to_of_node(pp->fwnode);
+	dev->release = dwapb_pinctrl_release;
+	ret = device_register(dev);
+	if (ret) {
+		dev_err(gpio->dev, "Failed to register device for %s\n",
+			dwapb_pinctrl_names[pp->idx]);
+		put_device(dev);
+		return ret;
+	}
+
+	port->pinctrl.device_node = dev;
+
+	desc = &port->pinctrl.pctrl_desc;
+	desc->name = dev_name(dev);
+	desc->pins = dwapb_port_pins;
+	desc->owner = THIS_MODULE;
+	desc->npins = pp->ngpio;
+	desc->pmxops = &dwapb_pinmux_ops;
+	desc->pctlops = &dwapb_pinctrl_ops;
+
+	ret = devm_pinctrl_register_and_init(dev, desc, port,
+					     &port->pinctrl.pctrl_dev);
+	if (ret) {
+		dev_err(gpio->dev, "Failed to register %s\n",
+			dwapb_pinctrl_names[pp->idx]);
+		return ret;
+	}
+
+	ret = pinctrl_enable(port->pinctrl.pctrl_dev);
+	if (ret) {
+		dev_err(gpio->dev, "Failed to enable %s\n",
+			dwapb_pinctrl_names[pp->idx]);
+		return ret;
+	}
+
+	dev_info(gpio->dev, "initialized pinmux driver for port %c\n",
+		 pp->idx + 'A');
+
+	return 0;
+}
 static const struct of_device_id dwapb_of_match[] = {
 	{ .compatible = "snps,dw-apb-gpio", .data = (void *)0},
 	{ .compatible = "apm,xgene-gpio-v2", .data = (void *)GPIO_REG_OFFSET_V2},
