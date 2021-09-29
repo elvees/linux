@@ -333,23 +333,29 @@
 
 		emac0: ethernet@10200000 {
 			compatible = "elvees,arasan-gemac";
+			#address-cells = <1>;
+			#size-cells = <0>;
 			reg = <0 0x10200000 0 0x1000>;
 			clocks = <&eth_bus_clk>;
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
 			elvees,ctrl-id = <0>;
 			arasan,desc-pool = <&emac_desc_pool>;
+			phy-mode = "rgmii";
 			status = "disabled";
 		};
 
 		emac1: ethernet@10210000 {
 			compatible = "elvees,arasan-gemac";
+			#address-cells = <1>;
+			#size-cells = <0>;
 			reg = <0 0x10210000 0 0x1000>;
 			clocks = <&eth_bus_clk>;
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
 			elvees,ctrl-id = <1>;
 			arasan,desc-pool = <&emac_desc_pool>;
+			phy-mode = "rgmii";
 			status = "disabled";
 		};
 

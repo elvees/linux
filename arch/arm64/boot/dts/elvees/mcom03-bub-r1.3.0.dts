@@ -46,9 +46,6 @@
 };
 
 &emac0 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	phy-mode = "rgmii";
 	phy-handle = <&ethernet_phy0>;
 	phy-reset-gpios = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
 
@@ -60,9 +57,6 @@
 };
 
 &emac1 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	phy-mode = "rgmii";
 	phy-handle = <&ethernet_phy1>;
 	phy-reset-gpios = <&gpio0c 7 GPIO_ACTIVE_HIGH>;
 
