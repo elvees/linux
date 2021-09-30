@@ -137,6 +137,21 @@
 			reg = < 0 0x1f080000 0 0x1000>;
 			/* TODO: Add clocks property here */
 		};
+
+		pvt@1f050000 {
+			compatible = "moortec,mr75202";
+			reg = <0 0x1f050000 0 0x1000>;
+			clocks = <&pvt_clk>;
+			moortec,name = "mcom03";
+			moortec,labels = "cpu", "sdr", "media", "service";
+			#thermal-sensor-cells = <1>;
+		};
+
+		pvt_clk: pvt_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <54000000>;
+		};
 	};
 
 	media@1200000 {
