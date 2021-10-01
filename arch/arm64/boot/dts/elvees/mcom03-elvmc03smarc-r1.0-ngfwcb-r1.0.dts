@@ -30,18 +30,6 @@
 	status = "okay";
 };
 
-&sdhci0 {
-	status = "okay";
-
-	/* Unstable at 25 MHz on NGFW CB */
-	max-frequency = <12000000>;
-	non-removable;
-	bus-width = <8>;
-
-	/* HS, SDR50, SDR104 and DDR50 are not supported yet */
-	sdhci-caps-mask = <0x7 0x200000>;
-};
-
 &sdhci1 {
 	status = "okay";
 

@@ -13,3 +13,15 @@
 		     "elvees,elvmc03smarc",
 		     "elvees,mcom03";
 };
+
+&sdhci0 {
+	status = "okay";
+
+	/* Unstable at 25 MHz */
+	max-frequency = <12000000>;
+	non-removable;
+	bus-width = <8>;
+
+	/* HS, SDR50, SDR104 and DDR50 are not supported yet */
+	sdhci-caps-mask = <0x7 0x200000>;
+};
