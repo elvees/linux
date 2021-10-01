@@ -406,6 +406,18 @@
 				};
 			};
 		};
+
+		csi0: dphy@1323000 {
+			compatible = "elvees,mcom03-dw-mipi-dphy";
+			elvees,urb = <&media_urb>;
+			status = "disabled";
+		};
+
+		csi1: dphy@1323040 {
+			compatible = "elvees,mcom03-dw-mipi-dphy";
+			elvees,urb = <&media_urb>;
+			status = "disabled";
+		};
 	};
 
 	lsperiph0@1600000 {

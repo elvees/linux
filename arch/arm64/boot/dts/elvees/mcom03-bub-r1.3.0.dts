@@ -243,3 +243,15 @@
 		output-high;
 	};
 };
+
+&csi0 {
+	status = "okay";
+	reset_gpio = <&gpio0a 4 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio0a 5 GPIO_ACTIVE_HIGH>;
+};
+
+&csi1 {
+	status = "okay";
+	reset_gpio = <&gpio0a 4 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio0a 5 GPIO_ACTIVE_HIGH>;
+};
