@@ -211,3 +211,7 @@
 &pcie1 {
 	status = "okay";
 };
+
+&isp {
+	status = "okay";
+};
