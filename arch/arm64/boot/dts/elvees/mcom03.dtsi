@@ -202,7 +202,7 @@
 			compatible = "img,v2505-isp";
 			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x12a0000 0 0x10000>;
-			/* TODO: Add clocks property here */
+			clocks = <&isp_clk>;
 			clock-names = "core";
 			resets = <&media_reset MEDIA_RST_ISP>;
 			status = "disabled";
@@ -254,6 +254,12 @@
 					};
 				};
 			};
+		};
+
+		isp_clk: isp_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <199800000>;
 		};
 	};
 
