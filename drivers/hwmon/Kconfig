@@ -1112,6 +1112,15 @@ config SENSORS_MENF21BMC_HWMON
 	  This driver can also be built as a module. If so the module
 	  will be called menf21bmc_hwmon.
 
+config SENSORS_MR75202
+	tristate "Moortec Semiconductor MR75202 PVT Controller"
+	help
+	  If you say yes here you get support for Moortec MR75202
+	  PVT controller.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called mr75202.
+
 config SENSORS_MR75203
 	tristate "Moortec Semiconductor MR75203 PVT Controller"
 	select REGMAP_MMIO
