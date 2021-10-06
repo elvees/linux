@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/moortec,mr75202.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Moortec Semiconductor MR75202 PVT Controller bindings
+
+maintainers:
+  - Anton Leontiev <aleontiev@elvees.com>
+
+description: |
+  Moortec MR75202 PVT controller is used to configure & control Moortec
+  embedded analog IPs like temperature sensors (TS), voltage monitors (VM) and
+  process detectors (PD).
+
+properties:
+  compatible:
+    const: moortec,mr75202
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  resets:
+    maxItems: 1
+
+  "#thermal-sensor-cells":
+    const: 1
+
+  moortec,name:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: Name of hardware monitoring device. If omitted, "mr75202" is
+      used.
+
+  moortec,labels:
+    $ref: /schemas/types.yaml#/definitions/string-array
+    description: Channel labels proposed by driver. If omitted default labels
+      are used by hwmon subsystem.
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - "#thermal-sensor-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    pvt@1f050000 {
+        compatible = "moortec,mr75202";
+        reg = <0 0x1f050000 0 0x1000>;
+        clocks = <&ucg0 1>;
+        moortec,name = "internal";
+        moortec,labels = "north", "east", "south", "west";
+        resets = <&urg0 1>;
+        #thermal-sensor-cells = <1>;
+    };
