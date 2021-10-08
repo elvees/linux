@@ -12,6 +12,31 @@
 	compatible = "elvees,elvmc03smarc-r1.0",
 		     "elvees,elvmc03smarc",
 		     "elvees,mcom03";
+
+	elvmc03smarc-leds {
+		compatible = "gpio-leds";
+
+		red {
+			gpios = <&gpio0c 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		green {
+			gpios = <&gpio0b 1 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		blue {
+			gpios = <&gpio0d 7 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		orange {
+			gpios = <&gpio0d 2 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
+	};
 };
 
 &sdhci0 {
