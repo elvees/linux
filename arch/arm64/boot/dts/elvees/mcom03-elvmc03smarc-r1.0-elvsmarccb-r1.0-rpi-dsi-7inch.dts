@@ -27,6 +27,8 @@
 			};
 		};
 	};
+
+	/delete-node/ hdmi-sound;
 };
 
 &i2c_lcd {

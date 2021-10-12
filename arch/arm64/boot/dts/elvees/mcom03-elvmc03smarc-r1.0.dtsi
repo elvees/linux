@@ -62,6 +62,23 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+
+	hdmi_sound: hdmi-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-MC03-SMARC HDMI Audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "disable";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&adv7513>;
+		};
+	};
 };
 
 /* TODO: How to distinguish internal lines from external? How to distinguish
@@ -158,6 +175,7 @@ i2c_pm: &i2c0 { };
 	status = "okay";
 
 	adv7513: hdmi@39 {
+		#sound-dai-cells = <0>;
 		compatible = "adi,adv7513";
 		status = "disabled";
 		reg = <0x39>, <0x3f>;
@@ -180,6 +198,10 @@ i2c_pm: &i2c0 { };
 			};
 		};
 	};
+};
+
+&i2s0 {
+	status = "okay";
 };
 
 &emac0 {

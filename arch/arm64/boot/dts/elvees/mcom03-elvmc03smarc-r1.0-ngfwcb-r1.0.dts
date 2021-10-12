@@ -183,6 +183,10 @@
 	status = "okay";
 };
 
+&hdmi_sound {
+	status = "okay";
+};
+
 /* Connected to HDMI plug */
 &adv7513 {
 	status = "okay";
