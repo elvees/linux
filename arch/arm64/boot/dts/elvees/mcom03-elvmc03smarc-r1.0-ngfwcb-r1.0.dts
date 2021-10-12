@@ -92,7 +92,7 @@
 		port@0 {
 			reg = <0>;
 			adv7513_in: endpoint {
-				remote-endpoint = <&dp_out>;
+				remote-endpoint = <&rgb_out>;
 			};
 		};
 	};
@@ -173,19 +173,19 @@
 	status = "okay";
 };
 
-&dp {
-	status = "okay";
-	port {
-		dp_out: endpoint {
-			remote-endpoint = <&adv7513_in>;
-		};
-	};
-};
-
 &emac0 {
 	status = "okay";
 };
 
 &emac1 {
 	status = "okay";
+};
+
+&dp {
+	status = "okay";
+};
+
+&display_encoder {
+	status = "okay";
+	video-output = "rgb";
 };

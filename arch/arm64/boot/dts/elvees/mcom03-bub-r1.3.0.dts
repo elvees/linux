@@ -138,17 +138,8 @@
 		port@0 {
 			reg = <0>;
 			adv7513_in: endpoint {
-				remote-endpoint = <&dp_out>;
+				remote-endpoint = <&rgb_out>;
 			};
-		};
-	};
-};
-
-&dp {
-	status = "okay";
-	port {
-		dp_out: endpoint {
-			remote-endpoint = <&adv7513_in>;
 		};
 	};
 };
@@ -162,5 +153,24 @@
 		#size-cells = <0>;
 		compatible = "atmel,24c01";
 		reg = <0x50>;
+	};
+};
+
+&dp {
+	status = "okay";
+};
+
+&display_encoder {
+	status = "okay";
+	video-output = "rgb";
+
+	ports {
+		port@2 {
+			reg = <2>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
 	};
 };
