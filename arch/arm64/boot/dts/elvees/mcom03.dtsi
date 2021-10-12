@@ -220,6 +220,40 @@
 			clock-names = "pclk", "aclk", "mclk", "pxlclk";
 			arm,malidp-output-port-lines = /bits/ 8 <8 8 8>;
 			status = "disabled";
+
+			port {
+				dp_out: endpoint {
+					remote-endpoint =
+						<&display_encoder_in>;
+				};
+			};
+		};
+
+		display_encoder: display-encoder {
+			compatible = "elvees,mcom03-display-encoder";
+			status = "disabled";
+			reg = <0 0x12c0000 0 0x10000
+			       0 0x1324000 0 0x18>;
+			reg-names = "dsi", "mipi-tx";
+			clocks = <&dp_pix_clk>, <&dp_dummy_clk>,
+				 <&mipi_tx_ref_clk>, <&mipi_tx_ref_clk>;
+			clock-names = "pxlclk", "pclk",
+				      "mipi_tx_cfg", "mipi_tx_ref";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					display_encoder_in: endpoint {
+						remote-endpoint = <&dp_out>;
+					};
+				};
+			};
 		};
 	};
 
@@ -829,6 +863,12 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <594000000>;
+	};
+
+	mipi_tx_ref_clk: mipi_tx_ref_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <27000000>;
 	};
 
 	nfc_axi_clk: nfc_axi_clk {

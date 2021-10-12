@@ -103,3 +103,15 @@
 		output-high;
 	};
 };
+
+&display_encoder {
+	ports {
+		port@2 {
+			reg = <2>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
+	};
+};
