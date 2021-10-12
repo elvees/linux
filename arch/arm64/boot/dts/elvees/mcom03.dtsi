@@ -1521,6 +1521,19 @@
 			pinctrl-0 = <&i2c3_cfg_default &i2c3_mux_data>;
 		};
 
+		i2s0: i2s@1740000 {
+			compatible = "snps,designware-i2s";
+			reg = <0 0x1740000 0 0x10000>;
+			clocks = <&lsperiph1_ucg1 LSP1_I2S_CLK>;
+			clock-names = "i2sclk";
+			interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+			#sound-dai-cells = <0>;
+			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2s0_mux_sdo0 &i2s0_mux_sdi0>;
+		};
+
 		uart0: serial0@1750000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1750000 0 0x1000>;
