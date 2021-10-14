@@ -57,3 +57,11 @@
 		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
+
+&nand {
+	status = "okay";
+	chip@0 {
+		reg = <0>;
+		nand-ecc-mode="hw";
+	};
+};
