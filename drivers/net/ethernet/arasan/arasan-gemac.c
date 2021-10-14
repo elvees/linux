@@ -30,6 +30,7 @@
 #include <linux/of_net.h>
 #include <linux/phy.h>
 #include <linux/platform_device.h>
+#include <linux/reset.h>
 #include <linux/skbuff.h>
 
 #include "arasan-gemac.h"
@@ -1332,12 +1333,25 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 		goto err_free_dev;
 	}
 
+	pd->rst = devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
+	if (IS_ERR(pd->rst)) {
+		dev_err(&pdev->dev, "Failed to get reset control\n");
+		res = PTR_ERR(pd->rst);
+		goto err_disable_clocks;
+	}
+
+	res = reset_control_deassert(pd->rst);
+	if (res) {
+		dev_err(&pdev->dev, "Failed to deassert reset\n");
+		goto err_disable_clocks;
+	}
+
 	/* physical base address */
 	dev->base_addr = regs->start;
 	pd->regs = devm_ioremap(&pdev->dev, regs->start, resource_size(regs));
 	if (!pd->regs) {
 		res = -ENOMEM;
-		goto err_disable_clocks;
+		goto err_reset_assert;
 	}
 
 	/* Install the interrupt handler */
@@ -1345,7 +1359,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	res = devm_request_irq(&pdev->dev, dev->irq, arasan_gemac_interrupt,
 			       0, dev->name, dev);
 	if (res)
-		goto err_disable_clocks;
+		goto err_reset_assert;
 
 	res = device_property_read_u32(&pdev->dev, "arasan,max-mdc-freq",
 				       &pd->mdc_freq);
@@ -1375,7 +1389,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 
 	res = of_get_phy_mode(pdev->dev.of_node);
 	if (res < 0)
-		goto err_disable_clocks;
+		goto err_reset_assert;
 
 	if (res != PHY_INTERFACE_MODE_MII &&
 	    res != PHY_INTERFACE_MODE_GMII &&
@@ -1383,7 +1397,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "\"%s\" PHY interface is not supported\n",
 			phy_modes(res));
 		res = -ENODEV;
-		goto err_disable_clocks;
+		goto err_reset_assert;
 	}
 
 	pd->phy_interface = res;
@@ -1405,7 +1419,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	/* Register the network interface */
 	res = register_netdev(dev);
 	if (res)
-		goto err_disable_clocks;
+		goto err_reset_assert;
 
 	netif_carrier_off(dev);
 
@@ -1417,6 +1431,8 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_reset_assert:
+	reset_control_assert(pd->rst);
 err_disable_clocks:
 	clk_disable_unprepare(pd->hclk);
 err_free_dev:
@@ -1437,6 +1453,7 @@ static int arasan_gemac_remove(struct platform_device *pdev)
 	pd = netdev_priv(dev);
 
 	unregister_netdev(dev);
+	reset_control_assert(pd->rst);
 	clk_disable_unprepare(pd->hclk);
 	free_netdev(dev);
 

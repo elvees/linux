@@ -170,6 +170,7 @@ struct arasan_gemac_pdata {
 	spinlock_t lock;
 
 	struct clk *hclk;
+	struct reset_control *rst;
 
 	struct arasan_gemac_dma_desc  *rx_ring;
 	struct arasan_gemac_dma_desc  *tx_ring;
