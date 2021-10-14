@@ -11,26 +11,26 @@
  * (at your option) any later version.
  */
 
-#include <linux/module.h>
+#include <generated/utsrelease.h>
+#include <linux/clk.h>
+#include <linux/dma-mapping.h>
+#include <linux/etherdevice.h>
+#include <linux/ethtool.h>
+#include <linux/genalloc.h>
+#include <linux/if_vlan.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/genalloc.h>
-#include <linux/netdevice.h>
-#include <linux/etherdevice.h>
-#include <linux/skbuff.h>
-#include <linux/ethtool.h>
-#include <linux/dma-mapping.h>
-#include <linux/platform_device.h>
-#include <linux/phy.h>
 #include <linux/io.h>
+#include <linux/module.h>
+#include <linux/netdevice.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
-#include <linux/of_net.h>
-#include <linux/if_vlan.h>
-#include <linux/of_mdio.h>
 #include <linux/of_gpio.h>
-#include <linux/clk.h>
-#include <generated/utsrelease.h>
+#include <linux/of_mdio.h>
+#include <linux/of_net.h>
+#include <linux/phy.h>
+#include <linux/platform_device.h>
+#include <linux/skbuff.h>
 
 #include "arasan-gemac.h"
 
