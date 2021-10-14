@@ -40,3 +40,20 @@
 	sdhci-caps-mask = <0x7 0x4200000>;
 	sdhci-caps = <0x0 0x0>;
 };
+
+&emac0 {
+	status = "okay";
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <100>;
+
+	ethernet_phy0: ethernet-phy@1 {
+		reg = <0x1>;
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
