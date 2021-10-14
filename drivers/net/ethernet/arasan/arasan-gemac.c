@@ -396,7 +396,7 @@ static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		if (arasan_gemac_alloc_rx_desc(pd, i)) {
 			netdev_err(pd->dev,
-				   "failed to allocate rx skb %d\n", i);
+				   "Failed to allocate rx skb %d\n", i);
 			return -ENOMEM;
 		}
 	}
@@ -1322,15 +1322,13 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	pd->hclk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(pd->hclk)) {
 		res = PTR_ERR(pd->hclk);
-		dev_err(&pdev->dev,
-			"failed to get Arasan GEMAC hclk (%u)\n", res);
+		dev_err(&pdev->dev, "Failed to get clock (%u)\n", res);
 		goto err_free_dev;
 	}
 
 	res = clk_prepare_enable(pd->hclk);
 	if (res) {
-		dev_err(&pdev->dev,
-			"failed to enable Arasan GEMAC hclk (%u)\n", res);
+		dev_err(&pdev->dev, "Failed to enable clock (%u)\n", res);
 		goto err_free_dev;
 	}
 
