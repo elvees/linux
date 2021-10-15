@@ -300,7 +300,8 @@ static void arasan_gemac_free_tx_ring(struct arasan_gemac_pdata *pd)
 
 	if (pd->tx_ring) {
 		if (pd->desc_pool)
-			gen_pool_free(pd->desc_pool, pd->tx_dma_addr, dma_sz);
+			gen_pool_free(pd->desc_pool, (unsigned long)pd->tx_ring,
+				      dma_sz);
 		else
 			dma_free_coherent(&pd->pdev->dev, dma_sz, pd->tx_ring,
 					  pd->tx_dma_addr);
@@ -326,7 +327,8 @@ static void arasan_gemac_free_rx_ring(struct arasan_gemac_pdata *pd)
 
 	if (pd->rx_ring) {
 		if (pd->desc_pool)
-			gen_pool_free(pd->desc_pool, pd->rx_dma_addr, dma_sz);
+			gen_pool_free(pd->desc_pool, (unsigned long)pd->rx_ring,
+				      dma_sz);
 		else
 			dma_free_coherent(&pd->pdev->dev, dma_sz, pd->rx_ring,
 					  pd->rx_dma_addr);
