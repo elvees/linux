@@ -55,7 +55,7 @@
 	phy-handle = <&ethernet_phy0>;
 	phy-reset-gpios = <&gpio0d 6 GPIO_ACTIVE_LOW>;
 
-	ethernet_phy0: ethernet-phy@0 {
+	ethernet_phy0: ethernet-phy@4 {
 		reg = <0x4>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
