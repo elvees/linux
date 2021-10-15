@@ -917,46 +917,6 @@ static int arasan_gemac_stop(struct net_device *dev)
 	return 0;
 }
 
-static int arasan_gemac_get_gpio(struct platform_device *pdev, char *name)
-{
-	int rc, gpio;
-	struct device_node *np = pdev->dev.of_node;
-
-	if (!np)
-		return -ENODEV;
-
-	gpio = of_get_named_gpio(np, name, 0);
-	if (!gpio_is_valid(gpio))
-		return gpio;
-
-	rc = devm_gpio_request_one(&pdev->dev, gpio,
-				   GPIOF_OUT_INIT_LOW, name);
-
-	if (rc)
-		return rc;
-
-	return gpio;
-}
-
-static void arasan_gemac_reset_phy(struct platform_device *pdev)
-{
-	int gpio;
-
-	gpio = arasan_gemac_get_gpio(pdev, "phy-reset-gpios");
-	if (!gpio_is_valid(gpio)) {
-		dev_warn(&pdev->dev, "Failed to get phy-reset-gpios\n");
-		return;
-	}
-
-	/* FIXME
-	 * 20 msec is actually too much for phy resetting. But if we set
-	 * the reset time less than 20 msec check patch script is failed.
-	 */
-
-	msleep(20);
-	gpio_set_value(gpio, 1);
-}
-
 static int arasan_gemac_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 {
 	struct arasan_gemac_pdata *pd = bus->priv;
@@ -1379,8 +1339,6 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	if (pd->desc_pool)
 		netdev_info(dev, "Using gen_pool %s for DMA descriptors",
 			    pd->desc_pool->name);
-
-	arasan_gemac_reset_phy(pdev);
 
 	dev->netdev_ops = &arasan_gemac_netdev_ops;
 	dev->ethtool_ops = &arasan_gemac_ethtool_ops;
