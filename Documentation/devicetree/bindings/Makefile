@@ -22,13 +22,20 @@ $(obj)/%.example.dts: $(src)/%.yaml check_dtschema_version FORCE
 # Use full schemas when checking %.example.dts
 DT_TMP_SCHEMA := $(obj)/processed-schema-examples.json
 
-find_cmd = find $(srctree)/$(src) \( -name '*.yaml' ! \
+find_all_cmd = find $(srctree)/$(src) \( -name '*.yaml' ! \
 		-name 'processed-schema*' ! \
 		-name '*.example.dt.yaml' \)
 
+ifeq ($(DT_SCHEMA_FILES),)
+find_cmd = $(find_all_cmd)
+else
+find_cmd = echo $(addprefix $(srctree)/, $(DT_SCHEMA_FILES))
+endif
+
 quiet_cmd_yamllint = LINT    $(src)
       cmd_yamllint = $(find_cmd) | \
-                     xargs -n200 -P$$(nproc) $(DT_SCHEMA_LINT) -f parsable -c $(srctree)/$(src)/.yamllint >&2
+                     xargs -n200 -P$$(nproc) \
+		     $(DT_SCHEMA_LINT) -f parsable -c $(srctree)/$(src)/.yamllint >&2
 
 quiet_cmd_chk_bindings = CHKDT   $@
       cmd_chk_bindings = $(find_cmd) | \
@@ -48,7 +55,7 @@ define rule_chkdt
 	$(call cmd,mk_schema)
 endef
 
-DT_DOCS = $(shell $(find_cmd) | sed -e 's|^$(srctree)/||')
+DT_DOCS = $(patsubst $(srctree)/%,%,$(shell $(find_all_cmd)))
 
 override DTC_FLAGS := \
 	-Wno-avoid_unnecessary_addr_size \
