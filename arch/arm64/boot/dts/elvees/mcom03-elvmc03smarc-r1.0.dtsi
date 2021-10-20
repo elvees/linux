@@ -47,6 +47,11 @@
 	};
 };
 
+/* Connected to USB 2.0 hub on ELV-MC03-SMARC */
+&usb1 {
+	status = "okay";
+};
+
 &sdhci0 {
 	status = "okay";
 
