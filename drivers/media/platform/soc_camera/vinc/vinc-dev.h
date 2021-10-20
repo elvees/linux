@@ -12,6 +12,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/vinc.h>
+#include <linux/wait.h>
 
 #include <media/soc_camera.h>
 #include <media/soc_mediabus.h>
@@ -522,6 +523,7 @@ struct vinc_dev {
 	int irq_stream[2];
 	void __iomem *base;
 
+	wait_queue_head_t wq[2];
 	struct vinc_stream stream[4];
 
 	u32 reset_active;

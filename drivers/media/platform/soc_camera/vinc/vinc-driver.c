@@ -34,6 +34,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/clk.h>
+#include <linux/wait.h>
 
 #include <media/v4l2-async.h>
 #include <media/v4l2-common.h>
@@ -339,6 +340,19 @@ static void vinc_stop_streaming(struct vb2_queue *q)
 	vinc_write(priv, CSI2_PORT_SYS_CTR(channel),
 		   csi2_port_sys_ctr & ~CSI2_PORT_SYS_CTR_ENABLE);
 	/* GLOBAL_ENABLE still enable for sensor clocks */
+
+	/* Wait for current interrupt to be processed */
+	if (!wait_event_timeout(priv->wq[channel],
+				vinc_read(priv, STREAM_INTERRUPT(channel)) == 0,
+				msecs_to_jiffies(100))) {
+		int int_status = vinc_read(priv, STREAM_INTERRUPT(channel));
+
+		dev_warn(icd->parent,
+			 "Ignoring unhandled interrupt, stream%d_status: %#x\n",
+			 devnum, int_status);
+
+		vinc_write(priv, STREAM_INTERRUPT_RESET(channel), int_status);
+	}
 
 	spin_lock_irq(&stream->lock);
 
@@ -1130,6 +1144,7 @@ static irqreturn_t vinc_irq_stream(int irq, void *data)
 				 "s%dd1: DMA overflow\n", devnum);
 	}
 	vinc_write(priv, STREAM_INTERRUPT_RESET(channel), int_status);
+	wake_up(&priv->wq[channel]);
 
 	return IRQ_HANDLED;
 }
@@ -1233,6 +1248,9 @@ static int vinc_probe(struct platform_device *pdev)
 	id = vinc_read(priv, ID);
 	if (id != 0x76494e01)
 		dev_err(&pdev->dev, "Bad magic: %#08x\n", id);
+
+	for (i = 0; i < ARRAY_SIZE(priv->wq); i++)
+		init_waitqueue_head(&priv->wq[i]);
 
 	for (i = 0; i < ARRAY_SIZE(priv->stream); i++) {
 		INIT_LIST_HEAD(&priv->stream[i].capture);
