@@ -69,6 +69,11 @@
 	};
 };
 
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
 &emac0 {
 	status = "okay";
 	phy-handle = <&ethernet_phy0>;
@@ -92,4 +97,14 @@
 		reg = <0>;
 		nand-ecc-mode="hw";
 	};
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+	reset_gpio = <&gpio0a 4 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio0a 5 GPIO_ACTIVE_HIGH>;
 };
