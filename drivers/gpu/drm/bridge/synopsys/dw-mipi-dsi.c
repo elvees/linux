@@ -985,6 +985,14 @@ __dw_mipi_dsi_probe(struct platform_device *pdev,
 
 static void __dw_mipi_dsi_remove(struct dw_mipi_dsi *dsi)
 {
+	/*
+	 * If panel driver is not loaded yet then bridge
+	 * will not be removed in dw_mipi_dsi_host_detach().
+	 * If bridge is already removed then extra drm_bridge_remove()
+	 * call will not do anything bad.
+	 */
+	drm_bridge_remove(&dsi->bridge);
+
 	pm_runtime_disable(dsi->dev);
 }
 
