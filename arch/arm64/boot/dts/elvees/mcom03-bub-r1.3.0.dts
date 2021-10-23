@@ -22,6 +22,12 @@
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon console=ttyS0,115200";
 	};
+
+	dsi_backlight: dsi-backlight {
+		compatible = "gpio-backlight";
+		gpios = <&gpio1d 2 GPIO_ACTIVE_HIGH>;
+		default-on;
+	};
 };
 
 &uart0 {
@@ -164,7 +170,32 @@
 	status = "okay";
 	video-output = "rgb";
 
+	dsi-panel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "auo,b101uan01";
+		reg = <0>;
+		backlight = <&dsi_backlight>;
+		enable-gpios = <&gpio1c 1 GPIO_ACTIVE_HIGH>;
+
+		ports {
+			port {
+				panel_in: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
+
 	ports {
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+
 		port@2 {
 			reg = <2>;
 
