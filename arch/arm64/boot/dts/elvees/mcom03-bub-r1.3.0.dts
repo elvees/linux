@@ -72,6 +72,8 @@
 		 */
 		txc-skew-ps = <1860>;
 		max-speed = <100>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
@@ -93,6 +95,8 @@
 		 */
 		txc-skew-ps = <1860>;
 		max-speed = <100>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
