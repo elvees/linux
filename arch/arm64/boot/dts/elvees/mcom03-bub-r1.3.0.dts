@@ -57,11 +57,20 @@
 &emac0 {
 	status = "okay";
 	phy-handle = <&ethernet_phy0>;
-	phy-reset-gpios = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
 
-	ethernet_phy0: ethernet-phy@0 {
+	/* Use large delays because 10 uF capacitor is connected to reset pin.
+	 */
+	reset-delay-us = <1000>;
+	reset-post-delay-us = <200000>;
+
+	ethernet_phy0: ethernet-phy@1 {
 		reg = <0x1>;
-		txc-skew-ps = <2000>;
+
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
 		max-speed = <100>;
 	};
 };
@@ -69,11 +78,20 @@
 &emac1 {
 	status = "okay";
 	phy-handle = <&ethernet_phy1>;
-	phy-reset-gpios = <&gpio0c 7 GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&gpio0c 7 GPIO_ACTIVE_LOW>;
+
+	/* Use large delays because 10 uF capacitor is connected to reset pin.
+	 */
+	reset-delay-us = <1000>;
+	reset-post-delay-us = <200000>;
 
 	ethernet_phy1: ethernet-phy@5 {
 		reg = <0x5>;
-		txc-skew-ps = <2000>;
+
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
 		max-speed = <100>;
 	};
 };
