@@ -1,0 +1,188 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/elvees,mcom03-display-encoder.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ELVEES MCom-03 display encoder
+
+description:
+  MCom-03 encoder is a virtual device representing DPI and DSI video output
+  interfaces.
+
+properties:
+  compatible:
+    const: elvees,mcom03-display-encoder
+
+  reg:
+    items:
+      - description: DSI controller
+      - description: MIPI TX DPHY control registers
+    minItems: 2
+
+  reg-names:
+    items:
+      - const: dsi
+      - const: mipi-tx
+    minItems: 2
+
+  clocks:
+    items:
+      - description: Pixel clock
+      - description: mipi_tx_cfg clock
+      - description: mipi_tx_ref clock
+    minItems: 3
+
+  clock-names:
+    items:
+      - const: pxlclk
+      - const: mipi_tx_cfg
+      - const: mipi_tx_ref
+    minItems: 3
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properies:
+      port@0:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: Input port from CRTC device
+
+      port@1:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: Output port for DSI interface
+
+      port@2:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: Output port for RGB interface (except panels)
+
+    required:
+      - port@0
+
+  video-output:
+    oneOf:
+      - const: rgb
+      - const: dsi
+
+  panel:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      Handle to panel. Used only for video-output "rgb". In this case
+      port 2 is not used. For DSI panels this property is not used
+      and required port 1.
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - clocks
+  - clock-names
+  - ports
+  - video-output
+
+additionalProperties: false
+
+examples:
+  - |
+    display_encoder: display-encoder {
+        compatible = "elvees,mcom03-display-encoder";
+        reg = <0 0x12c0000 0 0x10000
+               0 0x1324000 0 0x18>;
+        reg-names = "dsi", "mipi-tx";
+        clocks = <&dp_pix_clk>, <&mipi_tx_ref_clk>, <&mipi_tx_ref_clk>;
+        clock-names = "pxlclk", "mipi_tx_cfg", "mipi_tx_ref";
+        video-output = "rgb";
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                reg = <0>;
+                display_encoder_in: endpoint {
+                    remote-endpoint = <&crtc_out>;
+                };
+            };
+
+            port@2 {
+                reg = <2>;
+                rgb_out: endpoint {
+                    remote-endpoint = <&adv7513_in>;
+                };
+            };
+        };
+    };
+
+  - |
+    display_encoder: display-encoder {
+        compatible = "elvees,mcom03-display-encoder";
+        reg = <0 0x12c0000 0 0x10000
+               0 0x1324000 0 0x18>;
+        reg-names = "dsi", "mipi-tx";
+        clocks = <&dp_pix_clk>, <&mipi_tx_ref_clk>, <&mipi_tx_ref_clk>;
+        clock-names = "pxlclk", "mipi_tx_cfg", "mipi_tx_ref";
+        video-output = "rgb";
+        panel = <&panel_parallel>;
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                reg = <0>;
+                display_encoder_in: endpoint {
+                    remote-endpoint = <&crtc_out>;
+                };
+            };
+        };
+    };
+
+  - |
+    display_encoder: display-encoder {
+        compatible = "elvees,mcom03-display-encoder";
+        reg = <0 0x12c0000 0 0x10000
+               0 0x1324000 0 0x18>;
+        reg-names = "dsi", "mipi-tx";
+        clocks = <&dp_pix_clk>, <&mipi_tx_ref_clk>, <&mipi_tx_ref_clk>;
+        clock-names = "pxlclk", "mipi_tx_cfg", "mipi_tx_ref";
+        video-output = "dsi";
+
+        panel0: dsi-panel {
+            #address-cells = <1>;
+            #size-cells = <0>;
+            compatible = "auo,b101uan01";
+            status = "okay";
+            reg = <0>;
+            backlight = <&dsi_backlight>;
+            enable-gpios = <&gpio1c 1 GPIO_ACTIVE_HIGH>;
+
+            ports {
+                port {
+                    panel_in: endpoint {
+                        remote-endpoint = <&dsi_out>;
+                    };
+                };
+            };
+        };
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                reg = <0>;
+                display_encoder_in: endpoint {
+                    remote-endpoint = <&crtc_out>;
+                };
+            };
+
+            port@1 {
+                reg = <1>;
+                dsi_out: endpoint {
+                    remote-endpoint = <&panel_in>;
+                };
+            };
+        };
+    };
+
+...
