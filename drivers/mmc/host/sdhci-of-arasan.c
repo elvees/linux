@@ -121,12 +121,12 @@ static const struct sdhci_arasan_soc_ctl_map rk3399_soc_ctl_map = {
 static const struct sdhci_arasan_soc_ctl_map mcom03_soc_ctl_map[] = {
 	{
 		.baseclkfreq = { .reg = 0x40, .width = 8, .shift = 8 },
-		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1},
+		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1 },
 		.hiword_update = false,
 	},
 	{
 		.baseclkfreq = { .reg = 0x7c, .width = 8, .shift = 8 },
-		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1},
+		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1 },
 		.hiword_update = false,
 	},
 	{ /* sentinel */ }
@@ -492,7 +492,11 @@ static const struct of_device_id sdhci_arasan_of_match[] = {
 		.compatible = "rockchip,rk3399-sdhci-5.1",
 		.data = &sdhci_arasan_rk3399_data,
 	},
-	{ .compatible = "elvees,mcom03-sdhci-8.9a" },
+	{
+		.compatible = "elvees,mcom03-sdhci-8.9a",
+		.data = &sdhci_arasan_data,
+		/* soc_ctl_map is set dynamically in probe() */
+	},
 	/* Generic compatible below here */
 	{
 		.compatible = "arasan,sdhci-8.9a",
