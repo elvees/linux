@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-trustphonepm-r1.5.dtsi"
+
+/ {
+	model = "Trustphone PM r1.5, Trustphone CB r1.1";
+	compatible = "elvees,trustphonepm-r1.5-trustphonecb-r1.1",
+		     "elvees,trustphonepm-trustphonecb",
+		     "elvees,trustphonecb-r1.1",
+		     "elvees,trustphonecb",
+		     "elvees,trustphonepm-r1.5",
+		     "elvees,trustphonepm",
+		     "elvees,mcom03";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/* Connected to USB hub */
+&usb1 {
+	status = "okay";
+};
+
+&i2c0 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c1 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+};
