@@ -442,6 +442,24 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC0>;
 			elvees,ctrl-id = <0>;
 			status = "disabled";
+
+			/* For eMMC in 1.8V only mode, SDHCI Arasan controller
+			 * is switched into 1.8V signaling mode and it sets
+			 * DAT/CMD signals on rising edge. eMMC itself reads
+			 * DAT/CMD lines at rising edge. To respect timings it
+			 * is necessary to add tap delay even in DS mode. It
+			 * will not harm "real" 3.3 V DS mode, because delay
+			 * is very small ~1-2 ns. */
+			clk-phase-legacy = <0>, <15>;
+			clk-phase-mmc-hs = <0>, <15>;
+			clk-phase-sd-hs = <0>, <15>;
+			clk-phase-uhs-sdr12 = <0>, <15>;
+			clk-phase-uhs-sdr25 = <0>, <15>;
+			clk-phase-uhs-sdr50 = <0>, <15>;
+			clk-phase-uhs-sdr104 = <0>, <8>;
+			clk-phase-uhs-ddr50 = <0>, <8>;
+			clk-phase-mmc-ddr52 = <0>, <8>;
+			clk-phase-mmc-hs200 = <0>, <8>;
 		};
 
 		sdhci1: sdhci1@10230000 {
@@ -454,6 +472,18 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC1>;
 			elvees,ctrl-id = <1>;
 			status = "disabled";
+
+			/* See comment for sdhci0 */
+			clk-phase-legacy = <0>, <15>;
+			clk-phase-mmc-hs = <0>, <15>;
+			clk-phase-sd-hs = <0>, <15>;
+			clk-phase-uhs-sdr12 = <0>, <15>;
+			clk-phase-uhs-sdr25 = <0>, <15>;
+			clk-phase-uhs-sdr50 = <0>, <15>;
+			clk-phase-uhs-sdr104 = <0>, <8>;
+			clk-phase-uhs-ddr50 = <0>, <8>;
+			clk-phase-mmc-ddr52 = <0>, <8>;
+			clk-phase-mmc-hs200 = <0>, <8>;
 		};
 
 		nand: nfc@10240000 {
