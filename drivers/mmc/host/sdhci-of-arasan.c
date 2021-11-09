@@ -114,6 +114,7 @@ struct sdhci_arasan_data {
 	bool		has_cqe;
 	struct sdhci_arasan_clk_data clk_data;
 
+	int		ctrl_id;
 	struct regmap	*soc_ctl_base;
 	const struct sdhci_arasan_soc_ctl_map *soc_ctl_map;
 	unsigned int	quirks; /* Arasan deviations from spec */
@@ -1037,14 +1038,13 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 	/* Set proper soc_ctl_map for MCom-03 */
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "elvees,mcom03-sdhci-8.9a")) {
-		int ctrl_id;
-
 		ret = device_property_read_u32(&pdev->dev, "elvees,ctrl-id",
-					       &ctrl_id);
+					       &sdhci_arasan->ctrl_id);
 		if (ret)
 			goto clk_disable_all;
 
-		sdhci_arasan->soc_ctl_map = &mcom03_soc_ctl_map[ctrl_id];
+		sdhci_arasan->soc_ctl_map =
+			&mcom03_soc_ctl_map[sdhci_arasan->ctrl_id];
 	}
 
 	sdhci_arasan_update_baseclkfreq(host);
