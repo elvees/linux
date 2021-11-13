@@ -16,6 +16,12 @@
 		     "elvees,trustphonepm-r1.5",
 		     "elvees,trustphonepm",
 		     "elvees,mcom03";
+
+	adv7513_cec_clk: adv7513_cec_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12000000>;
+	};
 };
 
 &uart0 {
@@ -31,6 +37,31 @@
 	/* Not all devices are checked to 400kHz support */
 	clock-frequency = <100000>;
 	status = "okay";
+
+	/* ADV7513 is connected to I2C4. I2C4 on TrustphoneCB
+	 * is connected to I2C0.
+	 */
+	adv7513: hdmi@39 {
+		compatible = "adi,adv7513";
+		reg = <0x39>, <0x3f>;
+		reg-names = "main", "edid";
+		interrupt-parent = <&gpio0a>;
+		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+		clocks = <&adv7513_cec_clk>;
+		clock-names = "cec";
+		adi,input-depth = <8>;
+		adi,input-colorspace = "rgb";
+		adi,input-clock = "1x";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			adv7513_in: endpoint {
+				remote-endpoint = <&rgb_out>;
+			};
+		};
+	};
 };
 
 &i2c1 {
@@ -41,4 +72,23 @@
 
 &emac0 {
 	status = "okay";
+};
+
+&dp {
+	status = "okay";
+};
+
+&display_encoder {
+	status = "okay";
+	video-output = "rgb";
+
+	ports {
+		port@2 {
+			reg = <2>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
+	};
 };
