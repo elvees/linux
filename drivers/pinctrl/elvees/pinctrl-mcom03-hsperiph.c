@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Pinctrl driver for HSPERIPH subsystem of MCom-03 SoC.
- * Copyright 2021 RnD Center "ELVEES", JSC
+ * Copyright 2021-2022 RnD Center "ELVEES", JSC
  */
 
 #include <linux/of.h>
@@ -18,19 +18,17 @@
 /*
  * MCom-03 custom pinconf parameters
  */
-#define PIN_CONFIG_MCOM03_PAD_ENABLE	(PIN_CONFIG_END + 1)
-#define PIN_CONFIG_MCOM03_PAD_DISABLE	(PIN_CONFIG_END + 2)
+#define PIN_CONFIG_MCOM03_PAD_ENABLE (PIN_CONFIG_END + 1)
 
 const struct pinconf_generic_params mcom03_hsperiph_custom_params[] = {
 	{ "elvees,pad-enable", PIN_CONFIG_MCOM03_PAD_ENABLE, 1 },
-	{ "elvees,pad-disable", PIN_CONFIG_MCOM03_PAD_DISABLE, 1 },
+	{ "elvees,pad-disable", PIN_CONFIG_MCOM03_PAD_ENABLE, 0 },
 };
 
 #ifdef CONFIG_DEBUG_FS
 static const struct
 pin_config_item mcom03_hsperiph_conf_items[] = {
-	PCONFDUMP(PIN_CONFIG_MCOM03_PAD_ENABLE, "pads enable", NULL, false),
-	PCONFDUMP(PIN_CONFIG_MCOM03_PAD_DISABLE, "pads disable", NULL, false),
+	PCONFDUMP(PIN_CONFIG_MCOM03_PAD_ENABLE, "enabled", NULL, false)
 };
 #endif
 
@@ -48,7 +46,7 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
  * BIT(22): 22 is the first free index in range [0 - PIN_CONFIG_END] in
  * pin_config_param enumeration
  */
-#define MCOM03_PAD_ENABLE		BIT(22)
+#define MCOM03_PAD_ENABLE BIT(22)
 #define MCOM03_PULLS (MCOM03_BIAS_BUS_HOLD | MCOM03_BIAS_PULL_DOWN | \
 		      MCOM03_BIAS_PULL_UP)
 #define MCOM03_PCONF_SET1 (MCOM03_PULLS | MCOM03_DRIVE_OPEN_DRAIN |	\
@@ -274,8 +272,6 @@ static bool mcom03_hsperiph_pinconf_param_supported(
 				struct mcom03_hsperiph_pinconf *pinconf,
 				enum pin_config_param param)
 {
-	if (param == PIN_CONFIG_MCOM03_PAD_DISABLE)
-		return pinconf->pinconf_cap & MCOM03_PAD_ENABLE;
 	/*
 	 * 21 is the last occupied index in range [0 - PIN_CONFIG_END[ in
 	 * pin_config_param enumeration
@@ -301,15 +297,6 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 
 	regmap_read(pctrl->hs_syscon, pinconf->offset, &val);
 	switch ((u32)param) {
-	case PIN_CONFIG_MCOM03_PAD_DISABLE:
-		if (periph_id == HSPERIPH_MISC) {
-			if (val & HS_MISC_PAD_EN)
-				return -EINVAL;
-		} else {
-			if (val & HS_PAD_EN)
-				return -EINVAL;
-		}
-	break;
 	case PIN_CONFIG_MCOM03_PAD_ENABLE:
 		if (periph_id == HSPERIPH_MISC) {
 			if (!(val & HS_MISC_PAD_EN))
@@ -441,20 +428,13 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 		return -ENOTSUPP;
 
 	switch ((u32)param) {
-	case PIN_CONFIG_MCOM03_PAD_DISABLE:
-		if (periph_id == HSPERIPH_MISC)
-			regmap_update_bits(regmap, offset, HS_MISC_PAD_EN_MASK,
-					   0);
-		else
-			regmap_update_bits(regmap, offset, HS_PAD_EN_MASK, 0);
-	break;
 	case PIN_CONFIG_MCOM03_PAD_ENABLE:
 		if (periph_id == HSPERIPH_MISC)
 			regmap_update_bits(regmap, offset, HS_MISC_PAD_EN_MASK,
-					   HS_MISC_PAD_EN);
+					   arg ? HS_MISC_PAD_EN : 0);
 		else
 			regmap_update_bits(regmap, offset, HS_PAD_EN_MASK,
-					   HS_PAD_EN);
+					   arg ? HS_PAD_EN : 0);
 	break;
 	case PIN_CONFIG_BIAS_BUS_HOLD:
 	case PIN_CONFIG_BIAS_PULL_DOWN:
