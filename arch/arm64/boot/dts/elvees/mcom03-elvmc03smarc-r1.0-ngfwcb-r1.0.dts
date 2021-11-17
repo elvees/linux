@@ -167,3 +167,7 @@
 	status = "okay";
 	video-output = "rgb";
 };
+
+&pcie1 {
+	status = "okay";
+};
