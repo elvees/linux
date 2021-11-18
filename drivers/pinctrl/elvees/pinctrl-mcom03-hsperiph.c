@@ -482,6 +482,8 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 	break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		switch (arg) {
+		case 0:
+		break;
 		case 2:
 			arg = HS_2mA;
 		break;
