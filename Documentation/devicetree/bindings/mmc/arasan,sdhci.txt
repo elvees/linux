@@ -45,6 +45,8 @@ Optional Properties:
   - xlnx,int-clock-stable-broken: when present, the controller always reports
     that the internal clock is stable even when it is not.
   - elvees,broken-hs: When present, denotes that HS mode is not supported.
+  - clk-phase-*: For ELVEES MCom-03 these are raw tap delays for specific timing
+    mode.
 
 Example:
 	sdhci@e0100000 {
