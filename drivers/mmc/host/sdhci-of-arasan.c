@@ -764,8 +764,8 @@ static void sdhci_arasan_mcom03_set_clk_delays(struct sdhci_host *host)
 	struct sdhci_arasan_data *sdhci_arasan = sdhci_pltfm_priv(pltfm_host);
 	struct sdhci_arasan_clk_data *clk_data = &sdhci_arasan->clk_data;
 
-	dev_info(host->mmc->parent, "Set clock delays for mode %d\n",
-		 host->timing);
+	dev_dbg(host->mmc->parent, "Set clock delays for mode %d\n",
+		host->timing);
 
 	sdhci_arasan_mcom03_set_otapdly(host->mmc->parent,
 					sdhci_arasan->soc_ctl_base,
