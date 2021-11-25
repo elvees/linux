@@ -415,6 +415,19 @@
 		#size-cells = <2>;
 		ranges;
 
+		lsperiph0_urb: urb@1680000 {
+			compatible = "elvees,mcom03-urb", "syscon",
+					"simple-mfd";
+			reg = <0 0x1680000 0 0xc>;
+
+			lsperiph0_pinctrl: lsperiph0-pinctrl {
+				compatible = "elvees,mcom03-lsperiph0-pinctrl";
+				#address-cells = <0>;
+				#size-cells = <0>;
+				elvees,urb = <&lsperiph0_urb>;
+			};
+		};
+
 		i2c0: i2c@1630000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -424,6 +437,9 @@
 			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c0_mux_data>;
 		};
 
 		uart1: serial0@1640000 {
@@ -434,6 +450,9 @@
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart1_mux_data>;
 		};
 
 		uart2: serial0@1650000 {
@@ -444,6 +463,10 @@
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart2_portd_mux_data
+				     &uart2_portb_mux_data>;
 		};
 
 		uart3: serial0@1660000 {
@@ -454,6 +477,9 @@
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart3_mux_data>;
 		};
 
 		gpio0: gpio@1610000 {
@@ -480,6 +506,49 @@
 					     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+				snps,has-mux;
+				snps,mux-individual-pins;
+				gpio-ranges = <&gpio0a 0 0 8>;
+
+				uart3_mux_out1out2: uart3-mux-out1out2 {
+					out1out2 {
+						/* groups = out1_n, out2_n */
+						groups = "pin0", "pin1";
+						function = "HW";
+					};
+				};
+
+				uart3_mux_rtscts: uart3-mux-rtscts {
+					rtscts {
+						/* groups = cts_n, rts_n */
+						groups = "pin2", "pin7";
+						function = "HW";
+					};
+				};
+
+				uart3_mux_dsrdtr: uart3-mux-dsrdtr {
+					dsrdtr {
+						/* groups = dsr_n, dtr_n */
+						groups = "pin3", "pin6";
+						function = "HW";
+					};
+				};
+
+				uart3_mux_dcd: uart3-mux-dcd {
+					dcd {
+						/* groups = dcd_n */
+						groups = "pin4";
+						function = "HW";
+					};
+				};
+
+				uart3_mux_ri: uart3-mux-ri {
+					ri {
+						/* groups = ri_n */
+						groups = "pin5";
+						function = "HW";
+					};
+				};
 			};
 
 			gpio0b: gpio-controller@1 {
@@ -489,6 +558,40 @@
 				snps,nr-gpios = <8>;
 				reg = <1>;
 				bank-name = "gpiob";
+				snps,has-mux;
+				snps,mux-individual-pins;
+				gpio-ranges = <&gpio0b 0 0 8>;
+
+				uart3_mux_data: uart3-mux-data {
+					data {
+						/* groups = sin, sout */
+						groups = "pin0", "pin1";
+						function = "HW";
+					};
+				};
+
+				uart3_mux_rs485: uart3-mux-rs485 {
+					rs485 {
+						/* groups = de, re, rs485_en */
+						groups = "pin2", "pin3", "pin4";
+						function = "HW";
+					};
+				};
+
+				uart1_mux_data: uart1-mux-data {
+					data {
+						/* groups = sin, sout */
+						groups = "pin5", "pin6";
+						function = "HW";
+					};
+				};
+
+				uart2_portb_mux_data: uart2-portb-mux-data {
+					uart2_sin {
+						groups = "pin7";
+						function = "HW";
+					};
+				};
 			};
 
 			gpio0c: gpio-controller@2 {
@@ -498,6 +601,55 @@
 				snps,nr-gpios = <8>;
 				reg = <2>;
 				bank-name = "gpioc";
+				snps,has-mux;
+				snps,mux-individual-pins;
+				gpio-ranges = <&gpio0c 0 0 8>;
+
+				spi0_mux_data: spi0-mux-data {
+					data {
+						/*
+						 * groups = sclk_out, txd,
+						 *	    rxd
+						 */
+						groups = "pin0", "pin1", "pin2";
+						function = "HW";
+					};
+				};
+
+				spi0_mux_ss_in: spi0-mux-ss-in {
+					ss_in {
+						groups = "pin3";
+						function = "HW";
+					};
+				};
+
+				spi0_mux_ss0: spi0-mux-ss0 {
+					ss0 {
+						groups = "pin4";
+						function = "HW";
+					};
+				};
+
+				spi0_mux_ss1: spi0-mux-ss1 {
+					ss1 {
+						groups = "pin5";
+						function = "HW";
+					};
+				};
+
+				spi0_mux_ss2: spi0-mux-ss2 {
+					ss2 {
+						groups = "pin6";
+						function = "HW";
+					};
+				};
+
+				spi0_mux_ss3: spi0-mux-ss3 {
+					ss3 {
+						groups = "pin7";
+						function = "HW";
+					};
+				};
 			};
 
 			gpio0d: gpio-controller@3 {
@@ -507,6 +659,50 @@
 				snps,nr-gpios = <8>;
 				reg = <3>;
 				bank-name = "gpiod";
+				snps,has-mux;
+				snps,mux-individual-pins;
+				gpio-ranges = <&gpio0d 0 0 8>;
+
+				uart2_portd_mux_data: uart2-portd-mux-data {
+					uart2_sout {
+						groups = "pin0";
+						function = "HW";
+					};
+				};
+
+				uart2_mux_irda: uart2-mux-irda {
+					irda {
+						/* groups = sir_in, sir_out_n */
+						groups = "pin1", "pin2";
+						function = "HW";
+					};
+				};
+
+				i2c0_mux_data: i2c0-mux-data {
+					data {
+						/* groups = scl, sda */
+						groups = "pin3", "pin4";
+						function = "HW";
+					};
+				};
+
+				i2c0_mux_smbalert: i2c0-mux-smbalert {
+					i2c0_smbalert {
+						groups = "pin5";
+						function = "HW";
+					};
+				};
+
+				i2c0_mux_smbus: i2c0-mux-smbus {
+					smbus {
+						/*
+						 * groups = smbsus_in_n,
+						 * smbsus_out_n
+						 */
+						groups = "pin6", "pin7";
+						function = "HW";
+					};
+				};
 			};
 		};
 	};
@@ -1045,6 +1241,51 @@
 		#size-cells = <2>;
 		ranges;
 
+		lsperiph1_urb: urb@17e0000 {
+			compatible = "elvees,mcom03-urb", "syscon",
+					"simple-mfd";
+			reg = <0 0x17E0000 0 0xA4>;
+
+			lsperiph1_pinctrl: lsperiph1-pinctrl {
+				compatible = "elvees,mcom03-lsperiph1-pinctrl";
+				#address-cells = <0>;
+				#size-cells = <0>;
+				elvees,urb = <&lsperiph1_urb>;
+
+				/*
+				 * Input on I2C is required because controller
+				 * checks that lines aren't driven by another
+				 * master. Internal pull-up is too weak to be
+				 * used, so external one is used.
+				 */
+				i2c1_cfg_default: i2c1-cfg {
+					/* pins = i2c1_scl, i2c1_sda */
+					pins = "GPIOA_0", "GPIOA_1";
+					input-enable;
+				};
+
+				i2c2_cfg_default: i2c2-cfg {
+					/* pins = i2c2_scl, i2c2_sda */
+					pins = "GPIOA_2", "GPIOA_3";
+					input-enable;
+				};
+
+				i2c3_cfg_default: i2c3-cfg {
+					/* pins = i2c3_scl, i2c3_sda */
+					pins = "GPIOA_4", "GPIOA_5";
+					input-enable;
+				};
+
+				uart0_cfg_default: uart0-cfg {
+					rx {
+						pins = "GPIOB_7";
+						bias-bus-hold;
+						input-enable;
+					};
+				};
+			};
+		};
+
 		i2c1: i2c@1710000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1054,6 +1295,9 @@
 			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c1_cfg_default &i2c1_mux_data>;
 		};
 
 		i2c2: i2c@1720000 {
@@ -1065,6 +1309,9 @@
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c2_cfg_default &i2c2_mux_data>;
 		};
 
 		i2c3: i2c@1730000 {
@@ -1076,6 +1323,9 @@
 			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c3_cfg_default &i2c3_mux_data>;
 		};
 
 		uart0: serial0@1750000 {
@@ -1086,6 +1336,9 @@
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart0_cfg_default &uart0_mux_data>;
 		};
 
 		timer0: timer@1790000 {
@@ -1184,6 +1437,33 @@
 					     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+				snps,has-mux;
+				snps,mux-individual-pins;
+				gpio-ranges = <&gpio1a 0 0 8>;
+
+				i2c1_mux_data: i2c1-mux-data {
+					data {
+						/* groups = scl, sda */
+						groups = "pin0", "pin1";
+						function = "HW";
+					};
+				};
+
+				i2c2_mux_data: i2c2-mux-data {
+					data {
+						/* groups = scl, sda */
+						groups = "pin2", "pin3";
+						function = "HW";
+					};
+				};
+
+				i2c3_mux_data: i2c3-mux-data {
+					data {
+						/* groups = scl, sda */
+						groups = "pin4", "pin5";
+						function = "HW";
+					};
+				};
 			};
 
 			gpio1b: gpio-controller@1 {
@@ -1193,6 +1473,45 @@
 				snps,nr-gpios = <8>;
 				reg = <1>;
 				bank-name = "gpiob";
+				snps,has-mux;
+				snps,mux-individual-pins;
+				gpio-ranges = <&gpio1b 0 0 8>;
+
+				i2s0_mux_sdo0: i2s0-mux-sdo0 {
+					data {
+						/*
+						 * groups = sclk_out, ws_out,
+						 *	    sdo0
+						 */
+						groups = "pin0", "pin1", "pin2";
+						function = "HW";
+					};
+				};
+
+				i2s0_mux_sdo1: i2s0-mux-sdo1 {
+					groups = "pin3";
+					function = "HW";
+				};
+
+				i2s0_mux_sdi0: i2s0-mux-sdi0 {
+					groups = "pin4";
+					function = "HW";
+				};
+
+				i2s0_mux_ext_clk: i2s0-mux-ext-clk {
+					i2s0_sclk_in {
+						groups = "pin5";
+						function = "HW";
+					};
+				};
+
+				uart0_mux_data: uart0-mux-data {
+					data {
+						/* groups = sout, sin */
+						groups = "pin6", "pin7";
+						function = "HW";
+					};
+				};
 			};
 
 			gpio1c: gpio-controller@2 {
@@ -1202,6 +1521,55 @@
 				snps,nr-gpios = <8>;
 				reg = <2>;
 				bank-name = "gpioc";
+				snps,has-mux;
+				snps,mux-individual-pins;
+				gpio-ranges = <&gpio1c 0 0 8>;
+
+				spi1_mux_data: spi1-mux-data {
+					data {
+						/*
+						 * groups = sclk_out, txd,
+						 *	    rxd
+						 */
+						groups = "pin0", "pin1", "pin2";
+						function = "HW";
+					};
+				};
+
+				spi1_mux_ss0: spi1-mux-ss0 {
+					ss0 {
+						groups = "pin3";
+						function = "HW";
+					};
+				};
+
+				spi1_mux_ss1: spi1_mux_ss1 {
+					ss1 {
+						groups = "pin4";
+						function = "HW";
+					};
+				};
+
+				spi1_mux_ss2: spi1_mux_ss2 {
+					ss2 {
+						groups = "pin5";
+						function = "HW";
+					};
+				};
+
+				spi1_mux_ss3: spi1_mux_ss3 {
+					ss3 {
+						groups = "pin6";
+						function = "HW";
+					};
+				};
+
+				spi1_mux_ss_in: spi1-mux-ss-in {
+					ss_in_n {
+						groups = "pin7";
+						function = "HW";
+					};
+				};
 			};
 
 			gpio1d: gpio-controller@3 {
@@ -1211,6 +1579,65 @@
 				snps,nr-gpios = <8>;
 				reg = <3>;
 				bank-name = "gpiod";
+				snps,has-mux;
+				snps,mux-individual-pins;
+				gpio-ranges = <&gpio1d 0 0 8>;
+
+				timer0_toggle_mux: timer0-toggle-mux {
+					timer {
+						groups = "pin0";
+						function = "HW";
+					};
+				};
+
+				timer1_toggle_mux: timer1-toggle-mux {
+					timer {
+						groups = "pin1";
+						function = "HW";
+					};
+				};
+
+				pwm_oena0_mux: pwm-oena0-mux {
+					pwm_oena0 {
+						groups = "pin2";
+						function = "HW";
+					};
+				};
+
+				pwm_oenb0_mux: pwm-oenb0-mux {
+					pwm_oenb0 {
+						groups = "pin3";
+						function = "HW";
+					};
+				};
+
+				pwm_oena1_mux: pwm-oena1-mux {
+					pwm_oena1 {
+						groups = "pin4";
+						function = "HW";
+					};
+				};
+
+				pwm_oenb1_mux: pwm-oenb1-mux {
+					pwm_oenb1 {
+						groups = "pin5";
+						function = "HW";
+					};
+				};
+
+				pwm_tu0_mux: pwm-tu0-mux {
+					pwm_tu0 {
+						groups = "pin6";
+						function = "HW";
+					};
+				};
+
+				pwm_tu1_mux: pwm-tu1-mux {
+					pwm_tu1 {
+						groups = "pin7";
+						function = "HW";
+					};
+				};
 			};
 		};
 
