@@ -41,6 +41,17 @@
 	sdhci-caps = <0x0 0x0>;
 };
 
+&i2c2 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	rtc@51 {
+		compatible = "nxp,pcf85063";
+		reg = <0x51>;
+	};
+};
+
 &emac0 {
 	status = "okay";
 	phy-handle = <&ethernet_phy0>;
