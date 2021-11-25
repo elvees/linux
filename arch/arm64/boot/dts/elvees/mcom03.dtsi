@@ -273,6 +273,19 @@
 		#size-cells = <2>;
 		ranges;
 
+		lsperiph0_urb: urb@1680000 {
+			compatible = "elvees,mcom03-urb", "syscon",
+					"simple-mfd";
+			reg = <0 0x1680000 0 0xc>;
+
+			lsperiph0_pinctrl: lsperiph0-pinctrl {
+				compatible = "elvees,mcom03-lsperiph0-pinctrl";
+				#address-cells = <0>;
+				#size-cells = <0>;
+				elvees,urb = <&lsperiph0_urb>;
+			};
+		};
+
 		i2c0: i2c@1630000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -725,6 +738,51 @@
 		#size-cells = <2>;
 		ranges;
 
+		lsperiph1_urb: urb@17e0000 {
+			compatible = "elvees,mcom03-urb", "syscon",
+					"simple-mfd";
+			reg = <0 0x17E0000 0 0xA4>;
+
+			lsperiph1_pinctrl: lsperiph1-pinctrl {
+				compatible = "elvees,mcom03-lsperiph1-pinctrl";
+				#address-cells = <0>;
+				#size-cells = <0>;
+				elvees,urb = <&lsperiph1_urb>;
+
+				/*
+				 * Input on I2C is required because controller
+				 * checks that lines aren't driven by another
+				 * master. Internal pull-up is too weak to be
+				 * used, so external one is used.
+				 */
+				i2c1_cfg_default: i2c1-cfg {
+					/* pins = i2c1_scl, i2c1_sda */
+					pins = "GPIOA_0", "GPIOA_1";
+					input-enable;
+				};
+
+				i2c2_cfg_default: i2c2-cfg {
+					/* pins = i2c2_scl, i2c2_sda */
+					pins = "GPIOA_2", "GPIOA_3";
+					input-enable;
+				};
+
+				i2c3_cfg_default: i2c3-cfg {
+					/* pins = i2c3_scl, i2c3_sda */
+					pins = "GPIOA_4", "GPIOA_5";
+					input-enable;
+				};
+
+				uart0_cfg_default: uart0-cfg {
+					rx {
+						pins = "GPIOB_7";
+						bias-bus-hold;
+						input-enable;
+					};
+				};
+			};
+		};
+
 		i2c1: i2c@1710000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -733,6 +791,9 @@
 			clocks = <&i2c_clk>;
 			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c1_cfg_default>;
 		};
 
 		i2c2: i2c@1720000 {
@@ -743,6 +804,9 @@
 			clocks = <&i2c_clk>;
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c2_cfg_default>;
 		};
 
 		i2c3: i2c@1730000 {
@@ -753,6 +817,9 @@
 			clocks = <&i2c_clk>;
 			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c3_cfg_default>;
 		};
 
 		uart0: serial0@1750000 {
@@ -763,6 +830,9 @@
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart0_cfg_default>;
 		};
 
 		timer0: timer@1790000 {
