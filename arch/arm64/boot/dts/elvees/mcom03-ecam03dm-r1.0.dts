@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 #include "mcom03.dtsi"
 
@@ -21,6 +22,16 @@
 
 	chosen {
 		stdout-path = "serial0:115200n8";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		factory-reset {
+			label = "Factory reset";
+			gpios = <&gpio0a 7 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VENDOR>;
+		};
 	};
 };
 
