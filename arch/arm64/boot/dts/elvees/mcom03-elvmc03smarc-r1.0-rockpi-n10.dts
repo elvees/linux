@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, Rock Pi N10";
+	compatible = "elvees,elvmc03smarc-r1.0-rockpi-n10",
+		     "elvees,elvmc03smarc-rockpi-n10",
+		     "radxa,rockpi-n10",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+/* Connected to Raspberry Pi header */
+&uart0 {
+	status = "okay";
+};
+
+/* Connected to MicroSD card */
+&sdhci1 {
+	status = "okay";
+
+	/* Unstable at 25 MHz on NGFW CB */
+	max-frequency = <12000000>;
+
+	/* Disable High Speed support
+	 * Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4200000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* SDIO_WP is not connected on Rock Pi N10 */
+	disable-wp;
+};
+
+/* Connected to USB 3.0 Type-C */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 */
+&emac0 {
+	status = "okay";
+};
+
+/* Board have video output interface */
+&dp {
+	status = "okay";
+};
+
+/* Connected to HDMI plug */
+&adv7513 {
+	status = "okay";
+};
+
+&display_encoder {
+	status = "okay";
+	video-output = "rgb";
+};
+
+/* Connected to M.2 slot */
+&pcie1 {
+	status = "okay";
+};
