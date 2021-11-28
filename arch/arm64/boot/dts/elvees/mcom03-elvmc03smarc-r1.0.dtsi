@@ -143,6 +143,5 @@
 	};
 };
 
-&pcie0 {
-	status = "okay";
-};
+/* PCIe0 is connected to SATA controller. Should be enabled in carrier DTS. */
+sata: &pcie0 { };
