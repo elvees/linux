@@ -26,6 +26,7 @@
 	};
 };
 
+/* Connected to USB Type-C plug through CP2102N */
 &uart0 {
 	status = "okay";
 };
@@ -40,6 +41,7 @@
 	status = "okay";
 };
 
+/* Connected to MicroSD card */
 &sdhci1 {
 	status = "okay";
 
@@ -54,6 +56,7 @@
 	sdhci-caps = <0x0 0x0>;
 };
 
+/* Connected to USB 3.0 hub */
 &usb0 {
 	status = "okay";
 };
@@ -147,18 +150,22 @@
 	status = "okay";
 };
 
+/* Connected to RJ-45 (Crypto #0) */
 &emac0 {
 	status = "okay";
 };
 
+/* Connected to RJ-45 (Crypto #1) */
 &emac1 {
 	status = "okay";
 };
 
+/* Board have video output interface */
 &dp {
 	status = "okay";
 };
 
+/* Connected to HDMI plug */
 &adv7513 {
 	status = "okay";
 };
@@ -168,6 +175,7 @@
 	video-output = "rgb";
 };
 
+/* Connected to PCIe bridge */
 &pcie1 {
 	status = "okay";
 };
