@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include <dt-bindings/net/ti-dp83867.h>
 
 #include "mcom03.dtsi"
@@ -40,6 +41,19 @@
 			linux,default-trigger = "heartbeat";
 		};
 	};
+
+	recovery: recovery-gpio-key {
+		compatible = "gpio-keys-polled";
+		poll-interval = <1000>;
+		status = "disabled";
+
+		force-recovery {
+			label = "Force recovery";
+			gpios = <&gpio1c 6 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VENDOR>;
+		};
+	};
+
 
 	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
