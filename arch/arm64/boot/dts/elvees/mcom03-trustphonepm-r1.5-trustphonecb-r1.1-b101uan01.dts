@@ -15,6 +15,25 @@
 	};
 };
 
+&i2c0 {
+	/delete-node/ hdmi@39;
+
+	ft5606: touchscreen@3e {
+		/* FT5606 is compatible with FT5506 */
+		compatible = "edt,edt-ft5506";
+		reg = <0x3e>;
+		interrupt-parent = <&tca9554_0>;
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&tca9554_1 2 GPIO_ACTIVE_LOW>;
+		touchscreen-size-x = <768>;
+		touchscreen-size-y = <1024>;
+		touchscreen-x-mm = <135>;
+		touchscreen-y-mm = <216>;
+		touchscreen-swapped-x-y;
+		touchscreen-inverted-y;
+	};
+};
+
 &display_encoder {
 	video-output = "dsi";
 
@@ -36,6 +55,8 @@
 	};
 
 	ports {
+		/delete-node/ port@2;
+
 		port@1 {
 			reg = <1>;
 
