@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "mcom03-egwpm-r1.0.dtsi"
+
+/ {
+	model = "EGW-PM r1.0, EGW-CB r1.0";
+	compatible = "elvees,egwpm-r1.0-egwcb-r1.0",
+		     "elvees,egwpm-egwcb",
+		     "elvees,egwcb-r1.0",
+		     "elvees,egwcb",
+		     "elvees,egwpm-r1.0",
+		     "elvees,egwpm",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+/* Connected to USB Type-C through CP2105 */
+&uart0 {
+	status = "okay";
+};
+
+/* Connected to MicroSD card */
+&sdhci1 {
+	status = "okay";
+
+	/* Unstable at 25 MHz on NGFW CB */
+	max-frequency = <12000000>;
+
+	/* Disable High Speed support
+	 * Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4200000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+/* Connected to M.2 key B slot (for LTE) */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to M.2 key E slot (for WiFi) */
+&pcie0 {
+	status = "okay";
+	num-lanes = <1>;
+};
+
+/* Connected to XP2 */
+&emac0 {
+	status = "okay";
+};
+
+/* Connected to XP3 */
+&emac1 {
+	status = "okay";
+};
+
+&i2c_gp {
+	/* Such node name is used for module autoloading, because lm73 driver
+	 * doesn't support autoloading based on compatible */
+	hwmon@49 {
+		compatible = "ti,lm73";
+		reg = <0x49>;
+	};
+
+	hwmon@4a {
+		compatible = "ti,lm73";
+		reg = <0x4a>;
+	};
+
+	mcp23017: gpio-expander@20 {
+		compatible = "microchip,mcp23017";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x20>;
+
+		interrupt-parent = <&gpio0a>;
+		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		microchip,irq-mirror;
+
+		gpio-line-names =
+			"LORA_SX1261_DIO1", "LORA_SX1261_DIO2",
+			"LORA_SX1261_NSS", "LORA_SX1261_nRST",
+			"LORA_MCU_nRST", "LORA_GPS_nRST", "LORA_GPS_STANDBY",
+			"LORA_SX1302_GPIO6", "LORA_SX1302_RST", "WIFI_ENABLE",
+			"BT_ENABLE", "LTE_FULL_EN", "LTE_WWAN_EN",
+			"LTE_GNSS_EN", "LTE_nRESET";
+
+		bt-hog {
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		wifi-hog {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		lte-hog {
+			gpio-hog;
+			gpios = <11 GPIO_ACTIVE_HIGH>, <12 GPIO_ACTIVE_HIGH>,
+				<13 GPIO_ACTIVE_HIGH>, <14 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		lora-hog {
+			gpio-hog;
+			gpios = <3 GPIO_ACTIVE_HIGH>, <4 GPIO_ACTIVE_HIGH>,
+				<5 GPIO_ACTIVE_HIGH>, <8 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		lora-extint-hog {
+			/* ZOE-M8 says to leave interrupt open if unused,
+			 * but since it's connected, best leave it inactive */
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+	};
+};
