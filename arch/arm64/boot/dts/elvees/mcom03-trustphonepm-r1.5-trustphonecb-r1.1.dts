@@ -68,6 +68,26 @@
 	/* Not all devices are checked to 400kHz support */
 	clock-frequency = <100000>;
 	status = "okay";
+
+	/* DD29 */
+	tca9554_0: gpio-expander@3c {
+		compatible = "ti,tca9554";
+		reg = <0x3c>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* DD30 */
+	tca9554_1: gpio-expander@3e {
+		compatible = "ti,tca9554";
+		reg = <0x3e>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &emac0 {
