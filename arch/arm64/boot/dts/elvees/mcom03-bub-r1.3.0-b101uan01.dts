@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-bub-r1.3.0.dts"
+
+/ {
+	dsi_backlight: dsi-backlight {
+		compatible = "gpio-backlight";
+		gpios = <&gpio1d 2 GPIO_ACTIVE_HIGH>;
+		default-on;
+	};
+};
+
+&i2c2 {
+	/delete-node/ hdmi@3d;
+};
+
+&display_encoder {
+	video-output = "dsi";
+
+	dsi-panel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "auo,b101uan01";
+		reg = <0>;
+		backlight = <&dsi_backlight>;
+		enable-gpios = <&gpio1c 1 GPIO_ACTIVE_HIGH>;
+
+		ports {
+			port {
+				panel_in: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
+
+	ports {
+		/delete-node/ port@2;
+
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
