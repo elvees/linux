@@ -130,25 +130,11 @@
 &i2c1 {
 	clock-frequency = <400000>;
 	status = "okay";
-
-	fram1: fram1@50 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "atmel,24c01";
-		reg = <0x50>;
-	};
 };
 
 &i2c2 {
 	clock-frequency = <400000>;
 	status = "okay";
-
-	fram2: fram2@50 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "atmel,24c01";
-		reg = <0x50>;
-	};
 
 	adv7513: hdmi@3d {
 		compatible = "adi,adv7513";
@@ -176,13 +162,6 @@
 &i2c3 {
 	clock-frequency = <400000>;
 	status = "okay";
-
-	fram3: fram3@50 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "atmel,24c01";
-		reg = <0x50>;
-	};
 };
 
 &dp {
