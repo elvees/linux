@@ -33,6 +33,10 @@
 			linux,code = <KEY_VENDOR>;
 		};
 	};
+
+	sdr@1900000 {
+		status = "disabled";
+	};
 };
 
 &uart0 {
