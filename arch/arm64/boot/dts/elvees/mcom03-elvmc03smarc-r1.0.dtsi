@@ -166,5 +166,15 @@
 	};
 };
 
+i2c_gp: &i2c2 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
 /* PCIe0 is connected to SATA controller. Should be enabled in carrier DTS. */
 sata: &pcie0 { };
