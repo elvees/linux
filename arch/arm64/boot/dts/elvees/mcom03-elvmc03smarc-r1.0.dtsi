@@ -176,5 +176,42 @@ i2c_gp: &i2c2 {
 	};
 };
 
+&i2c3 {
+	status = "okay";
+
+	/* On MCom-03 video sensors are handled by userspace drivers and are
+	 * not described in DeviceTree. Limit clock-frequency to 100 kHz because
+	 * this is maximum frequency for many sensors (for example OV5647). */
+	clock-frequency = <100000>;
+
+	i2c-switch@70 {
+		compatible = "ti,tca9546", "nxp,pca9546";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		/* Sub-buses in a mux doesn't respect status property, so they
+		 * are always enabled. */
+
+		i2c_cam0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c_cam1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c_lcd: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+	};
+};
+
 /* PCIe0 is connected to SATA controller. Should be enabled in carrier DTS. */
 sata: &pcie0 { };
