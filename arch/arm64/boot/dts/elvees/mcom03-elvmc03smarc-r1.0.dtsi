@@ -64,12 +64,64 @@
 	};
 };
 
+/* TODO: How to distinguish internal lines from external? How to distinguish
+ *       hardware function from GPIO? */
+&gpio0a {
+	gpio-line-names = "GBE0_PD_INT", "GBE1_PD_INT", "PINTn", "GPIO9",
+		"GPIO8", "GPIO7", "GPIO10", "PEWARN";
+};
+
+&gpio0b {
+	gpio-line-names = "GPIO12", "LED_GREEN", "PCIE_A_RST#", "SATA_PERST#",
+		"GPIO11", "SER3_RX", "SER3_TX", "SER2_RX";
+
+	pci-perstn {
+		gpio-hog;
+		gpios = <2 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+
+	sata-perstn {
+		gpio-hog;
+		gpios = <3 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&gpio0c {
+	gpio-line-names = "SPI0_CK", "SPI0_DO", "SPI0_DIN", "LED_RED",
+		"SPI0_CS0#", "SPI0_CS1#", "GPIO13", "RGMII_1_RST#";
+};
+
 &gpio0d {
+	gpio-line-names = "SER2_TX", "USB_HUB_RST", "LED_ORANGE", "I2C0_SCL",
+		"I2C0_SDA", "I2C0_SMBALERT", "RGMII_0_RST#", "LED_BLUE";
+
 	reset-usb2517-hub-hog {
 		gpio-hog;
 		gpios = <1 GPIO_ACTIVE_HIGH>;
 		output-low;
 	};
+};
+
+&gpio1a {
+	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "I2C2_SCL", "I2C2_SDA",
+		"I2C3_SCL", "I2C3_SDA", "HDMI_INT", "RTC_INT";
+};
+
+&gpio1b {
+	gpio-line-names = "HDMI_SCLK", "HDMI_LRCLK", "HDMI_I2S0", "TEST#",
+		"HDMI_PD", "PFSOB", "SER1_TX", "SER1_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "CAM0_PWR#", "GPIO4", "CAM0_RST#", "CAM1_RST#",
+		"CAM1_PWR#", "CARRIER_PWR_ON", "FORCE_RECOV#", "SLEEP#";
+};
+
+&gpio1d {
+	gpio-line-names = "CARRIER_STBY#", "", "PWM_OUT", "LCD0_BKLT_PWM",
+		"LCD0_BKLT_EN", "PSTANDBY", "GPIO6", "RESET_OUT#";
 };
 
 /* Connected to USB 2.0 hub */
@@ -137,20 +189,6 @@
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_50_NS>;
 		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_50_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
-	};
-};
-
-&gpio0b {
-	pci-perstn {
-		gpio-hog;
-		gpios = <2 GPIO_ACTIVE_HIGH>;
-		output-high;
-	};
-
-	sata-perstn {
-		gpio-hog;
-		gpios = <3 GPIO_ACTIVE_HIGH>;
-		output-high;
 	};
 };
 
