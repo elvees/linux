@@ -28,6 +28,49 @@
 	status = "okay";
 };
 
+/* GPIO lines are named after their connection name either on Trusphone PM or
+ * on Trusphone CB. */
+&gpio0a {
+	gpio-line-names = "BT_UART_RX", "BT_UART_TX", "BT_UART_CTS", "HDMI_INT",
+		"RTC_MFP", "PMIC1_INTB", "RGMII_INT", "BT_UART_RTS";
+};
+
+&gpio0b {
+	gpio-line-names = "CHG_EN", "CHG_DSEL", "CHG_QON", "CHG_STATUS", "TE",
+		"UART1_RX", "UART1_TX", "UART2_RX";
+};
+
+&gpio0c {
+	gpio-line-names = "SPI0_CLK", "SPI0_MOSI", "SPI0_MISO", "D_GPIO",
+		"SPI0_nCS_FP", "SPI0_nCS_CUT", "SPI0_nCS_GYRO", "SPI0_nCS_GNSS";
+};
+
+&gpio0d {
+	gpio-line-names = "UART2_TX", "DSP_HWEN", "CAMR_PWDN", "I2C0_SCL",
+		"I2C0_SDA", "I2C0_ALERT", "CAMF_PWDN", "EN_CAMF_CLK";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "BT_HOST_WAKE",
+		"WL_HOST_WAKE", "INT_EXP_INT", "TPS_INT", "CHG_INT",
+		"PWR_BUT_INT";
+};
+
+&gpio1b {
+	gpio-line-names = "I2S0_SCLKO", "I2S0_WSO", "I2S0_SDO0", "I2S0_SDO1",
+		"I2S0_SDI", "I2S0_SCLK_IN", "UART0_TX", "UART0_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "EN_CAMR_CLK", "BT_DEV_WAKE", "CSI_SEL", "CSI_nOE",
+		"WIFI_nPWD", "RGMII_nRESET", "WL_DEV_WAKE", "";
+};
+
+&gpio1d {
+	gpio-line-names = "CAMR2_FSIN", "", "DSP_PWM", "VIBRO_PWM",
+		"LTE_PWR_ON", "LTE_AP_READY", "D_RAIL_EN", "GPS_SAFEBOOT";
+};
+
 /* Connected to USB hub */
 &usb1 {
 	status = "okay";
