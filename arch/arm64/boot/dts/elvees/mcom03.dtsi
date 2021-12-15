@@ -684,6 +684,7 @@
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&timer_clk>;
+			status = "disabled";
 		};
 
 		timer1: timer@1790014 {
@@ -692,6 +693,7 @@
 			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&timer_clk>;
+			status = "disabled";
 		};
 
 		timer2: timer@1790028 {
@@ -700,6 +702,7 @@
 			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&timer_clk>;
+			status = "disabled";
 		};
 
 		timer3: timer@179003c {
@@ -708,6 +711,7 @@
 			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&timer_clk>;
+			status = "disabled";
 		};
 
 		timer4: timer@1790050 {
@@ -716,6 +720,7 @@
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&timer_clk>;
+			status = "disabled";
 		};
 
 		timer5: timer@1790064 {
@@ -724,6 +729,7 @@
 			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&timer_clk>;
+			status = "disabled";
 		};
 
 		timer6: timer@1790078 {
@@ -732,6 +738,7 @@
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&timer_clk>;
+			status = "disabled";
 		};
 
 		timer7: timer@179008c {
@@ -740,6 +747,7 @@
 			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
 			clocks = <&timer_clk>;
+			status = "disabled";
 		};
 
 		gpio1: gpio@1780000 {
