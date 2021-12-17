@@ -18,6 +18,10 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	sdr@1900000 {
+		status = "disabled";
+	};
 };
 
 &emac0 {
