@@ -82,6 +82,13 @@ struct mcom03_priv {
 
 static struct mcom03_dsi_mode dsi_modes[] = {
 	{
+		.mode_clock_max = 27000,
+		.lanes = 1,
+		.pll_freq = 324000,
+		.vco_cntrl = 0x1f,
+		.hs_freq_range = 0x18,
+	},
+	{
 		.mode_clock_max = 148500,
 		.lanes = 4,
 		.pll_freq = 499500,
