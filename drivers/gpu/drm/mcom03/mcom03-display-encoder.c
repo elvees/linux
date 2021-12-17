@@ -222,6 +222,7 @@ static int drm_mcom03_phy_init(void *priv_data)
 	u32 mipi_tx_ref_freq;
 	u32 cfg_clk_freq_range;
 	u32 pll_n = 5;
+	u32 pll_n_mul;
 	u32 pll_m;
 	int ret;
 
@@ -245,12 +246,14 @@ static int drm_mcom03_phy_init(void *priv_data)
 	}
 
 	/* TODO Need to calculate pll_n
-	 * pll_freq = ref * pll_m / pll_n
+	 * pll_freq = ref * pll_m / (pll_n * pll_n_mul)
+	 * pll_n_mul = 2 ^^ vco_cntrl[5:4]
 	 * 64 <= pll_m <= 625
 	 * 1 <= pll_n <= 16
 	 * 2 MHz <= (ref / pll_n) <= 8 MHz
 	 */
-	pll_m = DIV_ROUND_UP(priv->dsi_mode->pll_freq * pll_n,
+	pll_n_mul = 1 << (priv->dsi_mode->vco_cntrl >> 4);
+	pll_m = DIV_ROUND_UP(priv->dsi_mode->pll_freq * pll_n * pll_n_mul,
 			     mipi_tx_ref_freq / 1000);
 
 	cfg_clk_freq_range = (mipi_tx_cfg_freq - 17000000) * 4 / 1000000;
