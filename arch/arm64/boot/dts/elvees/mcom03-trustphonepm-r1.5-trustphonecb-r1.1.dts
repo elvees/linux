@@ -5,6 +5,8 @@
 
 /dts-v1/;
 
+#include <dt-bindings/mfd/arizona.h>
+
 #include "mcom03-trustphonepm-r1.5.dtsi"
 
 / {
@@ -21,6 +23,39 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <12000000>;
+	};
+
+	wm8998_supply_core: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "wm8998-supply-core";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	wm8998_supply_speaker: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "wm8998-supply-speaker";
+		regulator-min-microvolt = <4000000>;
+		regulator-max-microvolt = <4000000>;
+		regulator-always-on;
+	};
+
+	soundcard@0 {
+		compatible = "elvees,trustphone-wm8998";
+
+		model = "Trustphone WM8998";
+
+		elvees,audio-routing =
+			"Modem Out", "Modem TX",
+			"Modem RX", "Modem In",
+			"AIF2 Capture", "Modem Out",
+			"Modem RX", "AIF2 Playback",
+			"IN2B", "MICBIAS1";
+
+		codec {
+			sound-dai = <&wm8998>;
+		};
 	};
 };
 
@@ -130,6 +165,30 @@
 		reg = <0x3e>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	wm8998: audio-codec@1a {
+		compatible = "wlf,wm8998";
+		reg = <0x1a>;
+		interrupts-extended = <&tca9554_0 1 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		reset-gpios = <&tca9554_1 7 0>;
+		#sound-dai-cells = <0>;
+
+		AVDD-supply = <&wm8998_supply_core>;
+		CPVDD-supply = <&wm8998_supply_core>;
+		DBVDD1-supply = <&wm8998_supply_core>;
+		DBVDD2-supply = <&wm8998_supply_core>;
+		DBVDD3-supply = <&wm8998_supply_core>;
+		LDOVDD-supply = <&wm8998_supply_core>;
+		SPKVDDL-supply = <&wm8998_supply_speaker>;
+		SPKVDDR-supply = <&wm8998_supply_speaker>;
+
+		wlf,inmode = <1 1 1 1>;
+		wlf,clk32k-source = <ARIZONA_32KZ_NONE>;
 	};
 };
 
