@@ -64,6 +64,10 @@ struct mcom03_priv {
 	struct clk *pixel_clock;
 	struct clk *mipi_tx_cfg_clock;
 	struct clk *mipi_tx_ref_clock;
+	struct clk *mipi_txclkesc_clock;
+	struct clk *pclk_clock;
+	struct clk *disp_aclk_clock;
+	struct clk *cmos0_clk_clock;
 	struct drm_encoder encoder;
 	struct drm_bridge *output_bridge;
 	struct dw_mipi_dsi *dsi;
@@ -98,8 +102,40 @@ drm_mcom03_mode_valid(struct drm_encoder *crtc,
 	return (requested_rate == real_rate) ? MODE_OK : MODE_NOCLOCK;
 }
 
+void drm_mcom03_mode_set(struct drm_encoder *encoder,
+			 struct drm_display_mode *mode,
+			 struct drm_display_mode *adjusted_mode)
+{
+	struct mcom03_priv *priv = container_of(encoder, struct mcom03_priv,
+						encoder);
+
+	if (priv->type == OUTPUT_RGB)
+		clk_set_rate(priv->cmos0_clk_clock, mode->clock * 1000);
+}
+
+void drm_mcom03_enable(struct drm_encoder *encoder)
+{
+	struct mcom03_priv *priv = container_of(encoder, struct mcom03_priv,
+						encoder);
+
+	if (priv->type == OUTPUT_RGB)
+		clk_prepare_enable(priv->cmos0_clk_clock);
+}
+
+void drm_mcom03_disable(struct drm_encoder *encoder)
+{
+	struct mcom03_priv *priv = container_of(encoder, struct mcom03_priv,
+						encoder);
+
+	if (priv->type == OUTPUT_RGB)
+		clk_disable_unprepare(priv->cmos0_clk_clock);
+}
+
 static const struct drm_encoder_helper_funcs drm_mcom03_encoder_helper_funcs = {
 	.mode_valid = drm_mcom03_mode_valid,
+	.mode_set = drm_mcom03_mode_set,
+	.enable = drm_mcom03_enable,
+	.disable = drm_mcom03_disable,
 };
 
 static const struct drm_encoder_funcs drm_mcom03_encoder_funcs = {
@@ -389,24 +425,81 @@ static int drm_mcom03_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to get mipi_tx_ref clock\n");
 		return PTR_ERR(priv->mipi_tx_ref_clock);
 	}
-	ret = clk_prepare_enable(priv->mipi_tx_cfg_clock);
+
+	priv->mipi_txclkesc_clock = devm_clk_get(&pdev->dev, "mipi_txclkesc");
+	if (IS_ERR(priv->mipi_txclkesc_clock)) {
+		dev_err(&pdev->dev, "failed to get mipi_txclkesc clock\n");
+		return PTR_ERR(priv->mipi_txclkesc_clock);
+	}
+
+	/* In MCom-03 name of this clock is sys_aclk, but we named it pclk
+	 * because dw-mipi-dsi driver requires pclk clock */
+	priv->pclk_clock = devm_clk_get(&pdev->dev, "pclk");
+	if (IS_ERR(priv->pclk_clock)) {
+		dev_err(&pdev->dev, "failed to get pclk clock\n");
+		return PTR_ERR(priv->pclk_clock);
+	}
+
+	priv->disp_aclk_clock = devm_clk_get(&pdev->dev, "disp_aclk");
+	if (IS_ERR(priv->disp_aclk_clock)) {
+		dev_err(&pdev->dev, "failed to get disp_aclk clock\n");
+		return PTR_ERR(priv->disp_aclk_clock);
+	}
+
+	priv->cmos0_clk_clock = devm_clk_get(&pdev->dev, "cmos0_clk");
+	if (IS_ERR(priv->cmos0_clk_clock)) {
+		dev_err(&pdev->dev, "failed to get cmos0_clk clock\n");
+		return PTR_ERR(priv->cmos0_clk_clock);
+	}
+
+	ret = clk_prepare_enable(priv->pclk_clock);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to enable mipi_tx_cfg clock\n");
+		dev_err(&pdev->dev, "failed to enable pclk clock\n");
 		return ret;
 	}
-	ret = clk_prepare_enable(priv->mipi_tx_ref_clock);
+	ret = clk_prepare_enable(priv->disp_aclk_clock);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to enable mipi_tx_ref clock\n");
-		clk_disable_unprepare(priv->mipi_tx_cfg_clock);
-		return ret;
+		dev_err(&pdev->dev, "failed to enable disp_aclk clock\n");
+		goto disable_sys_aclk;
+	}
+	if (priv->type == OUTPUT_DSI) {
+		ret = clk_prepare_enable(priv->mipi_tx_cfg_clock);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable mipi_tx_cfg clock\n");
+			goto disable_disp_aclk;
+		}
+		ret = clk_prepare_enable(priv->mipi_tx_ref_clock);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable mipi_tx_ref clock\n");
+			goto disable_mipi_tx_cfg;
+		}
+		ret = clk_prepare_enable(priv->mipi_txclkesc_clock);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable mipi_txclkesc clock\n");
+			goto disable_mipi_tx_ref;
+		}
 	}
 
 	ret = component_add(&pdev->dev, &drm_mcom03_ops);
 	if (ret) {
-		clk_disable_unprepare(priv->mipi_tx_cfg_clock);
-		clk_disable_unprepare(priv->mipi_tx_ref_clock);
+		if (priv->type == OUTPUT_DSI)
+			goto disable_mipi_txclkesc;
+		else
+			goto disable_disp_aclk;
 	}
 
+	return ret;
+
+disable_mipi_txclkesc:
+	clk_disable_unprepare(priv->mipi_txclkesc_clock);
+disable_mipi_tx_ref:
+	clk_disable_unprepare(priv->mipi_tx_ref_clock);
+disable_mipi_tx_cfg:
+	clk_disable_unprepare(priv->mipi_tx_cfg_clock);
+disable_disp_aclk:
+	clk_disable_unprepare(priv->disp_aclk_clock);
+disable_sys_aclk:
+	clk_disable_unprepare(priv->pclk_clock);
 	return ret;
 }
 
@@ -416,8 +509,13 @@ static int drm_mcom03_remove(struct platform_device *pdev)
 		(struct mcom03_priv *)dev_get_drvdata(&pdev->dev);
 
 	component_del(&pdev->dev, &drm_mcom03_ops);
-	clk_disable_unprepare(priv->mipi_tx_cfg_clock);
-	clk_disable_unprepare(priv->mipi_tx_ref_clock);
+	if (priv->type == OUTPUT_DSI) {
+		clk_disable_unprepare(priv->mipi_txclkesc_clock);
+		clk_disable_unprepare(priv->mipi_tx_cfg_clock);
+		clk_disable_unprepare(priv->mipi_tx_ref_clock);
+	}
+	clk_disable_unprepare(priv->disp_aclk_clock);
+	clk_disable_unprepare(priv->pclk_clock);
 
 	return 0;
 }
