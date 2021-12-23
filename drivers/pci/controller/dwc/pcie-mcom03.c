@@ -79,6 +79,12 @@ static int mcom03_pcie_host_init(struct pcie_port *pp)
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
 
+	// Set BAR0/BAR1 to 4 KiB to preserve space in ranges
+	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_0, 0xFFF);
+	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_1, 0xFFF);
+	// Disable DBI_RO_WR_EN, since setup_rc() expects it to be off
+	dw_pcie_dbi_ro_wr_dis(pci);
+
 	dw_pcie_setup_rc(pp);
 	// If we need to program PHY, registers are programmed and
 	// app_hold_phy_rst is unset here
@@ -193,6 +199,7 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
 	pci->dbi_base = devm_ioremap_resource(dev, res);
+	pci->dbi_base2 = pci->dbi_base + 0x100000;
 	if (IS_ERR(pci->dbi_base)) {
 		dev_err(dev, "Failed to remap dbi memory\n");
 		return PTR_ERR(pci->dbi_base);
