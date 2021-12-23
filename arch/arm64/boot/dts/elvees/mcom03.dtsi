@@ -642,7 +642,7 @@
 			device_type = "pci";
 			ranges = <0x83000000 0x0 0x00000000
 				  0x4 0x00000000
-				  0x1 0xc0000000>;
+				  0x1 0x00000000>;
 			num-viewport = <32>;
 			num-lanes = <4>;
 			// TODO: Legacy, HP, AER, etc. interrupts
@@ -665,8 +665,8 @@
 			#size-cells = <2>;
 			device_type = "pci";
 			ranges = <0x83000000 0x0 0x00000000
-				  0x5 0xc0000000
-				  0x1 0xc0000000>;
+				  0x6 0x00000000
+				  0x1 0x00000000>;
 			num-viewport = <32>;
 			num-lanes = <4>;
 			// TODO: Legacy, HP, AER, etc. interrupts
