@@ -473,6 +473,7 @@
 			ranges;
 			reg = <0 0 0 0x10000>;
 			no-memory-wc;
+			clocks = <&hsperiph_ucg0 HSP_SPRAM_CLK>;
 
 			emac_desc_pool: sram-pool@0 {
 				reg = <0 0 0 0x2000>;
@@ -495,12 +496,109 @@
 			};
 		};
 
+		hsperiph_pll: hsperiph_pll {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <1500000000>;
+		};
+
+		hsperiph_ucg0: ucg@10410000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x10410000 0 0x80>;
+			clocks = <&hsperiph_pll>;
+			clock-output-names = "hsp_sys_clk", "hsp_dma_clk",
+					     "hsp_ctr_clk", "spram_clk",
+					     "emac0_clk", "emac1_clk",
+					     "usb0_clk", "usb1_clk",
+					     "nfc_clk", "pdma2_clk",
+					     "sdmmc0_clk", "sdmmc1_clk",
+					     "qspi_clk";
+			assigned-clocks = <&hsperiph_ucg0 HSP_SYS_CLK>,
+					  <&hsperiph_ucg0 HSP_DMA_CLK>,
+					  <&hsperiph_ucg0 HSP_CTR_CLK>,
+					  <&hsperiph_ucg0 HSP_SPRAM_CLK>,
+					  <&hsperiph_ucg0 HSP_EMAC0_CLK>,
+					  <&hsperiph_ucg0 HSP_EMAC1_CLK>,
+					  <&hsperiph_ucg0 HSP_USB0_CLK>,
+					  <&hsperiph_ucg0 HSP_USB1_CLK>,
+					  <&hsperiph_ucg0 HSP_NFC_CLK>,
+					  <&hsperiph_ucg0 HSP_PDMA2_CLK>,
+					  <&hsperiph_ucg0 HSP_SDMMC0_CLK>,
+					  <&hsperiph_ucg0 HSP_SDMMC1_CLK>,
+					  <&hsperiph_ucg0 HSP_QSPI_CLK>;
+			assigned-clock-rates = <300000000
+						300000000
+						93750000
+						100000000
+						187500000
+						187500000
+						125000000
+						125000000
+						93750000
+						250000000
+						93750000
+						93750000
+						93750000>;
+			enabled-clocks = <HSP_SYS_CLK
+					  HSP_DMA_CLK
+					  // TODO: Decide what to do
+					  //       with CTR_CLK
+					  HSP_CTR_CLK>;
+			#clock-cells = <1>;
+		};
+
+		hsperiph_ucg1: ucg@10420000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x10420000 0 0x80>;
+			clocks = <&hsperiph_pll>;
+			clock-output-names = "sdmmc0_xin_clk",
+					     "sdmmc1_xin_clk",
+					     "nfc_clk_flash",
+					     "qspi_ext_clk",
+					     "ust_clk";
+			assigned-clocks = <&hsperiph_ucg1 HSP_SDMMC0_XIN_CLK>,
+					  <&hsperiph_ucg1 HSP_SDMMC1_XIN_CLK>,
+					  <&hsperiph_ucg1 HSP_NFC_FLASH_CLK>;
+			assigned-clock-rates = <125000000
+						125000000
+						25000000>;
+			#clock-cells = <1>;
+		};
+
+		hsperiph_ucg2: ucg@10430000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x10430000 0 0x80>;
+			clocks = <&hsperiph_pll>;
+			clock-output-names = "emac0_clk_1588",
+					     "emac0_rgmii_txc",
+					     "emac1_clk_1588",
+					     "emac1_rgmii_txc";
+			#clock-cells = <1>;
+		};
+
+		hsperiph_ucg3: ucg@10440000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x10440000 0 0x80>;
+			clocks = <&hsperiph_pll>;
+			clock-output-names = "usb0_ref_alt_clk",
+					     "usb0_suspend_clk",
+					     "usb1_ref_alt_clk",
+					     "usb1_suspend_clk";
+			assigned-clocks = <&hsperiph_ucg3 HSP_USB0_SUSPEND_CLK>,
+					  <&hsperiph_ucg3 HSP_USB1_SUSPEND_CLK>;
+			assigned-clock-rates = <25000000
+						25000000>;
+			#clock-cells = <1>;
+		};
+
 		emac0: ethernet@10200000 {
 			compatible = "elvees,arasan-gemac";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0 0x10200000 0 0x1000>;
-			clocks = <&eth_bus_clk>;
+			clocks = <&hsperiph_ucg0 HSP_EMAC0_CLK>,
+				 <&hsperiph_ucg2 HSP_EMAC0_RGMII_TXC>;
+			clock-names = "busclk", "txc";
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
 			elvees,ctrl-id = <0>;
@@ -514,7 +612,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0 0x10210000 0 0x1000>;
-			clocks = <&eth_bus_clk>;
+			clocks = <&hsperiph_ucg0 HSP_EMAC1_CLK>,
+				 <&hsperiph_ucg2 HSP_EMAC1_RGMII_TXC>;
+			clock-names = "busclk", "txc";
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
 			elvees,ctrl-id = <1>;
@@ -530,7 +630,8 @@
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
 			/* Linux driver requires the following clock names */
 			clock-names = "clk_xin", "clk_ahb";
-			clocks = <&sdmmc_clk>, <&sdmmc_clk>;
+			clocks = <&hsperiph_ucg1 HSP_SDMMC0_XIN_CLK>,
+				 <&hsperiph_ucg0 HSP_SDMMC0_CLK>;
 			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC0>;
 			elvees,ctrl-id = <0>;
 			status = "disabled";
@@ -560,7 +661,8 @@
 			arasan,soc-ctl-syscon = <&hsperiph_urb>;
 			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "clk_xin", "clk_ahb";
-			clocks = <&sdmmc_clk>, <&sdmmc_clk>;
+			clocks = <&hsperiph_ucg1 HSP_SDMMC1_XIN_CLK>,
+				 <&hsperiph_ucg0 HSP_SDMMC1_CLK>;
 			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC1>;
 			elvees,ctrl-id = <1>;
 			status = "disabled";
@@ -585,7 +687,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			resets = <&hsperiph_reset HSPERIPH_RST_NFC>;
-			clocks = <&nfc_clk>, <&nfc_axi_clk>;
+			clocks = <&hsperiph_ucg1 HSP_NFC_FLASH_CLK>,
+				 <&hsperiph_ucg0 HSP_NFC_CLK>;
 			clock-names = "clk_flash", "clk_sys";
 			status = "disabled";
 		};
@@ -596,7 +699,8 @@
 			#size-cells = <0>;
 			reg = <0 0x10260000 0 0x10000>;
 			clock-names = "clk_axi", "clk_ext";
-			clocks = <&qspi_clk>, <&qspi_clk>;
+			clocks = <&hsperiph_ucg0 HSP_QSPI_CLK>,
+				 <&hsperiph_ucg1 HSP_QSPI_EXT_CLK>;
 			resets = <&hsperiph_reset HSPERIPH_RST_QSPI>;
 			arasan,soc-ctl-syscon = <&hsperiph_urb>;
 			num-cs = <4>;
@@ -609,7 +713,9 @@
 			ranges;
 			compatible = "elvees,mcom03-dwc3";
 			clock-names = "sys", "ref", "suspend";
-			clocks = <&usb_sys_clk>, <&usb_ref_clk>, <&usb_suspend_clk>;
+			clocks = <&hsperiph_ucg0 HSP_USB0_CLK>,
+				 <&usb_ref_clk>,
+				 <&hsperiph_ucg3 HSP_USB0_SUSPEND_CLK>;
 			resets = <&hsperiph_reset HSPERIPH_RST_USB0>;
 			elvees,urb = <&hsperiph_urb>;
 			elvees,ctrl-id = <0>;
@@ -629,7 +735,9 @@
 			ranges;
 			compatible = "elvees,mcom03-dwc3";
 			clock-names = "sys", "ref", "suspend";
-			clocks = <&usb_sys_clk>, <&usb_ref_clk>, <&usb_suspend_clk>;
+			clocks = <&hsperiph_ucg0 HSP_USB1_CLK>,
+				 <&usb_ref_clk>,
+				 <&hsperiph_ucg3 HSP_USB1_SUSPEND_CLK>;
 			resets = <&hsperiph_reset HSPERIPH_RST_USB1>;
 			elvees,urb = <&hsperiph_urb>;
 			elvees,ctrl-id = <1>;
@@ -948,30 +1056,7 @@
 		clock-frequency = <27000000>;
 	};
 
-	eth_bus_clk: eth_bus_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <125000000>;
-	};
-
-	sdmmc_clk: sdmmc_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <125000000>;
-	};
-
-	usb_suspend_clk: usb_suspend_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <25000000>;
-	};
-
-	usb_sys_clk: usb_sys_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <125000000>;
-	};
-
+	/* External low-jitter clock for USB */
 	usb_ref_clk: usb_ref_clk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
@@ -988,23 +1073,5 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <102375000>;
-	};
-
-	qspi_clk: qspi_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <25000000>;
-	};
-
-	nfc_axi_clk: nfc_axi_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <125000000>;
-	};
-
-	nfc_clk: nfc_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <93750000>;
 	};
 };
