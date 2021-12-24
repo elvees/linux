@@ -36,6 +36,16 @@
 	status = "okay";
 };
 
+/* Wired to PBD connector */
+&uart1 {
+	status = "okay";
+};
+
+/* Wired to PBD connector */
+&uart2 {
+	status = "okay";
+};
+
 &sdhci0 {
 	status = "okay";
 
