@@ -962,6 +962,7 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 	struct phy_device *phydev = pd->phy_dev;
+	unsigned long rate;
 	u32 reg;
 
 	reg = arasan_gemac_readl(pd, MAC_GLOBAL_CONTROL);
@@ -982,14 +983,22 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 	switch (phydev->speed) {
 	case SPEED_100:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(1);
+		rate = 25000000;
 		break;
 	case SPEED_1000:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(2);
+		rate = 125000000;
 		break;
 	default:
 		netdev_err(dev, "Unknown speed (%d)\n", phydev->speed);
 		return;
 	}
+	if (clk_round_rate(pd->clks[CLOCK_TXC].clk, rate) != rate ||
+	    clk_set_rate(pd->clks[CLOCK_TXC].clk, rate)) {
+		netdev_err(dev, "Can not setup txc clock to %ld Hz\n", rate);
+		return;
+	}
+
 	arasan_gemac_set_threshold(pd);
 
 	arasan_gemac_writel(pd, MAC_GLOBAL_CONTROL, reg);
@@ -1096,7 +1105,8 @@ static int arasan_gemac_mii_init(struct net_device *dev)
 	 * reset of Ethernet PHY from user space (see MII-TOOL utility)
 	 */
 
-	divisor = DIV_ROUND_UP(clk_get_rate(pd->hclk), pd->mdc_freq);
+	divisor = DIV_ROUND_UP(clk_get_rate(pd->clks[CLOCK_BUS].clk),
+			       pd->mdc_freq);
 	arasan_gemac_writel(pd, MAC_MDIO_CLOCK_DIVISION_CONTROL, divisor);
 
 	snprintf(pd->mii_bus->id, MII_BUS_ID_SIZE, "%s-0x%x",
@@ -1258,6 +1268,29 @@ static const struct of_device_id arasan_gemac_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, arasan_gemac_dt_ids);
 #endif
 
+static int arasan_gemac_probe_clocks(struct arasan_gemac_pdata *pd)
+{
+	int res;
+
+	pd->clks[CLOCK_BUS].id = "busclk";
+	pd->clks[CLOCK_TXC].id = "txc";
+
+	res = devm_clk_bulk_get(&pd->pdev->dev, ARRAY_SIZE(pd->clks),
+				pd->clks);
+	if (res) {
+		dev_err(&pd->pdev->dev, "Failed to get clocks (%d)\n", res);
+		return res;
+	}
+
+	res = clk_bulk_prepare_enable(ARRAY_SIZE(pd->clks), pd->clks);
+	if (res) {
+		dev_err(&pd->pdev->dev, "Failed to enable clocks (%d)\n", res);
+		return res;
+	}
+
+	return res;
+}
+
 static int arasan_gemac_probe(struct platform_device *pdev)
 {
 	struct resource *regs;
@@ -1281,19 +1314,9 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	spin_lock_init(&pd->lock);
 	spin_lock_init(&pd->tx_freelock);
 
-	/* Try to get and enable Arasan GEMAC hclk */
-	pd->hclk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(pd->hclk)) {
-		res = PTR_ERR(pd->hclk);
-		dev_err(&pdev->dev, "Failed to get clock (%u)\n", res);
+	res = arasan_gemac_probe_clocks(pd);
+	if (res)
 		goto err_free_dev;
-	}
-
-	res = clk_prepare_enable(pd->hclk);
-	if (res) {
-		dev_err(&pdev->dev, "Failed to enable clock (%u)\n", res);
-		goto err_free_dev;
-	}
 
 	pd->rst = devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
 	if (IS_ERR(pd->rst)) {
@@ -1394,7 +1417,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 err_reset_assert:
 	reset_control_assert(pd->rst);
 err_disable_clocks:
-	clk_disable_unprepare(pd->hclk);
+	clk_bulk_disable_unprepare(ARRAY_SIZE(pd->clks), pd->clks);
 err_free_dev:
 	free_netdev(dev);
 
@@ -1414,7 +1437,7 @@ static int arasan_gemac_remove(struct platform_device *pdev)
 
 	unregister_netdev(dev);
 	reset_control_assert(pd->rst);
-	clk_disable_unprepare(pd->hclk);
+	clk_bulk_disable_unprepare(ARRAY_SIZE(pd->clks), pd->clks);
 	free_netdev(dev);
 
 	return 0;
