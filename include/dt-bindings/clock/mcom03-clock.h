@@ -1,0 +1,161 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ *
+ */
+
+#ifndef DT_BINDINGS_MCOM03_CLOCK_H
+#define DT_BINDINGS_MCOM03_CLOCK_H
+
+/* CPU UCG */
+#define CPU_SYS_CLK 0
+#define CPU_CORE_CLK 1
+#define CPU_DBUS_CLK 2
+
+/* SERVICE UCG */
+#define SERVICE_APB_CLK 0
+#define SERVICE_CORE_CLK 1
+#define SERVICE_QSPI0_CLK 2
+#define SERVICE_BPAM_CLK 3
+#define SERVICE_RISC0_CLK 4
+#define SERVICE_MFBSP0_CLK 5
+#define SERVICE_MFBSP1_CLK 6
+#define SERVICE_MAILBOX0_CLK 7
+#define SERVICE_PVTCTR_CLK 8
+#define SERVICE_I2C4_CLK 9
+#define SERVICE_TRNG_CLK 10
+#define SERVICE_SPIOTP_CLK 11
+#define SERVICE_I2C4_EXT_CLK 12
+#define SERVICE_QSPI0_EXT_CLK 13
+#define SERVICE_CLKOUT_EXT_CLK 14
+#define SERVICE_RISC0_TCK_CLK 15
+
+/* SDR UCG0 */
+#define SDR_CLK_CFG 0
+#define SDR_EXT_CLK 1
+#define SDR_INT_CLK 2
+#define SDR_PCI_CLK 3
+#define SDR_VCU_ACLK 4
+#define SDR_ACC0_CLK 5
+#define SDR_ACC1_CLK 6
+#define SDR_ACC2_CLK 7
+#define SDR_AUX_PCI_CLK 8
+#define SDR_GNSS_CLK 9
+#define SDR_DFE_ALT_CLK 10
+#define SDR_VCU_CLK 11
+#define SDR_LVDS_CLK 12
+
+/* SDR UCG_PCIE0, UCG_PCIE1 */
+#define SDR_PCIE_REF_ALT_CLK 0
+
+/* SDR UCG_JESD*_TX, UCG_JESD*_RX */
+#define SDR_JESD_SAMPLE_CLK 1
+#define SDR_JESD_CHARACTER_CLK 2
+
+/* SDR N_DFE */
+#define SDR_DFE_N_CLK 1
+
+/* MEDIA UCG0 */
+#define MEDIA_SYS_ACLK 0
+#define MEDIA_ISP_SYS_CLK 1
+
+/* MEDIA UCG1 */
+#define MEDIA_DISP_ACLK 0
+#define MEDIA_DISP_MCLK 1
+#define MEDIA_DISP_PXLCLK 2
+
+/* MEDIA UCG2 */
+#define MEDIA_GPU_SYS_CLK 0
+#define MEDIA_GPU_MEM_CLK 1
+#define MEDIA_GPU_CORE_CLK 2
+
+/* MEDIA UCG3 */
+#define MEDIA_MIPI_RX_REFCLK 0
+#define MEDIA_MIPI_RX0_CFG_CLK 1
+#define MEDIA_MIPI_RX1_CFG_CLK 2
+#define MEDIA_MIPI_TX_REFCLK 3
+#define MEDIA_MIPI_TX_CFG_CLK 4
+#define MEDIA_CMOS0_CLK 5
+#define MEDIA_CMOS1_CLK 6
+#define MEDIA_MIPI_TXCLKESC 7
+#define MEDIA_VPU_CLK 8
+
+/* DDR UCG0 */
+#define DDR_DDR_CLK0 0
+#define DDR_DDR_X4_CLK0 1
+#define DDR_DDR_CLK1 2
+#define DDR_DDR_X4_CLK1 3
+
+/* DDR UCG1 */
+#define DDR_PCLK 0
+#define DDR_ACLK0 1
+#define DDR_ACLK1 2
+#define DDR_ACLK2 3
+#define DDR_ACLK3 4
+#define DDR_ACLK4 5
+#define DDR_ACLK5 6
+#define DDR_ACLK6 7
+#define DDR_ACLK7 8
+#define DDR_ACLK8 9
+#define DDR_ACLK9 10
+#define DDR_ACLK10 11
+
+/* HSP UCG0 */
+#define HSP_SYS_CLK 0
+#define HSP_DMA_CLK 1
+#define HSP_CTR_CLK 2
+#define HSP_SPRAM_CLK 3
+#define HSP_EMAC0_CLK 4
+#define HSP_EMAC1_CLK 5
+#define HSP_USB0_CLK 6
+#define HSP_USB1_CLK 7
+#define HSP_NFC_CLK 8
+#define HSP_PDMA2_CLK 9
+#define HSP_SDMMC0_CLK 10
+#define HSP_SDMMC1_CLK 11
+#define HSP_QSPI_CLK 12
+
+/* HSP UCG1 */
+#define HSP_SDMMC0_XIN_CLK 0
+#define HSP_SDMMC1_XIN_CLK 1
+#define HSP_NFC_FLASH_CLK 2
+#define HSP_QSPI_EXT_CLK 3
+#define HSP_UST_CLK 4
+
+/* HSP UCG2 */
+#define HSP_EMAC0_1588_CLK 0
+#define HSP_EMAC0_RGMII_TXC 1
+#define HSP_EMAC1_1588_CLK 2
+#define HSP_EMAC1_RGMII_TXC 3
+
+/* HSP UCG3 */
+#define HSP_USB0_REF_ALT_CLK 0
+#define HSP_USB0_SUSPEND_CLK 1
+#define HSP_USB1_REF_ALT_CLK 2
+#define HSP_USB1_SUSPEND_CLK 3
+
+/* LSP0 UCG */
+#define LSP0_SYS_CLK 0
+#define LSP0_UART3_CLK 1
+#define LSP0_UART1_CLK 2
+#define LSP0_UART2_CLK 3
+#define LSP0_SPI0_CLK 4
+#define LSP0_I2C0_CLK 5
+#define LSP0_GPIO0_DBCLK 6
+
+/* LSP1 UCG */
+#define LSP1_SYS_CLK 0
+#define LSP1_I2C0_CLK 1
+#define LSP1_I2C1_CLK 2
+#define LSP1_I2C2_CLK 3
+#define LSP1_GPIO1_DBCLK 4
+#define LSP1_SSI1_CLK 5
+#define LSP1_UART0_CLK 6
+#define LSP1_TIMERS0_CLK 7
+#define LSP1_PWM0_CLK 8
+#define LSP1_WDT1_CLK 9
+
+/* LSP1 I2S_UCG */
+#define LSP1_I2S_CLK 0
+
+#endif

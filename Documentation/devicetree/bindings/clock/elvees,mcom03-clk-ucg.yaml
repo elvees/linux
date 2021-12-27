@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/elvees,mcom03-clk-ucg.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: MCom-03 UCG
+
+properties:
+  compatible:
+    enum:
+      - elvees,mcom03-clk-ucg
+
+  clocks:
+    maxItems: 1
+    description: Input clock
+
+  '#clock-cells':
+    const: 1
+
+  reg:
+    maxItems: 1
+
+  clock-output-names: true
+
+  clock-indices: true
+
+  assigned-clocks: true
+
+  assigned-clock-rates: true
+
+  enabled-clocks:
+    description: Channels that must be enabled at boot
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-output-names
+  - '#clock-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/mcom03-clock.h>
+    media_ucg1: ucg@13200c0 {
+        compatible = "elvees,mcom03-clk-ucg";
+        reg = <0 0x13200c0 0 0x80>;
+        clocks = <&media_pll1>;
+
+        /* For example MEDIA_DISP_ACLK=0, MEDIA_DISP_MCLK=5,
+         * MEDIA_DISP_PXLCLK=8 */
+        clock-indices = <MEDIA_DISP_ACLK MEDIA_DISP_MCLK MEDIA_DISP_PXLCLK>;
+        clock-output-names = "disp_aclk", "disp_mclk", "disp_pxlclk";
+        assigned-clocks = <&media_ucg1 MEDIA_DISP_ACLK>,
+                          <&media_ucg1 MEDIA_DISP_MCLK>;
+        assigned-clock-rates = <297000000
+                                148500000>;
+        enabled-clocks = <MEDIA_DISP_ACLK>;
+        #clock-cells = <1>;
+    };
+...
