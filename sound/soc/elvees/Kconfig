@@ -1,0 +1,8 @@
+config SND_SOC_ELVEES_TRUSTPHONE_WM8998
+	tristate "Support for ELVEES Trustphone WM8998 soundcard"
+	depends on ARCH_MCOM03
+	depends on MFD_WM8998 && MFD_ARIZONA_I2C && I2C
+	select SND_SOC_WM8998
+	help
+	  Say Y or M if you want to add support for ELVEES Trustphone WM8998
+	  soundcard.
