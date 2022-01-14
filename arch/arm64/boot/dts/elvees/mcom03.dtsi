@@ -280,6 +280,7 @@
 			reg = <0 0x1630000 0 0x10000>;
 			clocks = <&i2c0_clk>;
 			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
 		};
 
@@ -675,6 +676,7 @@
 			reg = <0 0x1710000 0 0x10000>;
 			clocks = <&i2c_clk>;
 			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
+			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
 		};
 
@@ -685,6 +687,7 @@
 			reg = <0 0x1720000 0 0x10000>;
 			clocks = <&i2c_clk>;
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
+			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
 		};
 
@@ -695,6 +698,7 @@
 			reg = <0 0x1730000 0 0x10000>;
 			clocks = <&i2c_clk>;
 			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
+			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
 		};
 
