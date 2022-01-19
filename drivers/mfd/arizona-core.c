@@ -861,6 +861,9 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 			ret);
 	}
 
+	of_property_read_u32(arizona->dev->of_node, "wlf,clk32k-source",
+			     &pdata->clk32k_src);
+
 	return 0;
 }
 
