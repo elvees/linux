@@ -69,6 +69,9 @@ Optional properties:
     Documentation/devicetree/bindings/regulator/regulator.txt
     (wm5102, wm5110, wm8280, wm8997, wm8998, wm1814)
 
+  - wlf,clk32k-source : Source for 32 KHz clock. Defines for the valid values
+    can be found in <dt-bindings/mfd/arizona.h>. If absent, MCLK2 is selected.
+
 Deprecated properties:
 
   - wlf,reset : GPIO specifier for the GPIO controlling /RESET
@@ -98,4 +101,6 @@ codec: wm5102@1a {
 		ARIZONA_GP_DEFAULT
 		ARIZONA_GP_DEFAULT
 	>;
+
+	wlf,clk32k-source = <ARIZONA_32KZ_MCLK1>;
 };
