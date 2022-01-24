@@ -75,3 +75,13 @@
 &pcie1 {
 	status = "okay";
 };
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+	reset_gpio = <&gpio1c 2 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio1c 0 GPIO_ACTIVE_HIGH>;
+};
