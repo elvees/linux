@@ -982,7 +982,7 @@
 		uart0: serial0@1750000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1750000 0 0x1000>;
-			clock-frequency = <27000000>;
+			clock-frequency = <27920454>;
 			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
