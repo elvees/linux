@@ -1038,6 +1038,53 @@
 		#size-cells = <2>;
 		ranges;
 
+		sdr_pll0: sdr_pll0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <1890000000>;
+		};
+
+		sdr_pll1: sdr_pll1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <657000000>;
+		};
+
+		sdr_pll2: sdr_pll2 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <459000000>;
+		};
+
+		sdr_ucg0: ucg@1900000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x1900000 0 0x80>;
+			clocks = <&sdr_pll0>;
+			clock-output-names = "sdr_clk_cfg", "sdr_ext_clk",
+					     "sdr_int_clk", "sdr_pci_clk",
+					     "sdr_vcu_aclk", "sdr_acc0_clk",
+					     "sdr_acc1_clk", "sdr_acc2_clk",
+					     "sdr_aux_pci_clk", "sdr_gnss_clk",
+					     "sdr_dfe_alt_clk", "sdr_vcu_clk",
+					     "sdr_lvds_clk";
+			assigned-clocks = <&sdr_ucg0 SDR_CLK_CFG>,
+					  <&sdr_ucg0 SDR_EXT_CLK>,
+					  <&sdr_ucg0 SDR_INT_CLK>,
+					  <&sdr_ucg0 SDR_PCI_CLK>,
+					  <&sdr_ucg0 SDR_AUX_PCI_CLK>;
+			assigned-clock-rates = <105000000
+						315000000
+						210000000
+						210000000
+						51000000>;
+			enabled-clocks = <SDR_CLK_CFG>,
+					 <SDR_EXT_CLK>,
+					 <SDR_INT_CLK>,
+					 <SDR_PCI_CLK>,
+					 <SDR_AUX_PCI_CLK>;
+			#clock-cells = <1>;
+		};
+
 		sdr_urb: urb@1910000 {
 			compatible = "elvees,mcom03-urb", "syscon",
 				     "simple-mfd";
@@ -1052,6 +1099,14 @@
 				elvees,subsystem = <MCOM03_SUBSYSTEM_SDR>;
 				#reset-cells = <1>;
 			};
+		};
+
+		dsp_gate: clock-controller@191004c {
+			compatible = "elvees,mcom03-dsp-gate";
+			reg = <0 0x191004c 0 0x4>;
+			clocks = <&sdr_pll2>;
+			clock-output-names = "dsp0_clk", "dsp1_clk";
+			#clock-cells = <1>;
 		};
 
 		pcie0: pcie@2000000 {
@@ -1126,6 +1181,13 @@
 				 <&sdr_reset SDR_RST_EXT_ICT>,
 				 <&sdr_reset SDR_RST_BBD_ICT>,
 				 <&sdr_reset SDR_RST_PCI_ICT>;
+			clocks = <&dsp_gate 0>,
+				 <&sdr_ucg0 SDR_CLK_CFG>,
+				 <&sdr_ucg0 SDR_EXT_CLK>,
+				 <&sdr_ucg0 SDR_INT_CLK>,
+				 <&sdr_ucg0 SDR_PCI_CLK>;
+			clock-names = "main_clk", "clk_cfg", "ext_clk",
+				      "int_clk", "pci_clk";
 		};
 
 		elcore1: elcore@1c80000 {
@@ -1139,6 +1201,13 @@
 				 <&sdr_reset SDR_RST_EXT_ICT>,
 				 <&sdr_reset SDR_RST_BBD_ICT>,
 				 <&sdr_reset SDR_RST_PCI_ICT>;
+			clocks = <&dsp_gate 1>,
+				 <&sdr_ucg0 SDR_CLK_CFG>,
+				 <&sdr_ucg0 SDR_EXT_CLK>,
+				 <&sdr_ucg0 SDR_INT_CLK>,
+				 <&sdr_ucg0 SDR_PCI_CLK>;
+			clock-names = "main_clk", "clk_cfg", "ext_clk",
+				      "int_clk", "pci_clk";
 		};
 	};
 
