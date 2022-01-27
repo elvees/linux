@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: GPL-2.0+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/elvees,trustphone-wm8998.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ELVEES Trustphone WM8998 soundcard
+
+properties:
+  compatible:
+    enum:
+      - elvees,trustphone-wm8998
+
+  model:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: The user-visible name of this soundcard.
+
+  codec:
+    type: object
+    properties:
+      sound-dai:
+        $ref: /schemas/types.yaml#/definitions/phandle-array
+        description: Phandle to the WM8998 codec
+
+  elvees,audio-routing:
+    $ref: /schemas/types.yaml#/definitions/non-unique-string-array
+    description: |
+      List of the connections between audio components. Each entry
+      is a pair of strings, the first being the connection's sink,
+      the second being the connection's source. Valid names for
+      sources and sinks are the WM8998's pins (as documented in its
+      binding), and modem pins: "Modem In", "Modem Out", "Modem TX",
+      "Modem RX".
+
+required:
+  - compatible
+  - model
+  - codec
+  - elvees,audio-routing
+
+additionalProperties: false
+
+examples:
+  - |
+    sound {
+        compatible = "elvees,trustphone-wm8998";
+
+        model = "Trustphone WM8998";
+
+        elvees,audio-routing =
+            "Modem Out", "Modem TX",
+            "Modem RX", "Modem In",
+            "AIF2 Capture", "Modem Out",
+            "Modem RX", "AIF2 Playback",
+            "IN2B", "MICBIAS1";
+
+        codec {
+            sound-dai = <&wm8998>;
+        };
+    };
