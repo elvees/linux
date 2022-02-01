@@ -96,7 +96,7 @@ static int run_test(struct pci_test *test)
 
 	if (test->msinum > 0 && test->msinum <= 32) {
 		ret = ioctl(fd, PCITEST_MSI, test->msinum);
-		fprintf(stdout, "MSI%d:\t\t", test->msinum);
+		fprintf(stdout, "MSI%u:\t\t", test->msinum);
 		if (ret < 0)
 			fprintf(stdout, "TEST FAILED\n");
 		else
@@ -105,7 +105,7 @@ static int run_test(struct pci_test *test)
 
 	if (test->msixnum > 0 && test->msixnum <= 2048) {
 		ret = ioctl(fd, PCITEST_MSIX, test->msixnum);
-		fprintf(stdout, "MSI-X%d:\t\t", test->msixnum);
+		fprintf(stdout, "MSI-X%u:\t\t", test->msixnum);
 		if (ret < 0)
 			fprintf(stdout, "TEST FAILED\n");
 		else
@@ -114,7 +114,7 @@ static int run_test(struct pci_test *test)
 
 	if (test->write) {
 		ret = ioctl(fd, PCITEST_WRITE, test->size);
-		fprintf(stdout, "WRITE (%7ld bytes):\t\t", test->size);
+		fprintf(stdout, "WRITE (%7lu bytes):\t\t", test->size);
 		if (ret < 0)
 			fprintf(stdout, "TEST FAILED\n");
 		else
@@ -123,7 +123,7 @@ static int run_test(struct pci_test *test)
 
 	if (test->read) {
 		ret = ioctl(fd, PCITEST_READ, test->size);
-		fprintf(stdout, "READ (%7ld bytes):\t\t", test->size);
+		fprintf(stdout, "READ (%7lu bytes):\t\t", test->size);
 		if (ret < 0)
 			fprintf(stdout, "TEST FAILED\n");
 		else
@@ -132,7 +132,7 @@ static int run_test(struct pci_test *test)
 
 	if (test->copy) {
 		ret = ioctl(fd, PCITEST_COPY, test->size);
-		fprintf(stdout, "COPY (%7ld bytes):\t\t", test->size);
+		fprintf(stdout, "COPY (%7lu bytes):\t\t", test->size);
 		if (ret < 0)
 			fprintf(stdout, "TEST FAILED\n");
 		else
