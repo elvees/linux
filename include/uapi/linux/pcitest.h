@@ -19,5 +19,7 @@
 #define PCITEST_MSIX		_IOW('P', 0x7, int)
 #define PCITEST_SET_IRQTYPE	_IOW('P', 0x8, int)
 #define PCITEST_GET_IRQTYPE	_IO('P', 0x9)
+#define PCITEST_BAR_READ	_IO('P', 0x10)
+#define PCITEST_BAR_WRITE	_IO('P', 0x11)
 
 #endif /* __UAPI_LINUX_PCITEST_H */

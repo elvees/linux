@@ -28,6 +28,8 @@
 #define COMMAND_READ			BIT(3)
 #define COMMAND_WRITE			BIT(4)
 #define COMMAND_COPY			BIT(5)
+#define COMMAND_BAR_READ		BIT(6)
+#define COMMAND_BAR_WRITE		BIT(7)
 
 #define STATUS_READ_SUCCESS		BIT(0)
 #define STATUS_READ_FAIL		BIT(1)
@@ -38,6 +40,10 @@
 #define STATUS_IRQ_RAISED		BIT(6)
 #define STATUS_SRC_ADDR_INVALID		BIT(7)
 #define STATUS_DST_ADDR_INVALID		BIT(8)
+#define STATUS_READ_BAR_SUCCESS		BIT(9)
+#define STATUS_READ_BAR_FAIL		BIT(10)
+#define STATUS_WRITE_BAR_SUCCESS	BIT(11)
+#define STATUS_WRITE_BAR_FAIL		BIT(12)
 
 #define TIMER_RESOLUTION		1
 
@@ -244,6 +250,30 @@ err:
 	return ret;
 }
 
+static int pci_epf_test_bar_read(struct pci_epf_test *epf_test)
+{
+	int ret = 0;
+	u32 crc32;
+	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
+	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
+
+	crc32 = crc32_le(~0, epf_test->reg[reg->src_addr], reg->size);
+	if (crc32 != reg->checksum)
+		ret = -EIO;
+
+	return ret;
+}
+
+static void pci_epf_test_bar_write(struct pci_epf_test *epf_test)
+{
+	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
+	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
+
+	get_random_bytes(epf_test->reg[reg->dst_addr], reg->size);
+
+	reg->checksum = crc32_le(~0, epf_test->reg[reg->dst_addr], reg->size);
+}
+
 static void pci_epf_test_raise_irq(struct pci_epf_test *epf_test, u8 irq_type,
 				   u16 irq)
 {
@@ -352,6 +382,25 @@ static void pci_epf_test_cmd_handler(struct work_struct *work)
 		reg->status = STATUS_IRQ_RAISED;
 		pci_epc_raise_irq(epc, epf->func_no, PCI_EPC_IRQ_MSIX,
 				  reg->irq_number);
+		goto reset_handler;
+	}
+
+	if (command & COMMAND_BAR_READ) {
+		ret = pci_epf_test_bar_read(epf_test);
+		if (!ret)
+			reg->status |= STATUS_READ_BAR_SUCCESS;
+		else
+			reg->status |= STATUS_READ_BAR_FAIL;
+		pci_epf_test_raise_irq(epf_test, reg->irq_type,
+				       reg->irq_number);
+		goto reset_handler;
+	}
+
+	if (command & COMMAND_BAR_WRITE) {
+		pci_epf_test_bar_write(epf_test);
+		reg->status |= STATUS_WRITE_BAR_SUCCESS;
+		pci_epf_test_raise_irq(epf_test, reg->irq_type,
+				       reg->irq_number);
 		goto reset_handler;
 	}
 

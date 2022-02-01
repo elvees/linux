@@ -51,6 +51,8 @@
 #define COMMAND_READ				BIT(3)
 #define COMMAND_WRITE				BIT(4)
 #define COMMAND_COPY				BIT(5)
+#define COMMAND_BAR_READ			BIT(6)
+#define COMMAND_BAR_WRITE			BIT(7)
 
 #define PCI_ENDPOINT_TEST_STATUS		0x8
 #define STATUS_READ_SUCCESS			BIT(0)
@@ -62,6 +64,10 @@
 #define STATUS_IRQ_RAISED			BIT(6)
 #define STATUS_SRC_ADDR_INVALID			BIT(7)
 #define STATUS_DST_ADDR_INVALID			BIT(8)
+#define STATUS_READ_BAR_SUCCESS			BIT(9)
+#define STATUS_READ_BAR_FAIL			BIT(10)
+#define STATUS_WRITE_BAR_SUCCESS		BIT(11)
+#define STATUS_WRITE_BAR_FAIL			BIT(12)
 
 #define PCI_ENDPOINT_TEST_LOWER_SRC_ADDR	0x0c
 #define PCI_ENDPOINT_TEST_UPPER_SRC_ADDR	0x10
@@ -252,7 +258,7 @@ fail:
 	return false;
 }
 
-static bool pci_endpoint_test_bar(struct pci_endpoint_test *test,
+static bool pci_endpoint_bar_test(struct pci_endpoint_test *test,
 				  enum pci_barno barno)
 {
 	int j;
@@ -278,6 +284,120 @@ static bool pci_endpoint_test_bar(struct pci_endpoint_test *test,
 	}
 
 	return true;
+}
+
+static bool pci_endpoint_bar_write(struct pci_endpoint_test *test,
+				   enum pci_barno barno)
+{
+	bool ret = false;
+	u32 crc32;
+	u32 reg;
+	int size;
+	void *buf;
+	struct pci_dev *pdev = test->pdev;
+	struct device *dev = &pdev->dev;
+
+	if (!test->bar[barno])
+		goto err;
+
+	size = pci_resource_len(pdev, barno);
+
+	if (barno == test->test_reg_bar)
+		size = 0x4;
+
+	if (irq_type < IRQ_TYPE_LEGACY || irq_type > IRQ_TYPE_MSIX) {
+		dev_err(dev, "Invalid IRQ type option\n");
+		goto err;
+	}
+	buf = kzalloc(size, GFP_KERNEL);
+	if (!buf)
+		goto err;
+
+	get_random_bytes(buf, size);
+
+	memcpy_toio(test->bar[barno], buf, size);
+
+	crc32 = crc32_le(~0, buf, size);
+	kfree(buf);
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_CHECKSUM,
+				 crc32);
+
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_LOWER_SRC_ADDR,
+				 barno);
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_UPPER_SRC_ADDR,
+				 0);
+
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_SIZE, size);
+
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_TYPE, irq_type);
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_NUMBER, 1);
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_COMMAND,
+				 COMMAND_BAR_READ);
+
+	wait_for_completion(&test->irq_raised);
+
+	reg = pci_endpoint_test_readl(test, PCI_ENDPOINT_TEST_STATUS);
+	if (reg & STATUS_READ_BAR_SUCCESS)
+		ret = true;
+
+err:
+	return ret;
+}
+
+
+static bool pci_endpoint_bar_read(struct pci_endpoint_test *test,
+				  enum pci_barno barno)
+{
+	bool ret = false;
+	u32 reg;
+	u32 crc32;
+	int size;
+	void *buf;
+	struct pci_dev *pdev = test->pdev;
+	struct device *dev = &pdev->dev;
+
+	if (!test->bar[barno])
+		goto err;
+
+	size = pci_resource_len(pdev, barno);
+
+	if (barno == test->test_reg_bar)
+		size = 0x4;
+
+	if (irq_type < IRQ_TYPE_LEGACY || irq_type > IRQ_TYPE_MSIX) {
+		dev_err(dev, "Invalid IRQ type option\n");
+		goto err;
+	}
+
+	buf = kzalloc(size, GFP_KERNEL);
+	if (!buf)
+		goto err;
+
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_LOWER_DST_ADDR,
+				 barno);
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_UPPER_DST_ADDR,
+				 0);
+
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_SIZE, size);
+
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_TYPE, irq_type);
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_NUMBER, 1);
+	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_COMMAND,
+				 COMMAND_BAR_WRITE);
+
+	wait_for_completion(&test->irq_raised);
+
+	memcpy_fromio(buf, test->bar[barno], size);
+
+	crc32 = crc32_le(~0, buf, size);
+	reg = pci_endpoint_test_readl(test, PCI_ENDPOINT_TEST_STATUS);
+
+	if (crc32 == pci_endpoint_test_readl(test, PCI_ENDPOINT_TEST_CHECKSUM))
+		ret = true;
+	kfree(buf);
+
+err:
+	return ret;
 }
 
 static bool pci_endpoint_test_legacy_irq(struct pci_endpoint_test *test)
@@ -595,7 +715,19 @@ static long pci_endpoint_test_ioctl(struct file *file, unsigned int cmd,
 		bar = arg;
 		if (bar < 0 || bar > 5)
 			goto ret;
-		ret = pci_endpoint_test_bar(test, bar);
+		ret = pci_endpoint_bar_test(test, bar);
+		break;
+	case PCITEST_BAR_READ:
+		bar = arg;
+		if (bar < 0 || bar > 5)
+			goto ret;
+		ret = pci_endpoint_bar_read(test, bar);
+		break;
+	case PCITEST_BAR_WRITE:
+		bar = arg;
+		if (bar < 0 || bar > 5)
+			goto ret;
+		ret = pci_endpoint_bar_write(test, bar);
 		break;
 	case PCITEST_LEGACY_IRQ:
 		ret = pci_endpoint_test_legacy_irq(test);

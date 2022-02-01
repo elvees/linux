@@ -44,6 +44,8 @@ struct pci_test {
 	bool		read;
 	bool		write;
 	bool		copy;
+	char		barread_num;
+	char		barwrite_num;
 	unsigned long	size;
 };
 
@@ -66,6 +68,25 @@ static int run_test(struct pci_test *test)
 		else
 			fprintf(stdout, "%s\n", result[ret]);
 	}
+
+	if (test->barread_num >= 0 && test->barread_num <= 5) {
+		ret = ioctl(fd, PCITEST_BAR_READ, test->barread_num);
+		fprintf(stdout, "READ BAR%d:\t\t", test->barread_num);
+		if (ret < 0)
+			fprintf(stdout, "TEST FAILED\n");
+		else
+			fprintf(stdout, "%s\n", result[ret]);
+	}
+
+	if (test->barwrite_num >= 0 && test->barwrite_num <= 5) {
+		ret = ioctl(fd, PCITEST_BAR_WRITE, test->barwrite_num);
+		fprintf(stdout, "WRITE BAR%d:\t\t", test->barwrite_num);
+		if (ret < 0)
+			fprintf(stdout, "TEST FAILED\n");
+		else
+			fprintf(stdout, "%s\n", result[ret]);
+	}
+
 
 	if (test->set_irqtype) {
 		ret = ioctl(fd, PCITEST_SET_IRQTYPE, test->irqtype);
@@ -155,6 +176,8 @@ int main(int argc, char **argv)
 
 	/* since '0' is a valid BAR number, initialize it to -1 */
 	test->barnum = -1;
+	test->barread_num = -1;
+	test->barwrite_num = -1;
 
 	/* set default size as 100KB */
 	test->size = 0x19000;
@@ -162,7 +185,7 @@ int main(int argc, char **argv)
 	/* set default endpoint device */
 	test->device = "/dev/pci-endpoint-test.0";
 
-	while ((c = getopt(argc, argv, "D:b:m:x:i:Ilrwcs:")) != EOF)
+	while ((c = getopt(argc, argv, "D:b:m:x:i:Ilrwe:t:cs:")) != EOF)
 	switch (c) {
 	case 'D':
 		test->device = optarg;
@@ -206,7 +229,16 @@ int main(int argc, char **argv)
 	case 's':
 		test->size = strtoul(optarg, NULL, 0);
 		continue;
-	case '?':
+	case 't':
+		test->barread_num = atoi(optarg);
+		if (test->barread_num < 0 || test->barread_num > 5)
+			goto usage;
+		continue;
+	case 'e':
+		test->barwrite_num = atoi(optarg);
+		if (test->barwrite_num < 0 || test->barwrite_num > 5)
+			goto usage;
+		continue;
 	case 'h':
 	default:
 usage:
@@ -215,6 +247,8 @@ usage:
 			"Options:\n"
 			"\t-D <dev>		PCI endpoint test device {default: /dev/pci-endpoint-test.0}\n"
 			"\t-b <bar num>		BAR test (bar number between 0..5)\n"
+			"\t-t <bar num>		BAR read test (bar number between 0..5)\n"
+			"\t-e <bar num>		BAR write test (bar number between 0..5)\n"
 			"\t-m <msi num>		MSI test (msi number between 1..32)\n"
 			"\t-x <msix num>	\tMSI-X test (msix number between 1..2048)\n"
 			"\t-i <irq type>	\tSet IRQ type (0 - Legacy, 1 - MSI, 2 - MSI-X)\n"
