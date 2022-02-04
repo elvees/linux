@@ -681,7 +681,7 @@
 			num-viewport = <32>;
 			num-lanes = <4>;
 			// TODO: Legacy, HP, AER, etc. interrupts
-			interrupts = <GIC_SPI 89 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&sdr_reset SDR_RST_EXT_ICT>,
 				 <&sdr_reset SDR_RST_BBD_ICT>,
 				 <&sdr_reset SDR_RST_PCI_ICT>;
@@ -705,7 +705,7 @@
 			num-viewport = <32>;
 			num-lanes = <4>;
 			// TODO: Legacy, HP, AER, etc. interrupts
-			interrupts = <GIC_SPI 95 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&sdr_reset SDR_RST_EXT_ICT>,
 				 <&sdr_reset SDR_RST_BBD_ICT>,
 				 <&sdr_reset SDR_RST_PCI_ICT>;
