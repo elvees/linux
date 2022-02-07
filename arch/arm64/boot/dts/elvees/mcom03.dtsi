@@ -827,7 +827,7 @@
 		/* For DeviceTree bindings see linux/modules/velcore3
 		 * repository
 		 */
-		qlic0: interrupt-controller@1940000 {
+		qlic1: interrupt-controller@1940000 {
 			compatible = "elvees,qlic";
 			interrupt-controller;
 			targets = <16>;
@@ -841,7 +841,7 @@
 			compatible = "elvees,elcore50";
 			reg = <0 0x1980000 0 0x40000>,
 			      <0 0x3000000 0 0x200000>;
-			interrupt-parent = <&qlic0>;
+			interrupt-parent = <&qlic1>;
 			interrupts = <16>, <17>, <18>,
 				     <19>, <20>;
 			resets = <&sdr_reset SDR_RST_DSP0>,
@@ -854,7 +854,7 @@
 			compatible = "elvees,elcore50";
 			reg = <0 0x1C80000 0 0x40000>,
 			      <0 0x3200000 0 0x200000>;
-			interrupt-parent = <&qlic0>;
+			interrupt-parent = <&qlic1>;
 			interrupts = <23>, <24>, <25>,
 				     <26>, <27>;
 			resets = <&sdr_reset SDR_RST_DSP1>,
