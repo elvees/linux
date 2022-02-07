@@ -16,7 +16,8 @@
 };
 
 &i2c0 {
-	/delete-node/ hdmi@39;
+	clock-frequency = <100000>;
+	status = "okay";
 
 	ft5606: touchscreen@3e {
 		/* FT5606 is compatible with FT5506 */
@@ -32,6 +33,10 @@
 		touchscreen-swapped-x-y;
 		touchscreen-inverted-y;
 	};
+};
+
+&i2c4 {
+	/delete-node/ hdmi@39;
 };
 
 &display_encoder {
