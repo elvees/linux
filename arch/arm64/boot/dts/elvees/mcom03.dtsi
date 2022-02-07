@@ -140,31 +140,57 @@
 		#size-cells = <2>;
 		ranges;
 
+		service_pll: service_pll {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <594000000>;
+		};
+
+		service_ucg1: ucg@1f020000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x1f020000 0 0x80>;
+			clocks = <&service_pll>;
+			#clock-cells = <1>;
+
+			clock-output-names = "service_apb_clk",
+					     "service_core_clk",
+					     "qspi0_clk", "bpam_clk",
+					     "risc0_clk", "mfbsp0_clk",
+					     "mfbsp1_clk", "mailbox0_clk",
+					     "pvtctr_clk", "i2c4_clk",
+					     "trng_clk", "spiotp_clk",
+					     "i2c4_ext_clk", "qspi0_ext_clk",
+					     "clkout_clk", "risc0_tck_clk";
+
+			assigned-clocks = <&service_ucg1 SERVICE_APB_CLK>,
+					  <&service_ucg1 SERVICE_CORE_CLK>,
+					  <&service_ucg1 SERVICE_PVTCTR_CLK>,
+					  <&service_ucg1 SERVICE_I2C4_CLK>,
+					  <&service_ucg1 SERVICE_I2C4_EXT_CLK>;
+
+			assigned-clock-rates = <49500000
+						297000000
+						49500000
+						49500000
+						49500000>;
+
+			enabled-clocks = <SERVICE_APB_CLK
+					  SERVICE_CORE_CLK>;
+		};
+
 		wdt0: watchdog@1f080000 {
 			compatible = "snps,dw-wdt";
 			reg = < 0 0x1f080000 0 0x1000>;
-			clocks = <&apb_clk>;
+			clocks = <&service_ucg1 SERVICE_APB_CLK>;
 		};
 
 		pvt@1f050000 {
 			compatible = "moortec,mr75202";
 			reg = <0 0x1f050000 0 0x1000>;
-			clocks = <&pvt_clk>;
+			clocks = <&service_ucg1 SERVICE_PVTCTR_CLK>;
 			moortec,name = "mcom03";
 			moortec,labels = "cpu", "sdr", "media", "service";
 			#thermal-sensor-cells = <1>;
-		};
-
-		apb_clk: apb_clk {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <54000000>;
-		};
-
-		pvt_clk: pvt_clk {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <54000000>;
 		};
 	};
 
