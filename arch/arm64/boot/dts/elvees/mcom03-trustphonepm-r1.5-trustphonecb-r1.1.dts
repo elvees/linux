@@ -139,6 +139,16 @@
 	};
 };
 
+/* pinctrl driver doesn't enable pad receiver when GPIO pin is requested as an
+ * interrupt. This is a workaround for this issue.
+ */
+&lsperiph1_pinctrl {
+	tca9554_0_default: tca9554_0-cfg {
+		pins = "GPIOA_4";
+		input-enable;
+	};
+};
+
 &i2c1 {
 	/* Not all devices are checked to 400kHz support */
 	clock-frequency = <100000>;
@@ -154,6 +164,9 @@
 		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&tca9554_0_default>;
 	};
 
 	/* DD30 */
