@@ -329,6 +329,7 @@ static void malidp_de_plane_update(struct drm_plane *plane,
 	u32 src_w, src_h, dest_w, dest_h, val;
 	int i;
 	bool format_has_alpha = plane->state->fb->format->has_alpha;
+	bool format_is_yuv = plane->state->fb->format->is_yuv;
 
 	mp = to_malidp_plane(plane);
 
@@ -354,8 +355,7 @@ static void malidp_de_plane_update(struct drm_plane *plane,
 	malidp_de_set_plane_pitches(mp, ms->n_planes,
 				    plane->state->fb->pitches);
 
-	if ((plane->state->color_encoding != old_state->color_encoding) ||
-	    (plane->state->color_range != old_state->color_range))
+	if (format_is_yuv)
 		malidp_de_set_color_encoding(mp, plane->state->color_encoding,
 					     plane->state->color_range);
 
