@@ -313,12 +313,16 @@
 					     "mipi_tx_cfg_clk",
 					     "cmos0_clk", "cmos1_clk",
 					     "mipi_txclkesc", "vpu_clk";
-			assigned-clocks = <&media_ucg3 MEDIA_MIPI_TXCLKESC>;
-			assigned-clock-rates = <19800000>;
-			enabled-clocks = <MEDIA_MIPI_RX_REFCLK
-					  MEDIA_MIPI_RX0_CFG_CLK
-					  MEDIA_MIPI_RX1_CFG_CLK
-					  MEDIA_CMOS1_CLK>;
+			assigned-clocks = <&media_ucg3 MEDIA_MIPI_RX_REFCLK>,
+					  <&media_ucg3 MEDIA_MIPI_RX0_CFG_CLK>,
+					  <&media_ucg3 MEDIA_MIPI_RX1_CFG_CLK>,
+					  <&media_ucg3 MEDIA_CMOS1_CLK>,
+					  <&media_ucg3 MEDIA_MIPI_TXCLKESC>;
+			assigned-clock-rates = <27000000
+						27000000
+						27000000
+						27000000
+						19800000>;
 			#clock-cells = <1>;
 		};
 
@@ -412,12 +416,17 @@
 			compatible = "elvees,mcom03-dw-mipi-dphy";
 			elvees,urb = <&media_urb>;
 			status = "disabled";
+			clocks = <&media_ucg3 MEDIA_MIPI_RX0_CFG_CLK>;
+			clock-names = "mipi_rx0_cfg_clk";
 		};
 
 		csi1: dphy@1323040 {
 			compatible = "elvees,mcom03-dw-mipi-dphy";
 			elvees,urb = <&media_urb>;
 			status = "disabled";
+			clocks = <&media_ucg3 MEDIA_MIPI_RX1_CFG_CLK>,
+				 <&media_ucg3 MEDIA_CMOS1_CLK>;
+			clock-names = "mipi_rx1_cfg_clk", "cmos1_clk";
 		};
 	};
 
