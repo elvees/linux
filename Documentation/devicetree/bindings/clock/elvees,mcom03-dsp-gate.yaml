@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/elvees,mcom03-clk-dsp-gate.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: MCom-03 DSP gate
+
+properties:
+  compatible:
+    enum:
+      - elvees,mcom03-dsp-gate
+
+  clocks:
+    maxItems: 1
+    description: Input clock
+
+  '#clock-cells':
+    const: 1
+
+  reg:
+    maxItems: 1
+
+  clock-output-names: true
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-output-names
+  - '#clock-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    dsp_gate: clock-controller@191004c {
+        compatible = "elvees,mcom03-dsp-gate";
+        reg = <0 0x191004c 0 0x4>;
+        clocks = <&sdr_pll2>;
+        clock-output-names = "dsp0_clk", "dsp1_clk";
+        #clock-cells = <1>;
+    };
+...
