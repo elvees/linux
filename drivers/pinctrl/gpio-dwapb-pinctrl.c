@@ -226,6 +226,10 @@ static int dwapb_add_pinctrl(struct dwapb_gpio *gpio,
 			     struct dwapb_port_property *pp,
 			     struct dwapb_gpio_port *port);
 
+static int dwapb_set_mux_by_function(struct dwapb_gpio_port *port,
+				     unsigned int func_selector,
+				     unsigned int group_selector, bool as_irq);
+
 static inline u32 gpio_reg_v2_convert(unsigned int offset)
 {
 	switch (offset) {
@@ -379,7 +383,25 @@ static int dwapb_irq_reqres(struct irq_data *d)
 	struct irq_chip_generic *igc = irq_data_get_irq_chip_data(d);
 	struct dwapb_gpio *gpio = igc->private;
 	struct gpio_chip *gc = &gpio->ports[0].gc;
+	struct dwapb_platform_data *pdata = dev_get_platdata(gpio->dev);
 	int ret;
+
+	/*
+	 * The implementation of irq_request_resources() and
+	 * irq_release_resources() callbacks of 'struct irq_chip' have been
+	 * removed from Linux 5.10.x by commit 43296bf22e16
+	 * ("gpio: dwapb: Deduplicate IRQ resource management").
+	 *
+	 * This commit should be taken into the account upon merging Linux 5.10
+	 * by keeping the implementation of these functions in this driver in
+	 * order to keep the right configuration before requesting IRQ.
+	 */
+	if (gc->direction_input)
+		gc->direction_input(gc, irqd_to_hwirq(d));
+
+	if (pdata->properties->has_pinctrl)
+		dwapb_set_mux_by_function(gpio->ports, DWAPB_PINMUX_SW,
+					  irqd_to_hwirq(d), true);
 
 	ret = gpiochip_lock_as_irq(gc, irqd_to_hwirq(d));
 	if (ret) {
@@ -788,23 +810,38 @@ dwapb_gpio_get_pdata(struct device *dev)
 	return pdata;
 }
 
-static int dwapb_set_mux_by_function(struct pinctrl_dev *pctldev,
+static int dwapb_set_mux_by_function(struct dwapb_gpio_port *port,
 				     unsigned int func_selector,
-				     unsigned int group_selector)
+				     unsigned int group_selector,
+				     bool as_irq)
 {
-	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
 	struct dwapb_gpio *gpio = port->gpio;
 	struct gpio_chip *gc = &port->gc;
 	unsigned int reg_off;
 	unsigned long flags;
 	u32 val;
 
-	dev_dbg(gpio->dev, "Setting [%s] mode for %s on port %c\n",
-		dwapb_pinmux_functions[func_selector],
-		port->pinctrl.mux_individual_pins ?
-			dwapb_grp_pins_names[group_selector] :
-			dwapb_pinctrl_groups[group_selector].name,
-		port->idx + 'A');
+	if (!as_irq) {
+		dev_dbg(gpio->dev, "Setting [%s] mode for %s on port %c\n",
+			dwapb_pinmux_functions[func_selector],
+			port->pinctrl.mux_individual_pins ?
+				dwapb_grp_pins_names[group_selector] :
+				dwapb_pinctrl_groups[group_selector].name,
+			port->idx + 'A');
+	} else {
+		/*
+		 * Requesting Software mode for IRQ purposes is by passing
+		 * pinctrl driver, this means that there is no collision
+		 * detection happened for this muxing.
+		 */
+		if (port->pinctrl.mux_individual_pins) {
+			dev_info(gpio->dev, "Setting Software mode for %s on port A for IRQ purposes\n",
+				 dwapb_grp_pins_names[group_selector]);
+		} else {
+			dev_info(gpio->dev, "Setting Software mode on port A, %s will be used in IRQ purposes\n",
+				 dwapb_grp_pins_names[group_selector]);
+		}
+	}
 
 	reg_off = GPIO_SWPORTA_CTL + (port->idx * GPIO_SWPORT_CTL_STRIDE);
 	spin_lock_irqsave(&gc->bgpio_lock, flags);
@@ -828,8 +865,9 @@ static int dwapb_set_mux(struct pinctrl_dev *pctldev,
 	/*
 	 * Setting the pin in hardware mode is handled by Devicetree.
 	 */
-	return dwapb_set_mux_by_function(pctldev, DWAPB_PINMUX_HW,
-					 group_selector);
+	return dwapb_set_mux_by_function(pinctrl_dev_get_drvdata(pctldev),
+					 DWAPB_PINMUX_HW, group_selector,
+					 false);
 }
 
 static int dwapb_gpio_request_enable(struct pinctrl_dev *pctldev,
@@ -839,7 +877,8 @@ static int dwapb_gpio_request_enable(struct pinctrl_dev *pctldev,
 	/*
 	 * Setting the pin in software mode is handled by the GPIO subsystem.
 	 */
-	return dwapb_set_mux_by_function(pctldev, DWAPB_PINMUX_SW, offset);
+	return dwapb_set_mux_by_function(pinctrl_dev_get_drvdata(pctldev),
+					 DWAPB_PINMUX_SW, offset, false);
 }
 
 static int dwapb_get_functions_count(struct pinctrl_dev *pctldev)
@@ -1044,6 +1083,7 @@ static int dwapb_gpio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	gpio->dev = &pdev->dev;
+	gpio->dev->platform_data = pdata;
 	gpio->nr_ports = pdata->nports;
 
 	gpio->rst = devm_reset_control_get_optional_shared(dev, NULL);
