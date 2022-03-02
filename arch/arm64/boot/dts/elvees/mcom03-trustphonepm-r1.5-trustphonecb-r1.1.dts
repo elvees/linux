@@ -51,7 +51,8 @@
 			"Modem RX", "Modem In",
 			"AIF2 Capture", "Modem Out",
 			"Modem RX", "AIF2 Playback",
-			"IN2B", "MICBIAS1";
+			"IN2B", "MICBIAS1",
+			"IN1BL", "MICVDD";
 
 		codec {
 			sound-dai = <&wm8998>;
