@@ -270,7 +270,7 @@ static struct mcom03_hsperiph_grp mcom03_hsperiph_groups[] = {
 			    HSPERIPH_MISC, 0),
 };
 
-static bool is_mcom03_hsperiph_pinconf_supported(
+static bool mcom03_hsperiph_pinconf_param_supported(
 				struct mcom03_hsperiph_pinconf *pinconf,
 				enum pin_config_param param)
 {
@@ -285,9 +285,10 @@ static bool is_mcom03_hsperiph_pinconf_supported(
 		pinconf->pinconf_cap & BIT((param - PIN_CONFIG_END) + 21);
 }
 
-static int mcom03_hsperiph_get_cfg(struct mcom03_hsperiph_pinctrl *pctrl,
-				   unsigned long *config,
-				   struct mcom03_hsperiph_pinconf *pinconf)
+static int
+mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
+				     unsigned long *config,
+				     struct mcom03_hsperiph_pinconf *pinconf)
 {
 	u8 pull_bit = 0;
 	unsigned int val, arg = 1;
@@ -295,7 +296,7 @@ static int mcom03_hsperiph_get_cfg(struct mcom03_hsperiph_pinctrl *pctrl,
 	unsigned int periph_id = pinconf->periph_id;
 	unsigned int pull_mask = pinconf->pull_mask;
 
-	if (!is_mcom03_hsperiph_pinconf_supported(pinconf, param))
+	if (!mcom03_hsperiph_pinconf_param_supported(pinconf, param))
 		return -ENOTSUPP;
 
 	regmap_read(pctrl->hs_syscon, pinconf->offset, &val);
@@ -389,8 +390,8 @@ static int mcom03_hsperiph_get_cfg(struct mcom03_hsperiph_pinctrl *pctrl,
 	return 0;
 }
 
-static int mcom03_hsperiph_pconf_get(struct pinctrl_dev *pctldev,
-				     unsigned int pin, unsigned long *config)
+static int mcom03_hsperiph_pinconf_get(struct pinctrl_dev *pctldev,
+				       unsigned int pin, unsigned long *config)
 {
 	struct mcom03_hsperiph_pinctrl *pctrl =
 					pinctrl_dev_get_drvdata(pctldev);
@@ -404,25 +405,27 @@ static int mcom03_hsperiph_pconf_get(struct pinctrl_dev *pctldev,
 		}
 
 	if (sp)
-		return mcom03_hsperiph_get_cfg(pctrl, config, &sp->pinconf);
+		return mcom03_hsperiph_pinconf_get_internal(pctrl, config,
+							    &sp->pinconf);
 
 	return -ENOTSUPP;
 }
 
-static int mcom03_hsperiph_pconf_group_get(struct pinctrl_dev *pctldev,
-					   unsigned int selector,
-					   unsigned long *config)
+static int mcom03_hsperiph_pinconf_group_get(struct pinctrl_dev *pctldev,
+					     unsigned int selector,
+					     unsigned long *config)
 {
 	struct mcom03_hsperiph_pinctrl *pctrl =
 					pinctrl_dev_get_drvdata(pctldev);
 
-	return mcom03_hsperiph_get_cfg(pctrl, config,
+	return mcom03_hsperiph_pinconf_get_internal(pctrl, config,
 				&mcom03_hsperiph_groups[selector].pinconf);
 }
 
-static int mcom03_hsperiph_set_cfg(struct mcom03_hsperiph_pinctrl *pctrl,
-				   unsigned long config,
-				   struct mcom03_hsperiph_pinconf *pinconf)
+static int
+mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
+				      unsigned long config,
+				      struct mcom03_hsperiph_pinconf *pinconf)
 {
 	struct regmap *regmap = pctrl->hs_syscon;
 	u32 arg;
@@ -434,7 +437,7 @@ static int mcom03_hsperiph_set_cfg(struct mcom03_hsperiph_pinctrl *pctrl,
 
 	param = pinconf_to_config_param(config);
 	arg = pinconf_to_config_argument(config);
-	if (!is_mcom03_hsperiph_pinconf_supported(pinconf, param))
+	if (!mcom03_hsperiph_pinconf_param_supported(pinconf, param))
 		return -ENOTSUPP;
 
 	switch ((u32)param) {
@@ -543,9 +546,9 @@ static int mcom03_hsperiph_set_cfg(struct mcom03_hsperiph_pinctrl *pctrl,
 	return 0;
 }
 
-static int mcom03_hsperiph_pconf_set(struct pinctrl_dev *pctldev,
-				     unsigned int pin, unsigned long *configs,
-				     unsigned int num_configs)
+static int mcom03_hsperiph_pinconf_set(struct pinctrl_dev *pctldev,
+				       unsigned int pin, unsigned long *configs,
+				       unsigned int num_configs)
 {
 	struct mcom03_hsperiph_pin *sp = NULL;
 	struct mcom03_hsperiph_pinctrl *pctrl =
@@ -564,8 +567,8 @@ static int mcom03_hsperiph_pconf_set(struct pinctrl_dev *pctldev,
 	}
 
 	for (i = 0; i < num_configs; i++) {
-		ret = mcom03_hsperiph_set_cfg(pctrl, configs[i], &sp->pinconf);
-
+		ret = mcom03_hsperiph_pinconf_set_internal(pctrl, configs[i],
+							   &sp->pinconf);
 		if (ret == -ENOTSUPP) {
 			dev_err(pctrl->dev, "%s pin doesn't support property %u\n",
 				mcom03_hsperiph_pins[sp->pin].name,
@@ -584,20 +587,20 @@ static int mcom03_hsperiph_pconf_set(struct pinctrl_dev *pctldev,
 			mcom03_hsperiph_pins[sp->pin].name);
 	}
 
-		return 0;
+	return 0;
 }
 
-static int mcom03_hsperiph_pconf_group_set(struct pinctrl_dev *pctldev,
-				  unsigned int selector,
-				  unsigned long *configs,
-				  unsigned int num_configs)
+static int mcom03_hsperiph_pinconf_group_set(struct pinctrl_dev *pctldev,
+					     unsigned int selector,
+					     unsigned long *configs,
+					     unsigned int num_configs)
 {
 	struct mcom03_hsperiph_pinctrl *pctrl =
 					pinctrl_dev_get_drvdata(pctldev);
 	int i, ret;
 
 	for (i = 0; i < num_configs; i++) {
-		ret = mcom03_hsperiph_set_cfg(pctrl, configs[i],
+		ret = mcom03_hsperiph_pinconf_set_internal(pctrl, configs[i],
 				&mcom03_hsperiph_groups[selector].pinconf);
 		if (ret == -ENOTSUPP) {
 			dev_err(pctrl->dev, "[%s] group doesn't support property %u\n",
@@ -619,12 +622,12 @@ static int mcom03_hsperiph_pconf_group_set(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-static const struct pinconf_ops mcom03_hsperiph_conf_ops = {
+static const struct pinconf_ops mcom03_hsperiph_pinconf_ops = {
 	.is_generic		= true,
-	.pin_config_group_get	= mcom03_hsperiph_pconf_group_get,
-	.pin_config_group_set	= mcom03_hsperiph_pconf_group_set,
-	.pin_config_get		= mcom03_hsperiph_pconf_get,
-	.pin_config_set		= mcom03_hsperiph_pconf_set,
+	.pin_config_group_get	= mcom03_hsperiph_pinconf_group_get,
+	.pin_config_group_set	= mcom03_hsperiph_pinconf_group_set,
+	.pin_config_get		= mcom03_hsperiph_pinconf_get,
+	.pin_config_set		= mcom03_hsperiph_pinconf_set,
 };
 
 static int mcom03_hsperiph_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
@@ -663,7 +666,7 @@ static struct pinctrl_desc mcom03_hsperiph_desc = {
 	.owner			= THIS_MODULE,
 	.pins			= mcom03_hsperiph_pins,
 	.npins			= ARRAY_SIZE(mcom03_hsperiph_pins),
-	.confops		= &mcom03_hsperiph_conf_ops,
+	.confops		= &mcom03_hsperiph_pinconf_ops,
 	.pctlops		= &mcom03_hsperiph_pinctrl_ops,
 	.num_custom_params	= ARRAY_SIZE(mcom03_hsperiph_custom_params),
 	.custom_params		= mcom03_hsperiph_custom_params,
@@ -726,8 +729,8 @@ static struct platform_driver mcom03_hsperiph_pinctrl_driver = {
 	},
 };
 
-static int __init mcom03_hsperiph_api_pinctrl_register(void)
+static int __init mcom03_hsperiph_pinctrl_init(void)
 {
 	return platform_driver_register(&mcom03_hsperiph_pinctrl_driver);
 }
-arch_initcall(mcom03_hsperiph_api_pinctrl_register);
+arch_initcall(mcom03_hsperiph_pinctrl_init);
