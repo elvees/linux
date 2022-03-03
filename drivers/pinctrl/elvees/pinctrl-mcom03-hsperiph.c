@@ -556,34 +556,35 @@ static int mcom03_hsperiph_pconf_set(struct pinctrl_dev *pctldev,
 		if (mcom03_hsperiph_special_pins[i].pin == pin)
 			sp = &mcom03_hsperiph_special_pins[i];
 
-	if (sp) {
-		for (i = 0; i < num_configs; i++) {
-			ret = mcom03_hsperiph_set_cfg(pctrl, configs[i],
-						&sp->pinconf);
-			if (ret == -ENOTSUPP) {
-				dev_err(pctrl->dev, "%s pin doesn't support property %u\n",
-					mcom03_hsperiph_pins[sp->pin].name,
-					pinconf_to_config_param(configs[i]));
-				return ret;
-			} else if (ret == -EINVAL) {
-				dev_err(pctrl->dev, "%s pin doesn't support property %u with argument %u.\n",
-					mcom03_hsperiph_pins[sp->pin].name,
-					pinconf_to_config_param(configs[i]),
-					pinconf_to_config_argument(configs[i]));
-				return ret;
-			}
-			dev_dbg(pctrl->dev, "Setting %d param for pin %s\n",
-				pinconf_to_config_param(configs[i]),
-				mcom03_hsperiph_pins[sp->pin].name);
-		}
+	if (!sp) {
+		dev_err(pctrl->dev, "Pin access is prohibited for pin [%s].\n",
+			mcom03_hsperiph_pins[pin].name);
 
-		return 0;
+		return -ENOTSUPP;
 	}
 
-	dev_err(pctrl->dev, "Pin access is prohibited for pin [%s].\n",
-		mcom03_hsperiph_pins[pin].name);
+	for (i = 0; i < num_configs; i++) {
+		ret = mcom03_hsperiph_set_cfg(pctrl, configs[i], &sp->pinconf);
 
-	return -ENOTSUPP;
+		if (ret == -ENOTSUPP) {
+			dev_err(pctrl->dev, "%s pin doesn't support property %u\n",
+				mcom03_hsperiph_pins[sp->pin].name,
+				pinconf_to_config_param(configs[i]));
+			return ret;
+		} else if (ret == -EINVAL) {
+			dev_err(pctrl->dev, "%s pin doesn't support property %u with argument %u.\n",
+				mcom03_hsperiph_pins[sp->pin].name,
+				pinconf_to_config_param(configs[i]),
+				pinconf_to_config_argument(configs[i]));
+			return ret;
+		}
+
+		dev_dbg(pctrl->dev, "Setting %d param for pin %s\n",
+			pinconf_to_config_param(configs[i]),
+			mcom03_hsperiph_pins[sp->pin].name);
+	}
+
+		return 0;
 }
 
 static int mcom03_hsperiph_pconf_group_set(struct pinctrl_dev *pctldev,
