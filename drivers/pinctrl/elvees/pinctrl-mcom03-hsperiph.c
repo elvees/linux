@@ -281,6 +281,18 @@ static bool mcom03_hsperiph_pinconf_param_supported(
 		pinconf->pinconf_cap & BIT((param - PIN_CONFIG_END) + 21);
 }
 
+static struct mcom03_hsperiph_pin *
+mcom03_hsperiph_get_special_pin(unsigned int pin)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mcom03_hsperiph_special_pins); i++)
+		if (mcom03_hsperiph_special_pins[i].pin == pin)
+			return &mcom03_hsperiph_special_pins[i];
+
+	return NULL;
+}
+
 static int
 mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 				     unsigned long *config,
@@ -382,20 +394,13 @@ static int mcom03_hsperiph_pinconf_get(struct pinctrl_dev *pctldev,
 {
 	struct mcom03_hsperiph_pinctrl *pctrl =
 					pinctrl_dev_get_drvdata(pctldev);
-	struct mcom03_hsperiph_pin *sp = NULL;
-	int i;
+	struct mcom03_hsperiph_pin *sp = mcom03_hsperiph_get_special_pin(pin);
 
-	for (i = 0; i < ARRAY_SIZE(mcom03_hsperiph_special_pins); i++)
-		if (mcom03_hsperiph_special_pins[i].pin == pin) {
-			sp = &mcom03_hsperiph_special_pins[i];
-			break;
-		}
+	if (!sp)
+		return -ENOTSUPP;
 
-	if (sp)
-		return mcom03_hsperiph_pinconf_get_internal(pctrl, config,
-							    &sp->pinconf);
-
-	return -ENOTSUPP;
+	return mcom03_hsperiph_pinconf_get_internal(pctrl, config,
+						    &sp->pinconf);
 }
 
 static int mcom03_hsperiph_pinconf_group_get(struct pinctrl_dev *pctldev,
@@ -532,14 +537,10 @@ static int mcom03_hsperiph_pinconf_set(struct pinctrl_dev *pctldev,
 				       unsigned int pin, unsigned long *configs,
 				       unsigned int num_configs)
 {
-	struct mcom03_hsperiph_pin *sp = NULL;
 	struct mcom03_hsperiph_pinctrl *pctrl =
 					pinctrl_dev_get_drvdata(pctldev);
+	struct mcom03_hsperiph_pin *sp = mcom03_hsperiph_get_special_pin(pin);
 	int i, ret;
-
-	for (i = 0; i < ARRAY_SIZE(mcom03_hsperiph_special_pins); i++)
-		if (mcom03_hsperiph_special_pins[i].pin == pin)
-			sp = &mcom03_hsperiph_special_pins[i];
 
 	if (!sp) {
 		dev_err(pctrl->dev, "Pin access is prohibited for pin [%s].\n",
