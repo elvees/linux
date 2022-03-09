@@ -317,7 +317,7 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 			if (!(val & HS_PAD_EN))
 				return -EINVAL;
 		}
-	break;
+		break;
 	case PIN_CONFIG_BIAS_BUS_HOLD:
 	case PIN_CONFIG_BIAS_PULL_DOWN:
 	case PIN_CONFIG_BIAS_PULL_UP:
@@ -342,19 +342,19 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 
 		if (!(val & BIT(pull_bit)))
 			return -EINVAL;
-	break;
+		break;
 	case PIN_CONFIG_SLEW_RATE:
 		arg = HS_GET_SLEW_RATE(val);
-	break;
+		break;
 	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
 		if (!(val & HS_SCHMITT_EN))
 			return -EINVAL;
-	break;
+		break;
 	case PIN_CONFIG_DRIVE_OPEN_DRAIN:
 		if (periph_id == SDMMC0 || periph_id == SDMMC1)
 			if (!(val & SDMMC_OPEN_DRAIN_EN))
 				return -EINVAL;
-	break;
+		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		if (periph_id == SDMMC0 || periph_id == SDMMC1)
 			val = SDMMC_TO_HS_DRIVE(val);
@@ -363,26 +363,26 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 		switch (val) {
 		case HS_2mA:
 			val = 2;
-		break;
+			break;
 		case HS_4mA:
 			val = 4;
-		break;
+			break;
 		case HS_6mA:
 			val = 6;
-		break;
+			break;
 		case HS_8mA:
 			val = 8;
-		break;
+			break;
 		case HS_10mA:
 			val = 10;
-		break;
+			break;
 		case HS_12mA:
 			val = 12;
-		break;
+			break;
 		}
 
 		arg = val;
-	break;
+		break;
 	}
 
 	*config = pinconf_to_config_packed(param, arg);
@@ -440,7 +440,7 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 		else
 			regmap_update_bits(regmap, offset, HS_PAD_EN_MASK,
 					   arg ? HS_PAD_EN : 0);
-	break;
+		break;
 	case PIN_CONFIG_BIAS_BUS_HOLD:
 	case PIN_CONFIG_BIAS_PULL_DOWN:
 	case PIN_CONFIG_BIAS_PULL_UP:
@@ -464,49 +464,49 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 		}
 
 		regmap_update_bits(regmap, offset, pull_mask, BIT(pull_bit));
-	break;
+		break;
 	case PIN_CONFIG_BIAS_DISABLE:
 		regmap_update_bits(regmap, offset, pull_mask, 0);
-	break;
+		break;
 	case PIN_CONFIG_SLEW_RATE:
 		if (arg != HS_MIN_SLEW_RATE && arg != HS_MAX_SLEW_RATE)
 			return -EINVAL;
 
 		regmap_update_bits(regmap, offset, HS_SLEW_RATE_MASK,
 				   HS_SLEW_RATE(arg));
-	break;
+		break;
 	case PIN_CONFIG_INPUT_SCHMITT_ENABLE:
 		regmap_update_bits(regmap, offset, HS_SCHMITT_MASK,
 				   arg != 0 ? HS_SCHMITT_EN : 0);
-	break;
+		break;
 	case PIN_CONFIG_DRIVE_OPEN_DRAIN:
 		if (periph_id == SDMMC0 || periph_id == SDMMC1)
 			regmap_update_bits(regmap, offset,
 					   SDMMC_OPEN_DRAIN_MASK,
 					   SDMMC_OPEN_DRAIN_EN);
-	break;
+		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		switch (arg) {
 		case 0:
-		break;
+			break;
 		case 2:
 			arg = HS_2mA;
-		break;
+			break;
 		case 4:
 			arg = HS_4mA;
-		break;
+			break;
 		case 6:
 			arg = HS_6mA;
-		break;
+			break;
 		case 8:
 			arg = HS_8mA;
-		break;
+			break;
 		case 10:
 			arg = HS_10mA;
-		break;
+			break;
 		case 12:
 			arg = HS_12mA;
-		break;
+			break;
 		default:
 			return -EINVAL;
 		}
@@ -527,7 +527,7 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 			regmap_update_bits(regmap, offset, HS_CTL_MASK,
 					   HS_CTL(arg));
 		}
-	break;
+		break;
 	}
 
 	return 0;
