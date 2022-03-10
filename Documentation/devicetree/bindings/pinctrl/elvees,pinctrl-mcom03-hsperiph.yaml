@@ -41,12 +41,10 @@ additionalProperties:
       anyOf:
         - type: object
           description: |
-            sdmmc0_ctrl: Contains SDMMC0_* pins except SDMMC0_18EN and
-            SDMMC0_PWD.
-            sdmmc1_ctrl: Contains SDMMC1_* pins except SDMMC1_18EN and
-            SDMMC1_PWD.
+            sdmmc0_ctrl: Contains SDMMC0_CMD, SDMMC0_DATx and SDMMC0_CLK.
+            sdmmc1_ctrl: Contains SDMMC1_CMD, SDMMC1_DATx and SDMMC1_CLK.
             hsperiph_misc: Contains SDMMC{0,1}_WP, SDMMC{0,1}_CDN,
-            SDMMC{0,1}_18EN, SDMMC{0,1}_PWR, USB{0,1}_EN_OCN pins.
+              SDMMC{0,1}_18EN, SDMMC{0,1}_PWR, USB{0,1}_EN_OCN pins.
 
           properties:
             groups:
