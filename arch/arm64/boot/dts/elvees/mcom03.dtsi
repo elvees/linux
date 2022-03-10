@@ -319,8 +319,7 @@
 			enabled-clocks = <MEDIA_MIPI_RX_REFCLK
 					  MEDIA_MIPI_RX0_CFG_CLK
 					  MEDIA_MIPI_RX1_CFG_CLK
-					  MEDIA_CMOS1_CLK
-					  MEDIA_VPU_CLK>;
+					  MEDIA_CMOS1_CLK>;
 			#clock-cells = <1>;
 		};
 
@@ -339,6 +338,7 @@
 			interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1280000 0 0x10000>;
 			resets = <&media_reset MEDIA_RST_VPU>;
+			clocks = <&media_ucg3 MEDIA_VPU_CLK>;
 		};
 
 		isp: isp@12a0000 {
