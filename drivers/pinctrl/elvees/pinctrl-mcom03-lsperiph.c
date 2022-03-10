@@ -20,10 +20,6 @@
 #include "../core.h"
 #include "../pinctrl-utils.h"
 
-/* pinconf common values*/
-#define PINCONF_1p8V		1800
-#define PINCONF_3p3V		3300
-
 /* LSPERIPH IDs */
 #define PINCTRL_LSPERIPH0	0
 #define PINCTRL_LSPERIPH1	1
@@ -355,7 +351,7 @@ static int mcom03_lsperiph1_pin_config_group_get(struct pinctrl_dev *pctldev,
 		return -ENOTSUPP;
 
 	regmap_read(pctrl->urb, LSPERIPH1_GROUP_REG, &val);
-	arg = val & LSPERIPH1_1P8V ? PINCONF_1p8V : PINCONF_3p3V;
+	arg = val & LSPERIPH1_1P8V ? 1800 : 3300;
 	*config = pinconf_to_config_packed(param, arg);
 
 	return 0;
@@ -378,11 +374,11 @@ static int mcom03_lsperiph1_pin_config_group_set(struct pinctrl_dev *pctldev,
 	if (param != PIN_CONFIG_POWER_SOURCE || num_configs != 1)
 		return -ENOTSUPP;
 
-	if (arg != PINCONF_1p8V && arg != PINCONF_3p3V)
+	if (arg != 1800 && arg != 3300)
 		return -EINVAL;
 
 	regmap_update_bits(map, LSPERIPH1_GROUP_REG, LSPERIPH1_1P8V,
-			   arg == PINCONF_1p8V ? LSPERIPH1_1P8V : 0);
+			   arg == 1800 ? LSPERIPH1_1P8V : 0);
 
 	return 0;
 }
