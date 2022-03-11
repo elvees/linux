@@ -151,7 +151,7 @@
 	};
 };
 
-&qspi {
+&qspi1 {
 	status = "okay";
 };
 

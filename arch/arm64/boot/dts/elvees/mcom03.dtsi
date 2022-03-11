@@ -18,7 +18,7 @@
 		serial1 = &uart1;
 		serial2 = &uart2;
 		serial3 = &uart3;
-		spi0 = &qspi;
+		spi1 = &qspi1;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
@@ -1035,7 +1035,7 @@
 			status = "disabled";
 		};
 
-		qspi: spi@10260000 {
+		qspi1: spi@10260000 {
 			compatible = "silvaco,axi-qspi";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1044,7 +1044,6 @@
 			clocks = <&hsperiph_ucg0 HSP_QSPI_CLK>,
 				 <&hsperiph_ucg1 HSP_QSPI_EXT_CLK>;
 			resets = <&hsperiph_reset HSPERIPH_RST_QSPI>;
-			arasan,soc-ctl-syscon = <&hsperiph_urb>;
 			num-cs = <4>;
 			status = "disabled";
 		};
