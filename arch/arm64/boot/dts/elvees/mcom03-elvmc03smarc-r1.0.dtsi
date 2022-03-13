@@ -104,6 +104,13 @@
 	};
 };
 
+&lsperiph1_pinctrl {
+	hdmi_int: hdmi-int {
+		pins = "GPIOA_6";
+		input-enable;
+	};
+};
+
 &gpio1a {
 	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "I2C2_SCL", "I2C2_SDA",
 		"I2C3_SCL", "I2C3_SDA", "HDMI_INT", "RTC_INT";
@@ -156,6 +163,9 @@
 		adi,input-clock = "1x";
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_int>;
 
 		port@0 {
 			reg = <0>;
