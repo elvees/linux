@@ -168,7 +168,7 @@ static int mr75202_read_temp(struct device *dev, u32 attr, int channel,
 		/* From TS4 datasheet and MR74127 (electrical specification for
 		 * TSMC 28HPC+). There is no overflow up to 400 degree Celsius.
 		 * hwmon requires temperature to be in millidegrees. */
-		*val = nbs * 237500 / 4096 - 81100;
+		*val = nbs * 237500 / 4094 - 81100;
 
 		return 0;
 	default:
