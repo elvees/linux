@@ -299,7 +299,6 @@
 			assigned-clock-rates = <247500000
 						247500000
 						247500000>;
-			enabled-clocks = <MEDIA_GPU_SYS_CLK MEDIA_GPU_MEM_CLK>;
 			#clock-cells = <1>;
 		};
 
@@ -324,8 +323,10 @@
 		};
 
 		gpu: gpu@1200000 {
-			clocks = <&media_ucg2 MEDIA_GPU_CORE_CLK>;
-			clock-names = "core";
+			clocks = <&media_ucg2 MEDIA_GPU_SYS_CLK>,
+				 <&media_ucg2 MEDIA_GPU_MEM_CLK>,
+				 <&media_ucg2 MEDIA_GPU_CORE_CLK>;
+			clock-names = "sys", "mem", "core";
 			compatible = "img,gpu";
 			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1200000 0 0x80000>;
