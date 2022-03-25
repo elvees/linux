@@ -37,3 +37,19 @@
 		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl256s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};

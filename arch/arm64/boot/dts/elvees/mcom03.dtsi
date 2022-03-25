@@ -18,6 +18,7 @@
 		serial1 = &uart1;
 		serial2 = &uart2;
 		serial3 = &uart3;
+		spi0 = &qspi0;
 		spi1 = &qspi1;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
@@ -215,6 +216,18 @@
 			interrupts = <37>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
+		};
+
+		qspi0: spi@1ff00000 {
+			status = "disabled";
+			compatible = "silvaco,axi-qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0 0x1ff00000 0 0x10000>;
+			clock-names = "clk_axi", "clk_ext";
+			clocks = <&service_ucg1 SERVICE_QSPI0_CLK>,
+				 <&service_ucg1 SERVICE_QSPI0_EXT_CLK>;
+			num-cs = <4>;
 		};
 	};
 

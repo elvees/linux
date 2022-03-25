@@ -151,6 +151,20 @@
 	};
 };
 
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* The data transfer is not stable at a higher frequency on
+		 * MCom-03 BuB with SPI flash connected via PLS. */
+		spi-max-frequency = <14000000>;
+	};
+};
+
 &qspi1 {
 	status = "okay";
 };
