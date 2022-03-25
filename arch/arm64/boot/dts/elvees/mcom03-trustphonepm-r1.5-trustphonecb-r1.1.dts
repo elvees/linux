@@ -201,6 +201,25 @@
 		wlf,inmode = <1 1 1 1>;
 		wlf,clk32k-source = <ARIZONA_32KZ_NONE>;
 	};
+
+	i2c-switch@70 {
+		compatible = "pericom,pi4msd5v9540", "nxp,pca9540";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		i2c_camr: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c_camf: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+	};
 };
 
 &emac0 {
