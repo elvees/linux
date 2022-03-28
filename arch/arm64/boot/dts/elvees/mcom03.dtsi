@@ -29,8 +29,9 @@
 		#size-cells = <2>;
 		ranges;
 
-		cpu_reserved: cpu_reserved@C0000000 {
-			reg = <0 0xC0080000 0 0x1000>;
+		/* ARM Trusted Firmware (BL31) */
+		secmon@80000000 {
+			reg = <0 0x80000000 0 0x80000>;
 			no-map;
 		};
 	};
