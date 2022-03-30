@@ -967,6 +967,34 @@
 					groups = "emac_v18";
 					power-source = <1800>;
 				};
+
+				qspi1_default: qspi1-default {
+					ctrl {
+						groups = "qspi1_ctrl";
+						elvees,pad-enable;
+					};
+
+					data_and_ss {
+						groups = "qspi1_data",
+							 "qspi1_ss";
+						bias-pull-up;
+					};
+
+					clk {
+						pins = "QSPI1_SCLK";
+						bias-pull-up;
+					};
+				};
+
+				qspi1_default_18: qspi1-default-18 {
+					groups = "qspi1_ctrl";
+					power-source = <1800>;
+				};
+
+				qspi1_default_33: qspi1-default-33 {
+					groups = "qspi1_ctrl";
+					power-source = <3300>;
+				};
 			};
 		};
 
@@ -1204,6 +1232,9 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_QSPI>;
 			num-cs = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&qspi1_default>;
 		};
 
 		usb0: usb@10000000 {

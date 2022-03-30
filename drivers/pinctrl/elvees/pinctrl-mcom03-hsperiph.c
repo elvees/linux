@@ -59,6 +59,8 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
 #define MCOM03_PCONF_SET3 (MCOM03_PULLS | MCOM03_SLEW_RATE |		\
 			   MCOM03_DRIVE_STRENGTH)
 #define MCOM03_PCONF_SET4 (MCOM03_PULLS | MCOM03_INPUT_SCHMITT_ENABLE)
+#define MCOM03_PCONF_SET5 (MCOM03_PAD_ENABLE | MCOM03_POWER_SOURCE | \
+			  MCOM03_DRIVE_OPEN_DRAIN)
 
 /* HSPERIPH common masks */
 #define HS_PAD_EN_MASK		BIT(0)
@@ -67,6 +69,7 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
 #define HS_SLEW_RATE_MASK	GENMASK(4, 3)
 #define HS_DRIVE_STRENGTH_MASK	GENMASK(5, 0)
 #define HS_MISC_PAD_EN_MASK	BIT(8)
+#define HS_POWER_SOURCE		BIT(1)
 
 /* HSPERIPH common values */
 #define HS_PAD_EN		BIT(0)
@@ -90,7 +93,7 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
 #define SDMMC_SOFT_CTL_MASK	BIT(17)
 
 /* Controller specific values */
-#define SDMMC_TO_HS_DRIVE(v)	((v) >> 5)
+#define COMMON_HS_DRIVE(v)	((v) >> 5)
 #define SDMMC_OPEN_DRAIN_EN	BIT(16)
 #define SDMMC_SOFT_CTL_EN	BIT(17)
 #define EMAC_V18		BIT(0)
@@ -102,6 +105,7 @@ enum mcom03_hsperiph_periph_ids {
 	EMAC0,
 	EMAC1,
 	EMAC_GLOBAL,
+	QSPI1,
 };
 
 struct mcom03_hsperiph_pinctrl {
@@ -207,6 +211,7 @@ enum special_pins {
 	EMAC1_RGMII_MDC = 44,
 	EMAC1_RGMII_TXC = 45,
 	EMAC1_RGMII_RXC = 46,
+	QSPI1_SCLK = 65,
 };
 
 static const struct pinctrl_pin_desc mcom03_hsperiph_pins[] = {
@@ -276,6 +281,17 @@ static const struct pinctrl_pin_desc mcom03_hsperiph_pins[] = {
 	PINCTRL_PIN(54, "EMAC1_RGMII_RXD3"),
 	PINCTRL_PIN(55, "EMAC1_RGMII_TXCTL"),
 	PINCTRL_PIN(56, "EMAC1_RGMII_RXCTL"),
+
+	/* QSPI1 */
+	PINCTRL_PIN(57, "QSPI1_SISI0"),
+	PINCTRL_PIN(58, "QSPI1_SISI1"),
+	PINCTRL_PIN(59, "QSPI1_SISI2"),
+	PINCTRL_PIN(60, "QSPI1_SISI3"),
+	PINCTRL_PIN(61, "QSPI1_SS0"),
+	PINCTRL_PIN(62, "QSPI1_SS1"),
+	PINCTRL_PIN(63, "QSPI1_SS2"),
+	PINCTRL_PIN(64, "QSPI1_SS3"),
+	PINCTRL_PIN(QSPI1_SCLK, "QSPI1_SCLK"),
 };
 
 static struct mcom03_hsperiph_pin mcom03_hsperiph_special_pins[] = {
@@ -302,6 +318,8 @@ static struct mcom03_hsperiph_pin mcom03_hsperiph_special_pins[] = {
 	MCOM03_HSPERIPH_PIN(EMAC1_RGMII_TXC, 0x16C, MCOM03_PCONF_SET3, EMAC1,
 			    GENMASK(2, 0)),
 	MCOM03_HSPERIPH_PIN(EMAC1_RGMII_RXC, 0x174,  MCOM03_PCONF_SET4, EMAC1,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(QSPI1_SCLK, 0x28, MCOM03_PCONF_SET2, QSPI1,
 			    GENMASK(2, 0)),
 };
 
@@ -330,6 +348,9 @@ MCOM03_HSPERIPH_DEF_GRP(emac1_ctrl, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
 			54, 55, 56);
 MCOM03_HSPERIPH_DEF_GRP(emac1_tx, 45, 47, 48, 49, 50);
 MCOM03_HSPERIPH_DEF_GRP(emac1_rx, 46, 51, 52, 53, 54);
+MCOM03_HSPERIPH_DEF_GRP(qspi1_ctrl, 57, 58, 59, 60, 61, 62, 63, 64, 65);
+MCOM03_HSPERIPH_DEF_GRP(qspi1_ss, 57, 58, 59, 60);
+MCOM03_HSPERIPH_DEF_GRP(qspi1_data, 61, 62, 63, 64);
 
 static struct mcom03_hsperiph_grp mcom03_hsperiph_groups[] = {
 	/* HSPERIPH:SD/MMC groups */
@@ -362,6 +383,13 @@ static struct mcom03_hsperiph_grp mcom03_hsperiph_groups[] = {
 	MCOM03_HSPERIPH_GRP(emac1_tx, 0x168, MCOM03_PCONF_SET3, EMAC1,
 			    GENMASK(2, 0)),
 	MCOM03_HSPERIPH_GRP(emac1_rx, 0x170, MCOM03_PCONF_SET4, EMAC1,
+			    GENMASK(2, 0)),
+
+	/* HSPERIPH: QSPI1 groups */
+	MCOM03_HSPERIPH_GRP(qspi1_ctrl, 0x1C, MCOM03_PCONF_SET5, QSPI1, 0),
+	MCOM03_HSPERIPH_GRP(qspi1_ss, 0x20, MCOM03_PCONF_SET2, QSPI1,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_GRP(qspi1_data, 0x24, MCOM03_PCONF_SET2, QSPI1,
 			    GENMASK(2, 0)),
 };
 
@@ -457,8 +485,9 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		if (periph_id == SDMMC0 || periph_id == SDMMC1 ||
-		    periph_id == EMAC0 || periph_id == EMAC1)
-			val = SDMMC_TO_HS_DRIVE(val);
+		    periph_id == EMAC0 || periph_id == EMAC1 ||
+		    periph_id == QSPI1)
+			val = COMMON_HS_DRIVE(val);
 
 		val &= HS_DRIVE_STRENGTH_MASK;
 		switch (val) {
@@ -488,6 +517,9 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 		switch (periph_id) {
 		case EMAC_GLOBAL:
 			arg = val & EMAC_V18 ? 1800 : 3300;
+			break;
+		default:
+			arg = val & HS_POWER_SOURCE ? 1800 : 3300;
 			break;
 		}
 
@@ -650,6 +682,10 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 		case EMAC_GLOBAL:
 			regmap_update_bits(regmap, offset, EMAC_V18,
 					   arg == 1800 ? EMAC_V18 : 0);
+			break;
+		default:
+			regmap_update_bits(regmap, offset, HS_POWER_SOURCE,
+					   arg == 1800 ? HS_POWER_SOURCE : 0);
 			break;
 		}
 
