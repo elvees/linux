@@ -654,7 +654,7 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
 			elvees,ctrl-id = <0>;
 			arasan,desc-pool = <&emac_desc_pool>;
-			phy-mode = "rgmii";
+			phy-mode = "rgmii-id";
 			status = "disabled";
 		};
 
@@ -670,7 +670,7 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
 			elvees,ctrl-id = <1>;
 			arasan,desc-pool = <&emac_desc_pool>;
-			phy-mode = "rgmii";
+			phy-mode = "rgmii-id";
 			status = "disabled";
 		};
 

@@ -35,9 +35,6 @@
 
 #include "arasan-gemac.h"
 
-#define ARASAN_GEMAC_FEATURES (PHY_GBIT_FEATURES | SUPPORTED_FIBRE | \
-			       SUPPORTED_BNC)
-
 #define print_reg(reg) netdev_info(pd->dev, \
 				   "offset 0x%x : value 0x%x\n", \
 				   reg, \
@@ -1071,11 +1068,10 @@ static int arasan_gemac_mii_probe(struct net_device *dev)
 		    "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
 		    phydev->drv->name, phydev_name(phydev), phydev->irq);
 
-	phydev->supported &= ARASAN_GEMAC_FEATURES;
 	if (pd->phy_interface == PHY_INTERFACE_MODE_MII)
-		phydev->supported &= ~PHY_1000BT_FEATURES;
-
-	phydev->advertising = phydev->supported;
+		phy_set_max_speed(phydev, SPEED_100);
+	else
+		phy_set_max_speed(phydev, SPEED_1000);
 
 	pd->link = 0;
 	pd->speed = 0;
@@ -1370,26 +1366,30 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 
 	netif_napi_add(dev, &pd->napi, arasan_gemac_rx_poll, NAPI_WEIGHT);
 
-	res = of_get_phy_mode(pdev->dev.of_node);
+	res = of_get_phy_mode(pdev->dev.of_node, &pd->phy_interface);
 	if (res < 0)
 		goto err_reset_assert;
 
-	if (res != PHY_INTERFACE_MODE_MII &&
-	    res != PHY_INTERFACE_MODE_GMII &&
-	    res != PHY_INTERFACE_MODE_RGMII) {
+	switch (pd->phy_interface) {
+	case PHY_INTERFACE_MODE_MII:
+	case PHY_INTERFACE_MODE_GMII:
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+		break;
+	default:
 		dev_err(&pdev->dev, "\"%s\" PHY interface is not supported\n",
 			phy_modes(res));
 		res = -ENODEV;
 		goto err_reset_assert;
 	}
 
-	pd->phy_interface = res;
-
 	mac = of_get_mac_address(pdev->dev.of_node);
-	if (mac)
-		ether_addr_copy(pd->dev->dev_addr, mac);
-	else
+	if (IS_ERR(mac))
 		arasan_gemac_get_hwaddr(pd);
+	else
+		ether_addr_copy(pd->dev->dev_addr, mac);
 
 	res = device_property_read_u32(&pdev->dev, "arasan,hwfifo-size",
 				       &pd->hwfifo_size);
