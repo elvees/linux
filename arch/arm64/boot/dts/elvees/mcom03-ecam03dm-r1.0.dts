@@ -8,7 +8,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 
-#include "mcom03.dtsi"
+#include "mcom03-ecam03-common.dtsi"
 
 / {
 	model = "ECAM03DM r1.0";
@@ -16,102 +16,5 @@
 		     "elvees,ecam03dm",
 		     "elvees,mcom03";
 
-	aliases {
-		serial0 = &uart0;
-	};
-
-	chosen {
-		stdout-path = "serial0:115200n8";
-	};
-
-	gpio-keys {
-		compatible = "gpio-keys";
-
-		factory-reset {
-			label = "Factory reset";
-			gpios = <&gpio0a 7 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VENDOR>;
-		};
-	};
-
-	sdr@1900000 {
-		status = "disabled";
-	};
-};
-
-&uart0 {
-	status = "okay";
-	clock-frequency = <27000000>;
-};
-
-&hsperiph_pinctrl {
-	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
-};
-
-/* Connected to MicroSD card */
-&sdhci0 {
-	status = "okay";
-
-	/* Disable High Speed support
-	 * Disable 1.8V support
-	 * Disable SDR50, SDR104 and DDR50 support
-	 */
-	sdhci-caps-mask = <0x7 0x4200000>;
-	sdhci-caps = <0x0 0x0>;
-};
-
-&i2c2 {
-	/* Not all devices are checked to 400kHz support */
-	clock-frequency = <100000>;
-	status = "okay";
-
-	rtc@51 {
-		compatible = "nxp,pcf85063";
-		reg = <0x51>;
-	};
-};
-
-&emac0 {
-	status = "okay";
-	phy-handle = <&ethernet_phy0>;
-	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
-	reset-post-delay-us = <100>;
-
-	ethernet_phy0: ethernet-phy@1 {
-		reg = <0x1>;
-		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
-		 * for KSZ9031 Ethernet PHY
-		 */
-		txc-skew-ps = <1860>;
-		interrupt-parent = <&gpio1a>;
-		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
-	};
-};
-
-&nand {
-	status = "okay";
-	chip@0 {
-		reg = <0>;
-		nand-ecc-mode="hw";
-	};
-};
-
-&qspi0 {
-	status = "okay";
-
-	flash0: s25fl256s@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "jedec,spi-nor", "spi-flash";
-		reg = <0x0>;
-		/* This is the highest frequency at which all commands are
-		 * supported by the flash device.
-		 */
-		spi-max-frequency = <66000000>;
-		m25p,fast-read;
-	};
-};
-
-&nand {
-	pinctrl-0 = <&nand_default &nand_voltage_18>;
+	/delete-node/ sdr@1900000;
 };
