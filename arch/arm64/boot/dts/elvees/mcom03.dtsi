@@ -773,7 +773,7 @@
 		hsperiph_pll: hsperiph_pll {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <1500000000>;
+			clock-frequency = <1125000000>;
 		};
 
 		hsperiph_ucg0: ucg@10410000 {
@@ -800,16 +800,16 @@
 					  <&hsperiph_ucg0 HSP_SDMMC0_CLK>,
 					  <&hsperiph_ucg0 HSP_SDMMC1_CLK>,
 					  <&hsperiph_ucg0 HSP_QSPI_CLK>;
-			assigned-clock-rates = <300000000
-						300000000
+			assigned-clock-rates = <225000000
+						225000000
 						93750000
-						100000000
-						187500000
-						187500000
+						225000000
 						125000000
 						125000000
 						125000000
-						250000000
+						125000000
+						125000000
+						225000000
 						93750000
 						93750000
 						93750000>;
@@ -1047,7 +1047,7 @@
 		sdr_pll1: sdr_pll1 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <657000000>;
+			clock-frequency = <648000000>;
 		};
 
 		sdr_pll2: sdr_pll2 {
