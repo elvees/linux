@@ -34,9 +34,7 @@
 		};
 	};
 
-	sdr@1900000 {
-		status = "disabled";
-	};
+	/delete-node/ sdr@1900000;
 };
 
 &uart0 {

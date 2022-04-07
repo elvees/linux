@@ -19,9 +19,7 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	sdr@1900000 {
-		status = "disabled";
-	};
+	/delete-node/ sdr@1900000;
 };
 
 &emac0 {
