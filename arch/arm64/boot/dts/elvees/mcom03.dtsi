@@ -1210,7 +1210,7 @@
 		sdr_pll1: sdr_pll1 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <657000000>;
+			clock-frequency = <648000000>;
 		};
 
 		sdr_pll2: sdr_pll2 {
