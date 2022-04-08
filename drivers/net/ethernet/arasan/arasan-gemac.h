@@ -90,6 +90,7 @@
 #define DMA_CONFIGURATION_SOFT_RESET                  BIT(0)
 #define DMA_CONFIGURATION_BURST_LENGTH(VAL)           ((VAL) << 1)
 #define DMA_CONFIGURATION_WAIT_FOR_DONE               BIT(16)
+#define DMA_CONFIGURATION_64BIT_MODE                  BIT(18)
 
 #define DMA_CONTROL_START_TRANSMIT_DMA                BIT(0)
 #define DMA_CONTROL_START_RECEIVE_DMA                 BIT(1)
@@ -200,6 +201,7 @@ struct arasan_gemac_pdata {
 	u32                 hwfifo_size;
 	u32                 mdc_freq;
 	u32                 tx_threshold;
+	u8                  axi_width64;
 
 	phy_interface_t     phy_interface;
 	int phy_irq[PHY_MAX_ADDR];
