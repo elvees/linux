@@ -151,9 +151,10 @@ static void arasan_gemac_dma_soft_reset(struct arasan_gemac_pdata *pd)
 	 */
 	mdelay(10);
 
-	/* Write the default value to deassert the reset signal */
 	arasan_gemac_writel(pd, DMA_CONFIGURATION,
-			    DMA_CONFIGURATION_BURST_LENGTH(4));
+			    DMA_CONFIGURATION_BURST_LENGTH(4) |
+			    ((pd->axi_width64) ?
+				    DMA_CONFIGURATION_64BIT_MODE : 0));
 }
 
 static void arasan_gemac_setup_frame_limits(struct arasan_gemac_pdata *pd,
@@ -1341,6 +1342,9 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 			       0, dev->name, dev);
 	if (res)
 		goto err_reset_assert;
+
+	pd->axi_width64 = device_property_read_bool(&pdev->dev,
+						    "arasan,axi-bus-width64");
 
 	res = device_property_read_u32(&pdev->dev, "arasan,max-mdc-freq",
 				       &pd->mdc_freq);
