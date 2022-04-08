@@ -655,6 +655,7 @@
 			elvees,ctrl-id = <0>;
 			arasan,desc-pool = <&emac_desc_pool>;
 			phy-mode = "rgmii-id";
+			arasan,axi-bus-width64;
 			status = "disabled";
 		};
 
@@ -671,6 +672,7 @@
 			elvees,ctrl-id = <1>;
 			arasan,desc-pool = <&emac_desc_pool>;
 			phy-mode = "rgmii-id";
+			arasan,axi-bus-width64;
 			status = "disabled";
 		};
 
