@@ -909,6 +909,7 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
 			elvees,ctrl-id = <0>;
 			arasan,desc-pool = <&emac_desc_pool>;
+			arasan,axi-bus-width64;
 			phy-mode = "rgmii";
 			status = "disabled";
 
@@ -928,6 +929,7 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
 			elvees,ctrl-id = <1>;
 			arasan,desc-pool = <&emac_desc_pool>;
+			arasan,axi-bus-width64;
 			phy-mode = "rgmii";
 			status = "disabled";
 
