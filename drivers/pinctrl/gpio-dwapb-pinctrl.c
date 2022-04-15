@@ -826,7 +826,7 @@ static int dwapb_set_mux_by_function(struct dwapb_gpio_port *port,
 			dwapb_pinmux_functions[func_selector],
 			port->pinctrl.mux_individual_pins ?
 				dwapb_grp_pins_names[group_selector] :
-				dwapb_pinctrl_groups[group_selector].name,
+				dwapb_pinctrl_groups[port->idx].name,
 			port->idx + 'A');
 	} else {
 		/*
