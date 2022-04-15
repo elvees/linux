@@ -815,7 +815,7 @@ static int dwapb_set_mux_by_function(struct pinctrl_dev *pctldev,
 		dwapb_pinmux_functions[func_selector],
 		port->pinctrl.mux_individual_pins ?
 			dwapb_grp_pins_names[group_selector] :
-			dwapb_pinctrl_groups[group_selector].name,
+			dwapb_pinctrl_groups[port->idx].name,
 		port->idx + 'A');
 
 	reg_off = GPIO_SWPORTA_CTL + (port->idx * GPIO_SWPORT_CTL_STRIDE);
