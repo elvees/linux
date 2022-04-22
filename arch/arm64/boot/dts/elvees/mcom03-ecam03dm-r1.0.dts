@@ -37,6 +37,26 @@
 	/delete-node/ sdr@1900000;
 };
 
+&gpio0b {
+	gpio-line-names = "P_Iris_nB", "P_Iris_B", "P_Iris_nA", "P_Iris_A",
+		"", "UART1_RX", "UART1_TX", "";
+};
+
+&gpio0c {
+	gpio-line-names = "Focus_nA", "Focus_A", "Focus_nB", "Focus_B",
+		"", "", "ETH0_Rst", "";
+};
+
+&gpio0d {
+	gpio-line-names = "Zoom_nA", "Zoom_A", "Zoom_nB", "I2C0_SCL",
+		"I2C0_SDA", "Zoom_B", "", "";
+};
+
+&gpio1d {
+	gpio-line-names = "IR_A", "IR_nA", "", "",
+		"", "", "", "";
+};
+
 &uart0 {
 	status = "okay";
 	clock-frequency = <27000000>;
