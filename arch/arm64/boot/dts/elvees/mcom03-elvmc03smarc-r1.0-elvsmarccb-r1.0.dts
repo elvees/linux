@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, ELV-SMARC-CB r1.0";
+	compatible = "elvees,elvmc03smarc-r1.0-elvsmarccb-r1.0",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r1.0",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+};
+
+/* Connected to USB Type-C Debug UART */
+&ser1 {
+	status = "okay";
+};
+
+/* Connected to USB Type-C Debug UART */
+&ser3 {
+	status = "okay";
+};
+
+/* Connected to Raspberry Pi header */
+&ser2 {
+	status = "okay";
+};
+
+/* Connected to USB 3.0 hub */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 2.0 hub */
+&usb1 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 */
+&emac0 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 */
+&emac1 {
+	status = "okay";
+};
+
+/* The board has a video output interface */
+&dp {
+	status = "okay";
+};
+
+/* Connected to HDMI plug */
+&adv7513 {
+	status = "okay";
+};
+
+&display_encoder {
+	status = "okay";
+	video-output = "rgb";
+};
