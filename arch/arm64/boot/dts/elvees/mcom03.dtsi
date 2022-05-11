@@ -516,6 +516,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+		dma-ranges;
 
 		spram: spram@0 {
 			compatible = "mmio-sram";
@@ -642,38 +643,46 @@
 			#clock-cells = <1>;
 		};
 
-		emac0: ethernet@10200000 {
-			compatible = "elvees,arasan-gemac";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0 0x10200000 0 0x1000>;
-			clocks = <&hsperiph_ucg0 HSP_EMAC0_CLK>,
-				 <&hsperiph_ucg2 HSP_EMAC0_RGMII_TXC>;
-			clock-names = "busclk", "txc";
-			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
-			resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
-			elvees,ctrl-id = <0>;
-			arasan,desc-pool = <&emac_desc_pool>;
-			phy-mode = "rgmii-id";
-			arasan,axi-bus-width64;
-			status = "disabled";
-		};
+		dma32@0 {
+			compatible = "elvees,mcom03-dma32", "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			dma-ranges = <0 0 8 0 1 0>;
 
-		emac1: ethernet@10210000 {
-			compatible = "elvees,arasan-gemac";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0 0x10210000 0 0x1000>;
-			clocks = <&hsperiph_ucg0 HSP_EMAC1_CLK>,
-				 <&hsperiph_ucg2 HSP_EMAC1_RGMII_TXC>;
-			clock-names = "busclk", "txc";
-			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
-			resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
-			elvees,ctrl-id = <1>;
-			arasan,desc-pool = <&emac_desc_pool>;
-			phy-mode = "rgmii-id";
-			arasan,axi-bus-width64;
-			status = "disabled";
+			emac0: ethernet@10200000 {
+				compatible = "elvees,arasan-gemac";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0 0x10200000 0 0x1000>;
+				clocks = <&hsperiph_ucg0 HSP_EMAC0_CLK>,
+					 <&hsperiph_ucg2 HSP_EMAC0_RGMII_TXC>;
+				clock-names = "busclk", "txc";
+				interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
+				elvees,ctrl-id = <0>;
+				arasan,desc-pool = <&emac_desc_pool>;
+				phy-mode = "rgmii-id";
+				arasan,axi-bus-width64;
+				status = "disabled";
+			};
+
+			emac1: ethernet@10210000 {
+				compatible = "elvees,arasan-gemac";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0 0x10210000 0 0x1000>;
+				clocks = <&hsperiph_ucg0 HSP_EMAC1_CLK>,
+					 <&hsperiph_ucg2 HSP_EMAC1_RGMII_TXC>;
+				clock-names = "busclk", "txc";
+				interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
+				elvees,ctrl-id = <1>;
+				arasan,desc-pool = <&emac_desc_pool>;
+				phy-mode = "rgmii-id";
+				arasan,axi-bus-width64;
+				status = "disabled";
+			};
 		};
 
 		sdhci0: sdhci0@10220000 {
