@@ -219,7 +219,8 @@ static int arasan_gemac_alloc_rx_desc(struct arasan_gemac_pdata *pd, int index)
 	int len;
 	bool last = index == (RX_RING_SIZE - 1);
 
-	skb = netdev_alloc_skb(pd->dev, mtu_to_buf_sz(pd->dev->mtu));
+	skb = __netdev_alloc_skb(pd->dev, mtu_to_buf_sz(pd->dev->mtu),
+				 GFP_ATOMIC | GFP_DMA32);
 	if (unlikely(!skb))
 		return -ENOMEM;
 
