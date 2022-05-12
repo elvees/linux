@@ -64,6 +64,14 @@ properties:
       - const: rgb
       - const: dsi
 
+  dsi-clock-frequency:
+    description:
+      Custom DSI output frequency in hertz. Sometimes it is required to set
+      DSI frequency higher than automatically calculated from pixel clock.
+      By default (or if specified 0) DSI clock will be equal to minimum
+      frequency sufficient for pixel clock.
+    default: 0
+
   panel:
     $ref: /schemas/types.yaml#/definitions/phandle
     description:
@@ -146,6 +154,7 @@ examples:
         clocks = <&dp_pix_clk>, <&mipi_tx_ref_clk>, <&mipi_tx_ref_clk>;
         clock-names = "pxlclk", "mipi_tx_cfg", "mipi_tx_ref";
         video-output = "dsi";
+        dsi-clock-frequency = <500000000>;
 
         panel0: dsi-panel {
             #address-cells = <1>;
