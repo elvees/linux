@@ -41,6 +41,7 @@
 
 &display_encoder {
 	video-output = "dsi";
+	dsi-clock-frequency = <500000000>;
 
 	dsi-panel@0 {
 		#address-cells = <1>;
