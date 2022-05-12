@@ -48,7 +48,7 @@
 		compatible = "auo,b101uan01";
 		reg = <0>;
 		backlight = <&dsi_backlight>;
-		enable-gpios = <&gpio1c 1 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&tca9554_1 1 GPIO_ACTIVE_HIGH>;
 
 		ports {
 			port {
