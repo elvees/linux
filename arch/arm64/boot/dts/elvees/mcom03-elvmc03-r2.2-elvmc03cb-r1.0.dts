@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/net/ti-dp83867.h>
+
+#include "mcom03-elvmc03-r2.2.dtsi"
+
+/ {
+	model = "ELV-MC03 r2.2, ELV-MC03-CB r1.0";
+	compatible = "elvees,elvmc03-r2.2-elvmc03cb-r1.0",
+		     "elvees,elvmc03-elvmc03cb",
+		     "elvees,elvmc03cb-r1.0",
+		     "elvees,elvmc03cb",
+		     "elvees,elvmc03-r2.2",
+		     "elvees,elvmc03",
+		     "elvees,mcom03";
+
+	adv7513_cec_clk: adv7513_cec_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12000000>;
+	};
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci1-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+};
+
+&sdhci0 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* SDMMC1_WP pulled-up on ELV-MC03-CB */
+	disable-wp;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&i2c0 {
+	/* MCP79410T doesn't support 400 kHz when used VCC 1.8V */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c1 {
+	/* Connected to connector. Some external devices may not support
+	 * for 400kHz */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c2 {
+	/* Connected to connector. Some external devices may not support
+	 * for 400kHz */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c4 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	adv7513: hdmi@39 {
+		compatible = "adi,adv7513";
+		reg = <0x39>, <0x3f>;
+		reg-names = "main", "edid";
+		interrupt-parent = <&gpio0a>;
+		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+		clocks = <&adv7513_cec_clk>;
+		clock-names = "cec";
+		adi,input-depth = <8>;
+		adi,input-colorspace = "rgb";
+		adi,input-clock = "1x";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			adv7513_in: endpoint {
+				remote-endpoint = <&rgb_out>;
+			};
+		};
+	};
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+&emac0 {
+	status = "okay";
+};
+
+&emac1 {
+	status = "okay";
+
+	phy-handle = <&ethernet_phy1>;
+	reset-gpios = <&gpio1d 6 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <400000>;
+
+	ethernet_phy1: ethernet-phy@8 {
+		reg = <0x8>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&dp {
+	status = "okay";
+};
+
+&display_encoder {
+	status = "okay";
+	video-output = "rgb";
+
+	ports {
+		port@2 {
+			reg = <2>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
+	};
+};
