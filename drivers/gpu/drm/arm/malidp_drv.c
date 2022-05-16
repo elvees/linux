@@ -14,6 +14,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/pm_runtime.h>
 #include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
 #include <linux/reset.h>
 
 #include <drm/drm_atomic.h>
@@ -719,6 +720,11 @@ static int malidp_bind(struct device *dev)
 	u8 output_width[MAX_OUTPUT_CHANNELS];
 	int ret = 0, i;
 	u32 version, out_depth = 0;
+
+	/* TODO: Check if all DP* IP's support 40-bit DMA addressing */
+	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(40));
+	if (ret)
+		return ret;
 
 	malidp = devm_kzalloc(dev, sizeof(*malidp), GFP_KERNEL);
 	if (!malidp)
