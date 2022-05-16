@@ -186,4 +186,12 @@ config DRM_PANEL_SITRONIX_ST7789V
 	  Say Y here if you want to enable support for the Sitronix
 	  ST7789V controller for 240x320 LCD panels
 
+config DRM_PANEL_XL6550050QM30
+	tristate "Xing Liang XL6550050QM-30 panel"
+	depends on OF
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for the Xing Liang
+	  XL6550050QM-30 panel
+
 endmenu
