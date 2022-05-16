@@ -639,6 +639,11 @@ static int malidp_bind(struct device *dev)
 	int ret = 0, i;
 	u32 version, out_depth = 0;
 
+	/* TODO: Check if all DP* IP's support 40-bit DMA addressing */
+	ret = dma_set_mask(dev, DMA_BIT_MASK(40));
+	if (ret)
+		return ret;
+
 	malidp = devm_kzalloc(dev, sizeof(*malidp), GFP_KERNEL);
 	if (!malidp)
 		return -ENOMEM;
