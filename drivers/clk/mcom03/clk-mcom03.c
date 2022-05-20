@@ -158,6 +158,13 @@ static const struct clk_ops ucg_chan_ops = {
 	.set_rate = ucg_chan_set_rate,
 };
 
+static const struct clk_ops ucg_chan_fixed_ops = {
+	.enable = ucg_chan_enable,
+	.disable = ucg_chan_disable,
+	.is_enabled = ucg_chan_is_enabled,
+	.recalc_rate = ucg_chan_recalc_rate,
+};
+
 struct mcom03_clk_provider *mcom03_clk_alloc_provider(struct device_node *node,
 						      int count)
 {
@@ -191,7 +198,8 @@ free_provider:
 static struct clk *mcom03_ucg_chan_register(unsigned int id,
 					    const char *name,
 					    const char *parent_name,
-					    void __iomem *base)
+					    void __iomem *base,
+					    u32 fixed_freq_mask)
 {
 	struct mcom03_clk_ucg_chan *ucg_chan;
 	struct clk_init_data init;
@@ -204,7 +212,11 @@ static struct clk *mcom03_ucg_chan_register(unsigned int id,
 	init.flags = 0;
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
-	init.ops = &ucg_chan_ops;
+	if (fixed_freq_mask & BIT(id))
+		init.ops = &ucg_chan_fixed_ops;
+	else
+		init.ops = &ucg_chan_ops;
+
 	ucg_chan->hw.init = &init;
 	ucg_chan->base = base;
 	ucg_chan->id = id;
@@ -247,6 +259,7 @@ static void __init mcom03_clk_ucg_init(struct device_node *np)
 	struct mcom03_clk_provider *p;
 	u32 channels[16];
 	u32 max_channel = 0;
+	u32 fixed_freq_mask = 0;
 	const char *names[16];
 	const char *parent_name = of_clk_get_parent_name(np, 0);
 	int count;
@@ -296,6 +309,7 @@ static void __init mcom03_clk_ucg_init(struct device_node *np)
 		       np->name, ret);
 		return;
 	}
+	of_property_read_u32(np, "elvees,fixed-freq-mask", &fixed_freq_mask);
 	for (i = 0; i < count; i++)
 		max_channel = max(max_channel, channels[i]);
 
@@ -305,7 +319,8 @@ static void __init mcom03_clk_ucg_init(struct device_node *np)
 
 	for (i = 0; i < count; i++) {
 		p->clk_data.clks[channels[i]] = mcom03_ucg_chan_register(
-			channels[i], names[i], parent_name, p->base);
+			channels[i], names[i], parent_name, p->base,
+			fixed_freq_mask);
 		if (IS_ERR(p->clk_data.clks[channels[i]]))
 			pr_warn("%s: Failed to register clock %s: %ld\n",
 				np->name, names[i],
