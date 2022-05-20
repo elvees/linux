@@ -176,6 +176,8 @@
 			enabled-clocks = <SERVICE_APB_CLK
 					  SERVICE_CORE_CLK
 					  SERVICE_I2C4_CLK>;
+
+			elvees,fixed-freq-mask = <0xfff>;
 		};
 
 		wdt0: watchdog@1f080000 {
