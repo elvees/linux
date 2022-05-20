@@ -32,6 +32,11 @@ properties:
   enabled-clocks:
     description: Channels that must be enabled at boot
 
+  elvees,fixed-freq-mask:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Bitmask of channels which must not change frequency
+    default: 0
+
 required:
   - compatible
   - reg
