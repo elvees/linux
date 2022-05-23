@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03 r2.2";
+	compatible = "elvees,elvmc03-r2.2",
+		     "elvees,elvmc03",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio1c 5 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <100>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		reg = <0x0>;
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
+		interrupt-parent = <&gpio0a>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
