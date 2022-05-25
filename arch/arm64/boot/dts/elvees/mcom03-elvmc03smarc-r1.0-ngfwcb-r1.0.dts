@@ -60,22 +60,6 @@
 	status = "okay";
 };
 
-&i2c0 {
-	/* USB HUB USB5807 supports only 100kHz */
-	clock-frequency = <100000>;
-	status = "okay";
-
-	pinctrl-0 = <&i2c0_mux_data &i2c0_mux_smbalert>;
-
-	usb-hub@2d {
-		/* USB HUB USB5807 is supported by driver usb4604 */
-		compatible = "smsc,usb4604";
-		reg = <0x2d>;
-		reset-gpios = <&gpio_exp 4 GPIO_ACTIVE_HIGH>;
-		initial-mode = <1>;
-	};
-};
-
 &i2c2 {
 	/* Not all devices are checked to 400kHz support */
 	clock-frequency = <100000>;
