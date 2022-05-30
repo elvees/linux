@@ -103,6 +103,9 @@ static unsigned long ucg_chan_recalc_rate(struct clk_hw *hw,
 	u32 div = FIELD_GET(DIV_COEFF, reg);
 	bool bp = ucg_readl(ucg_chan, BP_CTR_REG) & BIT(ucg_chan->id);
 
+	if (!div)
+		div = 1;
+
 	return bp ? XTI_FREQ : DIV_ROUND_UP(parent_rate, div);
 }
 
