@@ -1099,6 +1099,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+		dma-ranges;
 
 		sdr_pll0: sdr_pll0 {
 			#clock-cells = <0>;
@@ -1171,52 +1172,66 @@
 			#clock-cells = <1>;
 		};
 
-		pcie0: pcie@2000000 {
-			compatible = "elvees,mcom03-pcie";
-			reg = <0x0 0x2000000 0x0 0x400000>,
-			      <0x0 0x1a00000 0x0 0x800>,
-			      <0x0 0x60000000 0x0 0x10000000>;
-			reg-names = "dbi", "apb", "config";
-			#address-cells = <3>;
+		pcie@0 {
+			compatible = "simple-bus";
+			#address-cells = <2>;
 			#size-cells = <2>;
-			device_type = "pci";
-			ranges = <0x83000000 0x0 0x00000000
-				  0x4 0x00000000
-				  0x1 0x00000000>;
-			num-viewport = <32>;
-			num-lanes = <4>;
-			// TODO: Legacy, HP, AER, etc. interrupts
-			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
-			resets = <&sdr_reset SDR_RST_EXT_ICT>,
-				 <&sdr_reset SDR_RST_BBD_ICT>,
-				 <&sdr_reset SDR_RST_PCI_ICT>;
-			elvees,urb = <&sdr_urb>;
-			elvees,ctrl-id = <0>;
-			status = "disabled";
-		};
+			ranges;
+			dma-ranges = <0 0 8 0 1 0>;
 
-		pcie1: pcie@2400000 {
-			compatible = "elvees,mcom03-pcie";
-			reg = <0x0 0x2400000 0x0 0x400000>,
-			      <0x0 0x1d00000 0x0 0x800>,
-			      <0x0 0x70000000 0x0 0x10000000>;
-			reg-names = "dbi", "apb", "config";
-			#address-cells = <3>;
-			#size-cells = <2>;
-			device_type = "pci";
-			ranges = <0x83000000 0x0 0x00000000
-				  0x6 0x00000000
-				  0x1 0x00000000>;
-			num-viewport = <32>;
-			num-lanes = <4>;
-			// TODO: Legacy, HP, AER, etc. interrupts
-			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
-			resets = <&sdr_reset SDR_RST_EXT_ICT>,
-				 <&sdr_reset SDR_RST_BBD_ICT>,
-				 <&sdr_reset SDR_RST_PCI_ICT>;
-			elvees,urb = <&sdr_urb>;
-			elvees,ctrl-id = <1>;
-			status = "disabled";
+			pcie0: pcie@2000000 {
+				compatible = "elvees,mcom03-pcie";
+				reg = <0x0 0x2000000 0x0 0x400000>,
+				      <0x0 0x1a00000 0x0 0x800>,
+				      <0x0 0x60000000 0x0 0x10000000>;
+				reg-names = "dbi", "apb", "config";
+				#address-cells = <3>;
+				#size-cells = <2>;
+				device_type = "pci";
+				ranges = <0x83000000 0x0 0x00000000
+					  0x4 0x00000000
+					  0x1 0x00000000>;
+				dma-ranges = <0x42000000 0x0 0x0 0x8 0x0 0x1 0x0>,
+					     <0x42000000 0x1 0x0 0x9 0x0 0x1 0x0>,
+					     <0x42000000 0x4 0x0 0xc 0x0 0x1 0x0>;
+				num-viewport = <32>;
+				num-lanes = <4>;
+				// TODO: Legacy, HP, AER, etc. interrupts
+				interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&sdr_reset SDR_RST_EXT_ICT>,
+					 <&sdr_reset SDR_RST_BBD_ICT>,
+					 <&sdr_reset SDR_RST_PCI_ICT>;
+				elvees,urb = <&sdr_urb>;
+				elvees,ctrl-id = <0>;
+				status = "disabled";
+			};
+
+			pcie1: pcie@2400000 {
+				compatible = "elvees,mcom03-pcie";
+				reg = <0x0 0x2400000 0x0 0x400000>,
+				      <0x0 0x1d00000 0x0 0x800>,
+				      <0x0 0x70000000 0x0 0x10000000>;
+				reg-names = "dbi", "apb", "config";
+				#address-cells = <3>;
+				#size-cells = <2>;
+				device_type = "pci";
+				ranges = <0x83000000 0x0 0x00000000
+					  0x6 0x00000000
+					  0x1 0x00000000>;
+				dma-ranges = <0x42000000 0x0 0x0 0x8 0x0 0x1 0x0>,
+					     <0x42000000 0x1 0x0 0x9 0x0 0x1 0x0>,
+					     <0x42000000 0x4 0x0 0xc 0x0 0x1 0x0>;
+				num-viewport = <32>;
+				num-lanes = <4>;
+				// TODO: Legacy, HP, AER, etc. interrupts
+				interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
+				resets = <&sdr_reset SDR_RST_EXT_ICT>,
+					 <&sdr_reset SDR_RST_BBD_ICT>,
+					 <&sdr_reset SDR_RST_PCI_ICT>;
+				elvees,urb = <&sdr_urb>;
+				elvees,ctrl-id = <1>;
+				status = "disabled";
+			};
 		};
 
 		/* For DeviceTree bindings see linux/modules/velcore3
