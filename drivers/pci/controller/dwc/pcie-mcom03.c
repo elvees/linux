@@ -4,6 +4,7 @@
  *
  * Copyright 2021 RnD Center "ELVEES", JSC
  */
+#include <asm/cacheflush.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -74,6 +75,43 @@ static void mcom03_pcie_ltssm_toggle(struct mcom03_pcie *pcie, u32 val)
 	mcom03_pcie_writel(pcie, SYS_CTRL_OFF, reg);
 }
 
+static void mcom03_pcie_msi_init(struct pcie_port *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	u64 msi_target;
+
+	/* Some PCI devices have 32-bit DMA. To handle MSI interrupts from
+	 * such devices, MSI target address must be allocated in ZONE_DMA32.
+	 */
+	pp->msi_page = alloc_page(GFP_KERNEL | GFP_DMA32);
+
+	/* Don't use dma_map_page() here since the following can happen:
+	 *  1. Linux allocates a buffer at physical address A.
+	 *  2. dma_map_page() turns address A into address B, suitable for
+	 *     PCI DMA.
+	 *  3. Address B is written to PCI device as the address for
+	 *     generating MSI interrupt and to the interrupt detection
+	 *     registers (PCIE_MSI_ADDR_LO{HI}) of the DW MSI controller.
+	 *  4. To send an MSI interrupt, PCI device issues a write transaction
+	 *     to address B.
+	 *  5. The MSI transaction address (B) is translated by the iATU to
+	 *     address A according to the 'dma-ranges' property.
+	 * As a result, the interrupt will not be detected by the DW MSI
+	 * controller, because the controller is waiting for a write
+	 * transaction to address B.
+	 */
+	__dma_map_area(page_to_virt(pp->msi_page), PAGE_SIZE, DMA_FROM_DEVICE);
+
+	pp->msi_data = page_to_phys(pp->msi_page);
+	msi_target = (u64)pp->msi_data;
+
+	/* Program the msi_data */
+	dw_pcie_write(pci->dbi_base + PCIE_MSI_ADDR_LO, 4,
+		      lower_32_bits(msi_target));
+	dw_pcie_write(pci->dbi_base + PCIE_MSI_ADDR_HI, 4,
+		      upper_32_bits(msi_target));
+}
+
 static int mcom03_pcie_host_init(struct pcie_port *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
@@ -92,7 +130,7 @@ static int mcom03_pcie_host_init(struct pcie_port *pp)
 	dw_pcie_wait_for_link(pci);
 
 	if (IS_ENABLED(CONFIG_PCI_MSI))
-		dw_pcie_msi_init(pp);
+		mcom03_pcie_msi_init(pp);
 
 	return 0;
 }
