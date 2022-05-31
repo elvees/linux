@@ -319,12 +319,14 @@
 					  <&media_ucg3 MEDIA_MIPI_RX0_CFG_CLK>,
 					  <&media_ucg3 MEDIA_MIPI_RX1_CFG_CLK>,
 					  <&media_ucg3 MEDIA_CMOS1_CLK>,
-					  <&media_ucg3 MEDIA_MIPI_TXCLKESC>;
+					  <&media_ucg3 MEDIA_MIPI_TXCLKESC>,
+					  <&media_ucg3 MEDIA_VPU_CLK>;
 			assigned-clock-rates = <27000000
 						27000000
 						27000000
 						27000000
-						19800000>;
+						19800000
+						59400000>;
 			#clock-cells = <1>;
 		};
 
