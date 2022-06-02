@@ -112,8 +112,8 @@ static int dw_pcie_ep_inbound_atu(struct dw_pcie_ep *ep, enum pci_barno bar,
 		return -EINVAL;
 	}
 
-	ret = dw_pcie_prog_inbound_atu(pci, free_win, bar, cpu_addr,
-				       as_type);
+	ret = dw_pcie_prog_ep_inbound_atu(pci, free_win, bar, cpu_addr,
+					  as_type);
 	if (ret < 0) {
 		dev_err(pci->dev, "Failed to program IB window\n");
 		return ret;
