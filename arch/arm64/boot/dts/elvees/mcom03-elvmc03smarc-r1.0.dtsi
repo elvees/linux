@@ -267,3 +267,8 @@ i2c_gp: &i2c2 {
 
 /* PCIe0 is connected to SATA controller. Should be enabled in carrier DTS. */
 sata: &pcie0 { };
+
+/* Serial port definitions for SMARC */
+ser1: &uart0 { };
+ser2: &uart2 { };
+ser3: &uart1 { };
