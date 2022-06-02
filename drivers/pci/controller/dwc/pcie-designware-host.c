@@ -529,10 +529,38 @@ static struct pci_ops dw_pcie_ops = {
 	.write = pci_generic_config_write,
 };
 
+static int dw_pcie_parse_map_dma_ranges(struct dw_pcie *pci,
+					struct device_node *np)
+{
+	struct of_pci_range range;
+	struct of_pci_range_parser parser;
+	int index = 0;
+	int ret;
+
+	if (of_pci_dma_range_parser_init(&parser, np))
+		return -EINVAL;
+
+	for_each_of_pci_range(&parser, &range) {
+		u64 pci_end = range.pci_addr + range.size - 1;
+
+		dev_info(pci->dev, "  DMA 0x%016llx..0x%016llx -> 0x%016llx\n",
+			 range.pci_addr, pci_end, range.cpu_addr);
+
+		ret = dw_pcie_prog_inbound_atu(pci, index++, IORESOURCE_MEM,
+					       range.cpu_addr, range.pci_addr,
+					       range.size);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 void dw_pcie_setup_rc(struct pcie_port *pp)
 {
 	u32 val, ctrl, num_ctrls;
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	int ret;
 
 	/*
 	 * Enable DBI read-only registers for writing/updating configuration.
@@ -613,5 +641,9 @@ void dw_pcie_setup_rc(struct pcie_port *pp)
 	dw_pcie_writel_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL, val);
 
 	dw_pcie_dbi_ro_wr_dis(pci);
+
+	ret = dw_pcie_parse_map_dma_ranges(pci, pci->dev->of_node);
+	if (ret)
+		dev_warn(pci->dev, "Failed to set dma-ranges\n");
 }
 EXPORT_SYMBOL_GPL(dw_pcie_setup_rc);
