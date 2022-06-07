@@ -142,8 +142,11 @@
 
 		service_pll: service_pll {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <594000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1f001000 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&service_pll>;
+			assigned-clock-rates = <594000000>;
 		};
 
 		service_ucg1: ucg@1f020000 {
@@ -254,26 +257,38 @@
 
 		media_pll0: media_pll0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <1998000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1320000 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&media_pll0>;
+			assigned-clock-rates = <1998000000>;
 		};
 
 		media_pll1: media_pll1 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <594000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1320010 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&media_pll1>;
+			assigned-clock-rates = <594000000>;
 		};
 
 		media_pll2: media_pll2 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <495000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1320020 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&media_pll2>;
+			assigned-clock-rates = <495000000>;
 		};
 
 		media_pll3: media_pll3 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <594000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1320030 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&media_pll3>;
+			assigned-clock-rates = <594000000>;
 		};
 
 		media_ucg0: ucg@1320040 {
@@ -900,8 +915,12 @@
 
 		hsperiph_pll: hsperiph_pll {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <1125000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x10401000 0 0x8>;
+			clocks = <&xti_clk>;
+			elvees,pll-max-nr = /bits/ 8 <3>;
+			assigned-clocks = <&hsperiph_pll>;
+			assigned-clock-rates = <1125000000>;
 		};
 
 		hsperiph_ucg0: ucg@10410000 {
@@ -1184,20 +1203,29 @@
 
 		sdr_pll0: sdr_pll0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <1890000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1910000 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&sdr_pll0>;
+			assigned-clock-rates = <1890000000>;
 		};
 
 		sdr_pll1: sdr_pll1 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <648000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1910008 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&sdr_pll1>;
+			assigned-clock-rates = <648000000>;
 		};
 
 		sdr_pll2: sdr_pll2 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <459000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1910010 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&sdr_pll2>;
+			assigned-clock-rates = <459000000>;
 		};
 
 		sdr_ucg0: ucg@1900000 {
