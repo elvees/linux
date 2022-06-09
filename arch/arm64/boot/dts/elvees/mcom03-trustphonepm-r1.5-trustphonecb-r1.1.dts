@@ -260,3 +260,7 @@
 &csi1 {
 	status = "okay";
 };
+
+&uart2 {
+	status = "okay";
+};
