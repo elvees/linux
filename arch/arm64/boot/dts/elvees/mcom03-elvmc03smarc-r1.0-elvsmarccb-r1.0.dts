@@ -40,6 +40,27 @@
 	status = "okay";
 };
 
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&sdhci1_default {
+	/* The default clock pad drive strength of 6 mA is insufficient
+	 * for ELV-SMARC-CB resulting in unstable SDMMC performance
+	 * (possibly due to a PCB bug).
+	 */
+	clk {
+		pins = "SDMMC1_CLK";
+		drive-strength = <8>;
+	};
+};
+
 /* Connected to USB 3.0 hub */
 &usb0 {
 	status = "okay";
