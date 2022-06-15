@@ -102,6 +102,16 @@
 				  "GPS_CUT", "VIBRO_CUT";
 	};
 
+	lsm6dsx: imu@2 {
+		compatible = "st,lsm6dsm";
+		reg = <2>;
+		// Maximum is 10 MHz, but lower here due to bad MISO signal
+		spi-max-frequency = <2000000>;
+
+		interrupt-parent = <&tca9554_0>;
+		interrupts = <0 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	gnss@3 {
 		compatible = "u-blox,zoe-m8b-spi";
 		reg = <3>;
