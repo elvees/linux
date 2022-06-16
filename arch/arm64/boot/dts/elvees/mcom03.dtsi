@@ -1433,6 +1433,7 @@
 				 <&sdr_ucg0 SDR_PCI_CLK>;
 			clock-names = "main_clk", "clk_cfg", "ext_clk",
 				      "int_clk", "pci_clk";
+			operating-points-v2 = <&dsp_opp_table>;
 		};
 
 		elcore1: elcore@1c80000 {
@@ -1453,6 +1454,36 @@
 				 <&sdr_ucg0 SDR_PCI_CLK>;
 			clock-names = "main_clk", "clk_cfg", "ext_clk",
 				      "int_clk", "pci_clk";
+			operating-points-v2 = <&dsp_opp_table>;
+		};
+
+		dsp_opp_table: dsp-opp-table {
+			compatible = "operating-points-v2";
+			opp-shared;
+			opp-81000000 {
+				opp-hz = /bits/ 64 <81000000>;
+			};
+			opp-135000000 {
+				opp-hz = /bits/ 64 <135000000>;
+			};
+			opp-189000000 {
+				opp-hz = /bits/ 64 <189000000>;
+			};
+			opp-243000000 {
+				opp-hz = /bits/ 64 <243000000>;
+			};
+			opp-297000000 {
+				opp-hz = /bits/ 64 <297000000>;
+			};
+			opp-351000000 {
+				opp-hz = /bits/ 64 <351000000>;
+			};
+			opp-405000000 {
+				opp-hz = /bits/ 64 <405000000>;
+			};
+			opp-459000000 {
+				opp-hz = /bits/ 64 <459000000>;
+			};
 		};
 	};
 
