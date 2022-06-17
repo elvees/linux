@@ -39,6 +39,55 @@
 		};
 	};
 
+	cpu_opp_table: cpu_opp_table {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-378000000 {
+			opp-hz = /bits/ 64 <378000000>;
+		};
+
+		opp-756000000 {
+			opp-hz = /bits/ 64 <756000000>;
+		};
+
+		opp-1161000000 {
+			opp-hz = /bits/ 64 <1161000000>;
+		};
+	};
+
+	cpu-subsystem@800000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		cpu_pll: cpu_pll {
+			#clock-cells = <0>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1000050 0 0x8>;
+			clocks = <&xti_clk>;
+		};
+
+		cpu_ucg: ucg@1080000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x1080000 0 0x80>;
+			clocks = <&cpu_pll>;
+			clock-output-names = "cpu_sys_clk", "cpu_core_clk",
+					     "cpu_dbus_clk";
+			enabled-clocks = <CPU_SYS_CLK
+					  CPU_CORE_CLK
+					  CPU_DBUS_CLK>;
+
+			/* Set all channels as fixed because any attempt to
+			 * change frequency will result in a violation of
+			 * frequency ratio and this will cause a hang.
+			 */
+			elvees,fixed-freq-mask = <0x7>;
+			#clock-cells = <1>;
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -48,6 +97,8 @@
 			device_type = "cpu";
 			enable-method = "psci";
 			reg = <0x0>;
+			clocks = <&cpu_pll>;
+			operating-points-v2 = <&cpu_opp_table>;
 			i-cache-size = <0x8000>;
 			i-cache-line-size = <64>;
 			i-cache-sets = <256>;
@@ -62,6 +113,8 @@
 			device_type = "cpu";
 			enable-method = "psci";
 			reg = <0x1>;
+			clocks = <&cpu_pll>;
+			operating-points-v2 = <&cpu_opp_table>;
 			i-cache-size = <0x8000>;
 			i-cache-line-size = <64>;
 			i-cache-sets = <256>;
@@ -76,6 +129,8 @@
 			device_type = "cpu";
 			enable-method = "psci";
 			reg = <0x2>;
+			clocks = <&cpu_pll>;
+			operating-points-v2 = <&cpu_opp_table>;
 			i-cache-size = <0x8000>;
 			i-cache-line-size = <64>;
 			i-cache-sets = <256>;
@@ -90,6 +145,8 @@
 			device_type = "cpu";
 			enable-method = "psci";
 			reg = <0x3>;
+			clocks = <&cpu_pll>;
+			operating-points-v2 = <&cpu_opp_table>;
 			i-cache-size = <0x8000>;
 			i-cache-line-size = <64>;
 			i-cache-sets = <256>;
