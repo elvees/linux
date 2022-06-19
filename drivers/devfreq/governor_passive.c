@@ -47,8 +47,7 @@ static int devfreq_passive_get_target_freq(struct devfreq *devfreq,
 	 * device. And then the index is used for getting the suitable
 	 * new frequency for passive devfreq device.
 	 */
-	if (!devfreq->profile || !devfreq->profile->freq_table
-		|| devfreq->profile->max_state <= 0)
+	if (!devfreq->freq_table || devfreq->max_state <= 0)
 		return -EINVAL;
 
 	/*
@@ -68,21 +67,21 @@ static int devfreq_passive_get_target_freq(struct devfreq *devfreq,
 	 * Get the OPP table's index of decided freqeuncy by governor
 	 * of parent device.
 	 */
-	for (i = 0; i < parent_devfreq->profile->max_state; i++)
-		if (parent_devfreq->profile->freq_table[i] == *freq)
+	for (i = 0; i < parent_devfreq->max_state; i++)
+		if (parent_devfreq->freq_table[i] == *freq)
 			break;
 
-	if (i == parent_devfreq->profile->max_state) {
+	if (i == parent_devfreq->max_state) {
 		ret = -EINVAL;
 		goto out;
 	}
 
 	/* Get the suitable frequency by using index of parent device. */
-	if (i < devfreq->profile->max_state) {
-		child_freq = devfreq->profile->freq_table[i];
+	if (i < devfreq->max_state) {
+		child_freq = devfreq->freq_table[i];
 	} else {
-		count = devfreq->profile->max_state;
-		child_freq = devfreq->profile->freq_table[count - 1];
+		count = devfreq->max_state;
+		child_freq = devfreq->freq_table[count - 1];
 	}
 
 	/* Return the suitable frequency for passive device. */
@@ -109,7 +108,7 @@ static int update_devfreq_passive(struct devfreq *devfreq, unsigned long freq)
 	if (ret < 0)
 		goto out;
 
-	if (devfreq->profile->freq_table
+	if (devfreq->freq_table
 		&& (devfreq_update_status(devfreq, freq)))
 		dev_err(&devfreq->dev,
 			"Couldn't update frequency transition information.\n");
