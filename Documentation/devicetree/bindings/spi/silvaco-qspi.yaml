@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: GPL-2.0+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/spi/silvaco-qspi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Silvaco QSPI controller
+
+maintainers:
+  - Omar Al-Wadi <oalwadi@elvees.com>
+
+properties:
+  compatible:
+    const: silvaco,axi-qspi
+
+  reg:
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  clock-names:
+    items:
+      - const: clk_axi
+      - const: clk_ext
+
+  clocks:
+    items:
+      - description: Controller operating clock
+      - description: Interface operating clock
+
+  num-cs:
+    minimum: 1
+    maximum: 8
+
+required:
+  - compatible
+  - '#address-cells'
+  - '#size-cells'
+  - reg
+  - clocks
+  - clock-names
+
+examples:
+  - |
+    qspi0: spi@1ff00000 {
+      status = "disabled";
+      compatible = "silvaco,axi-qspi";
+      #address-cells = <1>;
+      #size-cells = <0>;
+      reg = <0 0x1ff00000 0 0x10000>;
+      clock-names = "clk_axi", "clk_ext";
+      clocks = <&service_ucg1 SERVICE_QSPI0_CLK>,
+              <&service_ucg1 SERVICE_QSPI0_EXT_CLK>;
+      num-cs = <4>;
+
+      flash0: s25fl128s@0 {
+        compatible = "jedec,spi-nor", "spi-flash";
+        reg = <0>;
+        spi-max-frequency = <66000000>;
+        m25p,fast-read;
+      };
+    };
