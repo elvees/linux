@@ -97,6 +97,11 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
+	temperature-sensor@48 {
+		compatible = "ablic,s5851a";
+		reg = <0x48>;
+	};
+
 	rtc@51 {
 		compatible = "nxp,pcf85063";
 		reg = <0x51>;
