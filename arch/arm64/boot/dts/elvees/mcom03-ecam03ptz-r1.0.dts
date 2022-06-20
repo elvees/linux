@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ECAM03PTZ r1.0";
+	compatible = "elvees,ecam03ptz-r1.0",
+		     "elvees,ecam03ptz",
+		     "elvees,mcom03";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		factory-reset {
+			label = "Factory reset";
+			gpios = <&gpio0a 3 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VENDOR>;
+		};
+	};
+
+	/delete-node/ sdr@1900000;
+};
+
+&gpio0a {
+	gpio-line-names = "UART3_RX", "UART3_TX", "ETH_INT", "FACTORY_RST",
+		"ALIN1", "ALIN2", "RTC_INT", "";
+};
+
+&gpio0b {
+	gpio-line-names = "FAN_EN", "", "UART3_DE", "UART3_RE", "",
+		"UART1_RX", "UART1_TX", "";
+};
+
+&gpio0d {
+	gpio-line-names = "", "", "", "", "", "",
+		"ALOUT1", "ALOUT2";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "I2C2_SCL", "I2C2_SDA",
+		"", "", "MCU_GPIO", "";
+};
+
+&gpio1b {
+	gpio-line-names = "I2S0_SCK", "I2S0_LRCK", "I2S0_SDO0", "",
+		"I2S0_SDI0", "I2S0_SCLK", "UART0_TX", "UART0_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "DDR0_PWREN", "DDR1_PWREN", "ETH_RSTn", "QSPI0_nRST",
+		"", "VdS_RSTn", "VdS_PWRDN", "MCU_RSTn";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+/* Connected to MicroSD card */
+&sdhci0 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&i2c1 {
+	/* Connected to connector. Some external devices may not support
+	 * for 400kHz */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	rtc@51 {
+		compatible = "nxp,pcf85063";
+		reg = <0x51>;
+	};
+};
+
+&emac0 {
+	status = "okay";
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio1c 2 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <400000>;
+
+	ethernet_phy0: ethernet-phy@1 {
+		reg = <0x1>;
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
+		interrupt-parent = <&gpio0a>;
+		interrupts = <2 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
