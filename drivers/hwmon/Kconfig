@@ -1391,6 +1391,12 @@ config SENSORS_S3C
 	  This driver can also be built as a module. If so, the module
 	  will be called s3c-hwmon.
 
+config SENSORS_S5851A
+	tristate "S-5851A Series"
+	depends on I2C
+	help
+	  If you say yes here you get support for S-5851A temperature sensors series.
+
 config SENSORS_S3C_RAW
 	bool "Include raw channel attributes in sysfs"
 	depends on SENSORS_S3C
