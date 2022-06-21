@@ -74,3 +74,8 @@
 	status = "okay";
 	video-output = "rgb";
 };
+
+/* Connected to SATA plug */
+&sata {
+	status = "okay";
+};
