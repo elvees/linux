@@ -20,10 +20,7 @@
 	egwpm-leds {
 		compatible = "gpio-leds";
 
-		red {
-			gpios = <&gpio0c 3 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
+		/* Red LED not described due to hardware bug MCOM03HW-1031 */
 
 		green {
 			gpios = <&gpio0b 1 GPIO_ACTIVE_HIGH>;
