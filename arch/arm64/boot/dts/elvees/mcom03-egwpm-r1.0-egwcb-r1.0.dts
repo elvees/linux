@@ -56,6 +56,20 @@
 	num-lanes = <1>;
 };
 
+&spi0 {
+	num-cs = <1>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	lora@0 {
+		/* FIXME: This will cause WARN() in driver but provide right
+		 * device ID to autoload spidev module. */
+		compatible = "spidev";
+		reg = <0x0>;
+		spi-max-frequency = <2000000>;
+	};
+};
+
 /* Connected to XP2 */
 &emac0 {
 	status = "okay";
