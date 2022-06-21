@@ -112,39 +112,5 @@
 			"LORA_SX1302_GPIO6", "LORA_SX1302_RST", "WIFI_ENABLE",
 			"BT_ENABLE", "LTE_FULL_EN", "LTE_WWAN_EN",
 			"LTE_GNSS_EN", "LTE_nRESET";
-
-		bt-hog {
-			gpio-hog;
-			gpios = <10 GPIO_ACTIVE_HIGH>;
-			output-high;
-		};
-
-		wifi-hog {
-			gpio-hog;
-			gpios = <9 GPIO_ACTIVE_HIGH>;
-			output-high;
-		};
-
-		lte-hog {
-			gpio-hog;
-			gpios = <11 GPIO_ACTIVE_HIGH>, <12 GPIO_ACTIVE_HIGH>,
-				<13 GPIO_ACTIVE_HIGH>, <14 GPIO_ACTIVE_HIGH>;
-			output-high;
-		};
-
-		lora-hog {
-			gpio-hog;
-			gpios = <3 GPIO_ACTIVE_HIGH>, <4 GPIO_ACTIVE_HIGH>,
-				<5 GPIO_ACTIVE_HIGH>, <8 GPIO_ACTIVE_HIGH>;
-			output-high;
-		};
-
-		lora-extint-hog {
-			/* ZOE-M8 says to leave interrupt open if unused,
-			 * but since it's connected, best leave it inactive */
-			gpio-hog;
-			gpios = <6 GPIO_ACTIVE_LOW>;
-			output-low;
-		};
 	};
 };
