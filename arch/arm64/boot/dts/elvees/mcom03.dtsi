@@ -773,6 +773,21 @@
 				};
 			};
 		};
+
+		spi0: spi0@1620000 {
+			compatible = "snps,dw-apb-ssi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0 0x1620000 0 0x10000>;
+			clocks = <&lsperiph0_ucg0 LSP0_SPI0_CLK>;
+			interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
+			num-cs = <4>;
+
+			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&spi0_mux_data &spi0_mux_ss_in>;
+		};
 	};
 
 	hsperiph@0 {
