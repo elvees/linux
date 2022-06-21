@@ -466,12 +466,53 @@
 			};
 		};
 
+		lsperiph0_pll0: lsperiph0_pll0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <189000000>;
+		};
+
+		lsperiph0_ucg0: ucg@1690000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x1690000 0 0x80>;
+			clocks = <&lsperiph0_pll0>;
+			clock-output-names = "lsp0_sys_clk", "uart3_clk",
+					     "uart1_clk", "uart2_clk",
+					     "spi0_clk", "i2c0_clk",
+					     "gpio0_dbclk";
+			assigned-clocks = <&lsperiph0_ucg0 LSP0_SYS_CLK>,
+					  <&lsperiph0_ucg0 LSP0_UART3_CLK>,
+					  <&lsperiph0_ucg0 LSP0_UART1_CLK>,
+					  <&lsperiph0_ucg0 LSP0_UART2_CLK>,
+					  <&lsperiph0_ucg0 LSP0_SPI0_CLK>,
+					  <&lsperiph0_ucg0 LSP0_I2C0_CLK>,
+					  <&lsperiph0_ucg0 LSP0_GPIO0_DBCLK>;
+			assigned-clock-rates = <94500000
+						13500000
+						13500000
+						13500000
+						94500000
+						94500000
+						1000000>;
+			enabled-clocks = <LSP0_SYS_CLK>;
+			#clock-cells = <1>;
+			/* When driver UART requests to change clock, clock
+			 * driver sets it lower than the requested one, baud
+			 * rate divisor for the UART becomes less than one.
+			 * With integer divisor set to zero, the baud clock
+			 * is disabled and no serial communications will occur.
+			 * Disable changing UARTx_CLK clocks
+			 */
+			elvees,fixed-freq-mask = <0xE>;
+		};
+
+
 		i2c0: i2c@1630000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1630000 0 0x10000>;
-			clocks = <&i2c0_clk>;
+			clocks = <&lsperiph0_ucg0 LSP0_I2C0_CLK>;
 			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
@@ -483,7 +524,9 @@
 		uart1: serial0@1640000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1640000 0 0x1000>;
-			clock-frequency = <13500000>;
+			clocks = <&lsperiph0_ucg0 LSP0_UART1_CLK
+				  &lsperiph0_ucg0 LSP0_SYS_CLK>;
+			clock-names = "baudclk", "apb_pclk";
 			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -496,7 +539,9 @@
 		uart2: serial0@1650000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1650000 0 0x1000>;
-			clock-frequency = <13500000>;
+			clocks = <&lsperiph0_ucg0 LSP0_UART2_CLK
+				  &lsperiph0_ucg0 LSP0_SYS_CLK>;
+			clock-names = "baudclk", "apb_pclk";
 			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -510,7 +555,9 @@
 		uart3: serial0@1660000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1660000 0 0x1000>;
-			clock-frequency = <13500000>;
+			clocks = <&lsperiph0_ucg0 LSP0_UART3_CLK
+				  &lsperiph0_ucg0 LSP0_SYS_CLK>;
+			clock-names = "baudclk", "apb_pclk";
 			interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -520,6 +567,12 @@
 		gpio0: gpio@1610000 {
 			compatible = "snps,dw-apb-gpio";
 			reg = <0 0x1610000 0 0x10000>;
+			/*
+			 * GPIO driver controls clock named "bus" which we can
+			 * use to handle the debounce filter clock
+			 */
+			clocks = <&lsperiph0_ucg0 LSP0_GPIO0_DBCLK>;
+			clock-names = "bus";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -1724,12 +1777,6 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <100000000>;
-	};
-
-	i2c0_clk: i2c0_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <94500000>;
 	};
 
 	i2c_clk: i2c_clk {
