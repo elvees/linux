@@ -1713,12 +1713,6 @@
 		};
 	};
 
-	cpu_clk: cpu_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <1400000000>;
-	};
-
 	xti_clk: xti_clk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
