@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/elvees,mcom03-clk-pll.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: MCom-03 PLL
+
+properties:
+  compatible:
+    enum:
+      - elvees,mcom03-clk-pll
+
+  clocks:
+    maxItems: 1
+    description: Input clock from XTI
+
+  '#clock-cells':
+    const: 0
+
+  reg:
+    maxItems: 1
+
+  assigned-clocks: true
+
+  assigned-clock-rates: true
+
+  elvees,pll-max-nr:
+    $ref: /schemas/types.yaml#/definitions/uint8
+    description: |
+
+      Maximal NR parameter for PLL setup. Large value increases the number of
+      available frequencies that PLL can be tuned to, but increases output
+      jitter.
+      Driver try to use minimal NR parameter from range [1 ... pll_max_nr] to
+      set requested frequency. If requested frequency can not be set accurately
+      then driver will use nearest frequency that does not exceed the requested
+      frequency.
+    minimum: 1
+    maximum: 64
+    default: 1
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - '#clock-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    hsperiph_pll: hsperiph_pll {
+        #clock-cells = <0>;
+        compatible = "elvees,mcom03-clk-pll";
+        reg = <0 0x10401000 0 0x8>;
+        clocks = <&xti_clk>;
+        elvees,pll-max-nr = /bits/ 8 <3>;
+        assigned-clocks = <&hsperiph_pll>;
+        assigned-clock-rates = <1125000000>;
+    };
+...
