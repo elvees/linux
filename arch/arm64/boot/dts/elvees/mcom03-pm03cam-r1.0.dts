@@ -1,0 +1,124 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "PM03CAM r1.0";
+	compatible = "elvees,pm03cam-r1.0",
+		     "elvees,pm03cam",
+		     "elvees,mcom03";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		factory-reset {
+			label = "Factory reset";
+			gpios = <&gpio0a 7 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VENDOR>;
+		};
+	};
+
+	/delete-node/ sdr@1900000;
+};
+
+&gpio0a {
+	gpio-line-names = "UART3_RX", "UART3_TX", "RESERV2", "RESERV3",
+		"CMOS_nRST", "", "RTC_INT", "GPIO_RESET";
+};
+
+&gpio0b {
+	gpio-line-names = "", "", "UART3_DE", "UART3_RE",
+		"", "UART1_RX", "UART1_TX", "";
+};
+
+&gpio0c {
+	gpio-line-names = "", "", "", "", "", "", "ETH0_RST", "";
+};
+
+&gpio0d {
+	gpio-line-names = "ICR_OFF", "ICR_ON", "C2B_INPUT", "", "", "", "", "";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_SCL_AUD", "I2C_SDA_AUD", "I2C_SCL_RTC",
+		"I2C_SDA_RTC", "I2C_SCL_MIPI", "I2C_SDA_MIPI",
+		"INT_ETH", "RESERV4";
+};
+
+&gpio1b {
+	gpio-line-names = "I2S0_SCLKOc", "I2S0_WSO", "I2S0_SDO0", "",
+		"I2S0_SDI0", "I2S0_SCLK", "UART0_TX", "UART0_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "ALIN", "", "ALOUT", "", "", "", "", "";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+/* Connected to MicroSD card */
+&sdhci0 {
+	status = "okay";
+
+	/* Disable High Speed support
+	 * Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4200000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	rtc@51 {
+		compatible = "nxp,pcf85063";
+		reg = <0x51>;
+	};
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <10000>;
+	reset-post-delay-us = <50000>;
+
+	ethernet_phy0: ethernet-phy@1 {
+		reg = <0x1>;
+		max-speed = <100>;
+	};
+};
