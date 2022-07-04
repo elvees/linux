@@ -194,24 +194,12 @@ static void silvaco_read_word(struct silvaco_qspi *hw)
 }
 
 static int silvaco_qspi_handle_packets(struct silvaco_qspi *hw,
-				       unsigned int *bytes, bool set_8_bpw)
+				       unsigned int *bytes)
 {
 	struct device *dev = hw->dev;
 	unsigned int w_size = hw->bpw == 32 ? 4 : 1;
 	unsigned int cur_oneshot = hw->remain_oneshot;
 	int ret = 0;
-
-	if (set_8_bpw) {
-		ret = silvaco_qspi_tx_fifo_not_full(hw->regs);
-		if (ret) {
-			dev_err(dev, "%s: Transmit last 32 bit timed out\n",
-				__func__);
-			goto end_handle_packets;
-		}
-
-		hw->bpw = 8;
-		silvaco_qspi_reinit_bitsize(hw, hw->bpw);
-	}
 
 	if (hw->use_tx_dummy)
 		writel(hw->remain_oneshot, &hw->regs->tx_dummy);
@@ -260,8 +248,6 @@ static int silvaco_qspi_fdx_hdx_pio(struct silvaco_qspi *hw)
 {
 	struct device *dev = hw->dev;
 	unsigned int bytes = hw->xfer->len;
-
-	bool set_8_bpw = false;
 	int ret = 0;
 
 	hw->fdx = hw->xfer->tx_buf && hw->xfer->rx_buf;
@@ -277,7 +263,7 @@ static int silvaco_qspi_fdx_hdx_pio(struct silvaco_qspi *hw)
 		silvaco_qspi_inhibit(hw, false);
 
 	while (bytes) {
-		ret = silvaco_qspi_handle_packets(hw, &bytes, set_8_bpw);
+		ret = silvaco_qspi_handle_packets(hw, &bytes);
 		if (ret) {
 			dev_err(dev, "Error %s packet handling\n",
 				hw->fdx ? "fdx" : "hdx");
@@ -286,7 +272,15 @@ static int silvaco_qspi_fdx_hdx_pio(struct silvaco_qspi *hw)
 
 		// reconfig oneshot if there is tail
 		if (bytes) {
-			set_8_bpw = true;
+			ret = silvaco_qspi_tx_fifo_not_full(hw->regs);
+			if (ret) {
+				dev_err(dev, "%s: Transmit last 32 bit timed out\n",
+					__func__);
+				goto silvaco_end_pio;
+			}
+
+			hw->bpw = 8;
+			silvaco_qspi_reinit_bitsize(hw, hw->bpw);
 			silvaco_calc_remain_oneshot(hw, bytes);
 		}
 	}
