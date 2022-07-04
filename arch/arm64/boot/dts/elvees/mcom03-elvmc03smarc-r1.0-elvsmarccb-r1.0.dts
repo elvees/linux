@@ -79,3 +79,8 @@
 &sata {
 	status = "okay";
 };
+
+/* Connected to PCIe bridge */
+&pcie1 {
+	status = "okay";
+};
