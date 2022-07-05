@@ -259,7 +259,6 @@ end_handle_packets:
 static int silvaco_qspi_fdx_hdx_pio(struct silvaco_qspi *hw)
 {
 	struct device *dev = hw->dev;
-	struct silvaco_qspi_regs *regs = hw->regs;
 	unsigned int bytes = hw->xfer->len;
 
 	bool set_8_bpw = false;
