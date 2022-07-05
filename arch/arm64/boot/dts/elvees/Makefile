@@ -7,6 +7,7 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-ecam03ptz-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-egwpm-r1.0-egwcb-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03-r2.2-elvmc03cb-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r1.0-elvsmarccb-r1.0.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r1.0-elvsmarccb-r1.0-rpi-dsi-7inch.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r1.0-ngfwcb-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r1.0-rockpi-n10.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r1.0-rockpi-n10-rpi-dsi-7inch.dtb
