@@ -35,6 +35,54 @@
 	};
 
 	/delete-node/ sdr@1900000;
+
+	regulators {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "simple-bus";
+
+		audio_codec_1v8_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0x0>;
+			regulator-name = "audio-codec-1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-always-on;
+		};
+
+		audio_codec_3v3_reg: regulator@1 {
+			compatible = "regulator-fixed";
+			reg = <0x0>;
+			regulator-name = "audio-codec-3v3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-always-on;
+		};
+	};
+
+	analog_sound: analog-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "PM03CAM Analog Audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "okay";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sgtl5000>;
+		};
+	};
+
+	audio_codec_clk: audio_codec_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+	};
+
 };
 
 &gpio0a {
@@ -93,6 +141,18 @@
 &i2c1 {
 	clock-frequency = <400000>;
 	status = "okay";
+
+	sgtl5000: audio-codec@0a {
+		#sound-dai-cells = <0>;
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		clocks = <&audio_codec_clk>;
+		micbias-resistor-k-ohms = <4>;
+		micbias-voltage-m-volts = <3000>;
+		VDDA-supply = <&audio_codec_3v3_reg>;
+		VDDIO-supply = <&audio_codec_1v8_reg>;
+		VDDD-supply = <&audio_codec_1v8_reg>;
+	};
 };
 
 &i2c2 {
@@ -107,6 +167,10 @@
 
 &i2c3 {
 	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&i2s0 {
 	status = "okay";
 };
 
