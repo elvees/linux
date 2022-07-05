@@ -1419,12 +1419,72 @@
 			};
 		};
 
+		lsperiph1_pll0: lsperiph1_pll0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <614250000>;
+		};
+
+		lsperiph1_ucg0: ucg@17c0000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x17C0000 0 0x100>;
+			clocks = <&lsperiph1_pll0>;
+			clock-output-names = "lsp1_sys_clk", "i2c1_clk",
+					     "i2c2_clk", "i2c3_clk",
+					     "gpio1_dbclk", "ssi1_clk",
+					     "uart0_clk", "timers0_clk",
+					     "pwm0_clk", "wdt1_clk";
+
+			assigned-clocks = <&lsperiph1_ucg0 LSP1_SYS_CLK>,
+					  <&lsperiph1_ucg0 LSP1_I2C1_CLK>,
+					  <&lsperiph1_ucg0 LSP1_I2C2_CLK>,
+					  <&lsperiph1_ucg0 LSP1_I2C3_CLK>,
+					  <&lsperiph1_ucg0 LSP1_GPIO1_DBCLK>,
+					  <&lsperiph1_ucg0 LSP1_SSI1_CLK>,
+					  <&lsperiph1_ucg0 LSP1_UART0_CLK>,
+					  <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>,
+					  <&lsperiph1_ucg0 LSP1_PWM0_CLK>,
+					  <&lsperiph1_ucg0 LSP1_WDT1_CLK>;
+			assigned-clock-rates = <87750000
+						102375000
+						102375000
+						102375000
+						87750000
+						153562500
+						27920454
+						87750000
+						87750000
+						87750000>;
+			enabled-clocks = <LSP1_SYS_CLK>;
+			#clock-cells = <1>;
+			/* When driver UART requests to change clock, clock
+			 * driver sets it lower than the requested one, baud
+			 * rate divisor for the UART becomes less than one.
+			 * With integer divisor set to zero, the baud clock
+			 * is disabled and no serial communications will occur.
+			 * Disable changing UARTx_CLK clocks
+			 */
+			elvees,fixed-freq-mask = <0x40>;
+
+		};
+
+		lsperiph1_ucg1: ucg@17d0000 {
+			compatible = "elvees,mcom03-clk-ucg";
+			reg = <0 0x17D0000 0 0x100>;
+			clocks = <&lsperiph1_pll0>;
+			clock-output-names = "lsp1_i2s_clk";
+
+			assigned-clocks = <&lsperiph1_ucg1 LSP1_I2S_CLK>;
+			assigned-clock-rates = <12285000>;
+			#clock-cells = <1>;
+		};
+
 		i2c1: i2c@1710000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1710000 0 0x10000>;
-			clocks = <&i2c_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_I2C1_CLK>;
 			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
@@ -1438,7 +1498,7 @@
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1720000 0 0x10000>;
-			clocks = <&i2c_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_I2C2_CLK>;
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
@@ -1452,7 +1512,7 @@
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1730000 0 0x10000>;
-			clocks = <&i2c_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_I2C3_CLK>;
 			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
@@ -1464,7 +1524,8 @@
 		uart0: serial0@1750000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1750000 0 0x1000>;
-			clock-frequency = <27920454>;
+			clocks = <&lsperiph1_ucg0 LSP1_UART0_CLK
+				  &lsperiph1_ucg0 LSP1_SYS_CLK>;
 			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -1479,7 +1540,7 @@
 			reg = <0 0x1790000 0 0x14>;
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&timer_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>;
 			status = "disabled";
 		};
 
@@ -1488,7 +1549,7 @@
 			reg = <0 0x1790014 0 0x14>;
 			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&timer_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>;
 			status = "disabled";
 		};
 
@@ -1497,7 +1558,7 @@
 			reg = <0 0x1790028 0 0x14>;
 			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&timer_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>;
 			status = "disabled";
 		};
 
@@ -1506,7 +1567,7 @@
 			reg = <0 0x179003C 0 0x14>;
 			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&timer_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>;
 			status = "disabled";
 		};
 
@@ -1515,7 +1576,7 @@
 			reg = <0 0x1790050 0 0x14>;
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&timer_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>;
 			status = "disabled";
 		};
 
@@ -1524,7 +1585,7 @@
 			reg = <0 0x1790064 0 0x14>;
 			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&timer_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>;
 			status = "disabled";
 		};
 
@@ -1533,7 +1594,7 @@
 			reg = <0 0x1790078 0 0x14>;
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&timer_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>;
 			status = "disabled";
 		};
 
@@ -1542,13 +1603,19 @@
 			reg = <0 0x179008C 0 0x14>;
 			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&timer_clk>;
+			clocks = <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>;
 			status = "disabled";
 		};
 
 		gpio1: gpio@1780000 {
 			compatible = "snps,dw-apb-gpio";
 			reg = <0 0x1780000 0 0x10000>;
+			/*
+			 * GPIO driver controls clock named "bus" which we can
+			 * use to handle the debounce filter clock
+			 */
+			clocks = <&lsperiph0_ucg0 LSP1_GPIO1_DBCLK>;
+			clock-names = "bus";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -1773,12 +1840,6 @@
 				};
 			};
 		};
-
-		timer_clk: timer_clk {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <87750000>;
-		};
 	};
 
 	xti_clk: xti_clk {
@@ -1792,11 +1853,5 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <100000000>;
-	};
-
-	i2c_clk: i2c_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <102375000>;
 	};
 };
