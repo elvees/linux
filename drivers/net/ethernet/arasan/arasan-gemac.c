@@ -965,6 +965,10 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 	}
 
 	switch (phydev->speed) {
+	case SPEED_10:
+		reg |= MAC_GLOBAL_CONTROL_SPEED(0);
+		rate = 2500000;
+		break;
 	case SPEED_100:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(1);
 		rate = 25000000;
