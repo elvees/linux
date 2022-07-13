@@ -38,41 +38,21 @@
 #define ARASAN_GEMAC_FEATURES (PHY_GBIT_FEATURES | SUPPORTED_FIBRE | \
 			       SUPPORTED_BNC)
 
-#define print_reg(reg) netdev_info(pd->dev, \
-				   "offset 0x%x : value 0x%x\n", \
-				   reg, \
-				   arasan_gemac_readl(pd, reg))
-
-void arasan_gemac_dump_regs(struct arasan_gemac_pdata *pd)
+static int arasan_gemac_get_regs_len(struct net_device *dev)
 {
-	netdev_info(pd->dev, "Arasan GEMAC register dump:\n");
+	return ARASAN_REGS_END;
+}
 
-	print_reg(DMA_CONFIGURATION);
-	print_reg(DMA_CONTROL);
-	print_reg(DMA_STATUS_AND_IRQ);
-	print_reg(DMA_INTERRUPT_ENABLE);
-	print_reg(DMA_TRANSMIT_AUTO_POLL_COUNTER);
-	print_reg(DMA_TRANSMIT_POLL_DEMAND);
-	print_reg(DMA_RECEIVE_POLL_DEMAND);
-	print_reg(DMA_TRANSMIT_BASE_ADDRESS);
-	print_reg(DMA_RECEIVE_BASE_ADDRESS);
-	print_reg(DMA_MISSED_FRAME_COUNTER);
-	print_reg(DMA_STOP_FLUSH_COUNTER);
-	print_reg(DMA_RECEIVE_INTERRUPT_MITIGATION);
-	print_reg(DMA_CURRENT_TRANSMIT_DESCRIPTOR_POINTER);
-	print_reg(DMA_CURRENT_TRANSMIT_BUFFER_POINTER);
-	print_reg(DMA_CURRENT_RECEIVE_DESCRIPTOR_POINTER);
-	print_reg(DMA_CURRENT_RECEIVE_BUFFER_POINTER);
+static void arasan_gemac_get_regs(struct net_device *dev,
+				  struct ethtool_regs *regs, void *p)
+{
+	struct arasan_gemac_pdata *priv = netdev_priv(dev);
+	u32 *pregs = p;
+	int i;
 
-	print_reg(MAC_GLOBAL_CONTROL);
-	print_reg(MAC_TRANSMIT_CONTROL);
-	print_reg(MAC_RECEIVE_CONTROL);
-	print_reg(MAC_ADDRESS_CONTROL);
-	print_reg(MAC_ADDRESS1_HIGH);
-	print_reg(MAC_ADDRESS1_MED);
-	print_reg(MAC_ADDRESS1_LOW);
-	print_reg(MAC_INTERRUPT_STATUS);
-	print_reg(MAC_INTERRUPT_ENABLE);
+	regs->version = 0;
+	for (i = 0; i < ARASAN_REGS_END / sizeof(u32); ++i)
+		pregs[i] = arasan_gemac_readl(priv, i * sizeof(u32));
 }
 
 static void arasan_gemac_get_drvinfo(struct net_device *dev,
@@ -110,6 +90,8 @@ static int arasan_gemac_nway_reset(struct net_device *dev)
 
 static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.get_drvinfo = arasan_gemac_get_drvinfo,
+	.get_regs_len = arasan_gemac_get_regs_len,
+	.get_regs = arasan_gemac_get_regs,
 	.get_msglevel = arasan_gemac_get_msglevel,
 	.set_msglevel = arasan_gemac_set_msglevel,
 	.get_link = ethtool_op_get_link,
