@@ -1012,7 +1012,7 @@
 				elvees,ctrl-id = <0>;
 				arasan,desc-pool = <&emac_desc_pool>;
 				arasan,axi-bus-width64;
-				phy-mode = "rgmii";
+				phy-mode = "rgmii-id";
 				status = "disabled";
 
 				pinctrl-names = "default";
@@ -1032,7 +1032,7 @@
 				elvees,ctrl-id = <1>;
 				arasan,desc-pool = <&emac_desc_pool>;
 				arasan,axi-bus-width64;
-				phy-mode = "rgmii";
+				phy-mode = "rgmii-id";
 				status = "disabled";
 
 				pinctrl-names = "default";
