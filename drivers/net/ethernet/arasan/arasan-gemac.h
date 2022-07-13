@@ -85,6 +85,8 @@
 #define MAC_VLAN_TPID2                            0x01EC
 #define MAC_VLAN_TPID3                            0x01F0
 
+#define ARASAN_REGS_END                           0x0368
+
 /* Arasan GEMAC register fields */
 
 #define DMA_CONFIGURATION_SOFT_RESET                  BIT(0)
