@@ -1379,9 +1379,13 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	if (res < 0)
 		goto err_reset_assert;
 
-	if (res != PHY_INTERFACE_MODE_MII &&
-	    res != PHY_INTERFACE_MODE_GMII &&
-	    res != PHY_INTERFACE_MODE_RGMII) {
+	switch (res) {
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+		break;
+	default:
 		dev_err(&pdev->dev, "\"%s\" PHY interface is not supported\n",
 			phy_modes(res));
 		res = -ENODEV;
