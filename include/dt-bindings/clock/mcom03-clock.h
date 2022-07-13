@@ -145,9 +145,9 @@
 
 /* LSP1 UCG */
 #define LSP1_SYS_CLK 0
-#define LSP1_I2C0_CLK 1
-#define LSP1_I2C1_CLK 2
-#define LSP1_I2C2_CLK 3
+#define LSP1_I2C1_CLK 1
+#define LSP1_I2C2_CLK 2
+#define LSP1_I2C3_CLK 3
 #define LSP1_GPIO1_DBCLK 4
 #define LSP1_SSI1_CLK 5
 #define LSP1_UART0_CLK 6
