@@ -29,6 +29,7 @@
 #define SILVACO_AUX_BITSIZE	GENMASK(12, 8)
 
 #define SILVACO_STAT_XFER	BIT(0)
+#define SILVACO_STAT_TXEMPTY	BIT(2)
 #define SILVACO_STAT_TXFULL	BIT(4)
 #define SILVACO_STAT_RXEMPTY	BIT(5)
 
@@ -114,12 +115,12 @@ static int silvaco_qspi_tx_fifo_not_full(struct silvaco_qspi_regs *regs)
 				  (~(reg) & SILVACO_STAT_TXFULL), 0, 1000);
 }
 
-static int silvaco_qspi_tx_fifo_ready(struct silvaco_qspi_regs *regs)
+static int silvaco_qspi_tx_fifo_empty(struct silvaco_qspi_regs *regs)
 {
 	unsigned int reg = 0;
 
 	return readl_poll_timeout(&regs->stat, reg,
-					(~(reg) & SILVACO_STAT_TXFULL) &&
+					((reg) & SILVACO_STAT_TXEMPTY) &&
 					(~(reg) & SILVACO_STAT_XFER), 0, 1000);
 }
 
@@ -140,7 +141,7 @@ static int silvaco_end_pio(struct silvaco_qspi *hw)
 		silvaco_qspi_inhibit(hw, true);
 
 	if (hw->xfer->tx_buf) {
-		ret = silvaco_qspi_tx_fifo_ready(hw->regs);
+		ret = silvaco_qspi_tx_fifo_empty(hw->regs);
 		if (ret)
 			dev_err(dev, "Last %d bit word transmit timed out\n",
 				hw->bpw);
@@ -272,7 +273,7 @@ static int silvaco_qspi_fdx_hdx_pio(struct silvaco_qspi *hw)
 
 		// reconfig oneshot if there is tail
 		if (bytes) {
-			ret = silvaco_qspi_tx_fifo_not_full(hw->regs);
+			ret = silvaco_qspi_tx_fifo_empty(hw->regs);
 			if (ret) {
 				dev_err(dev, "%s: Transmit last 32 bit timed out\n",
 					__func__);
