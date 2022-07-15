@@ -63,6 +63,12 @@ properties:
           For this device it is strongly suggested to include
           clock-output-names and '#clock-cells'.
       - items:
+          - const: elvees,mcom03-sdhci-8.9a     # MCom-03 SDHCI 8.9a PHY
+          - const: arasan,sdhci-8.9a
+        description:
+          For this device it is strongly suggested to include
+          arasan,soc-ctl-syscon and elvees,ctrl-id.
+      - items:
           - const: intel,lgm-sdhci-5.1-emmc     # Intel LGM eMMC PHY
           - const: arasan,sdhci-5.1
         description:
@@ -131,6 +137,12 @@ properties:
       With this property in place we will export one or two clocks
       representing the Card Clock. These clocks are expected to be
       consumed by our PHY.
+
+  elvees,ctrl-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+    description:
+      ID of SDHCI controller in MCom-03, can be <0> or <1>.
 
   xlnx,fails-without-test-cd:
     $ref: /schemas/types.yaml#/definitions/flag
