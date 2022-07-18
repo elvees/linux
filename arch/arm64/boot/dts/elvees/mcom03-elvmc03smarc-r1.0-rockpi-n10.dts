@@ -32,14 +32,10 @@
 &sdhci1 {
 	status = "okay";
 
-	/* Unstable at 25 MHz on NGFW CB */
-	max-frequency = <12000000>;
-
-	/* Disable High Speed support
-	 * Disable 1.8V support
+	/* Disable 1.8V support
 	 * Disable SDR50, SDR104 and DDR50 support
 	 */
-	sdhci-caps-mask = <0x7 0x4200000>;
+	sdhci-caps-mask = <0x7 0x4000000>;
 	sdhci-caps = <0x0 0x0>;
 
 	/* SDIO_WP is not connected on Rock Pi N10 */
