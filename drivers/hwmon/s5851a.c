@@ -124,9 +124,18 @@ static const struct i2c_device_id s5851a_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, s5851a_id);
 
+#ifdef CONFIG_OF
+static const struct of_device_id s5851a_of_match[] = {
+	{ .compatible = "ablic,s5851a", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, s5851a_of_match);
+#endif
+
 static struct i2c_driver s5851a_driver = {
 	.driver = {
 		.name	= "s5851a",
+		.of_match_table = of_match_ptr(s5851a_of_match),
 	},
 	.probe	= s5851a_probe,
 	.id_table = s5851a_id,
