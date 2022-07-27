@@ -46,9 +46,7 @@ quiet_cmd_chk_bindings = CHKDT   $@
 
 quiet_cmd_mk_schema = SCHEMA  $@
       cmd_mk_schema = f=$$(mktemp) ; \
-                      $(if $(DT_MK_SCHEMA_FLAGS), \
-                           echo $(real-prereqs), \
-                           $(find_cmd)) > $$f ; \
+                      $(find_all_cmd) > $$f ; \
                       $(DT_MK_SCHEMA) -j $(DT_MK_SCHEMA_FLAGS) @$$f > $@ ; \
 		      rm -f $$f
 
