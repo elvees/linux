@@ -84,3 +84,13 @@
 &pcie1 {
 	status = "okay";
 };
+
+&i2c_pm {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
