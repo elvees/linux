@@ -375,8 +375,8 @@ static long malidp500_se_calc_mclk(struct malidp_hw_device *hwdev,
 	mclk = a * pxlclk / 10;
 	ret = clk_get_rate(hwdev->mclk);
 	if (ret < mclk) {
-		DRM_DEBUG_DRIVER("mclk requirement of %lu kHz can't be met.\n",
-				 mclk / 1000);
+		DRM_ERROR("mclk requirement of %lu kHz can't be met.\n",
+			  mclk / 1000);
 		return -EINVAL;
 	}
 	return ret;
@@ -660,8 +660,8 @@ static long malidp550_se_calc_mclk(struct malidp_hw_device *hwdev,
 	mclk = (pxlclk * numerator) / denominator;
 	ret = clk_get_rate(hwdev->mclk);
 	if (ret < mclk) {
-		DRM_DEBUG_DRIVER("mclk requirement of %lu kHz can't be met.\n",
-				 mclk / 1000);
+		DRM_ERROR("mclk requirement of %lu kHz can't be met.\n",
+			  mclk / 1000);
 		return -EINVAL;
 	}
 	return ret;
