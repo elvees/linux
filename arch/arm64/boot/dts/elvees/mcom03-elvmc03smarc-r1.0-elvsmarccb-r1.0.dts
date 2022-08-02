@@ -110,6 +110,30 @@
 	status = "okay";
 	clock-frequency = <400000>;
 
+	fancontrol: emc2303@4d {
+		compatible = "microchip,emc2305";
+		reg = <0x4d>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		microchip,pwm-separate;
+		#cooling-cells = <2>;
+
+		channel@0 {
+			reg = <0>;
+			microchip,pwm-push-pull;
+		};
+
+		channel@1 {
+			reg = <1>;
+			microchip,pwm-push-pull;
+		};
+
+		channel@2 {
+			reg = <2>;
+			microchip,pwm-push-pull;
+		};
+	};
+
 	eeprom@57 {
 		compatible = "microchip,24c32", "atmel,24c32";
 		reg = <0x57>;
