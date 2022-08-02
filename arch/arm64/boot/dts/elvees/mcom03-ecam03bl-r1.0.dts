@@ -66,3 +66,13 @@
 &i2s0 {
 	status = "okay";
 };
+
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	adc@4f {
+		compatible = "ti,ads1110";
+		reg = <0x4f>;
+	};
+};
