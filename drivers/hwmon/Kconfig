@@ -1800,6 +1800,18 @@ config SENSORS_INA2XX
 	  This driver can also be built as a module. If so, the module
 	  will be called ina2xx.
 
+config SENSORS_INA260
+	tristate "Texas Instruments INA260 and compatibles"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  If you say yes here you get support for TI INA260 power monitor.
+
+	  The INA260 driver is configured for the default configuration of
+	  the part as described in the datasheet.
+	  This driver can also be built as a module.  If so, the module
+	  will be called ina260.
+
 config SENSORS_INA3221
 	tristate "Texas Instruments INA3221 Triple Power Monitor"
 	depends on I2C
