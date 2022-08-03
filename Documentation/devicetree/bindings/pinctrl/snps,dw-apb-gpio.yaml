@@ -46,9 +46,41 @@ properties:
   resets:
     maxItems: 1
 
+  snps,has-mux:
+    description: |
+      register the pinctrl controller if GPIO_HW_PORT{A,B,C,D} hardware
+      configuration parameter is activated. This parameter requires
+      "gpio-ranges".
+
+  snps,mux-individual-pins:
+    description: |
+      enable multiplexing individual pin in a port if hardware configuration
+      parameter GPIO_PORT{A,B,C,D}_SINGLE_CTL is deactivated.
+
+  gpio-ranges:
+    description: >
+      Used for interaction with the PINCTRL subsystem, it requires 4 fields in
+      cells defined as:
+       1. Phandle of pin-controller.
+       2. GPIO base pin offset, should be 0.
+       3  Pin-control base pin offset, should be 0.
+       4. number of gpio pins.
+
 patternProperties:
   "^gpio-(port|controller)@[0-9a-f]+$":
     type: object
+    description: >
+      Required properties for pin configuration node:
+      - function: String representing a function to mux. Must be set to "HW"
+        if there is a need to use the pin/pins in hardware mode. Otherways the
+        pin can be requested from the gpio subsystem(from other drivers or
+        userspace) to be used in software mode.
+      - groups: List of pins to which the configuration applies. The array of
+        pins names in a port starts with 'pin0' and ends with
+        'pin[snps,nr-gpios - 1]'. If the port doesn't support
+        'snps,mux-individual-pins' property then it will have one group
+        according to the port name 'gpio{A,B,C,D}_grp', this group will have the
+        same amount of pins in 'snps,nr-gpios' property.
     properties:
       compatible:
         const: snps,dw-apb-gpio-port
@@ -134,6 +166,15 @@ examples:
         gpio-controller;
         #gpio-cells = <2>;
         snps,nr-gpios = <8>;
+        snps,has-mux;
+        snps,mux-individual-pins;
+        gpio-ranges = <&portb 0 0 8>;
+
+        uart0_default: uart0-default {
+          /* pins = tx, rx */
+          groups = "pin0", "pin1";
+          function = "HW";
+        };
       };
     };
 ...
