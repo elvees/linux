@@ -65,6 +65,17 @@
 	clock-frequency = <100000>;
 	status = "okay";
 
+	gpio_exp_ext: gpio-expander@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		reset-gpios = <&gpio1c 4 GPIO_ACTIVE_LOW>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupts-extended = <&gpio0a 6 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
 	gpio_exp: gpio-expander@22 {
 		compatible = "ti,tca6424";
 		reg = <0x22>;
