@@ -55,6 +55,17 @@
 	sdhci-caps = <0x0 0x0>;
 };
 
+&sdhci1_default {
+	/* The default clock pad drive strength of 6 mA is insufficient
+	 * for some NGFW-CBs resulting in unstable SDMMC performance,
+	 * especially at higher CPU temperatures.
+	 */
+	clk {
+		pins = "SDMMC1_CLK";
+		drive-strength = <8>;
+	};
+};
+
 /* Connected to USB 3.0 hub */
 &usb0 {
 	status = "okay";
