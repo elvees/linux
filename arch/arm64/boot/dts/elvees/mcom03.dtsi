@@ -379,7 +379,7 @@
 			assigned-clocks = <&media_ucg0 MEDIA_SYS_ACLK>,
 					  <&media_ucg0 MEDIA_ISP_SYS_CLK>;
 			assigned-clock-rates = <124875000
-						199800000>;
+						399600000>;
 			enabled-clocks = <MEDIA_SYS_ACLK>;
 			#clock-cells = <1>;
 		};
