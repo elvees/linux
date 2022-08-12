@@ -20,6 +20,11 @@
 		     "elvees,trustphonepm",
 		     "elvees,mcom03";
 
+	aliases {
+		i2c5 = &i2c_camr;
+		i2c6 = &i2c_camf;
+	};
+
 	trustphonecb-leds {
 		compatible = "gpio-leds";
 
