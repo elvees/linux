@@ -412,6 +412,7 @@
 			clock-names = "pxlclk", "pclk", "disp_aclk",
 				      "mipi_tx_cfg", "mipi_tx_ref",
 				      "mipi_txclkesc", "cmos0_clk";
+			elvees,urb = <&media_urb>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
