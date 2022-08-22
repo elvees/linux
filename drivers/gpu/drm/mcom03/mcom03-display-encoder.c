@@ -14,11 +14,16 @@
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/component.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
+#include <linux/regmap.h>
 #include <drm/bridge/dw_mipi_dsi.h>
 
 #define MIPI_TX_CFG_FREQ 27000000
 #define MIPI_TX_REF_FREQ 27000000
+
+#define URB_SUBSYSTEM_CFG 0x2000
+#define DISPLAY_PARALLEL_PORT_EN BIT(0)
 
 #define PHY_TST_CTRL0 0xb4
 #define PHY_TESTCLK BIT(1)
@@ -74,6 +79,7 @@ struct mcom03_priv {
 	struct dw_mipi_dsi *dsi;
 	struct dw_mipi_dsi_plat_data dsi_plat_data;
 	struct drm_panel *panel;
+	struct regmap *urb;
 	void __iomem *dsi_base;
 	void __iomem *mipi_tx_base;
 	long mipi_tx_cfg_freq;
@@ -171,6 +177,13 @@ static struct mcom03_dsi_pll_cfg vco_ranges[] = {
 	{ .min = 1100000, .max = 1152000, .val = 0x1, },
 	{ .min = 1150000, .max = 1250000, .val = 0x1, },
 };
+
+static int drm_mcom03_set_parallel_port(struct mcom03_priv *priv, bool en)
+{
+	return regmap_update_bits(priv->urb, URB_SUBSYSTEM_CFG,
+				  DISPLAY_PARALLEL_PORT_EN,
+				  en ? DISPLAY_PARALLEL_PORT_EN : 0);
+}
 
 static enum drm_mode_status
 drm_mcom03_mode_valid(struct drm_encoder *crtc,
@@ -504,6 +517,18 @@ static int drm_mcom03_probe(struct platform_device *pdev)
 			"failed to get video-output string property\n");
 		return -EINVAL;
 	}
+	np = of_parse_phandle(pdev->dev.of_node, "elvees,urb", 0);
+	if (!np) {
+		dev_err(&pdev->dev, "failed to get 'elvees,urb' property\n");
+		return -ENOENT;
+	}
+
+	priv->urb = syscon_node_to_regmap(np);
+	if (IS_ERR(priv->urb)) {
+		ret = PTR_ERR(priv->urb);
+		dev_err(&pdev->dev, "failed to get urb syscon (%d)\n", ret);
+		return ret;
+	}
 
 	if (!strcmp(video_output, "rgb")) {
 		priv->type = OUTPUT_RGB;
@@ -558,6 +583,14 @@ static int drm_mcom03_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"invalid video-output value. Can be 'rgb' or 'dsi'\n");
 		return -EINVAL;
+	}
+
+	ret = drm_mcom03_set_parallel_port(priv, priv->type == OUTPUT_RGB);
+	if (ret) {
+		dev_err(priv->dev,
+			"failed to enable/disable display parallel port (%d)",
+			ret);
+		return ret;
 	}
 
 	priv->pixel_clock = devm_clk_get(&pdev->dev, "pxlclk");
