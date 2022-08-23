@@ -64,6 +64,9 @@ properties:
       - const: rgb
       - const: dsi
 
+  elvees,urb:
+    description: Handle to URB of Media subsystem
+
   dsi-clock-frequency:
     description:
       Custom DSI output frequency in hertz. Sometimes it is required to set
@@ -99,6 +102,7 @@ examples:
         reg-names = "dsi", "mipi-tx";
         clocks = <&dp_pix_clk>, <&mipi_tx_ref_clk>, <&mipi_tx_ref_clk>;
         clock-names = "pxlclk", "mipi_tx_cfg", "mipi_tx_ref";
+        elvees,urb = <&media_urb>;
         video-output = "rgb";
 
         ports {
@@ -129,6 +133,7 @@ examples:
         reg-names = "dsi", "mipi-tx";
         clocks = <&dp_pix_clk>, <&mipi_tx_ref_clk>, <&mipi_tx_ref_clk>;
         clock-names = "pxlclk", "mipi_tx_cfg", "mipi_tx_ref";
+        elvees,urb = <&media_urb>;
         video-output = "rgb";
         panel = <&panel_parallel>;
 
@@ -153,6 +158,7 @@ examples:
         reg-names = "dsi", "mipi-tx";
         clocks = <&dp_pix_clk>, <&mipi_tx_ref_clk>, <&mipi_tx_ref_clk>;
         clock-names = "pxlclk", "mipi_tx_cfg", "mipi_tx_ref";
+        elvees,urb = <&media_urb>;
         video-output = "dsi";
         dsi-clock-frequency = <500000000>;
 
