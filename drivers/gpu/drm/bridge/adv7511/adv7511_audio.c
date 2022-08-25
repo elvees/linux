@@ -101,6 +101,7 @@ int adv7511_hdmi_hw_params(struct device *dev, void *data,
 		len = ADV7511_I2S_SAMPLE_LEN_20;
 		break;
 	case 24:
+	case 32:
 		len = ADV7511_I2S_SAMPLE_LEN_24;
 		break;
 	default:
