@@ -64,6 +64,19 @@
 	status = "okay";
 };
 
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>,
+		   <&gpio0c 6 GPIO_ACTIVE_LOW>, <&gpio0c 7 GPIO_ACTIVE_LOW>;
+
+	gnss@3 {
+		compatible = "u-blox,zoe-m8b-spi";
+		reg = <3>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
 /* GPIO lines are named after their connection name either on Trusphone PM or
  * on Trusphone CB. */
 &gpio0a {
@@ -105,6 +118,15 @@
 &gpio1d {
 	gpio-line-names = "CAMR2_FSIN", "", "DSP_PWM", "VIBRO_PWM",
 		"LTE_PWR_ON", "LTE_AP_READY", "D_RAIL_EN", "GPS_SAFEBOOT";
+
+	/* GPS_SAFEBOOT is used to choose GNSS receiver mode: normal (high
+	 * level) or QSPI programming. Move GNSS receiver to 'normal mode'.
+	 */
+	gps-safeboot-hog {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
 };
 
 /* Connected to USB hub */
