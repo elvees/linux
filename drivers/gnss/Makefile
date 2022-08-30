@@ -14,3 +14,6 @@ gnss-sirf-y := sirf.o
 
 obj-$(CONFIG_GNSS_UBX_SERIAL)		+= gnss-ubx.o
 gnss-ubx-y := ubx.o
+
+obj-$(CONFIG_GNSS_UBLOX_SPI)			+= gnss-ublox-spi.o
+gnss-ublox-spi-y := ublox-spi.o

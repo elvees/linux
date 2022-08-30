@@ -40,4 +40,16 @@ config GNSS_UBX_SERIAL
 
 	  If unsure, say N.
 
+config GNSS_UBLOX_SPI
+	tristate "U-blox SPI GNSS receiver support"
+	depends on SPI
+	help
+	  Say Y here if you have a u-blox GNSS receiver which uses a SPI
+	  interface.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called gnss-spi.
+
+	  If unsure, say N.
+
 endif # GNSS
