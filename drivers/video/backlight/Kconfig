@@ -397,6 +397,13 @@ config BACKLIGHT_LM3639
 	help
 	  This supports TI LM3639 Backlight + 1.5A Flash LED Driver
 
+config BACKLIGHT_LM3692X
+	tristate "LM3692x backlight driver"
+	depends on BACKLIGHT_CLASS_DEVICE && I2C
+	select REGMAP_I2C
+	help
+	  Say y to enable the LM3692x backlight driver.
+
 config BACKLIGHT_LP855X
 	tristate "Backlight driver for TI LP855X"
 	depends on BACKLIGHT_CLASS_DEVICE && I2C && PWM
