@@ -1412,6 +1412,12 @@
 					input-enable;
 				};
 
+				i2s0_cfg_default: i2s0-cfg {
+					/* pins = i2s0_sdi0 i2s0_sclk_in */
+					pins = "GPIOB_4", "GPIOB_5";
+					input-enable;
+				};
+
 				uart0_cfg_default: uart0-cfg {
 					rx {
 						pins = "GPIOB_7";
@@ -1534,7 +1540,8 @@
 			status = "disabled";
 
 			pinctrl-names = "default";
-			pinctrl-0 = <&i2s0_mux_sdo0 &i2s0_mux_sdi0>;
+			pinctrl-0 = <&i2s0_cfg_default &i2s0_mux_sdo0
+				     &i2s0_mux_sdi0>;
 		};
 
 		uart0: serial0@1750000 {
