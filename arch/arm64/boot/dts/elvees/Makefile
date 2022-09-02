@@ -14,3 +14,4 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r1.0-rockpi-n10-rpi-dsi-7inch.d
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-pm03cam-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r1.5-trustphonecb-r1.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r1.5-trustphonecb-r1.1-b101uan01.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r1.5-trustphonecb-r1.1-xl6550050qm.dtb
