@@ -9,8 +9,11 @@
 
 #include "mcom03.dtsi"
 
-/ {	model = "MCom-03 Bring-Up Board r1.3.0";
-	compatible = "elvees,mcom03-bub-r1.3.0";
+/ {
+	model = "MCom-03 Bring-Up Board r1.3.0";
+	compatible = "elvees,mcom03-bub-r1.3.0",
+		     "elvees,mcom03-bub",
+		     "elvees,mcom03";
 
 	adv7513_cec_clk: adv7513_cec_clk {
 		#clock-cells = <0>;
