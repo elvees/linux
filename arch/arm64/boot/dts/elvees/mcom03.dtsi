@@ -1802,46 +1802,51 @@
 			reg = <0 0x1940000 0 0x40000>;
 		};
 
-		elcore0: elcore@1980000 {
-			compatible = "elvees,elcore50";
-			reg = <0 0x1980000 0 0x40000>,
-			      <0 0x3000000 0 0x200000>;
-			interrupt-parent = <&qlic1>;
-			interrupts = <16>, <17>, <18>,
-				     <19>, <20>;
-			resets = <&sdr_reset SDR_RST_DSP0>,
-				 <&sdr_reset SDR_RST_EXT_ICT>,
-				 <&sdr_reset SDR_RST_BBD_ICT>,
-				 <&sdr_reset SDR_RST_PCI_ICT>;
-			clocks = <&dsp_gate 0>,
-				 <&sdr_ucg0 SDR_CLK_CFG>,
-				 <&sdr_ucg0 SDR_EXT_CLK>,
-				 <&sdr_ucg0 SDR_INT_CLK>,
-				 <&sdr_ucg0 SDR_PCI_CLK>;
-			clock-names = "main_clk", "clk_cfg", "ext_clk",
-				      "int_clk", "pci_clk";
-			operating-points-v2 = <&dsp_opp_table>;
-		};
+		elcores {
+			compatible = "simple-bus", "elvees,elcore50-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
 
-		elcore1: elcore@1c80000 {
-			compatible = "elvees,elcore50";
-			reg = <0 0x1C80000 0 0x40000>,
-			      <0 0x3200000 0 0x200000>;
-			interrupt-parent = <&qlic1>;
-			interrupts = <23>, <24>, <25>,
-				     <26>, <27>;
-			resets = <&sdr_reset SDR_RST_DSP1>,
-				 <&sdr_reset SDR_RST_EXT_ICT>,
-				 <&sdr_reset SDR_RST_BBD_ICT>,
-				 <&sdr_reset SDR_RST_PCI_ICT>;
-			clocks = <&dsp_gate 1>,
-				 <&sdr_ucg0 SDR_CLK_CFG>,
-				 <&sdr_ucg0 SDR_EXT_CLK>,
-				 <&sdr_ucg0 SDR_INT_CLK>,
-				 <&sdr_ucg0 SDR_PCI_CLK>;
-			clock-names = "main_clk", "clk_cfg", "ext_clk",
-				      "int_clk", "pci_clk";
-			operating-points-v2 = <&dsp_opp_table>;
+			elcore0: elcore@1980000 {
+				compatible = "elvees,elcore50";
+				reg = <0 0x1980000 0 0x40000>,
+				      <0 0x3000000 0 0x200000>;
+				interrupt-parent = <&qlic1>;
+				interrupts = <16>, <17>, <18>, <19>, <20>;
+				resets = <&sdr_reset SDR_RST_DSP0>,
+					 <&sdr_reset SDR_RST_EXT_ICT>,
+					 <&sdr_reset SDR_RST_BBD_ICT>,
+					 <&sdr_reset SDR_RST_PCI_ICT>;
+				clocks = <&dsp_gate 0>,
+					 <&sdr_ucg0 SDR_CLK_CFG>,
+					 <&sdr_ucg0 SDR_EXT_CLK>,
+					 <&sdr_ucg0 SDR_INT_CLK>,
+					 <&sdr_ucg0 SDR_PCI_CLK>;
+				clock-names = "main_clk", "clk_cfg", "ext_clk",
+					      "int_clk", "pci_clk";
+				operating-points-v2 = <&dsp_opp_table>;
+			};
+
+			elcore1: elcore@1c80000 {
+				compatible = "elvees,elcore50";
+				reg = <0 0x1C80000 0 0x40000>,
+				      <0 0x3200000 0 0x200000>;
+				interrupt-parent = <&qlic1>;
+				interrupts = <23>, <24>, <25>, <26>, <27>;
+				resets = <&sdr_reset SDR_RST_DSP1>,
+					 <&sdr_reset SDR_RST_EXT_ICT>,
+					 <&sdr_reset SDR_RST_BBD_ICT>,
+					 <&sdr_reset SDR_RST_PCI_ICT>;
+				clocks = <&dsp_gate 1>,
+					 <&sdr_ucg0 SDR_CLK_CFG>,
+					 <&sdr_ucg0 SDR_EXT_CLK>,
+					 <&sdr_ucg0 SDR_INT_CLK>,
+					 <&sdr_ucg0 SDR_PCI_CLK>;
+				clock-names = "main_clk", "clk_cfg", "ext_clk",
+					      "int_clk", "pci_clk";
+				operating-points-v2 = <&dsp_opp_table>;
+			};
 		};
 
 		dsp_opp_table: dsp-opp-table {
