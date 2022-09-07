@@ -154,15 +154,17 @@ static int dp83869_config_intr(struct phy_device *phydev)
 static int dp83869_config_port_mirroring(struct phy_device *phydev)
 {
 	struct dp83869_private *dp83869 = phydev->priv;
+	int val;
+
+	val = phy_read_mmd(phydev, DP83869_DEVADDR, DP83869_GEN_CFG3);
+	if (val < 0)
+		return val;
 
 	if (dp83869->port_mirroring == DP83869_PORT_MIRRORING_EN)
-		return phy_set_bits_mmd(phydev, DP83869_DEVADDR,
-					DP83869_GEN_CFG3,
-					DP83869_CFG3_PORT_MIRROR_EN);
+		val |= DP83869_CFG3_PORT_MIRROR_EN;
 	else
-		return phy_clear_bits_mmd(phydev, DP83869_DEVADDR,
-					  DP83869_GEN_CFG3,
-					  DP83869_CFG3_PORT_MIRROR_EN);
+		val &= ~DP83869_CFG3_PORT_MIRROR_EN;
+	return phy_write_mmd(phydev, DP83869_DEVADDR, DP83869_GEN_CFG3, val);
 }
 
 static int dp83869_set_strapped_mode(struct phy_device *phydev)
@@ -285,12 +287,15 @@ static int dp83869_configure_rgmii(struct phy_device *phydev,
 			return ret;
 	}
 
-	if (dp83869->io_impedance >= 0)
-		ret = phy_modify_mmd(phydev, DP83869_DEVADDR,
-				     DP83869_IO_MUX_CFG,
-				     DP83869_IO_MUX_CFG_IO_IMPEDANCE_CTRL,
-				     dp83869->io_impedance &
-				     DP83869_IO_MUX_CFG_IO_IMPEDANCE_CTRL);
+	if (dp83869->io_impedance >= 0) {
+		val = phy_read_mmd(phydev, DP83869_DEVADDR, DP83869_IO_MUX_CFG);
+		if (val < 0)
+			return val;
+
+		val &= ~DP83869_IO_MUX_CFG_IO_IMPEDANCE_CTRL;
+		val |= dp83869->io_impedance & DP83869_IO_MUX_CFG_IO_IMPEDANCE_CTRL;
+		ret = phy_write_mmd(phydev, DP83869_DEVADDR, DP83869_IO_MUX_CFG, val);
+	}
 
 	return ret;
 }
@@ -299,8 +304,7 @@ static int dp83869_configure_mode(struct phy_device *phydev,
 				  struct dp83869_private *dp83869)
 {
 	int phy_ctrl_val;
-	int ret;
-
+	int ret, val;
 	if (dp83869->mode < DP83869_RGMII_COPPER_ETHERNET ||
 	    dp83869->mode > DP83869_SGMII_COPPER_ETHERNET)
 		return -EINVAL;
@@ -337,9 +341,13 @@ static int dp83869_configure_mode(struct phy_device *phydev,
 			return ret;
 		break;
 	case DP83869_RGMII_SGMII_BRIDGE:
-		ret = phy_modify_mmd(phydev, DP83869_DEVADDR, DP83869_OP_MODE,
-				     DP83869_SGMII_RGMII_BRIDGE,
-				     DP83869_SGMII_RGMII_BRIDGE);
+		val = phy_read_mmd(phydev, DP83869_DEVADDR, DP83869_OP_MODE);
+		if (val < 0)
+			return val;
+
+		val &= ~DP83869_SGMII_RGMII_BRIDGE;
+		val |= DP83869_SGMII_RGMII_BRIDGE;
+		ret = phy_write_mmd(phydev, DP83869_DEVADDR, DP83869_OP_MODE, val);
 		if (ret)
 			return ret;
 
@@ -412,12 +420,17 @@ static int dp83869_config_init(struct phy_device *phydev)
 		dp83869_config_port_mirroring(phydev);
 
 	/* Clock output selection if muxing property is set */
-	if (dp83869->clk_output_sel != DP83869_CLK_O_SEL_REF_CLK)
-		ret = phy_modify_mmd(phydev,
-				     DP83869_DEVADDR, DP83869_IO_MUX_CFG,
-				     DP83869_IO_MUX_CFG_CLK_O_SEL_MASK,
-				     dp83869->clk_output_sel <<
-				     DP83869_IO_MUX_CFG_CLK_O_SEL_SHIFT);
+	if (dp83869->clk_output_sel != DP83869_CLK_O_SEL_REF_CLK) {
+		val = phy_read_mmd(phydev, DP83869_DEVADDR, DP83869_IO_MUX_CFG);
+		if (val < 0)
+			return val;
+
+		val &= ~DP83869_IO_MUX_CFG_CLK_O_SEL_MASK;
+		val |= dp83869->clk_output_sel << DP83869_IO_MUX_CFG_CLK_O_SEL_SHIFT;
+		ret = phy_write_mmd(phydev, DP83869_DEVADDR, DP83869_IO_MUX_CFG, val);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (phy_interface_is_rgmii(phydev)) {
 		ret = phy_write_mmd(phydev, DP83869_DEVADDR, DP83869_RGMIIDCTL,
@@ -484,8 +497,10 @@ static int dp83869_phy_reset(struct phy_device *phydev)
 
 static struct phy_driver dp83869_driver[] = {
 	{
-		PHY_ID_MATCH_MODEL(DP83869_PHY_ID),
+		.phy_id = DP83869_PHY_ID,
+		.phy_id_mask = GENMASK(31, 4),
 		.name		= "TI DP83869",
+		.features = PHY_GBIT_FEATURES,
 
 		.probe          = dp83869_probe,
 		.config_init	= dp83869_config_init,
@@ -502,7 +517,7 @@ static struct phy_driver dp83869_driver[] = {
 module_phy_driver(dp83869_driver);
 
 static struct mdio_device_id __maybe_unused dp83869_tbl[] = {
-	{ PHY_ID_MATCH_MODEL(DP83869_PHY_ID) },
+	{ .phy_id = DP83869_PHY_ID, .phy_id_mask = GENMASK(31, 4), },
 	{ }
 };
 MODULE_DEVICE_TABLE(mdio, dp83869_tbl);
