@@ -35,6 +35,7 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/of.h>
+#include <linux/property.h>
 
 #include <asm/irq.h>
 
@@ -1776,6 +1777,104 @@ int phy_set_max_speed(struct phy_device *phydev, u32 max_speed)
 	return 0;
 }
 EXPORT_SYMBOL(phy_set_max_speed);
+
+#if IS_ENABLED(CONFIG_OF_MDIO)
+static int phy_get_int_delay_property(struct device *dev, const char *name)
+{
+	s32 int_delay;
+	int ret;
+
+	ret = device_property_read_u32(dev, name, &int_delay);
+	if (ret)
+		return ret;
+
+	return int_delay;
+}
+#else
+static int phy_get_int_delay_property(struct device *dev, const char *name)
+{
+	return -EINVAL;
+}
+#endif
+
+/**
+ * phy_get_delay_index - returns the index of the internal delay
+ * @phydev: phy_device struct
+ * @dev: pointer to the devices device struct
+ * @delay_values: array of delays the PHY supports
+ * @size: the size of the delay array
+ * @is_rx: boolean to indicate to get the rx internal delay
+ *
+ * Returns the index within the array of internal delay passed in.
+ * If the device property is not present then the interface type is checked
+ * if the interface defines use of internal delay then a 1 is returned otherwise
+ * a 0 is returned.
+ * The array must be in ascending order. If PHY does not have an ascending order
+ * array then size = 0 and the value of the delay property is returned.
+ * Return -EINVAL if the delay is invalid or cannot be found.
+ */
+s32 phy_get_internal_delay(struct phy_device *phydev, struct device *dev,
+			   const int *delay_values, int size, bool is_rx)
+{
+	s32 delay;
+	int i;
+
+	if (is_rx) {
+		delay = phy_get_int_delay_property(dev, "rx-internal-delay-ps");
+		if (delay < 0 && size == 0) {
+			if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
+			    phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
+				return 1;
+			else
+				return 0;
+		}
+
+	} else {
+		delay = phy_get_int_delay_property(dev, "tx-internal-delay-ps");
+		if (delay < 0 && size == 0) {
+			if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
+			    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
+				return 1;
+			else
+				return 0;
+		}
+	}
+
+	if (delay < 0)
+		return delay;
+
+	if (delay && size == 0)
+		return delay;
+
+	if (delay < delay_values[0] || delay > delay_values[size - 1]) {
+		phydev_err(phydev, "Delay %d is out of range\n", delay);
+		return -EINVAL;
+	}
+
+	if (delay == delay_values[0])
+		return 0;
+
+	for (i = 1; i < size; i++) {
+		if (delay == delay_values[i])
+			return i;
+
+		/* Find an approximate index by looking up the table */
+		if (delay > delay_values[i - 1] &&
+		    delay < delay_values[i]) {
+			if (delay - delay_values[i - 1] <
+			    delay_values[i] - delay)
+				return i - 1;
+			else
+				return i;
+		}
+	}
+
+	phydev_err(phydev, "error finding internal delay index for %d\n",
+		   delay);
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(phy_get_internal_delay);
 
 static void of_set_phy_supported(struct phy_device *phydev)
 {
