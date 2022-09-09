@@ -37,6 +37,19 @@
 			default-brightness-level = <255>;
 		};
 	};
+
+	ft8006: touchscreen@38 {
+		compatible = "focaltech,ft8006";
+		reg = <0x38>;
+		interrupt-parent = <&tca9554_0>;
+		interrupts = <5 IRQ_TYPE_EDGE_BOTH>;
+		reset-gpios = <&tca9554_1 2 GPIO_ACTIVE_LOW>;
+		touchscreen-size-x = <720>;
+		touchscreen-size-y = <1600>;
+		touchscreen-x-mm = <70>;
+		touchscreen-y-mm = <157>;
+		power-supply = <&display_regulator>;
+	};
 };
 
 &i2c4 {
