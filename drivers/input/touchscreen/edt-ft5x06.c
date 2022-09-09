@@ -39,6 +39,7 @@
 #include <linux/input/mt.h>
 #include <linux/input/touchscreen.h>
 #include <linux/of_device.h>
+#include <linux/regulator/consumer.h>
 
 #define WORK_REGISTER_THRESHOLD		0x00
 #define WORK_REGISTER_REPORT_RATE	0x08
@@ -88,6 +89,7 @@ struct edt_reg_addr {
 struct edt_ft5x06_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input;
+	struct regulator *supply;
 	struct touchscreen_properties prop;
 	u16 num_x;
 	u16 num_y;
@@ -995,6 +997,21 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
 
 	tsdata->max_support_points = chip_data->max_support_points;
 
+	tsdata->supply = devm_regulator_get(&client->dev, "power");
+	if (IS_ERR(tsdata->supply)) {
+		error = PTR_ERR(tsdata->supply);
+		dev_err(&client->dev,
+			"Failed to get regulator, error %d\n", error);
+		return error;
+	}
+
+	error = regulator_enable(tsdata->supply);
+	if (error) {
+		dev_err(&client->dev,
+			"Failed to enable regulator, error %d\n", error);
+		return error;
+	}
+
 	tsdata->reset_gpio = devm_gpiod_get_optional(&client->dev,
 						     "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(tsdata->reset_gpio)) {
@@ -1123,6 +1140,7 @@ static int edt_ft5x06_ts_remove(struct i2c_client *client)
 	struct edt_ft5x06_ts_data *tsdata = i2c_get_clientdata(client);
 
 	edt_ft5x06_ts_teardown_debugfs(tsdata);
+	regulator_disable(tsdata->supply);
 
 	return 0;
 }
