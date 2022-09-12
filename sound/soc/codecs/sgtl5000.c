@@ -468,6 +468,7 @@ static const struct snd_soc_dapm_widget sgtl5000_dapm_widgets[] = {
 static const struct snd_soc_dapm_route sgtl5000_dapm_routes[] = {
 	{"Capture Mux", "LINE_IN", "LINE_IN"},	/* line_in --> adc_mux */
 	{"Capture Mux", "MIC_IN", "MIC_IN"},	/* mic_in --> adc_mux */
+	{"MIC_IN", NULL, "Mic Bias"},		/* mic_bias --> mic_in */
 
 	{"ADC", NULL, "Capture Mux"},		/* adc_mux --> adc */
 	{"AIFOUT", NULL, "ADC"},		/* adc --> i2s_out */
