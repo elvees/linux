@@ -7,6 +7,7 @@
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/debugfs.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
@@ -577,10 +578,35 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static const struct debugfs_reg32 pll_debug_regs[] = {
+	{ .name = "PLLCFG", .offset = 0 },
+	{ .name = "PLLDIAG", .offset = 0x4 },
+};
+
+static void pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
+	struct debugfs_regset32 *regset;
+
+	debugfs_create_u8("max-nr", 0400, dentry, &pll->max_nr);
+	debugfs_create_u8("nr", 0400, dentry, &pll->nr);
+	debugfs_create_u16("nf", 0400, dentry, &pll->nf);
+	debugfs_create_u8("od", 0400, dentry, &pll->od);
+	regset = kzalloc(sizeof(*regset), GFP_KERNEL);
+	if (!regset)
+		return;
+
+	regset->regs = pll_debug_regs;
+	regset->nregs = ARRAY_SIZE(pll_debug_regs);
+	regset->base = pll->base;
+	debugfs_create_regset32("registers", 0400, dentry, regset);
+}
+
 static const struct clk_ops pll_ops = {
 	.recalc_rate = pll_recalc_rate,
 	.round_rate = pll_round_rate,
 	.set_rate = pll_set_rate,
+	.debug_init = pll_debug_init,
 };
 
 static void __init mcom03_clk_pll_init(struct device_node *np)
