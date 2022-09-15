@@ -70,6 +70,18 @@
 	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>,
 		   <&gpio0c 6 GPIO_ACTIVE_LOW>, <&gpio0c 7 GPIO_ACTIVE_LOW>;
 
+	mcp23s08: gpio-expander@1 {
+		compatible = "microchip,mcp23s08";
+		reg = <1>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		spi-max-frequency = <5000000>;
+		microchip,spi-present-mask = <0x1>;
+		gpio-line-names = "CAMR_CUT", "CAMF_CUT", "WIFI_CUT",
+				  "SPEAKER_CUT", "MIC_CUT", "GIRO_CUT",
+				  "GPS_CUT", "VIBRO_CUT";
+	};
+
 	gnss@3 {
 		compatible = "u-blox,zoe-m8b-spi";
 		reg = <3>;
