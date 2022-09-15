@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83869.h>
 
 #include "mcom03-elvmc03smarc-r1.0.dtsi"
 
@@ -232,4 +233,37 @@
 /* Connected to PCIe bridge */
 &pcie1 {
 	status = "okay";
+
+	dwc-pcie@0,0 {
+		reg = <0 0 0 0 0>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+
+		plx-pex@1,0 {
+			reg = <0 0 0 0 0>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			plx-pex@2,5 {
+				reg = <0x2800 0 0 0 0>;
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				lan7431@7,0 {
+					reg = <0 0 0 0 0>;
+					phy-connection-type = "rgmii-rxid";
+					phy-handle = <&ethernet_phy>;
+
+					ethernet_phy: ethernet-phy@0 {
+						reg = <0>;
+						ti,op-mode = <DP83869_RGMII_COPPER_ETHERNET>;
+						ti,clk-output-sel = <DP83869_CLK_O_SEL_125MHZ>;
+						rx-fifo-depth = <DP83869_PHYCR_FIFO_DEPTH_8_B_NIB>;
+						tx-fifo-depth = <DP83869_PHYCR_FIFO_DEPTH_8_B_NIB>;
+						enet-phy-lane-swap;
+					};
+				};
+			};
+		};
+	};
 };
