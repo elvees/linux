@@ -15,4 +15,54 @@
 	compatible = "elvees,ecam03bl-r1.0",
 		     "elvees,ecam03bl",
 		     "elvees,mcom03";
+
+	analog_sound: analog-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ECAM03BL Analog Audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "okay";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&alc5623>;
+			system-clock-frequency = <24576000>;
+		};
+	};
+};
+
+/* On ecam03bl no pull-up resistors on i2c1 interface.
+ * This is a workaround for this issue.
+ */
+&lsperiph1_pinctrl {
+	ecam03bl_i2c1_cfg: ecam03bl-i2c1-cfg {
+		/* pins = i2c1_scl, i2c1_sda */
+		pins = "GPIOA_0", "GPIOA_1";
+		bias-pull-up;
+		input-enable;
+	};
+};
+
+&i2c1 {
+	/* Board doesn't have external pull-up on I2C1.
+	 * Internal pull-up is weak and it not enough for 400 kHz.
+	 */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	pinctrl-0 = <&ecam03bl_i2c1_cfg &i2c1_mux_data>;
+
+	alc5623: alc5623@1a {
+		#sound-dai-cells = <0>;
+		compatible = "realtek,alc5623";
+		reg = <0x1a>;
+	};
+};
+
+&i2s0 {
+	status = "okay";
 };
