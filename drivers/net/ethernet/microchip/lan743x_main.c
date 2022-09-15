@@ -2782,7 +2782,7 @@ static int lan743x_mdiobus_init(struct lan743x_adapter *adapter)
 		adapter->mdiobus->phy_mask = ~(u32)BIT(1);
 
 	/* register mdiobus */
-	ret = mdiobus_register(adapter->mdiobus);
+	ret = of_mdiobus_register(adapter->mdiobus, adapter->pdev->dev.of_node);
 	if (ret < 0)
 		goto return_error;
 	return 0;
