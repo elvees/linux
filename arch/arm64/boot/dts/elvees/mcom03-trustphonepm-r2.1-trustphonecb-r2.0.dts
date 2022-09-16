@@ -86,6 +86,21 @@
 		regulator-always-on;
 	};
 
+	sdhci1_supply: regulator@3 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci1-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	wifi_pwrseq: pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpio1c 4 GPIO_ACTIVE_HIGH>;
+		post-power-on-delay-ms = <500>;
+		power-off-delay-us = <500>;
+	};
+
 	soundcard@0 {
 		compatible = "elvees,trustphone-wm8998";
 
@@ -223,6 +238,15 @@
 			};
 		};
 	};
+};
+
+&sdhci1 {
+	status = "okay";
+	non-removable;
+	bus-width = <4>;
+	vqmmc-supply = <&sdhci1_supply>;
+	xlnx,fails-without-test-cd;
+	mmc-pwrseq = <&wifi_pwrseq>;
 };
 
 /* Connected to USB hub */

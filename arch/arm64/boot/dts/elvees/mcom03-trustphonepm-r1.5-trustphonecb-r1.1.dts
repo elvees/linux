@@ -93,6 +93,22 @@
 		regulator-always-on;
 	};
 
+	sdhci1_supply: regulator@3 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci1-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	wifi_pwrseq: pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&mcp23s08 2 GPIO_ACTIVE_LOW>,
+			      <&gpio1c 4 GPIO_ACTIVE_LOW>;
+		post-power-on-delay-ms = <500>;
+		power-off-delay-us = <500>;
+	};
+
 	soundcard@0 {
 		compatible = "elvees,trustphone-wm8998";
 
@@ -207,6 +223,18 @@
 		gpios = <7 GPIO_ACTIVE_HIGH>;
 		output-high;
 	};
+};
+
+&sdhci1 {
+	status = "okay";
+	non-removable;
+	bus-width = <4>;
+	vqmmc-supply = <&sdhci1_supply>;
+	xlnx,fails-without-test-cd;
+	mmc-pwrseq = <&wifi_pwrseq>;
+
+	/* TODO: Need more testing... may be max-frequency is not necessary */
+	max-frequency = <5000000>;
 };
 
 /* Connected to USB hub */
