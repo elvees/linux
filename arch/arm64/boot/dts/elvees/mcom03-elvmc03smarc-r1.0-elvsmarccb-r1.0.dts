@@ -110,6 +110,11 @@
 	status = "okay";
 	clock-frequency = <400000>;
 
+	ina260@40 {
+		compatible = "ti,ina260";
+		reg = <0x40>;
+	};
+
 	fancontrol: emc2303@4d {
 		compatible = "microchip,emc2305";
 		reg = <0x4d>;
