@@ -74,6 +74,7 @@ struct sdhci_arasan_soc_ctl_field {
 struct sdhci_arasan_soc_ctl_map {
 	struct sdhci_arasan_soc_ctl_field	baseclkfreq;
 	struct sdhci_arasan_soc_ctl_field	clockmultiplier;
+	struct sdhci_arasan_soc_ctl_field	slottype;
 	bool					hiword_update;
 };
 
@@ -137,6 +138,7 @@ struct sdhci_arasan_of_data {
 static const struct sdhci_arasan_soc_ctl_map rk3399_soc_ctl_map = {
 	.baseclkfreq = { .reg = 0xf000, .width = 8, .shift = 8 },
 	.clockmultiplier = { .reg = 0xf02c, .width = 8, .shift = 0},
+	.slottype = { .reg = 0, .width = -1, .shift = -1 },
 	.hiword_update = true,
 };
 
@@ -153,11 +155,13 @@ static const struct sdhci_arasan_soc_ctl_map mcom03_soc_ctl_map[] = {
 	{
 		.baseclkfreq = { .reg = 0x40, .width = 8, .shift = 8 },
 		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1 },
+		.slottype = { .reg = 0x40, .width = 2, .shift = 30 },
 		.hiword_update = false,
 	},
 	{
 		.baseclkfreq = { .reg = 0x7c, .width = 8, .shift = 8 },
 		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1 },
+		.slottype = { .reg = 0x7c, .width = 2, .shift = 30 },
 		.hiword_update = false,
 	},
 	{ /* sentinel */ }
@@ -682,6 +686,43 @@ static void sdhci_arasan_update_baseclkfreq(struct sdhci_host *host)
 	sdhci_arasan_syscon_write(host, &soc_ctl_map->baseclkfreq, mhz);
 }
 
+/**
+ * sdhci_arasan_update_slottype_embedded - Set corecfg_slottype to embedded
+ * device
+ *
+ * The corecfg_slottype is supposed to contain the Slot Type that will response
+ * for debounce counter after card detect. If Slot Type configured to embedded
+ * device then debounce timer will be minimal.
+ *
+ * NOTES:
+ * - Many existing devices don't seem to do this and work fine.  To keep
+ *   compatibility for old hardware where the device tree doesn't provide a
+ *   register map, this function is a noop if a soc_ctl_map hasn't been provided
+ *   for this platform.
+ *
+ * @host:		The sdhci_host
+ */
+static void sdhci_arasan_update_slottype_embedded(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_arasan_data *sdhci_arasan = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_arasan_soc_ctl_map *soc_ctl_map =
+		sdhci_arasan->soc_ctl_map;
+
+	/* Having a map is optional */
+	if (!soc_ctl_map)
+		return;
+
+	/* If we have a map, we expect to have a syscon */
+	if (!sdhci_arasan->soc_ctl_base) {
+		pr_warn("%s: Have regmap, but no soc-ctl-syscon\n",
+			mmc_hostname(host->mmc));
+		return;
+	}
+
+	sdhci_arasan_syscon_write(host, &soc_ctl_map->slottype, 0x1);
+}
+
 static void sdhci_arasan_set_clk_delays(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -1174,6 +1215,9 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "parsing dt failed (%d)\n", ret);
 		goto unreg_clk;
 	}
+
+	if (host->mmc->caps & MMC_CAP_NONREMOVABLE)
+		sdhci_arasan_update_slottype_embedded(host);
 
 	sdhci_arasan->phy = ERR_PTR(-ENODEV);
 	if (of_device_is_compatible(pdev->dev.of_node,
