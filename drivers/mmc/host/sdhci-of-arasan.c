@@ -22,6 +22,7 @@
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/regmap.h>
+#include <linux/reset.h>
 #include <linux/of.h>
 #include <linux/firmware/xlnx-zynqmp.h>
 
@@ -146,6 +147,7 @@ struct sdhci_arasan_data {
 	struct sdhci_host *host;
 	struct clk	*clk_ahb;
 	struct phy	*phy;
+	struct reset_control *reset;
 	bool		is_phy_on;
 
 	bool		has_cqe;
@@ -1714,6 +1716,19 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 		goto clk_dis_ahb;
 	}
 
+	sdhci_arasan->reset =
+		devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
+	if (IS_ERR(sdhci_arasan->reset)) {
+		ret = PTR_ERR(sdhci_arasan->reset);
+		dev_err(&pdev->dev, "Unable to get reset control (%d)\n", ret);
+		goto clk_disable_all;
+	}
+	ret = reset_control_deassert(sdhci_arasan->reset);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to deassert reset\n");
+		goto clk_disable_all;
+	}
+
 	sdhci_get_of_property(pdev);
 
 	if (of_property_read_bool(np, "xlnx,fails-without-test-cd"))
@@ -1734,7 +1749,7 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 		ret = device_property_read_u32(&pdev->dev, "elvees,ctrl-id",
 					       &sdhci_arasan->ctrl_id);
 		if (ret)
-			goto clk_disable_all;
+			goto reset_assert;
 
 		sdhci_arasan->soc_ctl_map =
 			&mcom03_soc_ctl_map[sdhci_arasan->ctrl_id];
@@ -1753,7 +1768,7 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 
 	ret = sdhci_arasan_register_sdclk(sdhci_arasan, clk_xin, &pdev->dev);
 	if (ret)
-		goto clk_disable_all;
+		goto reset_assert;
 
 	if (of_device_is_compatible(np, "xlnx,zynqmp-8.9a")) {
 		host->mmc_host_ops.execute_tuning =
@@ -1810,6 +1825,8 @@ err_add_host:
 		phy_exit(sdhci_arasan->phy);
 unreg_clk:
 	sdhci_arasan_unregister_sdclk(&pdev->dev);
+reset_assert:
+	reset_control_assert(sdhci_arasan->reset);
 clk_disable_all:
 	clk_disable_unprepare(clk_xin);
 clk_dis_ahb:
@@ -1837,6 +1854,7 @@ static int sdhci_arasan_remove(struct platform_device *pdev)
 
 	ret = sdhci_pltfm_unregister(pdev);
 
+	reset_control_assert(sdhci_arasan->reset);
 	clk_disable_unprepare(clk_ahb);
 
 	return ret;
