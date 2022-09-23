@@ -19,6 +19,14 @@
 		stdout-path = "serial0:115200n8";
 	};
 
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
 	/delete-node/ sdr@1900000;
 };
 
@@ -52,4 +60,11 @@
 		spi-max-frequency = <66000000>;
 		m25p,fast-read;
 	};
+};
+
+&sdhci0 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+	vqmmc-supply = <&sdhci0_supply>;
 };

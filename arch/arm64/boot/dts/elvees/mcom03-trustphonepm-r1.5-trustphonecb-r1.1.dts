@@ -25,7 +25,8 @@
 		clock-frequency = <12000000>;
 	};
 
-	wm8998_supply_core: regulator@0 {
+	/* regulator@0 is described in mcom03-trustphonepm-r1.5.dtsi */
+	wm8998_supply_core: regulator@1 {
 		compatible = "regulator-fixed";
 		regulator-name = "wm8998-supply-core";
 		regulator-min-microvolt = <1800000>;
@@ -33,7 +34,7 @@
 		regulator-always-on;
 	};
 
-	wm8998_supply_speaker: regulator@1 {
+	wm8998_supply_speaker: regulator@2 {
 		compatible = "regulator-fixed";
 		regulator-name = "wm8998-supply-speaker";
 		regulator-min-microvolt = <4000000>;
