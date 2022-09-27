@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0+
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/pinctrl/elvees,mcom03-hsperiph-pinctrl.yaml#
+$id: http://devicetree.org/schemas/pinctrl/elvees,pinctrl-mcom03-hsperiph.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Pin controller for HSPERIPH subsystem in ELVEES MCom-03 SoC
