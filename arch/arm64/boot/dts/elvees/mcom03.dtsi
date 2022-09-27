@@ -631,7 +631,7 @@
 			clocks = <&lsperiph0_ucg0 LSP0_UART3_CLK
 				  &lsperiph0_ucg0 LSP0_SYS_CLK>;
 			clock-names = "baudclk", "apb_pclk";
-			interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
