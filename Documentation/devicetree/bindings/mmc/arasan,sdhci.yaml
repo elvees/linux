@@ -138,10 +138,6 @@ properties:
       representing the Card Clock. These clocks are expected to be
       consumed by our PHY.
 
-  clk-phase-*:
-    description:
-      For ELVEES MCom-03 these are raw tap delays for specific timing mode.
-
   elvees,ctrl-id:
     $ref: /schemas/types.yaml#/definitions/uint32
     enum: [0, 1]
@@ -167,6 +163,12 @@ properties:
     default: 0
     description:
       The MIO bank number in which the command and data lines are configured.
+
+patternProperties:
+
+  'clk-phase-*':
+    description:
+      For ELVEES MCom-03 these are raw tap delays for specific timing mode.
 
 dependencies:
   clock-output-names: [ '#clock-cells' ]
