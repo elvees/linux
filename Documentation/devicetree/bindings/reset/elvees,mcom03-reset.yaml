@@ -6,6 +6,9 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: ELVEES MCom-03 reset controller
 
+maintainers:
+  - Oleg Ivanov <oaivanov@elvees.com>
+
 description: |
   This document describes the MCom-03 reset controller.
 
@@ -38,7 +41,17 @@ additionalProperties: false
 
 examples:
   - |
-    hsperiph@0 {
+    / {
+      #include <dt-bindings/interrupt-controller/arm-gic.h>
+      #include <dt-bindings/soc/elvees,mcom03.h>
+
+      compatible = "elvees,mcom03";
+      model = "elvees,mcom03";
+      #address-cells = <2>;
+      #size-cells = <2>;
+      interrupt-parent = <&gic>;
+
+      hsperiph-bus {
         compatible = "simple-bus";
         #address-cells = <2>;
         #size-cells = <2>;
@@ -66,4 +79,5 @@ examples:
             elvees,ctrl-id = <0>;
             status = "disabled";
         };
+      };
     };
