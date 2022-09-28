@@ -319,6 +319,8 @@ patternProperties:
     description: Elgin S/A.
   "^elida,.*":
     description: Shenzhen Elida Technology Co., Ltd.
+  "^elvees,.*":
+    description: RnD Center "ELVEES", JSC
   "^embest,.*":
     description: Shenzhen Embest Technology Co., Ltd.
   "^emlid,.*":
