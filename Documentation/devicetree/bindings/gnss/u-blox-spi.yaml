@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gnss/u-blox-spi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: U-blox SPI-connected GNSS receiver bindings
+
+maintainers:
+  - Vasiliy Zasukhin <vzasukhin@elvees.com>
+
+properties:
+  compatible:
+    enum:
+      - u-blox,zoe-m8b-spi
+
+  reg:
+    maxItems: 1
+
+  reset-gpios:
+    maxItems: 1
+    $ref: /schemas/types.yaml#/definitions/uint8
+    description: GPIO, that connected to RESET pin
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    spi {
+        gnss@3 {
+            compatible = "u-blox,zoe-m8b-spi";
+            reg = <3>;
+            spi-max-frequency = <1000000>;
+        };
+    };
+...
