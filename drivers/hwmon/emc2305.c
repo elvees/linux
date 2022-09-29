@@ -95,6 +95,7 @@ struct emc2305_cdev_data {
  * @pwm_num: number of PWM channels;
  * @pwm_separate: separate PWM settings for every channel;
  * @pwm_min: array of minimum PWM per channel;
+ * @pwm_output_types: PWM outout types;
  * @cdev_data: array of cooling devices data;
  */
 struct emc2305_data {
@@ -104,6 +105,7 @@ struct emc2305_data {
 	u8 pwm_num;
 	bool pwm_separate;
 	u8 pwm_min[EMC2305_PWM_MAX];
+	u8 pwm_output_types;
 	struct emc2305_cdev_data cdev_data[EMC2305_PWM_MAX];
 };
 
@@ -326,6 +328,8 @@ static int emc2305_get_tz_of(struct device *dev)
 			}
 			data->pwm_min[i] = tmp;
 		}
+		if (of_property_read_bool(pwm_np, "microchip,pwm-push-pull"))
+			data->pwm_output_types |= BIT(i);
 		i++;
 	}
 	/*
@@ -692,6 +696,13 @@ static int emc2305_probe(struct i2c_client *client,
 		if (ret != 0)
 			return ret;
 	}
+
+	/* Configure PWM outputs */
+	ret = i2c_smbus_write_byte_data(client,
+					EMC2305_REG_PWM_OUTPUT_CONFIG,
+					data->pwm_output_types);
+	if (ret < 0)
+		return ret;
 
 	for (i = 0; i < data->pwm_num; i++) {
 		ret = i2c_smbus_write_byte_data(client,
