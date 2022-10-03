@@ -6,6 +6,9 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: MCom-03 UCG
 
+maintainers:
+  - Vasiliy Zasukhin <vzasukhin@elvees.com>
+
 properties:
   compatible:
     enum:
