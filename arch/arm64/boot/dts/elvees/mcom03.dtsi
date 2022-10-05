@@ -671,9 +671,9 @@
 				snps,mux-individual-pins;
 				gpio-ranges = <&gpio0a 0 0 8>;
 
-				uart3_mux_data: uart3-mux-data {
-					data {
-						/* groups = sin, sout */
+				uart3_mux_out1out2: uart3-mux-out1out2 {
+					out1out2 {
+						/* groups = out1_n, out2_n */
 						groups = "pin0", "pin1";
 						function = "HW";
 					};
@@ -703,9 +703,9 @@
 				snps,mux-individual-pins;
 				gpio-ranges = <&gpio0b 0 0 8>;
 
-				uart3_portb_mux_modem: uart3-portb-mux-modem {
-					modem_prog {
-						/* groups = out1_n, out2_n */
+				uart3_mux_data: uart3-mux-data {
+					data {
+						/* groups = sin, sout */
 						groups = "pin0", "pin1";
 						function = "HW";
 					};
