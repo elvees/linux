@@ -635,6 +635,9 @@
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart3_mux_data>;
 		};
 
 		gpio0: gpio@1610000 {
