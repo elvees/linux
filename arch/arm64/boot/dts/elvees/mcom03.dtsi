@@ -679,14 +679,34 @@
 					};
 				};
 
-				uart3_porta_mux_modem: uart3-porta-mux-modem {
-					modem {
-						/*
-						 * groups = cts_n, dsr_n, dcd_n,
-						 *	  di_n, dtr_n, rts_n
-						 */
-						groups = "pin2", "pin3", "pin4",
-						       "pin5", "pin6", "pin7";
+				uart3_mux_rtscts: uart3-mux-rtscts {
+					rtscts {
+						/* groups = cts_n, rts_n */
+						groups = "pin2", "pin7";
+						function = "HW";
+					};
+				};
+
+				uart3_mux_dsrdtr: uart3-mux-dsrdtr {
+					dsrdtr {
+						/* groups = dsr_n, dtr_n */
+						groups = "pin3", "pin6";
+						function = "HW";
+					};
+				};
+
+				uart3_mux_dcd: uart3-mux-dcd {
+					dcd {
+						/* groups = dcd_n */
+						groups = "pin4";
+						function = "HW";
+					};
+				};
+
+				uart3_mux_ri: uart3-mux-ri {
+					ri {
+						/* groups = ri_n */
+						groups = "pin5";
 						function = "HW";
 					};
 				};
