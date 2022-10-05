@@ -23,6 +23,11 @@
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon console=ttyS0,115200";
 	};
+
+	elvmc03smarc-leds {
+		/* red led uses GPIO0_PORTC3 that required for SPI0 */
+		/delete-node/ red;
+	};
 };
 
 /* Connected to USB Type-C plug through CP2102N */
@@ -166,6 +171,28 @@
 	/* Not all devices are checked to 400kHz support */
 	clock-frequency = <100000>;
 	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>;
+
+	mcp23s08: gpio-expander@1 {
+		compatible = "microchip,mcp23s08";
+		reg = <1>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		interrupt-parent = <&gpio0a>;
+		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		spi-max-frequency = <5000000>;
+		microchip,spi-present-mask = <0x1>;
+		gpio-line-names = "BUTTON_RIGHT", "BUTTON_UP", "BUTTON_OK",
+				  "BUTTON_DOWN", "BUTTON_LEFT", "BUZZER",
+				  "", "";
+	};
 };
 
 /* Connected to RJ-45 (Crypto #0) */
