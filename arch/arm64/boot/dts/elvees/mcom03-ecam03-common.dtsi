@@ -1,0 +1,145 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	compatible = "elvees,ecam03-common-r1.0",
+		     "elvees,ecam03-common",
+		     "elvees,mcom03";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		factory-reset {
+			label = "Factory reset";
+			gpios = <&gpio0a 7 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VENDOR>;
+		};
+	};
+
+	/delete-node/ sdr@1900000;
+};
+
+&gpio0b {
+	gpio-line-names = "P_Iris_nB", "P_Iris_B", "P_Iris_nA", "P_Iris_A",
+		"", "UART1_RX", "UART1_TX", "";
+};
+
+&gpio0c {
+	gpio-line-names = "Focus_nA", "Focus_A", "Focus_nB", "Focus_B",
+		"", "", "ETH0_Rst", "";
+};
+
+&gpio0d {
+	gpio-line-names = "Zoom_nA", "Zoom_A", "Zoom_nB", "I2C0_SCL",
+		"I2C0_SDA", "Zoom_B", "", "";
+};
+
+&gpio1d {
+	gpio-line-names = "IR_A", "IR_nA", "", "",
+		"", "", "", "";
+};
+
+&uart0 {
+	status = "okay";
+	clock-frequency = <27000000>;
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+/* Connected to MicroSD card */
+&sdhci0 {
+	status = "okay";
+
+	/* Disable High Speed support
+	 * Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4200000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&i2c2 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	rtc@51 {
+		compatible = "nxp,pcf85063";
+		reg = <0x51>;
+	};
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <100>;
+
+	ethernet_phy0: ethernet-phy@1 {
+		reg = <0x1>;
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&nand {
+	status = "okay";
+	chip@0 {
+		reg = <0>;
+		nand-ecc-mode="hw";
+	};
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+	reset_gpio = <&gpio0a 4 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio0a 5 GPIO_ACTIVE_HIGH>;
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl256s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};

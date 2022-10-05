@@ -11,8 +11,8 @@
 #include "mcom03-ecam03-common.dtsi"
 
 / {
-	model = "ECAM03DM r1.0";
-	compatible = "elvees,ecam03dm-r1.0",
-		     "elvees,ecam03dm",
+	model = "ECAM03BL r1.0";
+	compatible = "elvees,ecam03bl-r1.0",
+		     "elvees,ecam03bl",
 		     "elvees,mcom03";
 };
