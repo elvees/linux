@@ -281,7 +281,7 @@ additionalProperties:
 
           properties:
             pins:
-              enum: [EMAC0_RGMII_MDIO, EMAC1_RGMII_MDIO]
+              enum: [EMAC0_RGMII_MDIO, EMAC1_RGMII_MDIO, QSPI1_SCLK]
 
             bias-disable:
               $ref: pincfg-node.yaml#/properties/bias-disable
@@ -328,10 +328,13 @@ additionalProperties:
               $ref: pincfg-node.yaml#/properties/drive-strength
               enum: [0, 2, 4, 6, 8, 10, 12]
               description: 0mA puts the pads in high impedance mode.
-            input-schmitt-enable:
-              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
-            input-schmitt-disable:
-              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
+            slew-rate:
+              $ref: pincfg-node.yaml#/properties/slew-rate
+              enum: [0, 3]
+              default: 3
+              description: |
+                0: Lower Slew rate (slower edges)
+                3: Higher Slew rate (faster edges)
 
           additionalProperties: false
 
@@ -361,38 +364,6 @@ additionalProperties:
           properties:
             groups:
               enum: [qspi1_ss, qspi1_data]
-
-            bias-disable:
-              $ref: pincfg-node.yaml#/properties/bias-disable
-            bias-bus-hold:
-              $ref: pincfg-node.yaml#/properties/bias-bus-hold
-            bias-pull-up:
-              $ref: pincfg-node.yaml#/properties/bias-pull-up
-            bias-pull-down:
-              $ref: pincfg-node.yaml#/properties/bias-pull-down
-            drive-strength:
-              $ref: pincfg-node.yaml#/properties/drive-strength
-              enum: [0, 2, 4, 6, 8, 10, 12]
-              description: 0mA puts the pads in high impedance mode.
-            input-schmitt-enable:
-              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
-            input-schmitt-disable:
-              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
-            slew-rate:
-              $ref: pincfg-node.yaml#/properties/slew-rate
-              enum: [0, 3]
-              default: 3
-              description: |
-                0: Lower Slew rate (slower edges)
-                3: Higher Slew rate (faster edges)
-
-          additionalProperties: false
-
-        - type: object
-
-          properties:
-            pins:
-              enum: [qspi1_sclk]
 
             bias-disable:
               $ref: pincfg-node.yaml#/properties/bias-disable
