@@ -281,7 +281,8 @@ additionalProperties:
 
           properties:
             pins:
-              enum: [EMAC0_RGMII_MDIO, EMAC1_RGMII_MDIO, QSPI1_SCLK]
+              enum: [EMAC0_RGMII_MDIO, EMAC1_RGMII_MDIO, QSPI1_SCLK, NFC_REN,
+                     NFC_WEN, NFC_DQS]
 
             bias-disable:
               $ref: pincfg-node.yaml#/properties/bias-disable
@@ -342,7 +343,7 @@ additionalProperties:
 
           properties:
             groups:
-              enum: [qspi1_ctrl]
+              enum: [qspi1_ctrl, nfc_ctrl]
 
             drive-open-drain:
               $ref: pincfg-node.yaml#/properties/drive-open-drain
@@ -360,10 +361,16 @@ additionalProperties:
           additionalProperties: false
 
         - type: object
+          description: |
+            qspi1_ss: Contains QSPI1_SS* pins
+            qspi1_data: Contains QSPI1_SISO*
+            nfc_cen: Contains NFC_CEN* pins
+            nfc_rbn: Contains NFC_RBN* pins
+            nfc_ale_cle: Conatins NFC_ALE, NFC_CLE pins
 
           properties:
             groups:
-              enum: [qspi1_ss, qspi1_data]
+              enum: [qspi1_ss, qspi1_data, nfc_cen, nfc_rbn, nfc_ale_cle]
 
             bias-disable:
               $ref: pincfg-node.yaml#/properties/bias-disable
@@ -388,6 +395,43 @@ additionalProperties:
               description: |
                 0: Lower Slew rate (slower edges)
                 3: Higher Slew rate (faster edges)
+
+          additionalProperties: false
+
+        - type: object
+          description: |
+            nfc_io: Contains NFC_IO* pins
+
+          properties:
+            groups:
+              enum: [nfc_io]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+            drive-strength:
+              $ref: pincfg-node.yaml#/properties/drive-strength
+              enum: [0, 2, 4, 6, 8, 10, 12]
+              description: 0mA puts the pads in high impedance mode.
+            input-schmitt-enable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
+            input-schmitt-disable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
+            slew-rate:
+              $ref: pincfg-node.yaml#/properties/slew-rate
+              enum: [0, 3]
+              default: 3
+              description: |
+                0: Lower Slew rate (slower edges)
+                3: Higher Slew rate (faster edges)
+            function:
+              enum: [NFC, GNSS]
+              default: NFC
 
           additionalProperties: false
 
