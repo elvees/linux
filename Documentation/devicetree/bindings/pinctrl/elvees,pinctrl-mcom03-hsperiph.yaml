@@ -242,6 +242,27 @@ additionalProperties:
           additionalProperties: false
 
         - type: object
+
+          properties:
+            pins:
+              enum: [EMAC0_RGMII_RXC, EMAC1_RGMII_RXC]
+
+            bias-disable:
+              $ref: pincfg-node.yaml#/properties/bias-disable
+            bias-bus-hold:
+              $ref: pincfg-node.yaml#/properties/bias-bus-hold
+            bias-pull-up:
+              $ref: pincfg-node.yaml#/properties/bias-pull-up
+            bias-pull-down:
+              $ref: pincfg-node.yaml#/properties/bias-pull-down
+            input-schmitt-enable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-enable
+            input-schmitt-disable:
+              $ref: pincfg-node.yaml#/properties/input-schmitt-disable
+
+          additionalProperties: false
+
+        - type: object
           description: |
             emac_v18: Contains EMAC{0,1}_* pins.
 
