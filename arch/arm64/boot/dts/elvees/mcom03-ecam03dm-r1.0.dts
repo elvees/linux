@@ -111,3 +111,7 @@
 		m25p,fast-read;
 	};
 };
+
+&nand {
+	pinctrl-0 = <&nand_default &nand_voltage_18>;
+};
