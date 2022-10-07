@@ -1048,6 +1048,32 @@
 					groups = "qspi1_ctrl";
 					power-source = <3300>;
 				};
+
+				nand_default: nand-default {
+					ctrl {
+						groups = "nfc_ctrl";
+						elvees,pad-enable;
+					};
+
+					io-mux {
+						groups = "nfc_io";
+						function = "NAND";
+					};
+				};
+
+				nand_voltage_33: nand-voltage-33 {
+					volt {
+						groups = "nfc_ctrl";
+						power-source = <3300>;
+					};
+				};
+
+				nand_voltage_18: nand-voltage-18 {
+					volt {
+						groups = "nfc_ctrl";
+						power-source = <1800>;
+					};
+				};
 			};
 		};
 
@@ -1272,6 +1298,9 @@
 				 <&hsperiph_ucg0 HSP_NFC_CLK>;
 			clock-names = "clk_flash", "clk_sys";
 			status = "disabled";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&nand_default &nand_voltage_33>;
 		};
 
 		qspi1: spi@10260000 {
