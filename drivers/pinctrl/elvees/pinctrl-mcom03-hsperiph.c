@@ -11,6 +11,7 @@
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinmux.h>
 #include <linux/platform_device.h>
 #include "../core.h"
 #include "../pinctrl-utils.h"
@@ -98,6 +99,15 @@ pin_config_item mcom03_hsperiph_conf_items[] = {
 #define SDMMC_SOFT_CTL_EN	BIT(17)
 #define EMAC_V18		BIT(0)
 
+/* NAND offsets */
+/*
+ * This offset is used by nfc_ctrl(as pinconf) and nfc_io(as pinmux) groups.
+ */
+#define NAND_CONF_SHARED_MUX	0x184
+#define NAND_OFF_IO_SHARE_MAX	BIT(4)
+#define MUX_TO_NAND		BIT(4)
+#define MUX_TO_GNSS		0
+
 enum mcom03_hsperiph_periph_ids {
 	SDMMC0,
 	SDMMC1,
@@ -106,6 +116,7 @@ enum mcom03_hsperiph_periph_ids {
 	EMAC1,
 	EMAC_GLOBAL,
 	QSPI1,
+	NAND,
 };
 
 struct mcom03_hsperiph_pinctrl {
@@ -212,6 +223,9 @@ enum special_pins {
 	EMAC1_RGMII_TXC = 45,
 	EMAC1_RGMII_RXC = 46,
 	QSPI1_SCLK = 65,
+	NFC_REN = 86,
+	NFC_WEN = 87,
+	NFC_DQS = 90,
 };
 
 static const struct pinctrl_pin_desc mcom03_hsperiph_pins[] = {
@@ -292,6 +306,33 @@ static const struct pinctrl_pin_desc mcom03_hsperiph_pins[] = {
 	PINCTRL_PIN(63, "QSPI1_SS2"),
 	PINCTRL_PIN(64, "QSPI1_SS3"),
 	PINCTRL_PIN(QSPI1_SCLK, "QSPI1_SCLK"),
+
+	/* NAND */
+	PINCTRL_PIN(66, "NFC_IO0"),
+	PINCTRL_PIN(67, "NFC_IO1"),
+	PINCTRL_PIN(68, "NFC_IO2"),
+	PINCTRL_PIN(69, "NFC_IO3"),
+	PINCTRL_PIN(70, "NFC_IO4"),
+	PINCTRL_PIN(71, "NFC_IO5"),
+	PINCTRL_PIN(72, "NFC_IO6"),
+	PINCTRL_PIN(73, "NFC_IO7"),
+	PINCTRL_PIN(74, "NFC_IO8"),
+	PINCTRL_PIN(75, "NFC_IO9"),
+	PINCTRL_PIN(76, "NFC_IO10"),
+	PINCTRL_PIN(77, "NFC_IO11"),
+	PINCTRL_PIN(78, "NFC_IO12"),
+	PINCTRL_PIN(79, "NFC_IO13"),
+	PINCTRL_PIN(80, "NFC_IO14"),
+	PINCTRL_PIN(81, "NFC_IO15"),
+	PINCTRL_PIN(82, "NFC_RBN0"),
+	PINCTRL_PIN(83, "NFC_RBN1"),
+	PINCTRL_PIN(84, "NFC_ALE"),
+	PINCTRL_PIN(85, "NFC_CLE"),
+	PINCTRL_PIN(NFC_REN, "NFC_REN"),
+	PINCTRL_PIN(NFC_WEN, "NFC_WEN"),
+	PINCTRL_PIN(88, "NFC_CEN0"),
+	PINCTRL_PIN(89, "NFC_CEN1"),
+	PINCTRL_PIN(NFC_DQS, "NFC_DQS"),
 };
 
 static struct mcom03_hsperiph_pin mcom03_hsperiph_special_pins[] = {
@@ -320,6 +361,12 @@ static struct mcom03_hsperiph_pin mcom03_hsperiph_special_pins[] = {
 	MCOM03_HSPERIPH_PIN(EMAC1_RGMII_RXC, 0x174,  MCOM03_PCONF_SET4, EMAC1,
 			    GENMASK(2, 0)),
 	MCOM03_HSPERIPH_PIN(QSPI1_SCLK, 0x28, MCOM03_PCONF_SET2, QSPI1,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(NFC_REN, 0x190, MCOM03_PCONF_SET2, NAND,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(NFC_WEN, 0x194, MCOM03_PCONF_SET2, NAND,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_PIN(NFC_DQS, 0x19C, MCOM03_PCONF_SET2, NAND,
 			    GENMASK(2, 0)),
 };
 
@@ -351,6 +398,13 @@ MCOM03_HSPERIPH_DEF_GRP(emac1_rx, 46, 51, 52, 53, 54);
 MCOM03_HSPERIPH_DEF_GRP(qspi1_ctrl, 57, 58, 59, 60, 61, 62, 63, 64, 65);
 MCOM03_HSPERIPH_DEF_GRP(qspi1_ss, 57, 58, 59, 60);
 MCOM03_HSPERIPH_DEF_GRP(qspi1_data, 61, 62, 63, 64);
+MCOM03_HSPERIPH_DEF_GRP(nfc_ctrl, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76,
+			77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90);
+MCOM03_HSPERIPH_DEF_GRP(nfc_ale_cle, 84, 85);
+MCOM03_HSPERIPH_DEF_GRP(nfc_cen, 88, 89);
+MCOM03_HSPERIPH_DEF_GRP(nfc_io, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77,
+			78, 79, 80, 81);
+MCOM03_HSPERIPH_DEF_GRP(nfc_rbn, 82, 83);
 
 static struct mcom03_hsperiph_grp mcom03_hsperiph_groups[] = {
 	/* HSPERIPH:SD/MMC groups */
@@ -391,6 +445,26 @@ static struct mcom03_hsperiph_grp mcom03_hsperiph_groups[] = {
 			    GENMASK(2, 0)),
 	MCOM03_HSPERIPH_GRP(qspi1_data, 0x24, MCOM03_PCONF_SET2, QSPI1,
 			    GENMASK(2, 0)),
+
+	/* HSPERIPH: NAND groups */
+	MCOM03_HSPERIPH_GRP(nfc_ctrl, NAND_CONF_SHARED_MUX, MCOM03_PCONF_SET5,
+			    NAND, 0),
+	MCOM03_HSPERIPH_GRP(nfc_ale_cle, 0x188, MCOM03_PCONF_SET2, NAND,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_GRP(nfc_cen, 0x18C, MCOM03_PCONF_SET2, NAND,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_GRP(nfc_io, 0x198, MCOM03_PCONF_SET2, NAND,
+			    GENMASK(2, 0)),
+	MCOM03_HSPERIPH_GRP(nfc_rbn, 0x1A0, MCOM03_PCONF_SET2, NAND,
+			    GENMASK(2, 0)),
+};
+
+static const char *const mcom03_hsperiph_mux_groups[] = {
+	"nfc_io",
+};
+
+static const char *const mcom03_hsperiph_pinmux_functions[] = {
+	"NAND", "GNSS",
 };
 
 static bool mcom03_hsperiph_pinconf_param_supported(
@@ -486,7 +560,7 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		if (periph_id == SDMMC0 || periph_id == SDMMC1 ||
 		    periph_id == EMAC0 || periph_id == EMAC1 ||
-		    periph_id == QSPI1)
+		    periph_id == QSPI1 || periph_id == NAND)
 			val = COMMON_HS_DRIVE(val);
 
 		val &= HS_DRIVE_STRENGTH_MASK;
@@ -798,6 +872,61 @@ static int mcom03_hsperiph_pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
+int mcom03_hsperiph_get_functions_count(struct pinctrl_dev *pctldev)
+{
+	return ARRAY_SIZE(mcom03_hsperiph_pinmux_functions);
+}
+
+const char *mcom03_hsperiph_get_function_name(struct pinctrl_dev *pctldev,
+					      unsigned int selector)
+{
+	return mcom03_hsperiph_pinmux_functions[selector];
+}
+
+int mcom03_hsperiph_get_function_groups(struct pinctrl_dev *pctldev,
+					unsigned int selector,
+					const char * const **groups,
+					unsigned int *num_groups)
+{
+	/* All HSPERIPH mux functions have the same group */
+	*groups = mcom03_hsperiph_mux_groups;
+	*num_groups = ARRAY_SIZE(mcom03_hsperiph_mux_groups);
+
+	return 0;
+}
+
+int mcom03_hsperiph_mcom03_hsperiph_set_mux(struct pinctrl_dev *pctldev,
+					    unsigned int func_selector,
+					    unsigned int group_selector)
+{
+	struct mcom03_hsperiph_pinctrl *pctrl =
+					pinctrl_dev_get_drvdata(pctldev);
+
+	switch (func_selector) {
+	case 0: // NAND
+		regmap_update_bits(pctrl->hs_syscon, NAND_CONF_SHARED_MUX,
+				   NAND_OFF_IO_SHARE_MAX, MUX_TO_NAND);
+		break;
+	case 1: // GNSS
+		regmap_update_bits(pctrl->hs_syscon, NAND_CONF_SHARED_MUX,
+				   NAND_OFF_IO_SHARE_MAX, MUX_TO_GNSS);
+		break;
+	}
+
+	dev_dbg(pctldev->dev, "Set %s function to %s group\n",
+		mcom03_hsperiph_pinmux_functions[func_selector],
+		mcom03_hsperiph_groups[group_selector].name);
+
+	return 0;
+}
+
+static const struct pinmux_ops mcom03_hsperiph_pinmux_ops = {
+	.get_functions_count	= mcom03_hsperiph_get_functions_count,
+	.get_function_name	= mcom03_hsperiph_get_function_name,
+	.get_function_groups	= mcom03_hsperiph_get_function_groups,
+	.set_mux		= mcom03_hsperiph_mcom03_hsperiph_set_mux,
+};
+
 static const struct pinctrl_ops mcom03_hsperiph_pinctrl_ops = {
 	.dt_node_to_map		= pinconf_generic_dt_node_to_map_all,
 	.dt_free_map		= pinctrl_utils_free_map,
@@ -811,6 +940,7 @@ static struct pinctrl_desc mcom03_hsperiph_desc = {
 	.owner			= THIS_MODULE,
 	.pins			= mcom03_hsperiph_pins,
 	.npins			= ARRAY_SIZE(mcom03_hsperiph_pins),
+	.pmxops			= &mcom03_hsperiph_pinmux_ops,
 	.confops		= &mcom03_hsperiph_pinconf_ops,
 	.pctlops		= &mcom03_hsperiph_pinctrl_ops,
 	.num_custom_params	= ARRAY_SIZE(mcom03_hsperiph_custom_params),
