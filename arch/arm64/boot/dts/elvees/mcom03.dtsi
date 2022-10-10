@@ -289,6 +289,28 @@
 				 <&service_ucg1 SERVICE_QSPI0_EXT_CLK>;
 			num-cs = <4>;
 		};
+
+		mfbsp0_gpio: gpio-controller@0x1f0a1300 {
+			compatible = "elvees,mfbsp-gpio";
+			clocks = <&service_ucg1 SERVICE_MFBSP0_CLK>;
+			clock-names = "bus";
+			reg-names = "dat", "dirout";
+			reg = <0 0x1f0a1308 0 4>, <0 0x1f0a130c 0 4>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		mfbsp1_gpio: gpio-controller@0x1f0b1300 {
+			compatible = "elvees,mfbsp-gpio";
+			clocks = <&service_ucg1 SERVICE_MFBSP1_CLK>;
+			clock-names = "bus";
+			reg-names = "dat", "dirout";
+			reg = <0 0x1f0b1308 0 4>, <0 0x1f0b130c 0 4>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
 	};
 
 	media@1200000 {
