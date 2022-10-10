@@ -47,6 +47,13 @@ properties:
       ID of the controller. It's used to calculate offsets of registers in URB.
     enum: [ 0, 1 ]
 
+  elvees,clk-ref-alt:
+    description:
+      Use SoC internal PLL as USB ref clock source. Ref clock phandle in clocks
+      property must be changed appropriately. If USB 3.0 (SuperSpeed) is
+      required, this property must not be set and external clock generator for
+      ref clock must be used.
+
   resets:
     minItems: 1
 
@@ -71,7 +78,14 @@ additionalProperties: false
 
 examples:
   - |
+    # Using external clock generator as USB ref clock source
     #include <dt-bindings/soc/elvees,mcom03.h>
+
+    usb_ref_clk: usb_ref_clk {
+        #clock-cells = <0>;
+        compatible = "fixed-clock";
+        clock-frequency = <100000000>;
+    };
 
     usb0: usb@10000000 {
         #address-cells = <2>;
@@ -82,6 +96,31 @@ examples:
         clocks = <&usb_sys_clk>, <&usb_ref_clk>, <&usb_suspend_clk>;
         resets = <&hsperiph_reset HSPERIPH_RST_USB0>;
         elvees,urb = <&hsperiph_urb>;
+        elvees,ctrl-id = <0>;
+
+        dwc3@10000000 {
+            compatible = "snps,dwc3";
+            reg = <0 0x10000000 0 0x100000>;
+            interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+            snps,dis_u2_susphy_quirk;
+        };
+    };
+
+  - |
+    # Using SoC internal PLL as USB ref clock source
+    # ref clock phandle in clocks property changed to <&hsperiph_ucg3 HSP_USB0_REF_ALT_CLK>
+    #include <dt-bindings/soc/elvees,mcom03.h>
+
+    usb0: usb@10000000 {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+        compatible = "elvees,mcom03-dwc3";
+        clock-names = "sys", "ref", "suspend";
+        clocks = <&usb_sys_clk>, <&hsperiph_ucg3 HSP_USB0_REF_ALT_CLK>, <&usb_suspend_clk>;
+        resets = <&hsperiph_reset HSPERIPH_RST_USB0>;
+        elvees,urb = <&hsperiph_urb>;
+        elvees,clk-ref-alt;
         elvees,ctrl-id = <0>;
 
         dwc3@10000000 {
