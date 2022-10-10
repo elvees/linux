@@ -76,7 +76,6 @@ static int dwc3_mcom03_phy_init(struct device *dev,
 		return -EINVAL;
 	}
 
-	/* TODO: Only refclk from external pad is supported */
 	val = FIELD_PREP(USB_PHY_CTR_FSEL, phy_cfg[i].fsel) |
 	      FIELD_PREP(USB_PHY_CTR_MPLL_MULT, phy_cfg[i].mpll) |
 	      FIELD_PREP(USB_PHY_CTR_REF_CLKDIV2, phy_cfg[i].refclk_div) |
@@ -86,6 +85,9 @@ static int dwc3_mcom03_phy_init(struct device *dev,
 	      FIELD_PREP(USB_PHY_CTR_SSC_RANGE, 0) |
 	      FIELD_PREP(USB_PHY_CTR_SSC_REF_CLK_SEL,
 			 phy_cfg[i].ssc_refclk_sel);
+
+	if (of_property_read_bool(dev->of_node, "elvees,clk-ref-alt"))
+		val &= ~USB_PHY_CTR_REF_USE_PAD;
 
 	return regmap_write(priv->urb, USB_PHY_CTR_OFFSET(priv->ctrl_id), val);
 }
