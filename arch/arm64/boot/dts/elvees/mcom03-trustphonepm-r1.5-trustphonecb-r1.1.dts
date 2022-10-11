@@ -232,6 +232,9 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&tca9554_0_default>;
+		gpio-line-names = "GYRO_INT", "AUD_INT", "FP_INT", "FG_ALRT",
+				  "PROX_INT", "TOUCH_INT", "VOLUME_UP",
+				  "VOLUME_DOWN";
 	};
 
 	/* DD30 */
@@ -240,6 +243,9 @@
 		reg = <0x3e>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		gpio-line-names = "HRESET", "D_RESET", "TOUCH_RESET",
+				  "CAMR1_RESET", "CAMR2_RESET", "CAMF_RESET",
+				  "USB2SD_RESET", "AUD_nRESET";
 	};
 
 	wm8998: audio-codec@1a {
