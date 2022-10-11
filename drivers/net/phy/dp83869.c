@@ -30,6 +30,7 @@
 #define DP83869_RGMIICTL	0x0032
 #define DP83869_STRAP_STS1	0x006e
 #define DP83869_RGMIIDCTL	0x0086
+#define DP83869_PLLCTL		0x00c6
 #define DP83869_RXFCFG		0x0134
 #define DP83869_RXFPMD1		0x0136
 #define DP83869_RXFPMD2		0x0137
@@ -95,6 +96,9 @@
 #define DP83869_PHY_CTRL_DEFAULT	0x48
 #define DP83869_PHYCR_FIFO_DEPTH_MASK	GENMASK(15, 12)
 #define DP83869_PHYCR_RESERVED_MASK	BIT(11)
+
+/* PLLCTL bits */
+#define DP83869_PLLCTL_CLK_MUX_SHIFT		0x4
 
 /* IO_MUX_CFG bits */
 #define DP83869_IO_MUX_CFG_IO_IMPEDANCE_CTRL	0x1f
@@ -506,7 +510,7 @@ static int dp83869_of_init(struct phy_device *phydev)
 	/* Optional configuration */
 	ret = of_property_read_u32(of_node, "ti,clk-output-sel",
 				   &dp83869->clk_output_sel);
-	if (ret || dp83869->clk_output_sel > DP83869_CLK_O_SEL_REF_CLK)
+	if (ret || dp83869->clk_output_sel > DP83869_CLK_O_SEL_125MHZ)
 		dp83869->clk_output_sel = DP83869_CLK_O_SEL_REF_CLK;
 
 	ret = of_property_read_u32(of_node, "ti,op-mode", &dp83869->mode);
@@ -768,12 +772,33 @@ static int dp83869_config_init(struct phy_device *phydev)
 		dp83869_config_port_mirroring(phydev);
 
 	/* Clock output selection if muxing property is set */
-	if (dp83869->clk_output_sel != DP83869_CLK_O_SEL_REF_CLK)
+	if (dp83869->clk_output_sel == DP83869_CLK_O_SEL_125MHZ) {
+		/* The PLLCTL register is undocumented, but can be found in DP83867
+		   datasheet. It can be used to generate 125 MHz clock for RGMII mode
+		   MAC in absence of other means (e.g. MAC EEPROM or external oscillator) */
+		val = BIT(DP83869_PLLCTL_CLK_MUX_SHIFT);
+		ret = phy_write_mmd(phydev, DP83869_DEVADDR, DP83869_PLLCTL, val);
+		if (ret < 0)
+			return ret;
+
+		/* It's also necessary to set clock source in DP83869_IO_MUX_CFG
+		   register to any channel receive clock */
+		ret = phy_modify_mmd(phydev,
+				     DP83869_DEVADDR, DP83869_IO_MUX_CFG,
+				     DP83869_IO_MUX_CFG_CLK_O_SEL_MASK,
+				     DP83869_CLK_O_SEL_CHN_A_RCLK <<
+				     DP83869_IO_MUX_CFG_CLK_O_SEL_SHIFT);
+		if (ret < 0)
+			return ret;
+	} else if (dp83869->clk_output_sel != DP83869_CLK_O_SEL_REF_CLK) {
 		ret = phy_modify_mmd(phydev,
 				     DP83869_DEVADDR, DP83869_IO_MUX_CFG,
 				     DP83869_IO_MUX_CFG_CLK_O_SEL_MASK,
 				     dp83869->clk_output_sel <<
 				     DP83869_IO_MUX_CFG_CLK_O_SEL_SHIFT);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (phy_interface_is_rgmii(phydev)) {
 		ret = phy_write_mmd(phydev, DP83869_DEVADDR, DP83869_RGMIIDCTL,
