@@ -19,6 +19,25 @@
 		     "elvees,trustphonepm",
 		     "elvees,mcom03";
 
+	trustphonecb-leds {
+		compatible = "gpio-leds";
+
+		red {
+			gpios = <&mfbsp1_gpio 4 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		green {
+			gpios = <&mfbsp1_gpio 5 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		blue {
+			gpios = <&mfbsp1_gpio 6 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
 	adv7513_cec_clk: adv7513_cec_clk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
