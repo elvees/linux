@@ -299,3 +299,23 @@
 &uart2 {
 	status = "okay";
 };
+
+&mfbsp0_gpio {
+	status = "okay";
+
+	gpio-line-names = "", "SPIc_CLK", "SPIc_nCS1", "SPIc_nCS0",
+	"SPIc_MISO", "SPIc_MOSI", "", "SWITCH_SPI", "SWITCH_SPI_BTN",
+	"AUD_LDOEN", "", "", "", "", "", "", "", "", "", "", "", "", "",
+	"", "", "", "", "", "", "", "", "" ;
+	gpio-reserved-ranges = <0 7>, <10 22>;
+};
+
+&mfbsp1_gpio {
+	status = "okay";
+
+	gpio-line-names = "", "CUTTER_nRST", "FLASH_SYNC", "FLASH_GPIO",
+	"RGB_INDC_R", "RGB_INDC_G", "RGB_INDC_B", "LTE_nRESET",
+	"GPS_nRESET", "FP_nRST", "", "", "", "", "", "", "", "", "", "",
+	"", "", "", "", "", "", "", "", "", "", "", "" ;
+	gpio-reserved-ranges = <0 1>, <10 22>;
+};
