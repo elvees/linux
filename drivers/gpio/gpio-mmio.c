@@ -63,6 +63,7 @@ o        `                     ~~~~\___/~~~~    ` controller in FPGA is ,.`
 #include <linux/mod_devicetable.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/clk.h>
 
 static void bgpio_write8(void __iomem *reg, unsigned long data)
 {
@@ -719,6 +720,7 @@ static int bgpio_pdev_probe(struct platform_device *pdev)
 	int err;
 	struct gpio_chip *gc;
 	struct bgpio_pdata *pdata;
+	struct clk *clk;
 
 	pdata = bgpio_parse_dt(pdev, &flags);
 	if (IS_ERR(pdata))
@@ -759,9 +761,21 @@ static int bgpio_pdev_probe(struct platform_device *pdev)
 	if (!gc)
 		return -ENOMEM;
 
+	/* Optional bus clock */
+	clk = devm_clk_get(&pdev->dev, "bus");
+	if (!IS_ERR(clk)) {
+		err = clk_prepare_enable(clk);
+		if (err) {
+			dev_err(&pdev->dev, "Cannot enable clock\n");
+			return err;
+		}
+	}
+
 	err = bgpio_init(gc, dev, sz, dat, set, clr, dirout, dirin, flags);
-	if (err)
+	if (err) {
+		clk_disable_unprepare(clk);
 		return err;
+	}
 
 	if (pdata) {
 		if (pdata->label)
