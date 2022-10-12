@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpio/elvees,mfbsp-gpio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ELVEES MFBSP-GPIO controller
+
+maintainers:
+  - Ilya Popov <ipopov@elvees.com>
+
+description: |+
+  Bindings for the ELVEES MFBSP-GPIO controller.
+
+  These bindings can be used on MCom-03 SoC.
+
+  MFBSP is multifunctional device, but MFBSP-GPIO driver is agnostic to other
+  functions. MFBSP-GPIO driver is based on Generic GPIO driver. MFBSP-GPIO
+  supports maximum of 10 gpio lines. If I2S/SPI function of MFBSP is used
+  only 4 GPIO lines (LDAT4...LDAT7) should be used according to SoC
+  documentation. If CAN or LPORT function of MFBSP is used then no GPIO lines
+  should be used.
+
+properties:
+  compatible:
+    enum:
+      - elvees,mfbsp-gpio
+
+  gpio-controller: true
+
+  "#gpio-cells":
+    const: 2
+
+  gpio-reserved-ranges:
+    maxItems: 2
+    description: |
+      Usage of MFBSP-GPIO lines must be restricted if other functions of MFBSP
+      are used. See gpio.txt for more information on how to use this option.
+
+  native-endian: true
+
+  reg:
+    maxItems: 2
+
+  reg-names:
+    items:
+      - const: dat
+      - const: dirout
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: bus
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - gpio-controller
+  - '#gpio-cells'
+  - clocks
+  - clock-names
+
+
+additionalProperties: false
+
+examples:
+  - |
+    gpio-controller@0x1f0a1300 {
+      compatible = "evlees,mfbsp-gpio";
+      reg-names = "dat", "dirout";
+      clocks = <&service_ucg1 5>;
+      clock-names = "bus";
+      reg = <0 0x1f0a1308 0 4>, <0 0x1f0a130c 0 4>;
+      gpio-controller;
+      #gpio-cells = <2>;
+      gpio-reserved-ranges = <0 6>, <10 21>;
+    };
