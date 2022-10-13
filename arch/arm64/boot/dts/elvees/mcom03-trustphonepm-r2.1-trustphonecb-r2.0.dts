@@ -1,0 +1,333 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/mfd/arizona.h>
+
+#include "mcom03-trustphonepm-r2.1.dtsi"
+
+/ {
+	model = "Trustphone PM r2.1, Trustphone CB r2.0";
+	compatible = "elvees,trustphonepm-r2.1-trustphonecb-r2.0",
+		     "elvees,trustphonepm-trustphonecb",
+		     "elvees,trustphonecb-r2.0",
+		     "elvees,trustphonecb",
+		     "elvees,trustphonepm-r2.1",
+		     "elvees,trustphonepm",
+		     "elvees,mcom03";
+
+	trustphonecb-leds {
+		compatible = "gpio-leds";
+
+		red {
+			gpios = <&mfbsp1_gpio 4 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		green {
+			gpios = <&mfbsp1_gpio 5 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		blue {
+			gpios = <&mfbsp1_gpio 6 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	/* regulator@0 is described in mcom03-trustphonepm-r2.1.dtsi */
+	wm8998_supply_core: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "wm8998-supply-core";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	wm8998_supply_speaker: regulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "wm8998-supply-speaker";
+		regulator-min-microvolt = <4000000>;
+		regulator-max-microvolt = <4000000>;
+		regulator-always-on;
+	};
+
+	soundcard@0 {
+		compatible = "elvees,trustphone-wm8998";
+
+		model = "Trustphone WM8998";
+
+		elvees,audio-routing =
+			"Modem Out", "Modem TX",
+			"Modem RX", "Modem In",
+			"AIF2 Capture", "Modem Out",
+			"Modem RX", "AIF2 Playback",
+			"IN2B", "MICBIAS1",
+			"IN1BL", "MICVDD";
+
+		codec {
+			sound-dai = <&wm8998>;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>,
+		   <&gpio0c 6 GPIO_ACTIVE_LOW>, <&gpio0c 7 GPIO_ACTIVE_LOW>;
+
+	/* DD22 */
+	mcp23s08: gpio-expander@1 {
+		compatible = "microchip,mcp23s08";
+		reg = <1>;
+		#gpio-cells = <2>;
+		gpio-controller;
+
+		/* Maximum frequency is 5 MHz if VDD=1.8V */
+		spi-max-frequency = <5000000>;
+		microchip,spi-present-mask = <0x1>;
+		gpio-line-names = "CAMR_CUT", "CAMF_CUT", "WIFI_CUT",
+				  "SPEAKER_CUT", "MIC_CUT", "GIRO_CUT",
+				  "GPS_CUT", "VIBRO_CUT";
+	};
+
+	/* DD12 */
+	gnss@3 {
+		compatible = "u-blox,zoe-m8b-spi";
+		reg = <3>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+/* GPIO lines are named after their connection name either on Trusphone PM or
+ * on Trusphone CB. */
+&gpio0a {
+	gpio-line-names = "BT_UART_RX", "BT_UART_TX", "BT_UART_CTS", "HDMI_INT",
+		"RTC_MFP", "PMIC1_INTB", "RGMII_INT", "BT_UART_RTS";
+};
+
+&gpio0b {
+	gpio-line-names = "CHG_EN", "CHG_DSEL", "CHG_QON", "CHG_STATUS", "TE",
+		"UART1_RX", "UART1_TX", "UART2_RX";
+};
+
+&gpio0c {
+	gpio-line-names = "SPI0_CLK", "SPI0_MOSI", "SPI0_MISO", "LTE_AP_READY",
+		"SPI0_nCS_FP", "SPI0_nCS_CUT", "SPI0_nCS_GYRO", "SPI0_nCS_GNSS";
+};
+
+&gpio0d {
+	gpio-line-names = "UART2_TX", "DSP_HWEN", "CAMR_PWDN", "I2C0_SCL",
+		"I2C0_SDA", "I2C0_ALERT", "CAMF_PWDN", "EN_CAMF_CLK";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "BT_HOST_WAKE",
+		"WL_HOST_WAKE", "INT_EXP_INT", "TPS_INT", "CHG_INT",
+		"PWR_BUT_INT";
+};
+
+&gpio1b {
+	gpio-line-names = "I2S0_SCLKO", "I2S0_WSO", "I2S0_SDO0", "I2S0_SDO1",
+		"I2S0_SDI", "I2S0_SCLK_IN", "UART0_TX", "UART0_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "EN_CAMR_CLK", "BT_DEV_WAKE", "CSI_SEL", "CSI_nOE",
+		"WIFI_nPWD", "RGMII_nRESET", "WL_DEV_WAKE", "";
+};
+
+&gpio1d {
+	gpio-line-names = "CAMR2_FSIN", "", "DSP_PWM", "VIBRO_PWM",
+		"LTE_PWR_ON", "D_GPIO", "D_RAIL_EN", "GPS_SAFEBOOT";
+
+	/* GPS_SAFEBOOT is used to choose GNSS receiver mode: normal (high
+	 * level) or QSPI programming. Move GNSS receiver to 'normal mode'.
+	 */
+	gps-safeboot-hog {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+/* Connected to USB hub */
+&usb1 {
+	status = "okay";
+};
+
+/* pinctrl driver doesn't enable pad receiver when GPIO pin is requested as an
+ * interrupt. This is a workaround for this issue.
+ */
+&lsperiph1_pinctrl {
+	tca9554_0_default: tca9554_0-cfg {
+		pins = "GPIOA_4";
+		input-enable;
+	};
+};
+
+&i2c01 {
+	/* DA41 */
+	wm8998: audio-codec@1a {
+		compatible = "wlf,wm8998";
+		reg = <0x1a>;
+		interrupts-extended = <&tca9554_0 1 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		reset-gpios = <&tca9554_1 7 0>;
+		#sound-dai-cells = <0>;
+
+		AVDD-supply = <&wm8998_supply_core>;
+		CPVDD-supply = <&wm8998_supply_core>;
+		DBVDD1-supply = <&wm8998_supply_core>;
+		DBVDD2-supply = <&wm8998_supply_core>;
+		DBVDD3-supply = <&wm8998_supply_core>;
+		LDOVDD-supply = <&wm8998_supply_core>;
+		SPKVDDL-supply = <&wm8998_supply_speaker>;
+		SPKVDDR-supply = <&wm8998_supply_speaker>;
+
+		wlf,inmode = <1 1 1 1>;
+		wlf,clk32k-source = <ARIZONA_32KZ_NONE>;
+	};
+};
+
+&i2c1 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	/* DD24 */
+	tca9554_0: gpio-expander@3c {
+		compatible = "ti,tca9554";
+		reg = <0x3c>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		gpio-line-names = "GYRO_INT", "AUD_INT", "FP_INT", "FG_ALRT",
+				  "PROX_INT", "TOUCH_INT", "VOLUME_UP",
+				  "VOLUME_DOWN";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&tca9554_0_default>;
+	};
+
+	/* DD25 */
+	tca9554_1: gpio-expander@3e {
+		compatible = "ti,tca9554";
+		reg = <0x3e>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-line-names = "HRESET", "D_RESET", "TOUCH_RESET",
+				  "CAMR1_RESET", "CAMR2_RESET", "CAMF_RESET",
+				  "USB2SD_RESET", "AUD_nRESET";
+	};
+
+	/* DD26 */
+	i2c-switch@74 {
+		compatible = "pericom,pi4msd5v9540", "nxp,pca9540";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x74>;
+
+		i2c_camr: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c_camf: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+	};
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+&emac0 {
+	status = "okay";
+};
+
+&adv7513 {
+	status = "okay";
+
+	port@0 {
+		reg = <0>;
+		adv7513_in: endpoint {
+			remote-endpoint = <&rgb_out>;
+		};
+	};
+};
+
+&display_encoder {
+	status = "okay";
+	video-output = "rgb";
+
+	ports {
+		port@2 {
+			reg = <2>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
+	};
+};
+
+&dp {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
+
+&csi1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&mfbsp0_gpio {
+	status = "okay";
+
+	gpio-line-names = "", "SPIc_CLK", "SPIc_nCS1", "SPIc_nCS0",
+		"SPIc_MISO", "SPIc_MOSI", "", "SWITCH_SPI", "SWITCH_SPI_BTN",
+		"AUD_LDOEN", "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "", "";
+
+	gpio-reserved-ranges = <0 7>, <10 22>;
+};
+
+&mfbsp1_gpio {
+	status = "okay";
+
+	gpio-line-names = "", "CUTTER_nRST", "FLASH_SYNC", "FLASH_GPIO",
+		"RGB_INDC_R", "RGB_INDC_G", "RGB_INDC_B", "LTE_nRESET",
+		"GPS_nRESET", "FP_nRST", "", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "", "", "", "", "";
+
+	gpio-reserved-ranges = <0 1>, <10 22>;
+};

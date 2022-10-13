@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "Trustphone PM r2.1";
+	compatible = "elvees,trustphonepm-r2.1",
+		     "elvees,trustphonepm",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	adv7513_cec_clk: adv7513_cec_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12000000>;
+	};
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	/delete-node/ sdr@1900000;
+};
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio1c 5 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <100>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		reg = <0>;
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
+		interrupt-parent = <&gpio0a>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl256s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
+
+&sdhci0 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&i2c0 {
+	status = "okay";
+
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+
+	i2c-switch@74 {
+		compatible = "nxp,pca9546";
+		reg = <0x74>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* i2c01 is used for TrustphoneCB */
+		i2c01: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		/* i2c02 doesn't connect to TrustphoneCB and is used for
+		 * HDMI transmitter and RTC on TrustphonePM */
+		i2c02: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			adv7513: hdmi@39 {
+				compatible = "adi,adv7513";
+				status = "disabled";
+				reg = <0x39>, <0x3f>;
+				reg-names = "main", "edid";
+				interrupt-parent = <&gpio0a>;
+				interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+				clocks = <&adv7513_cec_clk>;
+				clock-names = "cec";
+				adi,input-depth = <8>;
+				adi,input-colorspace = "rgb";
+				adi,input-clock = "1x";
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			mcp7940n: rtc@6f {
+				compatible = "microchip,mcp7940x";
+				reg = <0x6f>;
+				interrupt-parent = <&gpio0a>;
+				interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
+			};
+		};
+
+		/* i2c03 is used for TrustphoneCB */
+		i2c03: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+	};
+};
