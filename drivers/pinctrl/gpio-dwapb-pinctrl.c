@@ -954,6 +954,14 @@ static int dwapb_pinctrl_generic_request(struct gpio_chip *chip,
 	return gpiochip_generic_request(chip, offset);
 }
 
+void dwapb_pinctrl_device_release_action(void *data)
+{
+	/*
+	 * This leads to automatically calling devm_pinctrl_dev_release()
+	 */
+	device_unregister(data);
+}
+
 static int dwapb_add_pinctrl(struct dwapb_gpio *gpio,
 			     struct dwapb_port_property *pp,
 			     struct dwapb_gpio_port *port)
@@ -971,6 +979,9 @@ static int dwapb_add_pinctrl(struct dwapb_gpio *gpio,
 
 	port->pinctrl.mux_individual_pins = pp->mux_individual_pins;
 
+	/*
+	 * Allocate memory for pinctrl device as a devres.
+	 */
 	dev = devm_kzalloc(gpio->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -1010,6 +1021,22 @@ static int dwapb_add_pinctrl(struct dwapb_gpio *gpio,
 	if (ret) {
 		dev_err(gpio->dev, "Failed to enable %s\n",
 			dwapb_pinctrl_names[pp->idx]);
+		return ret;
+	}
+
+	/*
+	 * Adding this action after registering dynamically created device(dev)
+	 * to the gpio->dev will insure us that device_unregister(dev) will
+	 * happen before releasing the memory allocated for it.
+	 *
+	 * This will lead to proper unregisterating pinctrl devices.
+	 */
+	ret = devm_add_action_or_reset(gpio->dev,
+				       dwapb_pinctrl_device_release_action,
+				       dev);
+	if (ret) {
+		dev_err(gpio->dev, "Unable to add release action for pinctrl on port %c, error code %d.\n",
+			pp->idx + 'A', ret);
 		return ret;
 	}
 
