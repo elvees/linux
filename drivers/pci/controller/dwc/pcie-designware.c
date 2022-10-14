@@ -554,11 +554,14 @@ void dw_pcie_setup(struct dw_pcie *pci)
 	if (pci->version >= 0x480A || (!pci->version &&
 				       dw_pcie_iatu_unroll_enabled(pci))) {
 		pci->iatu_unroll_enabled = true;
-		if (!pci->atu_base)
-			pci->atu_base =
-			    devm_platform_ioremap_resource_byname(pdev, "atu");
-		if (IS_ERR(pci->atu_base))
-			pci->atu_base = pci->dbi_base + DEFAULT_DBI_ATU_OFFSET;
+		if (!pci->atu_base) {
+			struct resource *res =
+				platform_get_resource_byname(pdev, IORESOURCE_MEM, "atu");
+			if (res)
+				pci->atu_base = devm_ioremap_resource(dev, res);
+			if (!pci->atu_base || IS_ERR(pci->atu_base))
+				pci->atu_base = pci->dbi_base + DEFAULT_DBI_ATU_OFFSET;
+		}
 	}
 	dev_dbg(pci->dev, "iATU unroll: %s\n", pci->iatu_unroll_enabled ?
 		"enabled" : "disabled");
