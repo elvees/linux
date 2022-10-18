@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/mfd/arizona.h>
+#include <dt-bindings/input/linux-event-codes.h>
 
 #include "mcom03-trustphonepm-r2.1.dtsi"
 
@@ -35,6 +36,31 @@
 		blue {
 			gpios = <&mfbsp1_gpio 6 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
+		};
+	};
+
+	trustphonecb_gpio_keys: gpio-keys {
+		compatible = "gpio-keys";
+		autorepeat;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwr_button_cfg_default &gpio_pwr_button_mux>;
+
+		power-button {
+			label = "Power button";
+			linux,code = <KEY_POWER>;
+			interrupts-extended = <&gpio1a 7 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		volume-up {
+			label = "Volume up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&tca9554_0 6 GPIO_ACTIVE_LOW>;
+		};
+
+		volume-down {
+			label = "Volume down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&tca9554_0 7 GPIO_ACTIVE_LOW>;
 		};
 	};
 
@@ -133,6 +159,12 @@
 	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "BT_HOST_WAKE",
 		"WL_HOST_WAKE", "INT_EXP_INT", "TPS_INT", "CHG_INT",
 		"PWR_BUT_INT";
+
+	gpio_pwr_button_mux: pwr-button {
+		gpio {
+			groups = "pin7";
+		};
+	};
 };
 
 &gpio1b {
@@ -170,6 +202,11 @@
 &lsperiph1_pinctrl {
 	tca9554_0_default: tca9554_0-cfg {
 		pins = "GPIOA_4";
+		input-enable;
+	};
+
+	pwr_button_cfg_default: gpioa1-power-cfg {
+		pins = "GPIOA_7";
 		input-enable;
 	};
 };
