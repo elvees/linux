@@ -756,6 +756,16 @@ config LEDS_NIC78BX
 	  To compile this driver as a module, choose M here: the module
 	  will be called leds-nic78bx.
 
+config LEDS_TPS6105X_FLASH
+	tristate "LED support for TI TPS6105X"
+	depends on LEDS_CLASS
+	depends on LEDS_CLASS_FLASH
+	default y if TPS6105X
+	help
+		This driver supports TPS61050/TPS61052 LED chips in FLASH mode.
+		It is a single boost converter primarily for white LEDs and
+		audio amplifiers.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
