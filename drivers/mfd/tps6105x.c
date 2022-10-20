@@ -76,6 +76,7 @@ static struct mfd_cell tps6105x_leds_cell = {
 
 static struct mfd_cell tps6105x_flash_cell = {
 	.name = "tps6105x-flash",
+	.of_compatible = "ti,tps6105x-flash",
 };
 
 static struct mfd_cell tps6105x_regulator_cell = {
@@ -113,6 +114,8 @@ static struct tps6105x_platform_data *tps6105x_parse_dt(struct device *dev)
 			pdata->mode = TPS6105X_MODE_VOLTAGE;
 		else if (child->name && !of_node_cmp(child->name, "led"))
 			pdata->mode = TPS6105X_MODE_TORCH;
+		else if (child->name && !of_node_cmp(child->name, "flash"))
+			pdata->mode = TPS6105X_MODE_TORCH_FLASH;
 	}
 
 	return pdata;
