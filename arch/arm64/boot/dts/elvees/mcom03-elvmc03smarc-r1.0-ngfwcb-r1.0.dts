@@ -251,6 +251,8 @@
 
 				lan7431@7,0 {
 					reg = <0 0 0 0 0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
 					phy-connection-type = "rgmii-rxid";
 					phy-handle = <&ethernet_phy>;
 
