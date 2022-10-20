@@ -322,6 +322,7 @@ SND_SOC_DAPM_OUTPUT("HPL"),
 SND_SOC_DAPM_OUTPUT("HPR"),
 SND_SOC_DAPM_OUTPUT("SPKOUT"),
 SND_SOC_DAPM_OUTPUT("SPKOUTN"),
+SND_SOC_DAPM_OUTPUT("I2SOUT"),
 SND_SOC_DAPM_INPUT("LINEINL"),
 SND_SOC_DAPM_INPUT("LINEINR"),
 SND_SOC_DAPM_INPUT("AUXINL"),
@@ -446,9 +447,13 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* left ADC */
 	{"Left ADC", NULL,				"Left Capture Mix"},
+	{"I2S Mix", NULL,				"Left ADC"},
 
 	/* right ADC */
 	{"Right ADC", NULL,				"Right Capture Mix"},
+	{"I2S Mix", NULL,				"Right ADC"},
+
+	{"I2SOUT", NULL,				"I2S Mix"},
 
 	{"SpeakerOut N Mux", "RN/-R",			"SpeakerOut"},
 	{"SpeakerOut N Mux", "RP/+R",			"SpeakerOut"},
