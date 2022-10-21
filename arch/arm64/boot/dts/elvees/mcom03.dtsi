@@ -2094,6 +2094,13 @@
 				};
 			};
 		};
+
+		pwm: pwm@0x1770000 {
+			compatible = "elvees,mcom-pwm";
+			reg = <0 0x1770000 0 0x1000>;
+			#pwm-cells = <2>;
+			clocks = <&lsperiph1_ucg0 LSP1_PWM0_CLK>;
+		};
 	};
 
 	xti_clk: xti_clk {
