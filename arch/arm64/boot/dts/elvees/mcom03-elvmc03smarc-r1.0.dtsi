@@ -8,6 +8,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/thermal/thermal.h>
 
 #include "mcom03.dtsi"
 
@@ -79,6 +80,23 @@
 			sound-dai = <&adv7513>;
 		};
 	};
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			thermal-sensors = <&pvt 0>;
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			trips {
+				cpu_alert0: cpu-alert-0 {
+					temperature = <50000>;
+					hysteresis = <1000>;
+					type = "active";
+				};
+			};
+		};
+	};
+
 };
 
 /* TODO: How to distinguish internal lines from external? How to distinguish

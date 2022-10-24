@@ -247,7 +247,7 @@
 			clocks = <&service_ucg1 SERVICE_APB_CLK>;
 		};
 
-		pvt@1f050000 {
+		pvt: pvt@1f050000 {
 			compatible = "moortec,mr75202";
 			reg = <0 0x1f050000 0 0x1000>;
 			clocks = <&service_ucg1 SERVICE_PVTCTR_CLK>;
