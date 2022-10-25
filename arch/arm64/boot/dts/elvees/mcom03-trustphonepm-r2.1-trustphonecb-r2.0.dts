@@ -278,6 +278,10 @@
 
 	tps65982_default: tps65982-cfg {
 		pins = "GPIOA_5";
+	};
+
+	bq25895_default: bq25895_default-cfg {
+		pins = "GPIOA_6";
 		input-enable;
 	};
 
@@ -344,6 +348,27 @@
 		maxim,rsns-microohm = <10000>;
 		maxim,over-heat-temp = <600>;
 		maxim,over-volt = <4300>;
+	};
+
+	bq25890: charger@6a {
+		compatible = "ti,bq25890";
+		reg = <0x6a>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bq25895_default>;
+
+		// for Robiton Li-Polymer LP855080 battery
+		ti,battery-regulation-voltage = <4200000>;
+		ti,charge-current = <4100000>;
+		ti,termination-current = <41000>;
+		ti,precharge-current = <128000>;
+		ti,minimum-sys-voltage = <3400000>;
+		ti,boost-voltage = <5000000>;
+		ti,boost-max-current = <2400000>;
+
+		ti,use-ilim-pin;
+		ti,thermal-regulation-threshold = <70>;
 	};
 };
 
