@@ -360,6 +360,20 @@
 		amstaos,proximity-diodes = <0 1>;
 		led-max-microamp = <100000>;
 	};
+
+	tps61050: flash@33 {
+		compatible = "ti,tps61050";
+		reg = <0x33>;
+
+		flash {
+			compatible = "ti,tps6105x-flash";
+			ti,edge-sensitive;
+			label = "flash-led";
+			led-max-microamp = <500000>;
+			flash-max-microamp = <1200000>;
+			flash-max-timeout-us = <900000>;
+		};
+	};
 };
 
 &hsperiph_pinctrl {
