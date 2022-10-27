@@ -83,8 +83,26 @@
 	};
 };
 
+
+&lsperiph1_pinctrl {
+	emac0_int_cfg: emac0-int-cfg {
+		phy {
+			pins = "GPIOA_6";
+			input-enable;
+		};
+	};
+
+	emac1_int_cfg: emac1-int-cfg {
+		phy {
+			pins = "GPIOA_7";
+			input-enable;
+		};
+	};
+};
+
 &emac0 {
 	status = "okay";
+	pinctrl-0 = <&emac0_default &emac0_int_cfg>;
 	phy-handle = <&ethernet_phy0>;
 	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
 
@@ -119,6 +137,7 @@
 
 &emac1 {
 	status = "okay";
+	pinctrl-0 = <&emac1_default &emac1_int_cfg>;
 	phy-handle = <&ethernet_phy1>;
 	reset-gpios = <&gpio0c 7 GPIO_ACTIVE_LOW>;
 
