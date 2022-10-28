@@ -107,6 +107,8 @@
 #define TSL2772_ALS_GAIN_TRIM_MIN	250
 #define TSL2772_ALS_GAIN_TRIM_MAX	4000
 
+#define TSL2772_MAX_PROX_LEDS		2
+
 /* Device family members */
 enum {
 	tsl2571,
@@ -118,7 +120,8 @@ enum {
 	tsl2672,
 	tmd2672,
 	tsl2772,
-	tmd2772
+	tmd2772,
+	apds9930,
 };
 
 enum {
@@ -139,6 +142,14 @@ struct tsl2772_chip_info {
 	struct iio_chan_spec channel_with_events[4];
 	struct iio_chan_spec channel_without_events[4];
 	const struct iio_info *info;
+};
+
+static const int tsl2772_led_currents[][2] = {
+	{ 100000, TSL2772_100_mA },
+	{  50000, TSL2772_50_mA },
+	{  25000, TSL2772_25_mA },
+	{  13000, TSL2772_13_mA },
+	{      0, 0 }
 };
 
 struct tsl2772_chip {
@@ -197,6 +208,12 @@ static const struct tsl2772_lux tmd2x72_lux_table[TSL2772_DEF_LUX_TABLE_SZ] = {
 	{     0,      0 },
 };
 
+static const struct tsl2772_lux apds9930_lux_table[TSL2772_DEF_LUX_TABLE_SZ] = {
+	{ 52000,  96824 },
+	{ 38792,  67132 },
+	{     0,      0 },
+};
+
 static const struct tsl2772_lux *tsl2772_default_lux_table_group[] = {
 	[tsl2571] = tsl2x71_lux_table,
 	[tsl2671] = tsl2x71_lux_table,
@@ -208,6 +225,7 @@ static const struct tsl2772_lux *tsl2772_default_lux_table_group[] = {
 	[tmd2672] = tmd2x72_lux_table,
 	[tsl2772] = tsl2x72_lux_table,
 	[tmd2772] = tmd2x72_lux_table,
+	[apds9930] = apds9930_lux_table,
 };
 
 static const struct tsl2772_settings tsl2772_default_settings = {
@@ -258,6 +276,7 @@ static const int tsl2772_int_time_avail[][6] = {
 	[tmd2672] = { 0, 2730, 0, 2730, 0, 699000 },
 	[tsl2772] = { 0, 2730, 0, 2730, 0, 699000 },
 	[tmd2772] = { 0, 2730, 0, 2730, 0, 699000 },
+	[apds9930] = { 0, 2730, 0, 2730, 0, 699000 },
 };
 
 static int tsl2772_int_calibscale_avail[] = { 1, 8, 16, 120 };
@@ -283,7 +302,8 @@ static const u8 device_channel_config[] = {
 	[tsl2672] = PRX2,
 	[tmd2672] = PRX2,
 	[tsl2772] = ALSPRX2,
-	[tmd2772] = ALSPRX2
+	[tmd2772] = ALSPRX2,
+	[apds9930] = ALSPRX2,
 };
 
 static int tsl2772_read_status(struct tsl2772_chip *chip)
@@ -497,6 +517,7 @@ static int tsl2772_get_prox(struct iio_dev *indio_dev)
 	case tmd2672:
 	case tsl2772:
 	case tmd2772:
+	case apds9930:
 		if (!(ret & TSL2772_STA_PRX_VALID)) {
 			ret = -EINVAL;
 			goto prox_poll_err;
@@ -513,6 +534,75 @@ prox_poll_err:
 	mutex_unlock(&chip->prox_mutex);
 
 	return ret;
+}
+
+static int tsl2772_read_prox_led_current(struct tsl2772_chip *chip)
+{
+	struct device_node *of_node = chip->client->dev.of_node;
+	int ret, tmp, i;
+
+	ret = of_property_read_u32(of_node, "led-max-microamp", &tmp);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; tsl2772_led_currents[i][0] != 0; i++) {
+		if (tmp == tsl2772_led_currents[i][0]) {
+			chip->settings.prox_power = tsl2772_led_currents[i][1];
+			return 0;
+		}
+	}
+
+	dev_err(&chip->client->dev, "Invalid value %d for led-max-microamp\n",
+		tmp);
+
+	return -EINVAL;
+
+}
+
+static int tsl2772_read_prox_diodes(struct tsl2772_chip *chip)
+{
+	struct device_node *of_node = chip->client->dev.of_node;
+	int i, ret, num_leds, prox_diode_mask;
+	u32 leds[TSL2772_MAX_PROX_LEDS];
+
+	ret = of_property_count_u32_elems(of_node, "amstaos,proximity-diodes");
+	if (ret < 0)
+		return ret;
+
+	num_leds = ret;
+	if (num_leds > TSL2772_MAX_PROX_LEDS)
+		num_leds = TSL2772_MAX_PROX_LEDS;
+
+	ret = of_property_read_u32_array(of_node, "amstaos,proximity-diodes",
+					 leds, num_leds);
+	if (ret < 0) {
+		dev_err(&chip->client->dev,
+			"Invalid value for amstaos,proximity-diodes: %d.\n",
+			ret);
+		return ret;
+	}
+
+	prox_diode_mask = 0;
+	for (i = 0; i < num_leds; i++) {
+		if (leds[i] == 0)
+			prox_diode_mask |= TSL2772_DIODE0;
+		else if (leds[i] == 1)
+			prox_diode_mask |= TSL2772_DIODE1;
+		else {
+			dev_err(&chip->client->dev,
+				"Invalid value %d in amstaos,proximity-diodes.\n",
+				leds[i]);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static void tsl2772_parse_dt(struct tsl2772_chip *chip)
+{
+	tsl2772_read_prox_led_current(chip);
+	tsl2772_read_prox_diodes(chip);
 }
 
 /**
@@ -541,6 +631,8 @@ static void tsl2772_defaults(struct tsl2772_chip *chip)
 		memcpy(chip->tsl2772_device_lux,
 		       tsl2772_default_lux_table_group[chip->id],
 		       TSL2772_DEFAULT_TABLE_BYTES);
+
+	tsl2772_parse_dt(chip);
 }
 
 /**
@@ -1267,6 +1359,7 @@ static int tsl2772_device_id_verif(int id, int target)
 	case tmd2672:
 	case tsl2772:
 	case tmd2772:
+	case apds9930:
 		return (id & 0xf0) == SWORDFISH_ID;
 	}
 
@@ -1768,6 +1861,7 @@ static const struct i2c_device_id tsl2772_idtable[] = {
 	{ "tmd2672", tmd2672 },
 	{ "tsl2772", tsl2772 },
 	{ "tmd2772", tmd2772 },
+	{ "apds9930", apds9930},
 	{}
 };
 
@@ -1784,6 +1878,7 @@ static const struct of_device_id tsl2772_of_match[] = {
 	{ .compatible = "amstaos,tmd2672" },
 	{ .compatible = "amstaos,tsl2772" },
 	{ .compatible = "amstaos,tmd2772" },
+	{ .compatible = "avago,apds9930" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, tsl2772_of_match);
