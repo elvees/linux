@@ -41,6 +41,7 @@
 #define DP83869_IO_MUX_CFG	0x0170
 #define DP83869_OP_MODE		0x01df
 #define DP83869_FX_CTRL		0x0c00
+#define DP83869_FX_STS		0x0c01
 
 #define DP83869_SW_RESET	BIT(15)
 #define DP83869_SW_RESTART	BIT(14)
@@ -138,6 +139,9 @@
 #define DP83869_DOWNSHIFT_4_COUNT	4
 #define DP83869_DOWNSHIFT_8_COUNT	8
 
+/* FX_STS bits */
+#define DP83869_FX_STS_LINK_STS		BIT(2)
+
 enum {
 	DP83869_PORT_MIRRORING_KEEP,
 	DP83869_PORT_MIRRORING_EN,
@@ -159,13 +163,19 @@ struct dp83869_private {
 static int dp83869_read_status(struct phy_device *phydev)
 {
 	struct dp83869_private *dp83869 = phydev->priv;
-	int ret;
+	int ret, val;
 
 	ret = genphy_read_status(phydev);
 	if (ret)
 		return ret;
 
-	if (linkmode_test_bit(ETHTOOL_LINK_MODE_FIBRE_BIT, phydev->supported)) {
+	switch (dp83869->mode) {
+	case DP83869_RGMII_100_BASE:
+	case DP83869_RGMII_1000_BASE:
+	case DP83869_RGMII_SGMII_BRIDGE:
+		val = phy_read_mmd(phydev, DP83869_DEVADDR, DP83869_FX_STS);
+		phydev->link = !!(val & DP83869_FX_STS_LINK_STS);
+
 		if (phydev->link) {
 			if (dp83869->mode == DP83869_RGMII_100_BASE)
 				phydev->speed = SPEED_100;
@@ -173,6 +183,7 @@ static int dp83869_read_status(struct phy_device *phydev)
 			phydev->speed = SPEED_UNKNOWN;
 			phydev->duplex = DUPLEX_UNKNOWN;
 		}
+		break;
 	}
 
 	return 0;
