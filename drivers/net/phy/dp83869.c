@@ -158,6 +158,8 @@ struct dp83869_private {
 	bool rxctrl_strap_quirk;
 	int clk_output_sel;
 	int mode;
+	int default_mode;
+	int phys_port;
 };
 
 static int dp83869_read_status(struct phy_device *phydev)
@@ -534,6 +536,7 @@ static int dp83869_of_init(struct phy_device *phydev)
 		if (ret)
 			return ret;
 	}
+	dp83869->default_mode = dp83869->mode;
 
 	if (of_property_read_bool(of_node, "ti,max-output-impedance"))
 		dp83869->io_impedance = DP83869_IO_MUX_CFG_IO_IMPEDANCE_MAX;
@@ -839,6 +842,38 @@ static int dp83869_config_init(struct phy_device *phydev)
 	return ret;
 }
 
+int dp83869_config_tp(struct phy_device *phydev)
+{
+	struct dp83869_private *dp83869 = phydev->priv;
+
+	dp83869->mode = dp83869->default_mode;
+	phydev->autoneg = AUTONEG_ENABLE;
+
+	linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, phydev->supported);
+	linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, phydev->advertising);
+
+	return dp83869_config_init(phydev);
+}
+
+int dp83869_config_sgmii(struct phy_device *phydev)
+{
+	struct dp83869_private *dp83869 = phydev->priv;
+	int ret;
+
+	dp83869->mode = DP83869_RGMII_SGMII_BRIDGE;
+	phydev->autoneg = AUTONEG_DISABLE;
+
+	/* RGMII/SGMII bridge mode doesn't support autonegotiation */
+	linkmode_clear_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, phydev->supported);
+	linkmode_clear_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, phydev->advertising);
+
+	ret = dp83869_config_init(phydev);
+	if (ret < 0)
+		return ret;
+
+	return phy_modify(phydev, MII_BMCR, BMCR_ANENABLE, 0);
+}
+
 static int dp83869_probe(struct phy_device *phydev)
 {
 	struct dp83869_private *dp83869;
@@ -859,6 +894,10 @@ static int dp83869_probe(struct phy_device *phydev)
 	    dp83869->mode == DP83869_RGMII_1000_BASE)
 		phydev->port = PORT_FIBRE;
 
+	/* We need to set Fibre bit even if Fibre mode isn't actually used to
+	 * allow port switching via ethtool */
+	linkmode_set_bit(ETHTOOL_LINK_MODE_FIBRE_BIT, phydev->supported);
+
 	return dp83869_config_init(phydev);
 }
 
@@ -876,6 +915,30 @@ static int dp83869_phy_reset(struct phy_device *phydev)
 	 * Need to set the registers in the PHY to the right config.
 	 */
 	return dp83869_config_init(phydev);
+}
+
+int dp83869_config_aneg(struct phy_device *phydev)
+{
+	struct dp83869_private *dp83869 = phydev->priv;
+	int ret;
+
+	if (phydev->port != dp83869->phys_port) {
+		if (phydev->port == PORT_TP) {
+			ret = dp83869_config_tp(phydev);
+			if (ret)
+				return ret;
+		} else if (phydev->port == PORT_FIBRE) {
+			ret = dp83869_config_sgmii(phydev);
+			if (ret)
+				return ret;
+		} else {
+			phydev_err(phydev, "Unsupported port %x\n", phydev->port);
+			return -EINVAL;
+		}
+		dp83869->phys_port = phydev->port;
+	}
+
+	return genphy_config_aneg(phydev);
 }
 
 static struct phy_driver dp83869_driver[] = {
@@ -900,6 +963,8 @@ static struct phy_driver dp83869_driver[] = {
 
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
+
+		.config_aneg    = dp83869_config_aneg,
 	},
 };
 module_phy_driver(dp83869_driver);
