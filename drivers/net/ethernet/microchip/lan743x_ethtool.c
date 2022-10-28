@@ -772,6 +772,32 @@ static int lan743x_ethtool_set_eee(struct net_device *netdev,
 	return phy_ethtool_set_eee(phydev, eee);
 }
 
+static int lan743x_ethtool_set_link_ksettings(struct net_device *netdev,
+					      const struct ethtool_link_ksettings *cmd)
+{
+	if (netdev->phydev) {
+		bool set_port = false;
+
+		switch (cmd->base.port) {
+		case PORT_FIBRE:
+			if (linkmode_test_bit(ETHTOOL_LINK_MODE_FIBRE_BIT,
+					      netdev->phydev->supported))
+				set_port = true;
+			break;
+		case PORT_TP:
+			if (linkmode_test_bit(ETHTOOL_LINK_MODE_TP_BIT,
+					      netdev->phydev->supported))
+				set_port = true;
+			break;
+		}
+
+		if (set_port)
+			netdev->phydev->port = cmd->base.port;
+	}
+
+	return phy_ethtool_set_link_ksettings(netdev, cmd);
+}
+
 #ifdef CONFIG_PM
 static void lan743x_ethtool_get_wol(struct net_device *netdev,
 				    struct ethtool_wolinfo *wol)
@@ -839,7 +865,7 @@ const struct ethtool_ops lan743x_ethtool_ops = {
 	.get_eee = lan743x_ethtool_get_eee,
 	.set_eee = lan743x_ethtool_set_eee,
 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-	.set_link_ksettings = phy_ethtool_set_link_ksettings,
+	.set_link_ksettings = lan743x_ethtool_set_link_ksettings,
 #ifdef CONFIG_PM
 	.get_wol = lan743x_ethtool_get_wol,
 	.set_wol = lan743x_ethtool_set_wol,
