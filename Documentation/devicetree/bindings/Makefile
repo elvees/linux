@@ -47,7 +47,7 @@ quiet_cmd_chk_bindings = CHKDT   $@
 quiet_cmd_mk_schema = SCHEMA  $@
       cmd_mk_schema = f=$$(mktemp) ; \
                       $(find_all_cmd) > $$f ; \
-                      $(DT_MK_SCHEMA) -j $(DT_MK_SCHEMA_FLAGS) @$$f > $@ ; \
+                      $(DT_MK_SCHEMA) -j $(DT_MK_SCHEMA_FLAGS) 2> .mk-schema-err @$$f > $@ ; \
 		      rm -f $$f
 
 define rule_chkdt
