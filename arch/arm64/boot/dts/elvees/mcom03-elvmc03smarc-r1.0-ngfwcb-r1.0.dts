@@ -43,6 +43,7 @@
 /* Connected to RJ-45 through RS-485 transceiver */
 &uart2 {
 	status = "okay";
+	rts-gpios = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
 };
 
 /* Connected to MicroSD card */
