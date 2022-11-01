@@ -202,8 +202,6 @@
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1f001000 0 0x8>;
 			clocks = <&xti_clk>;
-			assigned-clocks = <&service_pll>;
-			assigned-clock-rates = <594000000>;
 		};
 
 		service_ucg1: ucg@1f020000 {
@@ -222,23 +220,16 @@
 					     "i2c4_ext_clk", "qspi0_ext_clk",
 					     "clkout_clk", "risc0_tck_clk";
 
-			assigned-clocks = <&service_ucg1 SERVICE_APB_CLK>,
-					  <&service_ucg1 SERVICE_CORE_CLK>,
-					  <&service_ucg1 SERVICE_PVTCTR_CLK>,
-					  <&service_ucg1 SERVICE_I2C4_CLK>,
-					  <&service_ucg1 SERVICE_I2C4_EXT_CLK>;
-
-			assigned-clock-rates = <49500000
-						297000000
-						49500000
-						49500000
-						49500000>;
-
 			enabled-clocks = <SERVICE_APB_CLK
 					  SERVICE_CORE_CLK
-					  SERVICE_I2C4_CLK>;
+					  SERVICE_QSPI0_CLK
+					  SERVICE_RISC0_CLK
+					  SERVICE_MAILBOX0_CLK
+					  SERVICE_PVTCTR_CLK
+					  SERVICE_TRNG_CLK
+					  SERVICE_QSPI0_EXT_CLK>;
 
-			elvees,fixed-freq-mask = <0xfff>;
+			elvees,fixed-freq-mask = <0x3fff>;
 		};
 
 		wdt0: watchdog@1f080000 {
