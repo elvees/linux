@@ -256,28 +256,6 @@
 			#thermal-sensor-cells = <1>;
 		};
 
-		qlic0: interrupt-controller@1fe00000 {
-			compatible = "elvees,qlic";
-			interrupt-controller;
-			targets = <4>;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
-			reg = <0 0x1fe00000 0 0x40000>;
-		};
-
-		i2c4: i2c@1f090000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "snps,designware-i2c";
-			reg = <0 0x1f090000 0 0x10000>;
-			clocks = <&service_ucg1 SERVICE_I2C4_EXT_CLK>;
-			interrupt-parent = <&qlic0>;
-			interrupts = <37>;
-			i2c-sda-hold-time-ns = <300>;
-			status = "disabled";
-		};
-
 		qspi0: spi@1ff00000 {
 			status = "disabled";
 			compatible = "silvaco,axi-qspi";
