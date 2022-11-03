@@ -82,6 +82,16 @@
 		compatible = "maxim,ds2482";
 		reg = <0x18>;
 	};
+
+	hwmon@49 {
+		compatible = "ti,lm73";
+		reg = <0x49>;
+	};
+
+	hwmon@4a {
+		compatible = "ti,lm73";
+		reg = <0x4a>;
+	};
 };
 
 &i2c2 {
