@@ -93,8 +93,18 @@
 	status = "okay";
 };
 
+&lsperiph1_pinctrl {
+	emac0_int_cfg: emac0-int-cfg {
+		phy {
+			pins = "GPIOA_6";
+			input-enable;
+		};
+	};
+};
+
 &emac0 {
 	status = "okay";
+	pinctrl-0 = <&emac0_default &emac0_int_cfg>;
 	phy-handle = <&ethernet_phy0>;
 	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
 	reset-post-delay-us = <100>;
