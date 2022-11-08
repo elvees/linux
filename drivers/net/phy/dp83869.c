@@ -579,6 +579,13 @@ static int dp83869_of_init(struct phy_device *phydev)
 	if (dp83869->tx_int_delay < 0)
 		dp83869->tx_int_delay = DP83869_CLK_DELAY_DEF;
 
+	/* If the DTS has 'rgmii-sgmii-bridge-default' property we assume default
+	 * phys port is 'fibre' */
+	if (of_property_read_bool(of_node, "rgmii-sgmii-bridge-default"))
+		dp83869->phys_port = PORT_FIBRE;
+	else
+		dp83869->phys_port = PORT_TP;
+
 	return ret;
 }
 #else
@@ -897,6 +904,12 @@ static int dp83869_probe(struct phy_device *phydev)
 	/* We need to set Fibre bit even if Fibre mode isn't actually used to
 	 * allow port switching via ethtool */
 	linkmode_set_bit(ETHTOOL_LINK_MODE_FIBRE_BIT, phydev->supported);
+
+	/* If DTS property 'rgmii-sgmii-bridge-default' was set */
+	if (dp83869->phys_port == PORT_FIBRE) {
+		phydev->port = PORT_FIBRE;
+		return dp83869_config_sgmii(phydev);
+	}
 
 	return dp83869_config_init(phydev);
 }
