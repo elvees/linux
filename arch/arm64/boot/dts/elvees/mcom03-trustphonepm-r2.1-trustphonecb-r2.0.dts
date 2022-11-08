@@ -279,7 +279,7 @@
 
 	/* DD26 */
 	i2c-switch@74 {
-		compatible = "pericom,pi4msd5v9540", "nxp,pca9540";
+		compatible = "ti,tca9546", "nxp,pca9546";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x74>;
