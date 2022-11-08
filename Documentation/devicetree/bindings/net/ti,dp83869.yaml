@@ -76,6 +76,12 @@ properties:
             3250, 3500, 3750, 4000 ]
     default: 2000
 
+  ti,rgmii-sgmii-bridge-default:
+    type: boolean
+    description: |
+       Use RGMII/SGMII bridge mode by default (can be switched via ethtool). All
+       other properties should describe secondary mode.
+
 required:
   - reg
 
