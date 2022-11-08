@@ -291,6 +291,14 @@
 			reg = <1>;
 		};
 	};
+
+	apds9930: sensor@39 {
+		compatible = "avago,apds9930";
+		reg = <0x39>;
+		interrupts-extended = <&tca9554_0 4 IRQ_TYPE_EDGE_FALLING>;
+		amstaos,proximity-diodes = <0 1>;
+		led-max-microamp = <100000>;
+	};
 };
 
 &hsperiph_pinctrl {
