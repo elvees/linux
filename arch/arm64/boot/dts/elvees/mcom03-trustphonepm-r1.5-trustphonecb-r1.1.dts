@@ -240,6 +240,14 @@
 			};
 		};
 	};
+
+	max17055: battery-indicator@36 {
+		compatible = "maxim,max17055";
+		reg = <0x36>;
+		maxim,rsns-microohm = <10000>;
+		maxim,over-heat-temp = <600>;
+		maxim,over-volt = <4300>;
+	};
 };
 
 /* pinctrl driver doesn't enable pad receiver when GPIO pin is requested as an
