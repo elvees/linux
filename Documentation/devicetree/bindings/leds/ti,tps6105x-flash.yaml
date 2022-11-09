@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/leds/ti,tps6105x-flash.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Device tree bindings for TI TPS61050/61052 Boost Converters FLASH mode
+
+maintainers:
+  - Ilya Popov <ipopov@elvees.com>
+
+description: |
+  This is a part of devicetree bindings for the TP61050/TPS61052 high-power
+  "white LED driver". This bindngs describes "flash" function of MFD, for
+  description of other functions please read ../mfd/tps6105x.txt.
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+        - emum: ti,tps61050
+        - emum: ti,tps61052
+
+  reg:
+    const: 0x33
+
+  flash:
+    type: object
+    $ref: common.yaml#
+    description: Properties for the FLASH.
+    properties:
+      compatible:
+        const: ti,tps6105x-flash
+
+      label:
+        description: |
+          The label for this flash-led. If omitted, the label is taken from
+          the node name.
+
+      flash-max-timeout-us:
+        description: |
+          Flash LED maximum timeout.
+          Valid values: 32800 - 1016800, step by 32800.
+        minimum: 0
+        maximum: 1016800
+        default: 557600
+
+      led-max-microamp:
+        maximum: 500000
+        description: |
+          Maximum torch current
+          Valid values: 0, 50000, 75000, 100000, 150000, 200000, 250000,
+          400000, 500000 (rounded down).
+
+      flash-max-microamp:
+        maximum: 1200000
+        minimum: 150000
+        default: 500000
+        description: |
+          Flash LED maximum current
+          Valid values: 150000, 200000, 300000, 400000, 500000, 700000,
+          900000, 1200000 (rounded down).
+
+      ti,edge-sensitive:
+        description: |
+          This property enables edge-sensitive mode for flash timer,
+          if not present level-sensitive mode is used.
+
+    required:
+      - compatible
+      - flash-max-microamp
+      - flash-max-timeout-us
+      - led-max-microamp
+
+    additionalProperties: false
+
+
+required:
+  - compatible
+  - reg
+  - flash
+
+additionalProperties: false
+
+examples:
+  - |
+    tps61050: flash@33 {
+      compatible = "ti,tps61050";
+      reg = <0x33>;
+
+      flash {
+        compatible = "ti,tps6105x-flash";
+        edge-sensitive;
+        label = "flash-led";
+        led-max-microamp = <500000>;
+        flash-max-microamp = <900000>;
+        flash-max-timeout-us = <500000>;
+      };
+    };
+...
