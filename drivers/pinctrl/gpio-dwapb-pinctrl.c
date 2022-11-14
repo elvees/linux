@@ -234,6 +234,10 @@ static int dwapb_add_pinctrl(struct dwapb_gpio *gpio,
 			     struct dwapb_port_property *pp,
 			     struct dwapb_gpio_port *port);
 
+static int dwapb_set_mux_by_function(struct dwapb_gpio_port *port,
+				     unsigned int func_selector,
+				     unsigned int group_selector);
+
 static inline u32 gpio_reg_v2_convert(unsigned int offset)
 {
 	switch (offset) {
@@ -531,6 +535,48 @@ static int dwapb_convert_irqs(struct dwapb_gpio_port_irqchip *pirq,
 	return pirq->nr_irqs ? 0 : -ENOENT;
 }
 
+static int dwapb_irq_reqres(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct dwapb_gpio *gpio = to_dwapb_gpio(gc);
+	struct dwapb_platform_data *pdata = dev_get_platdata(gpio->dev);
+	unsigned int gpio_offset = irqd_to_hwirq(d);
+	struct dwapb_gpio_port *port = gpio->ports;
+	int ret;
+
+	ret = gpiochip_lock_as_irq(gc, gpio_offset);
+	if (ret) {
+		dev_err(gpio->dev, "unable to lock HW IRQ %lu for IRQ\n",
+			irqd_to_hwirq(d));
+		return ret;
+	}
+
+	if (gc->direction_input)
+		gc->direction_input(gc, gpio_offset);
+	if (pdata->properties->has_pinctrl) {
+		/*
+		 * Requesting Software mode for IRQ purposes is by passing
+		 * pinctrl driver, this means that there is no collision
+		 * detection happened for this muxing.
+		 */
+		if (port->pinctrl.mux_individual_pins) {
+			dev_warn(gpio->dev, "Bypass pinmux request: Mux %s on port A for IRQ purposes\n",
+				 dwapb_grp_pins_names[gpio_offset]);
+		} else {
+			dev_warn(gpio->dev, "Bypass pinmux request: Mux all pins on port A, %s is needed for IRQ purposes\n",
+				 dwapb_grp_pins_names[gpio_offset]);
+		}
+
+		dwapb_set_mux_by_function(port, DWAPB_PINMUX_SW, gpio_offset);
+	}
+	return 0;
+}
+
+static void dwapb_irq_relres(struct irq_data *d)
+{
+	gpiochip_unlock_as_irq(irq_data_get_irq_chip_data(d), irqd_to_hwirq(d));
+}
+
 static void dwapb_configure_irqs(struct dwapb_gpio *gpio,
 				 struct dwapb_gpio_port *port,
 				 struct dwapb_port_property *pp)
@@ -561,6 +607,9 @@ static void dwapb_configure_irqs(struct dwapb_gpio *gpio,
 	pirq->irqchip.irq_set_type = dwapb_irq_set_type;
 	pirq->irqchip.irq_enable = dwapb_irq_enable;
 	pirq->irqchip.irq_disable = dwapb_irq_disable;
+	pirq->irqchip.irq_request_resources = dwapb_irq_reqres;
+	pirq->irqchip.irq_release_resources = dwapb_irq_relres;
+
 #ifdef CONFIG_PM_SLEEP
 	pirq->irqchip.irq_set_wake = dwapb_irq_set_wake;
 #endif
@@ -800,23 +849,15 @@ static int dwapb_get_clks(struct dwapb_gpio *gpio)
 	return devm_add_action_or_reset(gpio->dev, dwapb_disable_clks, gpio);
 }
 
-static int dwapb_set_mux_by_function(struct pinctrl_dev *pctldev,
+static int dwapb_set_mux_by_function(struct dwapb_gpio_port *port,
 				     unsigned int func_selector,
 				     unsigned int group_selector)
 {
-	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
 	struct dwapb_gpio *gpio = port->gpio;
 	struct gpio_chip *gc = &port->gc;
 	unsigned int reg_off;
 	unsigned long flags;
 	u32 val;
-
-	dev_dbg(gpio->dev, "Setting [%s] mode for %s on port %c\n",
-		dwapb_pinmux_functions[func_selector],
-		port->pinctrl.mux_individual_pins ?
-			dwapb_grp_pins_names[group_selector] :
-			dwapb_pinctrl_groups[port->idx].name,
-		port->idx + 'A');
 
 	reg_off = GPIO_SWPORTA_CTL + (port->idx * GPIO_SWPORT_CTL_STRIDE);
 	spin_lock_irqsave(&gc->bgpio_lock, flags);
@@ -837,21 +878,38 @@ static int dwapb_set_mux(struct pinctrl_dev *pctldev,
 			 unsigned int func_selector,
 			 unsigned int group_selector)
 {
+	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
+
+	dev_dbg(port->gpio->dev, "Setting [%s] mode for %s on port %c\n",
+		dwapb_pinmux_functions[DWAPB_PINMUX_HW],
+		port->pinctrl.mux_individual_pins ?
+			dwapb_grp_pins_names[group_selector] :
+			dwapb_pinctrl_groups[port->idx].name,
+		port->idx + 'A');
+
 	/*
 	 * Setting the pin in hardware mode is handled by Devicetree.
 	 */
-	return dwapb_set_mux_by_function(pctldev, DWAPB_PINMUX_HW,
-					 group_selector);
+	return dwapb_set_mux_by_function(port, DWAPB_PINMUX_HW, group_selector);
 }
 
 static int dwapb_gpio_request_enable(struct pinctrl_dev *pctldev,
 				     struct pinctrl_gpio_range *range,
 				     unsigned int offset)
 {
+	struct dwapb_gpio_port *port = pinctrl_dev_get_drvdata(pctldev);
+
+	dev_dbg(port->gpio->dev, "Setting [%s] mode for %s on port %c\n",
+		dwapb_pinmux_functions[DWAPB_PINMUX_SW],
+		port->pinctrl.mux_individual_pins ?
+			dwapb_grp_pins_names[offset] :
+			dwapb_pinctrl_groups[port->idx].name,
+		port->idx + 'A');
+
 	/*
 	 * Setting the pin in software mode is handled by the GPIO subsystem.
 	 */
-	return dwapb_set_mux_by_function(pctldev, DWAPB_PINMUX_SW, offset);
+	return dwapb_set_mux_by_function(port, DWAPB_PINMUX_SW, offset);
 }
 
 static int dwapb_get_functions_count(struct pinctrl_dev *pctldev)
@@ -1082,6 +1140,7 @@ static int dwapb_gpio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	gpio->dev = &pdev->dev;
+	gpio->dev->platform_data = pdata;
 	gpio->nr_ports = pdata->nports;
 
 	err = dwapb_get_reset(gpio);
