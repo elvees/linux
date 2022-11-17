@@ -21,6 +21,26 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	/* TRS (3.5mm jack) connected to ES8316 codec.
+	   ES8316 connected to MCom-03 MFBSP0 as I2S master.
+	 */
+	aux_sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "mfbsp-i2s";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+
+		simple-audio-card,cpu {
+			sound-dai = <&mfbsp0_i2s>;
+		};
+
+		dailink1_master: simple-audio-card,codec {
+			sound-dai = <&es8316>;
+		};
+	};
+
 };
 
 /* Connected to Raspberry Pi header */
@@ -88,4 +108,32 @@
 	status = "okay";
 	reset_gpio = <&gpio1c 2 GPIO_ACTIVE_HIGH>;
 	pwdn_gpio = <&gpio1c 0 GPIO_ACTIVE_HIGH>;
+};
+
+&audio_mclk {
+	status = "okay";
+};
+
+/* SMARC S38-42 (I2S0*) pins connected to mfbsp0 */
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+/* mfbsp0 interrupt controller */
+&qlic0 {
+	status = "okay";
+};
+
+/* SMARC pins B139-B140 (I2C_LCD*) connected to ES8316 */
+&i2c_lcd {
+	status = "okay";
+
+	es8316: audio-codec@11 {
+		status = "okay";
+		#sound-dai-cells = <0>;
+		compatible = "everest,es8316";
+		reg = <0x11>;
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+	};
 };

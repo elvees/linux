@@ -245,6 +245,17 @@
 			#thermal-sensor-cells = <1>;
 		};
 
+		qlic0: interrupt-controller@1fe00000 {
+			compatible = "elvees,qlic";
+			interrupt-controller;
+			targets = <4>;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0 0x1fe00000 0 0x40000>;
+			status = "disabled";
+		};
+
 		qspi0: spi@1ff00000 {
 			status = "disabled";
 			compatible = "silvaco,axi-qspi";
@@ -265,6 +276,23 @@
 			reg = <0 0x1f0a130c 0 4>, <0 0x1f0a1308 0 4>;
 			#gpio-cells = <2>;
 			gpio-controller;
+			status = "disabled";
+		};
+
+		mfbsp0_i2s: i2s@0x1f0a1300 {
+			compatible = "elvees,mfbsp-i2s";
+			reg = <0 0x1f0a1300 0 0x40>,
+			      <0 0x1f0a1340 0 0x20>,
+			      <0 0x1f0a1360 0 0x20>;
+			reg-names = "mfbsp",
+				    "dma-playback",
+				    "dma-capture";
+			interrupt-parent = <&qlic0>;
+			interrupts = <22>, <23>;
+			interrupt-names = "dma-playback",
+					  "dma-capture";
+			#sound-dai-cells = <0>;
+			clocks = <&service_ucg1 SERVICE_MFBSP0_CLK>;
 			status = "disabled";
 		};
 
