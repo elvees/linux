@@ -96,6 +96,14 @@
 			sound-dai = <&adv7513>;
 		};
 	};
+
+	/* this is "G2" oscillator connected to SMARC "S38" pin*/
+	audio_mclk: audio_mclk {
+		status = "disabled";
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+	};
 };
 
 /* TODO: How to distinguish internal lines from external? How to distinguish
