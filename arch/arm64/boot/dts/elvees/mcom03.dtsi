@@ -133,6 +133,15 @@
 		reg = <0 0x1100000 0 0x10000>, /* GICD */
 		      <0 0x1180000 0 0x80000>; /* GICR */
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		its: msi-controller@1120000 {
+			compatible = "arm,gic-v3-its";
+			msi-controller;
+			reg = <0 0x1120000 0 0x20000>;
+		};
 	};
 
 	service@1f000000 {
@@ -1313,6 +1322,7 @@
 					 <&sdr_reset SDR_RST_PCI_ICT>;
 				elvees,urb = <&sdr_urb>;
 				elvees,ctrl-id = <0>;
+				msi-parent = <&its>;
 				status = "disabled";
 			};
 
@@ -1341,6 +1351,7 @@
 					 <&sdr_reset SDR_RST_PCI_ICT>;
 				elvees,urb = <&sdr_urb>;
 				elvees,ctrl-id = <1>;
+				msi-parent = <&its>;
 				status = "disabled";
 			};
 		};
