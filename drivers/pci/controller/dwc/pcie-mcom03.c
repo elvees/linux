@@ -91,9 +91,29 @@ static int mcom03_pcie_host_init(struct pcie_port *pp)
 	mcom03_pcie_ltssm_toggle(pcie, 1);
 	dw_pcie_wait_for_link(pci);
 
-	if (IS_ENABLED(CONFIG_PCI_MSI))
-		dw_pcie_msi_init(pp);
+	return 0;
+}
 
+static int mcom03_pcie_msi_host_init(struct pcie_port *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct device *dev = pci->dev;
+	struct device_node *np = dev->of_node;
+	struct device_node *msi_node;
+
+	/*
+	 * The MSI domain is set by the generic of_msi_configure().  This
+	 * .msi_host_init() function keeps us from doing the default MSI
+	 * domain setup in dw_pcie_host_init() and also enforces the
+	 * requirement that "msi-parent" exists.
+	 */
+	msi_node = of_parse_phandle(np, "msi-parent", 0);
+	if (!msi_node) {
+		dev_err(dev, "failed to find msi-parent\n");
+		return -EINVAL;
+	}
+
+	of_node_put(msi_node);
 	return 0;
 }
 
@@ -104,6 +124,7 @@ static void dw_plat_set_num_vectors(struct pcie_port *pp)
 
 static const struct dw_pcie_host_ops mcom03_pcie_host_ops = {
 	.host_init = mcom03_pcie_host_init,
+	.msi_host_init = mcom03_pcie_msi_host_init,
 	.set_num_vectors = dw_plat_set_num_vectors,
 };
 
