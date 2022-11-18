@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
+#include <linux/of.h>
 
 #define NUM_PWM_CHANNEL			4
 
@@ -19,8 +20,11 @@
 /* PWM registers */
 #define PWM_CLKCTL			0x08
 #define PWM_CTRPRD			0x10
+#define PWM_CTRCNT			0x14
 #define PWM_CMPA			0x24
 #define PWM_EMCTLA			0x2C
+#define PWM_EMCTLB			0x30
+#define PWM_EMSWFR			0x34
 #define PWM_CTRRUN			0x80
 
 #define PWM_CLKCTL_CNTMODE(v)		((v) << 0)
@@ -33,6 +37,11 @@
 #define PWM_EMCTLA_ECMPAD(v)		((v) << 6)
 #define PWM_EMCTLA_ECMPBI(v)		((v) << 8)
 #define PWM_EMCTLA_ECMPBD(v)		((v) << 10)
+
+#define PWM_EMSWFR_ACTSFA(v)		((v) << 0)
+#define PWM_EMSWFR_ONESFA(v)		((v) << 2)
+#define PWM_EMSWFR_ACTSFB(v)		((v) << 3)
+#define PWM_EMSWFR_ONESFB(v)		((v) << 5)
 
 #define PWM_CTRRUN_RUN(port, v)		((v) << (port) * 8)
 
@@ -73,6 +82,8 @@ struct mcom_pwm_chip {
 	struct pwm_chip chip;
 	struct clk *clk;
 	void __iomem *mmio_base;
+	u32 out_channel[NUM_PWM_CHANNEL]; /* 0 == OUTA, >0 == OUTB */
+	u32 state_on_disable[NUM_PWM_CHANNEL];
 };
 
 static inline struct mcom_pwm_chip *to_mcom_pwm_chip(struct pwm_chip *chip)
@@ -96,7 +107,8 @@ static int mcom_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 	struct mcom_pwm_chip *pwm_chip = to_mcom_pwm_chip(chip);
 	u32 val;
 
-	mcom_pwm_writel(pwm_chip, PWM_EMCTLA,
+	mcom_pwm_writel(pwm_chip, pwm_chip->out_channel[pwm->hwpwm] ?
+			PWM_EMCTLB : PWM_EMCTLA,
 			PWM_EMCTLA_ECMPAI(PWM_EMCTL_ACTION_SET) |
 			PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_CLEAR),
 			pwm->hwpwm);
@@ -149,7 +161,8 @@ static int mcom_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm,
 		      PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_SET);
 	}
 
-	mcom_pwm_writel(pwm_chip, PWM_EMCTLA, val, pwm->hwpwm);
+	mcom_pwm_writel(pwm_chip, pwm_chip->out_channel[pwm->hwpwm] ?
+			PWM_EMCTLB : PWM_EMCTLA, val, pwm->hwpwm);
 
 	return 0;
 }
@@ -171,13 +184,24 @@ static int mcom_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 static void mcom_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct mcom_pwm_chip *pwm_chip = to_mcom_pwm_chip(chip);
-	u32 val;
+	u32 val, disable_state, outport;
+
+	disable_state = pwm_chip->state_on_disable[pwm->hwpwm],
+	outport = pwm_chip->out_channel[pwm->hwpwm];
 
 	val = mcom_pwm_readl(pwm_chip, PWM_CTRRUN, pwm->hwpwm);
 
 	val &= ~PWM_CTRRUN_RUN(pwm->hwpwm, PWM_RUN_MASK);
 
 	mcom_pwm_writel(pwm_chip, PWM_CTRRUN, val, pwm->hwpwm);
+
+	if (disable_state != PWM_EMCTL_ACTION_NONE) {
+		val = outport ?
+			PWM_EMSWFR_ACTSFB(disable_state) | PWM_EMSWFR_ONESFB(1) :
+			PWM_EMSWFR_ACTSFA(disable_state) | PWM_EMSWFR_ONESFA(1);
+		mcom_pwm_writel(pwm_chip, PWM_EMSWFR, val, pwm->hwpwm);
+		mcom_pwm_writel(pwm_chip, PWM_CTRCNT, 0, pwm->hwpwm);
+	}
 }
 
 static const struct pwm_ops mcom_pwm_ops = {
@@ -188,6 +212,25 @@ static const struct pwm_ops mcom_pwm_ops = {
 	.disable	= mcom_pwm_disable,
 	.owner		= THIS_MODULE,
 };
+
+static int mcom_pwm_parse_dt(struct mcom_pwm_chip *mcom_pwm_chip)
+{
+	struct device *dev = mcom_pwm_chip->chip.dev;
+	struct device_node *node = dev_of_node(dev);
+	int ret;
+
+	ret = of_property_read_u32_array(node, "elvees,output-channel",
+				   mcom_pwm_chip->out_channel, NUM_PWM_CHANNEL);
+	if (ret < 0)
+		dev_warn(dev, "elvees,output-channel DT property missing\n");
+
+	ret = of_property_read_u32_array(node, "elvees,state-on-disable",
+				   mcom_pwm_chip->state_on_disable, NUM_PWM_CHANNEL);
+	if (ret < 0)
+		dev_warn(dev, "elvees,state-on-disable DT property missing\n");
+
+	return 0;
+}
 
 static int mcom_pwm_probe(struct platform_device *pdev)
 {
@@ -224,6 +267,8 @@ static int mcom_pwm_probe(struct platform_device *pdev)
 	pwm_chip->chip.ops = &mcom_pwm_ops;
 	pwm_chip->chip.base = -1;
 	pwm_chip->chip.npwm = NUM_PWM_CHANNEL;
+
+	ret = mcom_pwm_parse_dt(pwm_chip);
 
 	ret = pwmchip_add(&pwm_chip->chip);
 	if (ret < 0) {
