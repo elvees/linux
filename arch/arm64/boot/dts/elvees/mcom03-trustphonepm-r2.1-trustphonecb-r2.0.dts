@@ -196,6 +196,25 @@
 	};
 };
 
+/* Connected to Type-C receptable */
+&usb0 {
+	status = "okay";
+
+	dwc3@10000000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dr_mode = "otg";
+		usb-role-switch;
+
+		port@0 {
+			reg = <0>;
+			dwc3_endpoint: endpoint {
+				remote-endpoint = <&tps65982_endpoint>;
+			};
+		};
+	};
+};
+
 /* Connected to USB hub */
 &usb1 {
 	status = "okay";
@@ -212,6 +231,11 @@
 
 	pwr_button_cfg_default: gpioa1-power-cfg {
 		pins = "GPIOA_7";
+		input-enable;
+	};
+
+	tps65982_default: tps65982-cfg {
+		pins = "GPIOA_5";
 		input-enable;
 	};
 };
@@ -240,6 +264,30 @@
 
 		wlf,inmode = <1 1 1 1>;
 		wlf,clk32k-source = <ARIZONA_32KZ_NONE>;
+	};
+
+	tps65982: typec-controller@3f {
+		compatible = "ti,tps6598x";
+		reg = <0x3f>;
+
+		interrupt-parent = <&gpio1a>;
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-names = "irq";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&tps65982_default>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				tps65982_endpoint: endpoint {
+					remote-endpoint = <&dwc3_endpoint>;
+				};
+			};
+		};
 	};
 };
 
