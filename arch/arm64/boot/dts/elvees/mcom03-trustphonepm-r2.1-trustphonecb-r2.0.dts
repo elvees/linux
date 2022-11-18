@@ -280,6 +280,12 @@
 		pins = "GPIOA_5";
 		input-enable;
 	};
+
+	pwm0_cfg_default: pwm0-cfg {
+		pins = "GPIOD_3";
+		drive-strength = <4>;
+		slew-rate = <3>;
+	};
 };
 
 &i2c01 {
@@ -492,4 +498,13 @@
 		"", "", "", "", "", "", "", "", "", "", "", "";
 
 	gpio-reserved-ranges = <0 1>, <10 22>;
+};
+
+&pwm {
+	status = "okay";
+	elvees,output-channel = <1 0 0 0>;
+	elvees,state-on-disable = <1 0 0 0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_oenb0_mux &pwm0_cfg_default>;
 };
