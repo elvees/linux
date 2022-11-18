@@ -14,8 +14,8 @@ description: |+
 
   These bindings can be used on MCom-03 SoC.
 
-  ELVEES MCom-03 PWM controller supports 4 ports and only OUTA channel for
-  each port.
+  ELVEES MCom-03 PWM controller supports 4 channels and only one output for
+  each channel.
 
 
 properties:
@@ -31,6 +31,31 @@ properties:
 
   clocks:
     maxItems: 1
+
+  elvees,output-channel:
+    description: |+
+      Array defines which output port to use for PWM channels.
+      Value 0: OUTA; Value 1: OUTB
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 4
+    maxItems: 4
+    items:
+      minimum: 0
+      maximum: 1
+
+  elvees,state-on-disable:
+    description: |+
+      Array defines action on output port when pwm channel gets disabled.
+      Value 0: no action;
+      Value 1: set output to 0;
+      Value 2: set output to 1;
+      Value 3: toggle output.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 4
+    maxItems: 4
+    items:
+      minimum: 0
+      maximum: 3
 
 required:
   - compatible
@@ -48,4 +73,6 @@ examples:
       reg = <0 0x1770000 0 0x1000>;
       #pwm-cells = <2>;
       clocks = <&lsperiph1_ucg0 8>;
+      elvees,output-channel = <1 0 0 0>;
+      elvees,state-on-disable = <1 0 0 0>;
     };
