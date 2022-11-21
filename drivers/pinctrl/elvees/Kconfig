@@ -21,4 +21,11 @@ config PINCTRL_MCOM03_LSPERIPH
 	  This selects the pinctrl drivers for both LSPERIPH0 and LSPERIPH1
 	  subsystems to configure GPIO0 and GPIO1 pins.
 
+config PINCTRL_MCOM03_MEDIA
+	bool "Pin controller driver for MEDIA subsystem"
+	select GENERIC_PINMUX_FUNCTIONS
+	default y
+	help
+	  This selects the pinctrl driver for MEDIA subsystem.
+
 endif
