@@ -87,10 +87,10 @@
 #define MFBSP_I2S_RSTART_EN		BIT(0)
 
 /* MFBSP DMA Register Map */
-#define MFBSP_DMA_CSR			0x00
-#define MFBSP_DMA_CP			0x04
-#define MFBSP_DMA_IR			0x08
-#define MFBSP_DMA_RUN			0x0C
+#define MFBSP_DMA_IR			0x00
+#define MFBSP_DMA_CP			0x08
+#define MFBSP_DMA_CSR			0x10
+#define MFBSP_DMA_RUN			0x14
 
 #define MFBSP_DMA_CSR_WCX(v)		((v) << 16)
 #define MFBSP_DMA_CSR_DONE		BIT(15)
@@ -105,16 +105,25 @@ static inline u32 mfbsp_readl(void __iomem *base, u32 offset)
 	return readl(base + offset);
 }
 
+static inline u64 mfbsp_readq(void __iomem *base, u32 offset)
+{
+	return readq(base + offset);
+}
+
 static inline void mfbsp_writel(void __iomem *base, u32 offset, u32 value)
 {
 	writel(value, base + offset);
 }
 
+static inline void mfbsp_writeq(void __iomem *base, u32 offset, u64 value)
+{
+	writeq(value, base + offset);
+}
+
 struct mfbsp_dma_desc {
-	u32 run;
-	u32 ir;
-	u32 cp;
-	u32 csr;
+	u64 ir;
+	u64 cp;
+	u64 csr;
 } __attribute__ ((__packed__));
 
 struct mfbsp_dma_data {

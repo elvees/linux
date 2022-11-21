@@ -16,6 +16,7 @@
  *
  */
 
+#include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/interrupt.h>
 #include <sound/pcm.h>
@@ -47,6 +48,20 @@ static const struct snd_pcm_hardware mfbsp_pcm_hardware = {
 	.periods_min		= MFBSP_PCM_PERIODS,
 	.periods_max		= MFBSP_PCM_PERIODS,
 };
+
+static void start_dma(struct mfbsp_dma_data *dma)
+{
+	struct mfbsp_dma_desc *dl = &dma->desc_list[0];
+
+	// Seems it is MCom-03 errata: this will not start DMA opertaion
+	// as documentation states:
+	// mfbsp_writeq(dma->base, MFBSP_DMA_CP, dma->desc_addr | BIT(0));
+
+	// Instead we need to prepare IR, CP of next DMA descriptor, and start with CSR.RUN.
+	mfbsp_writeq(dma->base, MFBSP_DMA_IR, dl->ir);
+	mfbsp_writeq(dma->base, MFBSP_DMA_CP, dl->cp);
+	mfbsp_writel(dma->base, MFBSP_DMA_CSR, dl->csr | MFBSP_DMA_CSR_RUN);
+}
 
 static irqreturn_t mfbsp_pcm_irq_handler(int irq, void *dev_id)
 {
@@ -105,7 +120,6 @@ static int mfbsp_pcm_prepare(struct snd_pcm_substream *substream)
 	for (period = 0; period < MFBSP_PCM_PERIODS; ++period) {
 		desc_addr += sizeof(*desc_list);
 
-		desc_list[period].run = 0;
 		desc_list[period].ir = buffer_addr;
 		desc_list[period].cp = desc_addr;
 		desc_list[period].csr =
@@ -137,7 +151,7 @@ static int mfbsp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			;
 		break;
 	case SNDRV_PCM_TRIGGER_START:
-		mfbsp_writel(dma->base, MFBSP_DMA_CP, dma->desc_addr | BIT(0));
+		start_dma(dma);
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		mfbsp_writel(dma->base, MFBSP_DMA_RUN, BIT(0));
@@ -155,7 +169,7 @@ static snd_pcm_uframes_t mfbsp_pcm_pointer(struct snd_pcm_substream *substream)
 	struct mfbsp_dma_data *dma = snd_soc_dai_get_dma_data(rtd->cpu_dai,
 							      substream);
 	dma_addr_t buffer_addr = substream->dma_buffer.addr;
-	dma_addr_t buffer_pos = mfbsp_readl(dma->base, MFBSP_DMA_IR);
+	dma_addr_t buffer_pos = mfbsp_readq(dma->base, MFBSP_DMA_IR);
 
 	return bytes_to_frames(substream->runtime, buffer_pos - buffer_addr);
 }
@@ -179,6 +193,17 @@ static int mfbsp_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	dma_addr_t desc_addr;
 	struct mfbsp_dma_desc *desc_list;
 	size_t desc_list_size = MFBSP_PCM_PERIODS * sizeof(*desc_list);
+
+	/* By default dev->dma_coherent_mask is 32 bit,
+	*  but for mcom03 Kernel RAM region addresses is above 33 bit,
+	*  so usage of GFP_KERNEL in dma_poll_alloc requires changind this mask
+	*/
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
+		dev_warn(dev, "Failed to set DMA mask\n");
+		/* will fail on next dma_pool_alloc on 64-bit mode on mcom03,
+		*  not an error if 32-bit mode
+		*/
+	}
 
 	desc_pool = dmam_pool_create(dev_name(dev), dev, desc_list_size, 8, 0);
 	if (!desc_pool)

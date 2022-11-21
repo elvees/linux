@@ -256,6 +256,12 @@ static int mfbsp_i2s_probe(struct platform_device *pdev)
 	if (ret != 0)
 		return ret;
 
+	/* i2s lines configuration:
+	bit : val : description
+	 5  :  1  :  TD out
+	 3  :  0  :  TWS in, receive word select from i2s master
+	 1  :  0  :  TCLK in, receive i2s clock from i2s master
+	*/
 	mfbsp_writel(mfbsp->base, MFBSP_I2S_DIR, MFBSP_I2S_DIR_TD);
 	mfbsp_writel(mfbsp->base, MFBSP_I2S_CSR, MFBSP_I2S_CSR_EN);
 
