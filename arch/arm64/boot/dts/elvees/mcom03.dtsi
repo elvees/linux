@@ -328,6 +328,23 @@
 				elvees,subsystem = <MCOM03_SUBSYSTEM_MEDIA>;
 				#reset-cells = <1>;
 			};
+
+			media_pinctrl: media-pinctrl {
+				compatible = "elvees,mcom03-media-pinctrl";
+				#address-cells = <0>;
+				#size-cells = <0>;
+				elvees,urb = <&media_urb>;
+
+				display_processor_mux: display-processor-mux {
+					groups = "media_mux_grp";
+					function = "DP";
+				};
+
+				isp_mux: isp-mux {
+					groups = "media_mux_grp";
+					function = "ISP";
+				};
+			};
 		};
 
 		media_pll0: media_pll0 {
@@ -512,6 +529,9 @@
 			elvees,urb = <&media_urb>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&display_processor_mux>;
 
 			ports {
 				#address-cells = <1>;

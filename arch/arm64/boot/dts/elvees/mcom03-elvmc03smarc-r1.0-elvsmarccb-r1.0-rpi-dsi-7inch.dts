@@ -50,6 +50,7 @@
 &display_encoder {
 	video-output = "dsi";
 	status = "okay";
+	pinctrl-0 = <&isp_mux>;
 
 	bridge@0 {
 		#address-cells = <1>;

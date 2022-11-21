@@ -21,6 +21,7 @@
 
 &display_encoder {
 	video-output = "dsi";
+	pinctrl-0 = <&isp_mux>;
 	dsi-clock-frequency = <500000000>;
 
 	dsi-panel@0 {
