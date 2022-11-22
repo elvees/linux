@@ -287,6 +287,8 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 
 	dws->num_cs = num_cs;
 
+	device_property_read_u32(&pdev->dev, "snps,fifo-size", &dws->fifo_len);
+
 	init_func = device_get_match_data(&pdev->dev);
 	if (init_func) {
 		ret = init_func(pdev, dwsmmio);
