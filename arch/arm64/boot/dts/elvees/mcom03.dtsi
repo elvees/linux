@@ -233,9 +233,7 @@
 		};
 
 		wdt0: watchdog@1f080000 {
-			compatible = "snps,dw-wdt";
-			reg = < 0 0x1f080000 0 0x1000>;
-			clocks = <&service_ucg1 SERVICE_APB_CLK>;
+			compatible = "elvees,mcom03-wdt";
 		};
 
 		pvt: pvt@1f050000 {
