@@ -503,6 +503,11 @@
 	status = "okay";
 };
 
+&uart3 {
+	status = "okay";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
+};
+
 &mfbsp0_gpio {
 	status = "okay";
 
