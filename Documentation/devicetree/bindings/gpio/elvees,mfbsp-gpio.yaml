@@ -73,7 +73,7 @@ examples:
       reg-names = "dat", "dirout";
       clocks = <&service_ucg1 5>;
       clock-names = "bus";
-      reg = <0 0x1f0a1308 0 4>, <0 0x1f0a130c 0 4>;
+      reg = <0 0x1f0a130c 0 4>, <0 0x1f0a1308 0 4>;
       gpio-controller;
       #gpio-cells = <2>;
       gpio-reserved-ranges = <0 6>, <10 21>;
