@@ -122,6 +122,8 @@
 
 &nand {
 	status = "okay";
+	pinctrl-0 = <&nand_default &nand_voltage_18>;
+
 	chip@0 {
 		reg = <0>;
 		nand-ecc-mode="hw";

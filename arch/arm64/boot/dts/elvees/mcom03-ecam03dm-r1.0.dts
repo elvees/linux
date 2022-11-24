@@ -16,7 +16,3 @@
 		     "elvees,ecam03dm",
 		     "elvees,mcom03";
 };
-
-&nand {
-	pinctrl-0 = <&nand_default &nand_voltage_18>;
-};
