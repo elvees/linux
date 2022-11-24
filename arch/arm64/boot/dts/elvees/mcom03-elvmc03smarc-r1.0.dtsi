@@ -192,6 +192,11 @@ i2c_pm: &i2c0 { };
 	clock-frequency = <100000>;
 	status = "okay";
 
+	rtc@32 {
+		compatible = "microcrystal,rv8803";
+		reg = <0x32>;
+	};
+
 	adv7513: hdmi@39 {
 		#sound-dai-cells = <0>;
 		compatible = "adi,adv7513";
