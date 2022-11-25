@@ -114,10 +114,18 @@
 			"IN2B", "MICBIAS1",
 			"IN1BL", "MICVDD";
 
+		cpu {
+			sound-dai = <&i2s0>;
+		};
+
 		codec {
 			sound-dai = <&wm8998>;
 		};
 	};
+};
+
+&i2s0 {
+	status = "okay";
 };
 
 &uart0 {
