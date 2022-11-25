@@ -71,6 +71,25 @@ static int trustphone_wm8998_modem_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+static int trustphone_wm8998_hw_params(struct snd_pcm_substream *substream,
+				       struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	int ret;
+
+	ret = snd_soc_dai_set_sysclk(codec_dai, ARIZONA_CLK_SYSCLK,
+				     MCLK1_FREQ, SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static struct snd_soc_ops trustphone_wm8998_ops = {
+	.hw_params = trustphone_wm8998_hw_params,
+};
+
 static const struct snd_soc_pcm_stream trustphone_wm8998_modem_params = {
 	.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	.rate_min = 8000,
@@ -127,6 +146,14 @@ static struct snd_soc_dai_driver trustphone_wm8998_modem_dai[] = {
 
 static struct snd_soc_dai_link trustphone_wm8998_dai[] = {
 	{
+		.name = "WM8998 AIF1",
+		.stream_name = "HiFi",
+		.codec_dai_name = "wm8998-aif1",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS |
+			   SND_SOC_DAIFMT_NB_NF,
+		.ops = &trustphone_wm8998_ops,
+	},
+	{
 		.name = "WM8998 AIF2",
 		.stream_name = "Modem",
 		.cpu_dai_name = "Voice call",
@@ -154,7 +181,7 @@ static int trustphone_wm8998_probe(struct platform_device *pdev)
 {
 	struct trustphone_wm8998_priv *priv;
 	struct snd_soc_card *card = &trustphone_wm8998_card;
-	struct device_node *codec;
+	struct device_node *codec, *cpu;
 	struct snd_soc_dai_link *dai_link;
 	struct device *dev = &pdev->dev;
 	int ret, i;
@@ -178,6 +205,10 @@ static int trustphone_wm8998_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	cpu = of_get_child_by_name(dev->of_node, "cpu");
+	if (!cpu)
+		return -EINVAL;
+
 	codec = of_get_child_by_name(dev->of_node, "codec");
 	if (!codec)
 		return -EINVAL;
@@ -191,6 +222,15 @@ static int trustphone_wm8998_probe(struct platform_device *pdev)
 			goto out;
 		}
 	}
+
+	trustphone_wm8998_dai[0].cpu_of_node = of_parse_phandle(cpu,
+								"sound-dai", 0);
+	if (!trustphone_wm8998_dai[0].cpu_of_node) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	trustphone_wm8998_dai[0].platform_of_node = trustphone_wm8998_dai[0].cpu_of_node;
 
 	ret = devm_snd_soc_register_component(dev,
 					      &trustphone_wm8998_component,
