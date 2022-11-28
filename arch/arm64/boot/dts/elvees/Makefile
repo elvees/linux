@@ -16,3 +16,4 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r1.5-trustphonecb-r1.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r1.5-trustphonecb-r1.1-b101uan01.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r1.5-trustphonecb-r1.1-xl6550050qm.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r2.1-trustphonecb-r2.0.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r2.1-trustphonecb-r2.0-xl6550050qm.dtb
