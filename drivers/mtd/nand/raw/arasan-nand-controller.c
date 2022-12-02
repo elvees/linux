@@ -24,6 +24,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/reset.h>
 
 #define PKT_REG				0x00
 #define   PKT_SIZE(x)			FIELD_PREP(GENMASK(10, 0), (x))
@@ -187,6 +188,7 @@ struct arasan_nfc {
 	void __iomem *base;
 	struct clk *controller_clk;
 	struct clk *bus_clk;
+	struct reset_control *rst;
 	struct nand_controller controller;
 	struct list_head chips;
 	unsigned long assigned_cs;
@@ -1285,8 +1287,6 @@ static int anfc_probe(struct platform_device *pdev)
 	if (IS_ERR(nfc->base))
 		return PTR_ERR(nfc->base);
 
-	anfc_reset(nfc);
-
 	nfc->controller_clk = devm_clk_get(&pdev->dev, "controller");
 	if (IS_ERR(nfc->controller_clk))
 		return PTR_ERR(nfc->controller_clk);
@@ -1303,17 +1303,30 @@ static int anfc_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_controller_clk;
 
+	nfc->rst = devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
+	if (IS_ERR(nfc->rst)) {
+		ret = PTR_ERR(nfc->rst);
+		goto disable_bus_clk;
+	}
+
+	reset_control_deassert(nfc->rst);
+
+	anfc_reset(nfc);
+
 	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret)
-		goto disable_bus_clk;
+		goto assert_reset;
 
 	ret = anfc_chips_init(nfc);
 	if (ret)
-		goto disable_bus_clk;
+		goto assert_reset;
 
 	platform_set_drvdata(pdev, nfc);
 
 	return 0;
+
+assert_reset:
+	reset_control_assert(nfc->rst);
 
 disable_bus_clk:
 	clk_disable_unprepare(nfc->bus_clk);
@@ -1330,6 +1343,7 @@ static int anfc_remove(struct platform_device *pdev)
 
 	anfc_chips_cleanup(nfc);
 
+	reset_control_assert(nfc->rst);
 	clk_disable_unprepare(nfc->bus_clk);
 	clk_disable_unprepare(nfc->controller_clk);
 
