@@ -138,7 +138,9 @@ static int mcom_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	div = clk_rate * period_ns;
 	period = DIV_ROUND_CLOSEST_ULL(div, NSEC_PER_SEC);
 
-	div = clk_rate * duty_ns;
+	/* Change polarity logic here, if we change logic in request() and
+	 * set_polarity() that will lead to loss of first pulse on start of pwm. */
+	div = clk_rate * (period_ns - duty_ns);
 	duty = DIV_ROUND_CLOSEST_ULL(div, NSEC_PER_SEC);
 
 	mcom_pwm_writel(pwm_chip, PWM_CTRPRD, period, pwm->hwpwm);
