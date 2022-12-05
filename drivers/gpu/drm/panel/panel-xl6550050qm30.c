@@ -85,8 +85,6 @@ static int xl_panel_prepare(struct drm_panel *panel)
 
 	msleep(20);
 	if (!IS_ERR(xl->reset_gpio)) {
-		gpiod_set_value_cansleep(xl->reset_gpio, 1);
-		usleep_range(6000, 10000);  /* Required minimum 5 ms */
 		gpiod_set_value_cansleep(xl->reset_gpio, 0);
 		usleep_range(10000, 15000);
 	}
@@ -175,7 +173,7 @@ static int xl_panel_add(struct xl_panel *xl)
 	if (IS_ERR(xl->backlight))
 		return PTR_ERR(xl->backlight);
 
-	xl->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	xl->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(xl->reset_gpio) && PTR_ERR(xl->reset_gpio) != -ENOENT)
 		return PTR_ERR(xl->reset_gpio);
 
