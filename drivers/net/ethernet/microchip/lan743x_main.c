@@ -1293,7 +1293,7 @@ static int lan743x_mac_init(struct lan743x_adapter *adapter)
 			eth_random_addr(adapter->mac_address);
 	}
 	lan743x_mac_set_address(adapter, adapter->mac_address);
-	eth_hw_addr_set(netdev, adapter->mac_address);
+	ether_addr_copy(netdev->dev_addr, adapter->mac_address);
 
 	return 0;
 }
@@ -2386,9 +2386,9 @@ static int lan743x_tx_open(struct lan743x_tx *tx)
 	tx->vector_flags = lan743x_intr_get_vector_flags(adapter,
 							 INT_BIT_DMA_TX_
 							 (tx->channel_number));
-	netif_napi_add_tx_weight(adapter->netdev,
-				 &tx->napi, lan743x_tx_napi_poll,
-				 NAPI_POLL_WEIGHT);
+	netif_tx_napi_add(adapter->netdev,
+			  &tx->napi, lan743x_tx_napi_poll,
+			  tx->ring_size - 1);
 	napi_enable(&tx->napi);
 
 	data = 0;
@@ -3170,7 +3170,7 @@ static int lan743x_netdev_set_mac_address(struct net_device *netdev,
 	ret = eth_prepare_mac_addr_change(netdev, sock_addr);
 	if (ret)
 		return ret;
-	eth_hw_addr_set(netdev, sock_addr->sa_data);
+	ether_addr_copy(netdev->dev_addr, sock_addr->sa_data);
 	lan743x_mac_set_address(adapter, sock_addr->sa_data);
 	lan743x_rfe_update_mac_address(adapter);
 	return 0;
@@ -3180,7 +3180,7 @@ static const struct net_device_ops lan743x_netdev_ops = {
 	.ndo_open		= lan743x_netdev_open,
 	.ndo_stop		= lan743x_netdev_close,
 	.ndo_start_xmit		= lan743x_netdev_xmit_frame,
-	.ndo_eth_ioctl		= lan743x_netdev_ioctl,
+	.ndo_do_ioctl		= lan743x_netdev_ioctl,
 	.ndo_set_rx_mode	= lan743x_netdev_set_multicast,
 	.ndo_change_mtu		= lan743x_netdev_change_mtu,
 	.ndo_get_stats64	= lan743x_netdev_get_stats64,
@@ -3323,7 +3323,7 @@ static int lan743x_mdiobus_init(struct lan743x_adapter *adapter)
 		adapter->mdiobus->phy_mask = ~(u32)BIT(1);
 
 	/* register mdiobus */
-	ret = of_mdiobus_register(adapter->mdiobus);
+	ret = of_mdiobus_register(adapter->mdiobus, adapter->pdev->dev.of_node);
 	if (ret < 0)
 		goto return_error;
 	return 0;
@@ -3347,6 +3347,7 @@ static int lan743x_pcidev_probe(struct pci_dev *pdev,
 {
 	struct lan743x_adapter *adapter = NULL;
 	struct net_device *netdev = NULL;
+	const void *mac_addr;
 	int ret = -ENODEV;
 
 	if (id->device == PCI_DEVICE_ID_SMSC_A011 ||
@@ -3374,7 +3375,9 @@ static int lan743x_pcidev_probe(struct pci_dev *pdev,
 			      NETIF_MSG_IFDOWN | NETIF_MSG_TX_QUEUED;
 	netdev->max_mtu = LAN743X_MAX_FRAME_SIZE;
 
-	of_get_mac_address(pdev->dev.of_node, adapter->mac_address);
+	mac_addr = of_get_mac_address(pdev->dev.of_node);
+	if (!IS_ERR(mac_addr))
+		ether_addr_copy(adapter->mac_address, mac_addr);
 
 	ret = lan743x_pci_init(adapter, pdev);
 	if (ret)
