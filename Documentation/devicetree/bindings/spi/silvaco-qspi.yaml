@@ -36,6 +36,10 @@ properties:
     minimum: 1
     maximum: 8
 
+# Slave schema can be found in file spi-controller.yaml in the same directory
+
+additionalProperties: false
+
 required:
   - compatible
   - '#address-cells'
@@ -46,6 +50,8 @@ required:
 
 examples:
   - |
+    #include <dt-bindings/clock/mcom03-clock.h>
+
     qspi0: spi@1ff00000 {
       status = "disabled";
       compatible = "silvaco,axi-qspi";
@@ -56,11 +62,4 @@ examples:
       clocks = <&service_ucg1 SERVICE_QSPI0_CLK>,
               <&service_ucg1 SERVICE_QSPI0_EXT_CLK>;
       num-cs = <4>;
-
-      flash0: s25fl128s@0 {
-        compatible = "jedec,spi-nor", "spi-flash";
-        reg = <0>;
-        spi-max-frequency = <66000000>;
-        m25p,fast-read;
-      };
     };
