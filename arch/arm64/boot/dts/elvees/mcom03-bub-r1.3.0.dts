@@ -184,10 +184,10 @@
 		reg = <0>;
 		nand-ecc-mode="hw";
 	};
-	chip@1 {
-		reg = <1>;
-		nand-ecc-mode="hw";
-	};
+
+	/*
+	 * chip@1 is not supported due to MCOM03HW-667
+	 */
 };
 
 &qspi0 {
