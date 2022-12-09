@@ -18,6 +18,7 @@ properties:
       - enum:
           - xlnx,zynqmp-nand-controller
       - const: arasan,nfc-v3p10
+      - const: arasan,nfc-v3p16 # Used on ELVEES MCom-03 SoC
 
   reg:
     maxItems: 1
