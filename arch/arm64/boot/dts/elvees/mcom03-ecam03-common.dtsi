@@ -133,8 +133,10 @@
 	status = "okay";
 	pinctrl-0 = <&nand_default &nand_voltage_18>;
 
-	chip@0 {
+	nand@0 {
 		reg = <0>;
+		nand-rb = <0>;
+		label = "arasan_nand.0";
 		nand-ecc-mode="hw";
 	};
 };
