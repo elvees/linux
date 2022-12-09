@@ -1422,7 +1422,7 @@
 			resets = <&hsperiph_reset HSPERIPH_RST_NFC>;
 			clocks = <&hsperiph_ucg1 HSP_NFC_FLASH_CLK>,
 				 <&hsperiph_ucg0 HSP_NFC_CLK>;
-			clock-names = "clk_flash", "clk_sys";
+			clock-names = "bus", "controller";
 			status = "disabled";
 
 			pinctrl-names = "default";
