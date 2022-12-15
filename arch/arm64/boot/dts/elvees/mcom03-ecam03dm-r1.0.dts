@@ -15,4 +15,6 @@
 	compatible = "elvees,ecam03dm-r1.0",
 		     "elvees,ecam03dm",
 		     "elvees,mcom03";
+
+	/delete-node/ sdr@1900000;
 };

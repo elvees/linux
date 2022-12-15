@@ -32,8 +32,6 @@
 			linux,code = <KEY_VENDOR>;
 		};
 	};
-
-	/delete-node/ sdr@1900000;
 };
 
 &gpio0b {
