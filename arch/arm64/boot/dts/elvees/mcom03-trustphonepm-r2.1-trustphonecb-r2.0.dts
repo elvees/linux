@@ -528,6 +528,13 @@
 		"", "", "", "", "", "", "", "", "", "", "", "";
 
 	gpio-reserved-ranges = <0 1>, <10 22>;
+
+	/* Use gpio-hog because mcp23s08 driver doesn't support reset signal */
+	cutter-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
 };
 
 &pwm {
