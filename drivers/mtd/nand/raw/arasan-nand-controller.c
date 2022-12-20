@@ -623,9 +623,11 @@ static int anfc_rw_pio_op(struct arasan_nfc *nfc, struct anfc_op *nfc_op)
 		if (nfc_op->read)
 			ioread32_rep(nfc->base + DATA_PORT_REG, &buf[offset],
 				     dwords);
-		else
+		else {
+			udelay(1000);
 			iowrite32_rep(nfc->base + DATA_PORT_REG, &buf[offset],
 				      dwords);
+		}
 	}
 
 	if (last_len) {
