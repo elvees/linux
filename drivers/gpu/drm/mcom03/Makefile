@@ -1,1 +1,1 @@
-obj-$(CONFIG_DRM_MCOM03_DISPLAY_ENCODER) += mcom03-display-encoder.o
+obj-$(CONFIG_DRM_MCOM03_DISPLAY_ENCODER) += dpi-mcom03.o dw-mipi-dsi-mcom03.o
