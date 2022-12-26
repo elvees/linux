@@ -273,9 +273,8 @@
 	status = "okay";
 };
 
-&display_encoder {
+&de_dpi {
 	status = "okay";
-	video-output = "rgb";
 };
 
 &i2s0 {

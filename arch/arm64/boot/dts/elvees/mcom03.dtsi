@@ -570,15 +570,46 @@
 			status = "disabled";
 
 			port {
-				dp_out: endpoint {
+				dp_out_dpi: endpoint@0 {
 					remote-endpoint =
-						<&display_encoder_in>;
+						<&de_dpi_in>;
+				};
+
+				dp_out_dsi: endpoint@1 {
+					remote-endpoint =
+						<&de_dsi_in>;
 				};
 			};
 		};
 
-		display_encoder: display-encoder {
-			compatible = "elvees,mcom03-display-encoder";
+		de_dpi: display_encoder@0 {
+			compatible = "elvees,mcom03-drm-dpi";
+			status = "disabled";
+			clocks = <&media_ucg1 MEDIA_DISP_PXLCLK>,
+				 <&media_ucg0 MEDIA_SYS_ACLK>,
+				 <&media_ucg1 MEDIA_DISP_ACLK>,
+				 <&media_ucg3 MEDIA_CMOS0_CLK>;
+			clock-names = "pxlclk", "pclk", "disp_aclk",
+				"cmos0_clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					de_dpi_in: endpoint {
+						remote-endpoint = <&dp_out_dpi>;
+					};
+				};
+			};
+		};
+
+		de_dsi: display_encoder@1 {
+			compatible = "elvees,mcom03-drm-dsi";
 			status = "disabled";
 			reg = <0 0x12c0000 0 0x10000
 			       0 0x1324000 0 0x18>;
@@ -588,11 +619,10 @@
 				 <&media_ucg1 MEDIA_DISP_ACLK>,
 				 <&media_ucg3 MEDIA_MIPI_TX_CFG_CLK>,
 				 <&media_ucg3 MEDIA_MIPI_TX_REFCLK>,
-				 <&media_ucg3 MEDIA_MIPI_TXCLKESC>,
-				 <&media_ucg3 MEDIA_CMOS0_CLK>;
+				 <&media_ucg3 MEDIA_MIPI_TXCLKESC>;
 			clock-names = "pxlclk", "pclk", "disp_aclk",
 				      "mipi_tx_cfg", "mipi_tx_ref",
-				      "mipi_txclkesc", "cmos0_clk";
+				      "mipi_txclkesc";
 			elvees,urb = <&media_urb>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -604,8 +634,8 @@
 				port@0 {
 					reg = <0>;
 
-					display_encoder_in: endpoint {
-						remote-endpoint = <&dp_out>;
+					de_dsi_in: endpoint@0 {
+						remote-endpoint = <&dp_out_dsi>;
 					};
 				};
 			};

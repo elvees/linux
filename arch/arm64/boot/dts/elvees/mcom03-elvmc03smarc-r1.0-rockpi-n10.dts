@@ -86,9 +86,8 @@
 	status = "okay";
 };
 
-&display_encoder {
+&de_dpi {
 	status = "okay";
-	video-output = "rgb";
 };
 
 /* Connected to M.2 slot */

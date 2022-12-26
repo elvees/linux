@@ -15,12 +15,8 @@
 	};
 };
 
-&i2c2 {
-	/delete-node/ hdmi@3d;
-};
-
-&display_encoder {
-	video-output = "dsi";
+&de_dsi {
+	status = "okay";
 
 	dsi-panel@0 {
 		#address-cells = <1>;
@@ -40,8 +36,6 @@
 	};
 
 	ports {
-		/delete-node/ port@2;
-
 		port@1 {
 			reg = <1>;
 
