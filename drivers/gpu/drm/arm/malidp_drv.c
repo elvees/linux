@@ -707,6 +707,26 @@ static int malidp_runtime_pm_resume(struct device *dev)
 	return 0;
 }
 
+/* setup encoders possible_clones */
+static void malidp_cloning_configure(struct drm_device *drm,
+	struct malidp_drm *malidp)
+{
+	struct drm_encoder *encoder;
+	struct drm_encoder *mw_encoder = &malidp->mw_connector.encoder;
+
+	list_for_each_entry(encoder, &drm->mode_config.encoder_list, head) {
+		/* it will be warning if self mask is not set */
+		encoder->possible_clones |= drm_encoder_mask(encoder);
+
+		/* allow clonning with writeback connector for all encoders
+		   writeback encoder is virtual */
+		if (encoder->encoder_type != DRM_MODE_ENCODER_VIRTUAL) {
+			encoder->possible_clones |= drm_encoder_mask(mw_encoder);
+			mw_encoder->possible_clones |= drm_encoder_mask(encoder);
+		}
+	}
+}
+
 static int malidp_bind(struct device *dev)
 {
 	struct resource *res;
@@ -715,7 +735,6 @@ static int malidp_bind(struct device *dev)
 	struct malidp_hw_device *hwdev;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct of_device_id const *dev_id;
-	struct drm_encoder *encoder;
 	/* number of lines for the R, G and B output */
 	u8 output_width[MAX_OUTPUT_CHANNELS];
 	int ret = 0, i;
@@ -848,14 +867,7 @@ static int malidp_bind(struct device *dev)
 		goto bind_fail;
 	}
 
-	/* We expect to have a maximum of two encoders one for the actual
-	 * display and a virtual one for the writeback connector
-	 */
-	WARN_ON(drm->mode_config.num_encoder > 2);
-	list_for_each_entry(encoder, &drm->mode_config.encoder_list, head) {
-		encoder->possible_clones =
-				(1 << drm->mode_config.num_encoder) -  1;
-	}
+	malidp_cloning_configure(drm, malidp);
 
 	ret = malidp_irq_init(pdev);
 	if (ret < 0)
@@ -953,20 +965,27 @@ static int malidp_compare_dev(struct device *dev, void *data)
 
 static int malidp_platform_probe(struct platform_device *pdev)
 {
-	struct device_node *port;
+	struct device_node *epoint;
 	struct component_match *match = NULL;
 
 	if (!pdev->dev.of_node)
 		return -ENODEV;
 
-	/* there is only one output port inside each device, find it */
-	port = of_graph_get_remote_node(pdev->dev.of_node, 0, 0);
-	if (!port)
-		return -ENODEV;
+	for_each_endpoint_of_node(pdev->dev.of_node, epoint) {
+		struct device_node *intf =
+			of_graph_get_remote_port_parent(epoint);
+		if (!intf)
+			continue;
 
-	drm_of_component_match_add(&pdev->dev, &match, malidp_compare_dev,
-				   port);
-	of_node_put(port);
+		if (of_device_is_available(intf)) {
+			DRM_DEBUG_DRIVER("Adding component %s\n", intf->full_name);
+			drm_of_component_match_add(&pdev->dev, &match,
+				malidp_compare_dev, intf);
+		}
+
+		of_node_put(intf);
+	}
+
 	return component_master_add_with_match(&pdev->dev, &malidp_master_ops,
 					       match);
 }
