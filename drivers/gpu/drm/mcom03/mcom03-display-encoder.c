@@ -16,6 +16,7 @@
 #include <linux/component.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <drm/bridge/dw_mipi_dsi.h>
 
@@ -278,7 +279,7 @@ static int drm_mcom03_bind(struct device *dev, struct device *master,
 			 encoder_type, NULL);
 
 	if (priv->type == OUTPUT_RGB) {
-		ret = drm_bridge_attach(encoder, priv->output_bridge, NULL);
+		ret = drm_bridge_attach(encoder, priv->output_bridge, NULL, 0);
 		if (ret)
 			dev_err(priv->dev, "failed to bridge attach (%d)\n",
 				ret);
@@ -286,11 +287,19 @@ static int drm_mcom03_bind(struct device *dev, struct device *master,
 		return ret;
 	}
 
-	priv->dsi = dw_mipi_dsi_bind(pdev, encoder, &priv->dsi_plat_data);
+	priv->dsi = dw_mipi_dsi_probe(pdev, &priv->dsi_plat_data);
 	if (IS_ERR(priv->dsi)) {
 		ret = PTR_ERR(priv->dsi);
-		dev_err(priv->dev, "failed to bind DSI (%d)\n", ret);
+		dev_err(priv->dev, "failed to probe DSI (%d)\n", ret);
 		drm_encoder_cleanup(encoder);
+		return ret;
+	}
+
+	ret = dw_mipi_dsi_bind(priv->dsi, encoder);
+	if (ret) {
+		dev_err(priv->dev, "failed to bind DSI encoder (%d)\n", ret);
+		drm_encoder_cleanup(encoder);
+		dw_mipi_dsi_remove(priv->dsi);
 	}
 
 	return ret;
@@ -302,6 +311,7 @@ static void drm_mcom03_unbind(struct device *dev, struct device *master,
 	struct mcom03_priv *priv = dev_get_drvdata(dev);
 
 	dw_mipi_dsi_unbind(priv->dsi);
+	dw_mipi_dsi_remove(priv->dsi);
 	drm_encoder_cleanup(&priv->encoder);
 }
 
@@ -380,7 +390,7 @@ static u32 drm_mcom03_get_best_cfg(int clock,
 }
 
 static int drm_mcom03_get_line_mbps(void *priv_data,
-				    struct drm_display_mode *mode,
+				    const struct drm_display_mode *mode,
 				    unsigned long mode_flags, u32 lanes,
 				    u32 format, unsigned int *lane_mbps)
 {
@@ -454,9 +464,112 @@ static int drm_mcom03_get_line_mbps(void *priv_data,
 	return 0;
 }
 
+struct hstt {
+	unsigned int maxfreq;
+	struct dw_mipi_dsi_dphy_timing timing;
+};
+
+#define HSTT(_maxfreq, _c_lp2hs, _c_hs2lp, _d_lp2hs, _d_hs2lp)	\
+{					\
+	.maxfreq = _maxfreq,		\
+	.timing = {			\
+		.clk_lp2hs = _c_lp2hs,	\
+		.clk_hs2lp = _c_hs2lp,	\
+		.data_lp2hs = _d_lp2hs,	\
+		.data_hs2lp = _d_hs2lp,	\
+	}				\
+}
+
+/* Synopsys DesignWare MIPI DPHY
+ * Table A-4 High-Speed Transition Times */
+struct hstt hstt_table[] = {
+	HSTT(80, 21, 17, 15, 10),
+	HSTT(90, 23, 17, 16, 10),
+	HSTT(100, 22, 17, 16, 10),
+	HSTT(110, 25, 18, 17, 11),
+	HSTT(120, 26, 20, 18, 11),
+	HSTT(130, 27, 19, 19, 11),
+	HSTT(140, 27, 19, 19, 11),
+	HSTT(150, 28, 20, 20, 12),
+	HSTT(160, 30, 21, 22, 13),
+	HSTT(170, 30, 21, 23, 13),
+	HSTT(180, 31, 21, 23, 13),
+	HSTT(190, 32, 22, 24, 13),
+	HSTT(205, 35, 22, 25, 13),
+	HSTT(220, 37, 26, 27, 15),
+	HSTT(235, 38, 28, 27, 16),
+	HSTT(250, 41, 29, 30, 17),
+	HSTT(275, 43, 29, 32, 18),
+	HSTT(300, 45, 32, 35, 19),
+	HSTT(325, 48, 33, 36, 18),
+	HSTT(350, 51, 35, 40, 20),
+	HSTT(400, 59, 37, 44, 21),
+	HSTT(450, 65, 40, 49, 23),
+	HSTT(500, 71, 41, 54, 24),
+	HSTT(550, 77, 44, 57, 26),
+	HSTT(600, 82, 46, 64, 27),
+	HSTT(650, 87, 48, 67, 28),
+	HSTT(700, 94, 52, 71, 29),
+	HSTT(750, 99, 52, 75, 31),
+	HSTT(800, 105, 55, 82, 32),
+	HSTT(850, 110, 58, 85, 32),
+	HSTT(900, 115, 58, 88, 35),
+	HSTT(950, 120, 62, 93, 36),
+	HSTT(1000, 128, 63, 99, 38),
+	HSTT(1050, 132, 65, 102, 38),
+	HSTT(1100, 138, 67, 106, 39),
+	HSTT(1150, 146, 69, 112, 42),
+	HSTT(1200, 151, 71, 117, 43),
+	HSTT(1250, 153, 74, 120, 45),
+	HSTT(1300, 160, 73, 124, 46),
+	HSTT(1350, 165, 76, 130, 47),
+	HSTT(1400, 172, 78, 134, 49),
+	HSTT(1450, 177, 80, 138, 49),
+	HSTT(1500, 183, 81, 143, 52),
+	HSTT(1550, 191, 84, 147, 52),
+	HSTT(1600, 194, 85, 152, 52),
+	HSTT(1650, 201, 86, 155, 53),
+	HSTT(1700, 208, 88, 161, 53),
+	HSTT(1750, 212, 89, 165, 53),
+	HSTT(1800, 220, 90, 171, 54),
+	HSTT(1850, 223, 92, 175, 54),
+	HSTT(1900, 231, 91, 180, 55),
+	HSTT(1950, 236, 95, 185, 56),
+	HSTT(2000, 243, 97, 190, 56),
+	HSTT(2050, 248, 99, 194, 58),
+	HSTT(2100, 252, 100, 199, 59),
+	HSTT(2150, 259, 102, 204, 61),
+	HSTT(2200, 266, 105, 210, 62),
+	HSTT(2250, 269, 109, 213, 63),
+	HSTT(2300, 272, 109, 217, 65),
+	HSTT(2350, 281, 112, 225, 66),
+	HSTT(2400, 283, 115, 226, 66),
+	HSTT(2450, 282, 115, 226, 67),
+	HSTT(2500, 281, 118, 227, 67)
+};
+
+static int
+drm_mcom03_phy_get_timing(void *priv_data, unsigned int lane_mbps,
+			   struct dw_mipi_dsi_dphy_timing *timing)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(hstt_table); i++)
+		if (lane_mbps < hstt_table[i].maxfreq)
+			break;
+
+	if (i == ARRAY_SIZE(hstt_table))
+		i--;
+
+	*timing = hstt_table[i].timing;
+
+	return 0;
+}
+
 static const struct dw_mipi_dsi_phy_ops drm_mcom03_phy_ops = {
 	.init = drm_mcom03_phy_init,
 	.get_lane_mbps = drm_mcom03_get_line_mbps,
+	.get_timing = drm_mcom03_phy_get_timing,
 };
 
 static enum drm_mode_status drm_mcom03_dsi_mode_valid(void *priv_data,
@@ -538,9 +651,8 @@ static int drm_mcom03_probe(struct platform_device *pdev)
 			priv->panel = of_drm_find_panel(panel_node);
 			if (IS_ERR(priv->panel))
 				return PTR_ERR(priv->panel);
-
-			priv->output_bridge = drm_panel_bridge_add(priv->panel,
-					DRM_MODE_CONNECTOR_DPI);
+			priv->panel->connector_type = DRM_MODE_CONNECTOR_DPI;
+			priv->output_bridge = drm_panel_bridge_add(priv->panel);
 			if (IS_ERR(priv->output_bridge))
 				return PTR_ERR(priv->output_bridge);
 
