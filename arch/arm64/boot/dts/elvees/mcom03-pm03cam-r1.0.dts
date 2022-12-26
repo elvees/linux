@@ -30,7 +30,7 @@
 		factory-reset {
 			label = "Factory reset";
 			gpios = <&gpio0a 7 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VENDOR>;
+			linux,code = <KEY_RESTART>;
 		};
 	};
 
