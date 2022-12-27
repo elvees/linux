@@ -950,6 +950,8 @@
 			clocks = <&lsperiph0_ucg0 LSP0_SPI0_CLK>;
 			interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
 			num-cs = <4>;
+			/* Workaround of bug MCOM03-1879 with overrun error */
+			snps,fifo-size = <63>;
 
 			status = "disabled";
 
