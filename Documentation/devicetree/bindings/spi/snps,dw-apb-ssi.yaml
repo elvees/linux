@@ -99,6 +99,10 @@ properties:
     default: 4
     enum: [ 2, 4 ]
 
+  snps,fifo-size:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Size of the RX and TX FIFO.
+
   num-cs:
     default: 4
     minimum: 1
@@ -162,6 +166,7 @@ examples:
       num-cs = <2>;
       cs-gpios = <&gpio0 13 0>,
                  <&gpio0 14 0>;
+      snps,fifo-size = <63>;
       rx-sample-delay-ns = <3>;
       spi-flash@1 {
         compatible = "spi-nand";
