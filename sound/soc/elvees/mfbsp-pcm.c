@@ -63,12 +63,25 @@ static void start_dma(struct mfbsp_dma_data *dma)
 	mfbsp_writel(dma->base, MFBSP_DMA_CSR, dl->csr | MFBSP_DMA_CSR_RUN);
 }
 
+static struct snd_soc_dai *mfbsp_get_cpu_dai(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *soc_runtime = asoc_substream_to_rtd(substream);
+
+	return asoc_rtd_to_cpu(soc_runtime, 0);
+}
+
+static struct mfbsp_dma_data *mfbsp_get_dma_data(
+	struct snd_pcm_substream *substream)
+{
+	struct snd_soc_dai *dai = mfbsp_get_cpu_dai(substream);
+
+	return snd_soc_dai_get_dma_data(dai, substream);
+}
+
 static irqreturn_t mfbsp_pcm_irq_handler(int irq, void *dev_id)
 {
 	struct snd_pcm_substream *substream = dev_id;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mfbsp_dma_data *dma = snd_soc_dai_get_dma_data(rtd->cpu_dai,
-							      substream);
+	struct mfbsp_dma_data *dma = mfbsp_get_dma_data(substream);
 
 	mfbsp_readl(dma->base, MFBSP_DMA_CSR);
 
@@ -77,41 +90,47 @@ static irqreturn_t mfbsp_pcm_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int mfbsp_pcm_open(struct snd_pcm_substream *substream)
+static int mfbsp_pcm_open(struct snd_soc_component *component,
+	struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mfbsp_dma_data *dma = snd_soc_dai_get_dma_data(rtd->cpu_dai,
-							      substream);
+	struct snd_soc_dai *dai = mfbsp_get_cpu_dai(substream);
+	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
+
+	struct mfbsp_dma_data *dma =
+		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
+		&mfbsp->playback_dma : &mfbsp->capture_dma;
+
+	snd_soc_dai_set_dma_data(dai, substream, dma);
 
 	snd_soc_set_runtime_hwparams(substream, &mfbsp_pcm_hardware);
 
 	return request_irq(dma->irq, mfbsp_pcm_irq_handler, 0,
-			   dev_name(rtd->cpu_dai->dev), substream);
+			   dev_name(dai->dev), substream);
 }
 
-static int mfbsp_pcm_close(struct snd_pcm_substream *substream)
+static int mfbsp_pcm_close(struct snd_soc_component *component,
+	struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mfbsp_dma_data *dma = snd_soc_dai_get_dma_data(rtd->cpu_dai,
-							      substream);
+	struct mfbsp_dma_data *dma = mfbsp_get_dma_data(substream);
 
 	free_irq(dma->irq, substream);
 
 	return 0;
 }
 
-static int mfbsp_pcm_hw_params(struct snd_pcm_substream *substream,
-			       struct snd_pcm_hw_params *hw_params)
+static int mfbsp_pcm_hw_params(struct snd_soc_component *component,
+	struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *hw_params)
 {
 	return snd_pcm_lib_malloc_pages(substream,
 					params_buffer_bytes(hw_params));
 }
 
-static int mfbsp_pcm_prepare(struct snd_pcm_substream *substream)
+static int mfbsp_pcm_prepare(struct snd_soc_component *component,
+	struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mfbsp_dma_data *dma = snd_soc_dai_get_dma_data(rtd->cpu_dai,
-							      substream);
+	struct mfbsp_dma_data *dma = mfbsp_get_dma_data(substream);
+
 	dma_addr_t buffer_addr = substream->dma_buffer.addr;
 	dma_addr_t desc_addr = dma->desc_addr;
 	struct mfbsp_dma_desc *desc_list = dma->desc_list;
@@ -137,11 +156,10 @@ static int mfbsp_pcm_prepare(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static int mfbsp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
+static int mfbsp_pcm_trigger(struct snd_soc_component *component,
+	struct snd_pcm_substream *substream, int cmd)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mfbsp_dma_data *dma = snd_soc_dai_get_dma_data(rtd->cpu_dai,
-							      substream);
+	struct mfbsp_dma_data *dma = mfbsp_get_dma_data(substream);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -163,32 +181,22 @@ static int mfbsp_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return 0;
 }
 
-static snd_pcm_uframes_t mfbsp_pcm_pointer(struct snd_pcm_substream *substream)
+static snd_pcm_uframes_t mfbsp_pcm_pointer(struct snd_soc_component *component,
+	struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mfbsp_dma_data *dma = snd_soc_dai_get_dma_data(rtd->cpu_dai,
-							      substream);
+	struct mfbsp_dma_data *dma = mfbsp_get_dma_data(substream);
 	dma_addr_t buffer_addr = substream->dma_buffer.addr;
 	dma_addr_t buffer_pos = mfbsp_readq(dma->base, MFBSP_DMA_IR);
 
 	return bytes_to_frames(substream->runtime, buffer_pos - buffer_addr);
 }
 
-static const struct snd_pcm_ops mfbsp_pcm_ops = {
-	.open		= mfbsp_pcm_open,
-	.close		= mfbsp_pcm_close,
-	.ioctl		= snd_pcm_lib_ioctl,
-	.hw_params	= mfbsp_pcm_hw_params,
-	.hw_free	= snd_pcm_lib_free_pages,
-	.prepare	= mfbsp_pcm_prepare,
-	.trigger	= mfbsp_pcm_trigger,
-	.pointer	= mfbsp_pcm_pointer,
-};
-
-static int mfbsp_pcm_new(struct snd_soc_pcm_runtime *rtd)
+static int mfbsp_pcm_new(struct snd_soc_component *component,
+	struct snd_soc_pcm_runtime *rtd)
 {
-	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(rtd->cpu_dai);
-	struct device *dev = rtd->cpu_dai->dev;
+	struct snd_soc_dai *dai = asoc_rtd_to_cpu(rtd, 0);
+	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
+	struct device *dev = dai->dev;
 	struct dma_pool *desc_pool;
 	dma_addr_t desc_addr;
 	struct mfbsp_dma_desc *desc_list;
@@ -222,21 +230,27 @@ static int mfbsp_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	mfbsp->capture_dma.desc_addr = desc_addr;
 	mfbsp->capture_dma.desc_list = desc_list;
 
-	return snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
-						     SNDRV_DMA_TYPE_DEV, dev,
-						     MFBSP_PCM_BUFFER_BYTES,
-						     MFBSP_PCM_BUFFER_BYTES);
+	snd_pcm_lib_preallocate_pages_for_all(rtd->pcm, SNDRV_DMA_TYPE_DEV,
+		dev, MFBSP_PCM_BUFFER_BYTES, MFBSP_PCM_BUFFER_BYTES);
+
+	return 0;
 }
 
-static void mfbsp_pcm_free(struct snd_pcm *pcm)
+static void mfbsp_pcm_free(struct snd_soc_component *component,
+	struct snd_pcm *pcm)
 {
 	snd_pcm_lib_preallocate_free_for_all(pcm);
 }
 
 static const struct snd_soc_component_driver mfbsp_component_driver = {
-	.pcm_new	= mfbsp_pcm_new,
-	.pcm_free	= mfbsp_pcm_free,
-	.ops		= &mfbsp_pcm_ops,
+	.open		= mfbsp_pcm_open,
+	.close		= mfbsp_pcm_close,
+	.trigger	= mfbsp_pcm_trigger,
+	.pointer	= mfbsp_pcm_pointer,
+	.hw_params	= mfbsp_pcm_hw_params,
+	.prepare	= mfbsp_pcm_prepare,
+	.pcm_construct	= mfbsp_pcm_new,
+	.pcm_destruct	= mfbsp_pcm_free,
 };
 
 int mfbsp_register_platform(struct platform_device *pdev)

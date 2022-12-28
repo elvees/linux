@@ -82,19 +82,6 @@ static int mfbsp_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return 0;
 }
 
-static int mfbsp_i2s_startup(struct snd_pcm_substream *substream,
-			     struct snd_soc_dai *dai)
-{
-	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		snd_soc_dai_set_dma_data(dai, substream, &mfbsp->playback_dma);
-	else
-		snd_soc_dai_set_dma_data(dai, substream, &mfbsp->capture_dma);
-
-	return 0;
-}
-
 static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 			       struct snd_pcm_hw_params *params,
 			       struct snd_soc_dai *dai)
@@ -174,7 +161,6 @@ static int mfbsp_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 
 static const struct snd_soc_dai_ops mfbsp_i2s_dai_ops = {
 	.set_fmt	= mfbsp_i2s_set_fmt,
-	.startup	= mfbsp_i2s_startup,
 	.hw_params	= mfbsp_i2s_hw_params,
 	.trigger	= mfbsp_i2s_trigger,
 };
