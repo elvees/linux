@@ -23,6 +23,41 @@
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon console=ttyS0,115200";
 	};
+
+	vdda_codec: vdda-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vdda-codec";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	vddio_codec: vddio-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vddio-codec";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	/* TRS (3.5mm jack) connected to SGTL5000 codec.
+	   SGTL5000 connected to MCom-03 MFBSP0 as I2S master.
+	   */
+	aux_sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "mfbsp-sgtl5000";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+
+		simple-audio-card,cpu {
+			sound-dai = <&mfbsp0_i2s>;
+		};
+
+		dailink1_master: simple-audio-card,codec {
+			sound-dai = <&sgtl5000>;
+		};
+	};
 };
 
 /* Connected to USB Type-C Debug UART */
@@ -175,5 +210,50 @@
 					  THERMAL_NO_LIMIT
 					  THERMAL_NO_LIMIT>;
 		};
+	};
+};
+
+&audio_mclk {
+	status = "okay";
+};
+
+/* SMARC S38-42 (I2S0*) pins connected to mfbsp0 */
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+/* mfbsp0 interrupt controller */
+&qlic0 {
+	status = "okay";
+};
+
+/*
+ * SMARC pins S48-49 (I2C_GP*) connected to SGTL5000.
+ *
+ * ELV-SMARC-CB has 2.2 kOhm mic bias resistor (which differs from 2 kOhm
+ * recommended in chip datasheet).
+ *
+ * It's not a universally applicable standard for mic jack voltage bias,
+ * but Android publishes specifications [1] for headset plug and jack
+ * with 1.8-2.9 V range and Reference Headset Test Circuit to 2.2V mic bias
+ * applied through 2.2 kOhm resistor.
+ *
+ * [1] https://source.android.com/docs/core/interaction/accessories/headset/jack-headset-spec#general
+ */
+&i2c_gp {
+	status = "okay";
+
+	sgtl5000: codec@a {
+		status = "okay";
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		#sound-dai-cells = <0>;
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		micbias-resistor-k-ohms = <2>;
+		micbias-voltage-m-volts = <2250>;
+		VDDA-supply = <&vdda_codec>;
+		VDDIO-supply = <&vddio_codec>;
+		VDDD-supply = <&vddio_codec>;
 	};
 };
