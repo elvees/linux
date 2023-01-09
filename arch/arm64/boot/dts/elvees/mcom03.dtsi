@@ -1776,42 +1776,47 @@
 				 * master. Internal pull-up is too weak to be
 				 * used, so external one is used.
 				 */
-				i2c1_cfg_default: i2c1-cfg {
-					/* pins = i2c1_scl, i2c1_sda */
-					pins = "GPIOA_0", "GPIOA_1";
-					input-enable;
+				i2c1_default_cfg: i2c1-cfg {
+					scl-sda-pins {
+						pins = "GPIOA_0", "GPIOA_1";
+						input-enable;
+					};
 				};
 
-				i2c2_cfg_default: i2c2-cfg {
-					/* pins = i2c2_scl, i2c2_sda */
-					pins = "GPIOA_2", "GPIOA_3";
-					input-enable;
+				i2c2_default_cfg: i2c2-cfg {
+					scl-sda-pins {
+						pins = "GPIOA_2", "GPIOA_3";
+						input-enable;
+					};
 				};
 
-				i2c3_cfg_default: i2c3-cfg {
-					/* pins = i2c3_scl, i2c3_sda */
-					pins = "GPIOA_4", "GPIOA_5";
-					input-enable;
+				i2c3_default_cfg: i2c3-cfg {
+					scl-sda-pins {
+						pins = "GPIOA_4", "GPIOA_5";
+						input-enable;
+					};
 				};
 
-				i2s0_cfg_default: i2s0-cfg {
-					/* pins = i2s0_sdi0 i2s0_sclk_in */
-					pins = "GPIOB_4", "GPIOB_5";
-					input-enable;
+				i2s0_default_cfg: i2s0-cfg {
+					sdi-sclk-in-pins {
+						pins = "GPIOB_4", "GPIOB_5";
+						input-enable;
+					};
 				};
 
-				uart0_cfg_default: uart0-cfg {
-					rx {
+				uart0_default_cfg: uart0-cfg {
+					rx-pin {
 						pins = "GPIOB_7";
 						bias-bus-hold;
 						input-enable;
 					};
 				};
 
-				spi1_cfg_default: spi1-cfg {
-					/* pins = spi1_rxd, spi1_ss_in_n */
-					pins = "GPIOC_2", "GPIOC_7";
-					input-enable;
+				spi1_default_cfg: spi1-cfg {
+					rxd-ss-in-n-pins {
+						pins = "GPIOC_2", "GPIOC_7";
+						input-enable;
+					};
 				};
 			};
 		};
@@ -1888,7 +1893,7 @@
 			status = "disabled";
 
 			pinctrl-names = "default";
-			pinctrl-0 = <&i2c1_cfg_default &i2c1_mux_data>;
+			pinctrl-0 = <&i2c1_default_cfg &i2c1_mux_data>;
 		};
 
 		i2c2: i2c@1720000 {
@@ -1902,7 +1907,7 @@
 			status = "disabled";
 
 			pinctrl-names = "default";
-			pinctrl-0 = <&i2c2_cfg_default &i2c2_mux_data>;
+			pinctrl-0 = <&i2c2_default_cfg &i2c2_mux_data>;
 		};
 
 		i2c3: i2c@1730000 {
@@ -1916,7 +1921,7 @@
 			status = "disabled";
 
 			pinctrl-names = "default";
-			pinctrl-0 = <&i2c3_cfg_default &i2c3_mux_data>;
+			pinctrl-0 = <&i2c3_default_cfg &i2c3_mux_data>;
 		};
 
 		i2s0: i2s@1740000 {
@@ -1929,7 +1934,7 @@
 			status = "disabled";
 
 			pinctrl-names = "default";
-			pinctrl-0 = <&i2s0_cfg_default &i2s0_mux_sdo0
+			pinctrl-0 = <&i2s0_default_cfg &i2s0_mux_sdo0
 				     &i2s0_mux_sdi0>;
 		};
 
@@ -1944,7 +1949,7 @@
 			status = "disabled";
 
 			pinctrl-names = "default";
-			pinctrl-0 = <&uart0_cfg_default &uart0_mux_data>;
+			pinctrl-0 = <&uart0_default_cfg &uart0_mux_data>;
 		};
 
 		spi1: spi@1760000 {
@@ -1961,7 +1966,7 @@
 			snps,fifo-size = <63>;
 
 			pinctrl-names = "default";
-			pinctrl-0 = <&spi1_mux_data &spi1_mux_ss_in &spi1_cfg_default>;
+			pinctrl-0 = <&spi1_mux_data &spi1_mux_ss_in &spi1_default_cfg>;
 		};
 
 		timer0: timer@1790000 {
