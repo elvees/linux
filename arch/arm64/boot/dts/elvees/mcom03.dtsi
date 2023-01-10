@@ -47,7 +47,7 @@
 		};
 	};
 
-	cpu-subsystem@800000 {
+	cpu-bus@800000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -191,7 +191,7 @@
 		};
 	};
 
-	service@1f000000 {
+	service-bus@1f000000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -320,7 +320,7 @@
 
 	};
 
-	media@1200000 {
+	media-bus@1200000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -659,7 +659,7 @@
 		};
 	};
 
-	lsperiph0@1600000 {
+	lsperiph0-bus@1600000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1024,7 +1024,7 @@
 		};
 	};
 
-	hsperiph@0 {
+	hsperiph-bus@0 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1284,7 +1284,7 @@
 			#clock-cells = <1>;
 		};
 
-		dma32@0 {
+		dma32-bus@0 {
 			compatible = "elvees,mcom03-dma32", "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
@@ -1474,7 +1474,7 @@
 		};
 	};
 
-	sdr@1900000 {
+	sdr-bus@1900000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1563,7 +1563,7 @@
 		/* This node isn't real PCIe bus, but if it's name equals to "pcie", kernel will
 		 * handle it like "pci" value was set to the "device_type" property. The only way
 		 * to override this behaviour is to give the node another name. */
-		mcom03-pcie@0 {
+		mcom03-pcie-bus@0 {
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
@@ -1713,7 +1713,7 @@
 		};
 	};
 
-	lsperiph1@1700000 {
+	lsperiph1-bus@1700000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
