@@ -1,0 +1,8 @@
+config DRM_MCOM03_DISPLAY_ENCODER
+	tristate "MCom-03 display encoder"
+	depends on DRM && OF && ARCH_MCOM03
+	depends on COMMON_CLK
+	select DRM_DW_MIPI_DSI
+	help
+	  Choose this option if you want to compile the MCom-03 display encoder for
+	  parallel RGB and MIPI DSI support
