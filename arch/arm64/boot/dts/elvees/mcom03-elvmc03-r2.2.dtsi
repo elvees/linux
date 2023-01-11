@@ -51,3 +51,38 @@
 		m25p,fast-read;
 	};
 };
+
+&i2c0 {
+	/* Not all devices are checked to 400kHz support */
+	/* MCP79410T doesn't support 400 kHz when used VCC 1.8V */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	i2c-switch@74 {
+		compatible = "nxp,pca9546";
+		reg = <0x74>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* i2c01 is used for ELV-MC03-CB */
+		i2c01: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		/* i2c02 doesn't connect to ELV-MC03-CB and is used for
+		 * HDMI transmitter on ELV-MC03 */
+		i2c02: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c03: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+	};
+};

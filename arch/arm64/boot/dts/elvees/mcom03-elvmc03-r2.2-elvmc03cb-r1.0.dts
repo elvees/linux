@@ -79,12 +79,6 @@
 	status = "okay";
 };
 
-&i2c0 {
-	/* MCP79410T doesn't support 400 kHz when used VCC 1.8V */
-	clock-frequency = <100000>;
-	status = "okay";
-};
-
 &i2c1 {
 	/* Connected to connector. Some external devices may not support
 	 * for 400kHz */
