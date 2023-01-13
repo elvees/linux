@@ -540,12 +540,17 @@
 			compatible = "elvees,mcom03-dw-mipi-dphy";
 			elvees,urb = <&media_urb>;
 			status = "disabled";
+			clocks = <&media_ucg3 MEDIA_MIPI_RX0_CFG_CLK>;
+			clock-names = "mipi_rx0_cfg_clk";
 		};
 
 		csi1: dphy@1323040 {
 			compatible = "elvees,mcom03-dw-mipi-dphy";
 			elvees,urb = <&media_urb>;
 			status = "disabled";
+			clocks = <&media_ucg3 MEDIA_MIPI_RX1_CFG_CLK>,
+				 <&media_ucg3 MEDIA_CMOS1_CLK>;
+			clock-names = "mipi_rx1_cfg_clk", "cmos1_clk";
 		};
 	};
 
