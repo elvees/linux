@@ -107,28 +107,6 @@
 	/* Not all devices are checked to 400kHz support */
 	clock-frequency = <100000>;
 	status = "okay";
-
-	adv7513: hdmi@39 {
-		compatible = "adi,adv7513";
-		reg = <0x39>, <0x3f>;
-		reg-names = "main", "edid";
-		interrupt-parent = <&gpio0a>;
-		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
-		clocks = <&adv7513_cec_clk>;
-		clock-names = "cec";
-		adi,input-depth = <8>;
-		adi,input-colorspace = "rgb";
-		adi,input-clock = "1x";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-			adv7513_in: endpoint {
-				remote-endpoint = <&rgb_out>;
-			};
-		};
-	};
 };
 
 &hsperiph_pinctrl {
@@ -180,6 +158,17 @@
 			rgb_out: endpoint {
 				remote-endpoint = <&adv7513_in>;
 			};
+		};
+	};
+};
+
+&adv7513 {
+	status = "okay";
+
+	port@0 {
+		reg = <0>;
+		adv7513_in: endpoint {
+			remote-endpoint = <&rgb_out>;
 		};
 	};
 };

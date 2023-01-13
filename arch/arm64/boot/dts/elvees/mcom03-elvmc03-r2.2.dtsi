@@ -77,6 +77,22 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <1>;
+
+			adv7513: hdmi@39 {
+				status = "disabled";
+				compatible = "adi,adv7513";
+				reg = <0x39>, <0x3f>;
+				reg-names = "main", "edid";
+				interrupt-parent = <&gpio0a>;
+				interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+				clocks = <&adv7513_cec_clk>;
+				clock-names = "cec";
+				adi,input-depth = <8>;
+				adi,input-colorspace = "rgb";
+				adi,input-clock = "1x";
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
 		};
 
 		i2c03: i2c@2 {
