@@ -87,6 +87,25 @@
 		 * So device do not use interrupts and can not be used as
 		 * wakeup-source */
 	};
+
+	fancontrol: emc2302@2e {
+		compatible = "microchip,emc2305";
+		reg = <0x2e>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		microchip,pwm-separate;
+		#cooling-cells = <2>;
+
+		channel@0 {
+			reg = <0>;
+			microchip,pwm-push-pull;
+		};
+
+		channel@1 {
+			reg = <1>;
+			microchip,pwm-push-pull;
+		};
+	};
 };
 
 &i2c1 {
