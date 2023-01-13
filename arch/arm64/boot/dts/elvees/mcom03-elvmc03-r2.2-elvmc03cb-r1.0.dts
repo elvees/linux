@@ -79,6 +79,16 @@
 	status = "okay";
 };
 
+&i2c01 {
+	mcp7940n: rtc@6f {
+		compatible = "microchip,mcp7941x";
+		reg = <0x6f>;
+		/* MFP(7) pin routed to GPIO0C_3 which do not have interrupt line.
+		 * So device do not use interrupts and can not be used as
+		 * wakeup-source */
+	};
+};
+
 &i2c1 {
 	/* Connected to connector. Some external devices may not support
 	 * for 400kHz */
