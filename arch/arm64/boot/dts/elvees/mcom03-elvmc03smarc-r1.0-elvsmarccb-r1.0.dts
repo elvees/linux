@@ -61,6 +61,20 @@
 	};
 };
 
+&qlic0 {
+	status = "okay";
+};
+
+/* Connected to XP16 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+
+/* Connected to XP16 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
 /* Connected to USB 3.0 hub */
 &usb0 {
 	status = "okay";
