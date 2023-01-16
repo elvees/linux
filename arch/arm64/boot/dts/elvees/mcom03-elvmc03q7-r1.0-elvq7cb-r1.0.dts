@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03q7-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-Q7 r1.0, ELV-Q7-CB r1.0";
+	compatible = "elvees,elvmc03q7-r1.0-elvq7cb-r1.0",
+		     "elvees,elvmc03q7-elvq7cb",
+		     "elvees,elvq7cb-r1.0",
+		     "elvees,elvq7cb",
+		     "elvees,elvmc03q7-r1.0",
+		     "elvees,elvmc03q7",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&uart0 {
+	status = "okay";
+	clock-frequency = <27920454>;
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+/* Connected to USB 2.0 (USB1) */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 2.0 (USB0, USB2-3) */
+&usb1 {
+	status = "okay";
+};
+
+/* The board has a video output interface */
+&dp {
+	status = "okay";
+};
+
+/* Connected to HDMI plug */
+&adv7513 {
+	status = "okay";
+};
+
+&display_encoder {
+	status = "okay";
+	video-output = "rgb";
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	hwmon@49 {
+		compatible = "ti,lm73";
+		reg = <0x49>;
+	};
+
+	hwmon@4a {
+		compatible = "ti,lm73";
+		reg = <0x4a>;
+	};
+};
+
+/* Connected to PCIe bridge */
+&pcie1 {
+	status = "okay";
+};
