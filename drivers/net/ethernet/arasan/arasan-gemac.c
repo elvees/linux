@@ -962,14 +962,17 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 	struct phy_device *phydev = pd->phy_dev;
 	unsigned long rate;
-	u32 reg;
+	u32 reg, tcreg;
 
 	reg = arasan_gemac_readl(pd, MAC_GLOBAL_CONTROL);
 	reg &= ~(MAC_GLOBAL_CONTROL_SPEED(3) |
 		 MAC_GLOBAL_CONTROL_DUPLEX_MODE(1));
+	tcreg = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
+	tcreg &= ~MAC_TRANSMIT_CONTROL_TRANSMIT_AUTO_RETRY;
 
 	switch (phydev->duplex) {
 	case DUPLEX_HALF:
+		tcreg |= MAC_TRANSMIT_CONTROL_TRANSMIT_AUTO_RETRY;
 		break;
 	case DUPLEX_FULL:
 		reg |= MAC_GLOBAL_CONTROL_DUPLEX_MODE(DUPLEX_FULL);
@@ -1001,6 +1004,7 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 	arasan_gemac_set_threshold(pd);
 
 	arasan_gemac_writel(pd, MAC_GLOBAL_CONTROL, reg);
+	arasan_gemac_writel(pd, MAC_TRANSMIT_CONTROL, tcreg);
 }
 
 static void arasan_gemac_handle_link_change(struct net_device *dev)
