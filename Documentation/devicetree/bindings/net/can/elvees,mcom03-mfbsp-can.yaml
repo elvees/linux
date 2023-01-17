@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/can/elvees,mcom03-mfbsp-can.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ELVEES MCom-03 MFBSP CAN controller
+
+maintainers:
+  - Ilya Orazov <iorazov@elvees.com>
+
+description: Bindings for the ELVEES MCom-03 MFBSP CAN controller.
+
+properties:
+  compatible:
+    const: elvees,mfbsp-can
+
+  reg:
+    items:
+      - description: MFBSP CAN registers
+      - description: filters and elements of CAN controller
+      - description: config registers of CAN controller
+
+  reg-names:
+    items:
+      - const: can
+      - const: filters_and_elements
+      - const: cfg
+
+  interrupt-parent:
+    items:
+      - description: specifies the phandle to the parent interrupt controller
+
+  interrupts:
+    items:
+      - description: interrupt line0
+    minItems: 1
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: service subsystem clock
+
+  elvees,mram-cfg:
+    description: |
+      Message RAM configuration data.
+      Multiple MFBSP CAN instances can share the same Message RAM
+      and each element(e.g Rx FIFO or Tx Buff and etc) number
+      in Message RAM is also configurable, so this property is
+      telling driver how the shared or private Message RAM are
+      used by this MFBSP CAN controller.
+
+      The format should be as follows:
+      <offset sidf_elems xidf_elems rxf0_elems txb_elems txe_elems eve_elems>
+      The 'offset' is an address offset of the Message RAM where
+      the following elements start from. This is usually set to
+      0x0 if you're using a private Message RAM. The remain cells
+      are used to specify how many elements are used for each FIFO/Buffer.
+
+      MFBSP CAN includes the following elements according to user manual:
+      11-bit Filter	0-128 elements / 0-128 words
+      29-bit Filter	0-64 elements / 0-128 words
+      Rx FIFO 0	0-64 elements / 0-384 words
+      Tx Buff	0-32 elements / 0-192 words
+      Tx Event FIFO	0-32 elements / 0-128 words
+      Events	0-64 elements / 0-128 words
+
+      Please refer user manual for details.
+    $ref: /schemas/types.yaml#/definitions/int32-array
+    items:
+      items:
+        - description: The 'offset' is an address offset of the Message RAM where
+            the following elements start from. This is usually set to 0x0 if
+            you're using a private Message RAM.
+          default: 0
+        - description: 11-bit Filter 0-128 elements / 0-128 words
+          minimum: 0
+          maximum: 128
+        - description: 29-bit Filter 0-64 elements / 0-128 words
+          minimum: 0
+          maximum: 64
+        - description: Rx FIFO 0-64 elements / 0-384 words
+          minimum: 0
+          maximum: 64
+        - description: Tx Buff 0-32 elements / 0-128 words
+          minimum: 0
+          maximum: 32
+        - description: Tx Event FIFO 0-32 elements / 0-128 words
+          minimum: 0
+          maximum: 32
+        - description: Events 0-64 elements / 0-128 words
+          minimum: 0
+          maximum: 64
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - interrupt-parent
+  - interrupts
+  - clocks
+  - elvees,mram-cfg
+
+additionalProperties: false
+
+examples:
+  - |
+  mfbsp0_can: mfbsp@1f0a0000 {
+    compatible = "elvees,mfbsp-can";
+    reg = <0x0 0x1f0a0000 0x0 0x0200>,
+          <0x0 0x1f0a0200 0x0 0x1100>,
+          <0x0 0x1f0a1380 0x0 0x0040>;
+    reg-names = "can",
+                "filters_and_elements",
+                "cfg";
+    interrupt-parent = <&qlic0>;
+    interrupts = <26>;
+    clocks = <&service_ucg1 SERVICE_MFBSP0_CLK>;
+    elvees,mram-cfg = <0x0 128 64 64 32 32 64>;
+  };
