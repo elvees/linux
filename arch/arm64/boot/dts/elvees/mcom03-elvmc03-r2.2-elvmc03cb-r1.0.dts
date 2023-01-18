@@ -27,12 +27,45 @@
 		regulator-always-on;
 	};
 
+	audio_codec_1v8_reg: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "audio-codec-1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	audio_codec_3v3_reg: regulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "audio-codec-3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
 	sound_card: sound {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "ELV-MC03-CB-Audio";
 		status = "okay";
+		simple-audio-card,routing =
+			"MIC_IN", "Mic Bias";
+
+		simple-audio-card,dai-link@0{
+			reg = <0>;
+			format = "i2s";
+			bitclock-master = <&dailink0_master>;
+			frame-master = <&dailink0_master>;
+
+			dailink0_master: cpu {
+				sound-dai = <&i2s0>;
+			};
+
+			codec {
+				sound-dai = <&sgtl5000>;
+			};
+		};
 
 		simple-audio-card,dai-link@1{
 			reg = <1>;
@@ -48,6 +81,13 @@
 				sound-dai = <&adv7513>;
 			};
 		};
+	};
+
+	audio_codec_clk: audio_codec_clk {
+		status = "okay";
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
 	};
 };
 
@@ -123,6 +163,24 @@
 		};
 	};
 
+	sgtl5000: audio-codec@a {
+		status = "okay";
+		#sound-dai-cells = <0>;
+		compatible = "fsl,sgtl5000";
+		reg = <0xa>;
+		clocks = <&audio_codec_clk>;
+		clock-names = "mclk";
+		micbias-resistor-k-ohms = <2>;
+		/*
+		 * 2.25 V is common micbias voltage according to Android spec
+		 * https://source.android.com/docs/core/interaction/accessories/headset/jack-headset-spec
+		 */
+		micbias-voltage-m-volts = <2250>;
+		VDDA-supply = <&audio_codec_3v3_reg>;
+		VDDIO-supply = <&audio_codec_1v8_reg>;
+		VDDD-supply = <&audio_codec_1v8_reg>;
+	};
+
 	i2c-switch@72 {
 		compatible = "nxp,pca9546";
 		reg = <0x72>;
@@ -172,7 +230,7 @@
 &i2s0 {
 	status = "okay";
 
-	pinctrl-0 = <&i2s0_mux_sdo0 &i2s0_mux_sdi0 &i2s0_mux_sdo1>;
+	pinctrl-0 = <&i2s0_mux_sdo0 &i2s0_mux_sdi0 &i2s0_mux_sdo1 &i2s0_sdi0_cfg>;
 };
 
 &hsperiph_pinctrl {
@@ -187,6 +245,13 @@
 	emac1_int_cfg: emac1-int-cfg {
 		phy {
 			pins = "GPIOA_7";
+			input-enable;
+		};
+	};
+
+	i2s0_sdi0_cfg: i2s0-sdi0-cfg {
+		sdi0 {
+			pins = "GPIOB_4";
 			input-enable;
 		};
 	};
