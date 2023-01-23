@@ -1129,7 +1129,7 @@ static int mfbsp_can_plat_probe(struct platform_device *pdev)
 
 	priv = netdev_priv(dev);
 
-	dev->irq = platform_get_irq_byname(pdev, "rx");
+	dev->irq = platform_get_irq(pdev, 0);
 
 	if (IS_ERR(addr) || dev->irq < 0) {
 		ret = -EINVAL;
