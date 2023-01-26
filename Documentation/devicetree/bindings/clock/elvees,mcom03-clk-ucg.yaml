@@ -40,6 +40,11 @@ properties:
     description: Bitmask of channels which must not change frequency
     default: 0
 
+  elvees,round-up-mask:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: Bitmask of channels for which frequency must be rounded up
+    default: 0
+
 required:
   - compatible
   - reg
