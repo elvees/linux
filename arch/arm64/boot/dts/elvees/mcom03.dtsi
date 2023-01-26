@@ -511,8 +511,11 @@
 
 		lsperiph0_pll0: lsperiph0_pll0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <189000000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x1680000 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&lsperiph0_pll0>;
+			assigned-clock-rates = <189000000>;
 		};
 
 		lsperiph0_ucg0: ucg@1690000 {
@@ -1571,8 +1574,11 @@
 
 		lsperiph1_pll0: lsperiph1_pll0 {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <614250000>;
+			compatible = "elvees,mcom03-clk-pll";
+			reg = <0 0x17E0000 0 0x8>;
+			clocks = <&xti_clk>;
+			assigned-clocks = <&lsperiph1_pll0>;
+			assigned-clock-rates = <614250000>;
 		};
 
 		lsperiph1_ucg0: ucg@17c0000 {
