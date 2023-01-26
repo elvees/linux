@@ -48,6 +48,7 @@ struct mcom03_clk_ucg_chan {
 	struct clk *parent;
 	void __iomem *base;
 	unsigned int id;
+	bool freq_round_up;
 };
 
 struct mcom03_pll {
@@ -133,10 +134,14 @@ static unsigned long ucg_chan_recalc_rate(struct clk_hw *hw,
 static long ucg_chan_round_rate(struct clk_hw *hw, unsigned long rate,
 				unsigned long *parent_rate)
 {
-	u32 div = DIV_ROUND_UP(*parent_rate, rate);
+	struct mcom03_clk_ucg_chan *ucg_chan = to_mcom03_ucg_chan(hw);
+	u32 div = ucg_chan->freq_round_up ? *parent_rate / rate :
+			DIV_ROUND_UP(*parent_rate, rate);
 
 	div = min(div, UCG_MAX_DIVIDER);
-	return DIV_ROUND_UP(*parent_rate, div);
+
+	return ucg_chan->freq_round_up ? *parent_rate / div :
+			DIV_ROUND_UP(*parent_rate, div);
 }
 
 static int ucg_chan_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -144,12 +149,14 @@ static int ucg_chan_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct mcom03_clk_ucg_chan *ucg_chan = to_mcom03_ucg_chan(hw);
 	u32 reg_offset = ucg_chan->id * sizeof(u32);
-	u32 div = min_t(u32, DIV_ROUND_UP(parent_rate, rate), UCG_MAX_DIVIDER);
+	u32 div = ucg_chan->freq_round_up ? parent_rate / rate :
+			DIV_ROUND_UP(parent_rate, rate);
 	u32 value = ucg_readl(ucg_chan, reg_offset);
 	u32 bp = ucg_readl(ucg_chan, BP_CTR_REG);
 	int is_enabled = value & CLK_EN;
 	int ret = 0;
 
+	div = min_t(u32, div, UCG_MAX_DIVIDER);
 	/* Check for divider already correct */
 	if (FIELD_GET(DIV_COEFF, value) == div)
 		return 0;
@@ -223,7 +230,8 @@ static struct clk *mcom03_ucg_chan_register(unsigned int id,
 					    const char *name,
 					    const char *parent_name,
 					    void __iomem *base,
-					    u32 fixed_freq_mask)
+					    u32 fixed_freq_mask,
+					    u32 round_up_mask)
 {
 	struct mcom03_clk_ucg_chan *ucg_chan;
 	struct clk_init_data init;
@@ -244,6 +252,7 @@ static struct clk *mcom03_ucg_chan_register(unsigned int id,
 	ucg_chan->hw.init = &init;
 	ucg_chan->base = base;
 	ucg_chan->id = id;
+	ucg_chan->freq_round_up = round_up_mask & BIT(id);
 
 	clk = clk_register(NULL, &ucg_chan->hw);
 	if (IS_ERR(clk))
@@ -284,6 +293,7 @@ static void __init mcom03_clk_ucg_init(struct device_node *np)
 	u32 channels[16];
 	u32 max_channel = 0;
 	u32 fixed_freq_mask = 0;
+	u32 round_up_mask = 0;
 	const char *names[16];
 	const char *parent_name = of_clk_get_parent_name(np, 0);
 	int count;
@@ -334,6 +344,7 @@ static void __init mcom03_clk_ucg_init(struct device_node *np)
 		return;
 	}
 	of_property_read_u32(np, "elvees,fixed-freq-mask", &fixed_freq_mask);
+	of_property_read_u32(np, "elvees,round-up-mask", &round_up_mask);
 	for (i = 0; i < count; i++)
 		max_channel = max(max_channel, channels[i]);
 
@@ -344,7 +355,7 @@ static void __init mcom03_clk_ucg_init(struct device_node *np)
 	for (i = 0; i < count; i++) {
 		p->clk_data.clks[channels[i]] = mcom03_ucg_chan_register(
 			channels[i], names[i], parent_name, p->base,
-			fixed_freq_mask);
+			fixed_freq_mask, round_up_mask);
 		if (IS_ERR(p->clk_data.clks[channels[i]]))
 			pr_warn("%s: Failed to register clock %s: %ld\n",
 				np->name, names[i],
