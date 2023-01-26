@@ -527,29 +527,23 @@
 					     "spi0_clk", "i2c0_clk",
 					     "gpio0_dbclk";
 			assigned-clocks = <&lsperiph0_ucg0 LSP0_SYS_CLK>,
-					  <&lsperiph0_ucg0 LSP0_UART3_CLK>,
-					  <&lsperiph0_ucg0 LSP0_UART1_CLK>,
-					  <&lsperiph0_ucg0 LSP0_UART2_CLK>,
 					  <&lsperiph0_ucg0 LSP0_SPI0_CLK>,
 					  <&lsperiph0_ucg0 LSP0_I2C0_CLK>,
 					  <&lsperiph0_ucg0 LSP0_GPIO0_DBCLK>;
 			assigned-clock-rates = <94500000
-						13500000
-						13500000
-						13500000
 						94500000
 						94500000
 						1000000>;
 			enabled-clocks = <LSP0_SYS_CLK>;
 			#clock-cells = <1>;
-			/* When driver UART requests to change clock, clock
+			/* When driver UART requests to change clock and clock
 			 * driver sets it lower than the requested one, baud
 			 * rate divisor for the UART becomes less than one.
 			 * With integer divisor set to zero, the baud clock
 			 * is disabled and no serial communications will occur.
-			 * Disable changing UARTx_CLK clocks
+			 * Round up requested frequency for UARTs.
 			 */
-			elvees,fixed-freq-mask = <0xE>;
+			elvees,round-up-mask = <0xE>;
 		};
 
 
@@ -1597,7 +1591,6 @@
 					  <&lsperiph1_ucg0 LSP1_I2C3_CLK>,
 					  <&lsperiph1_ucg0 LSP1_GPIO1_DBCLK>,
 					  <&lsperiph1_ucg0 LSP1_SSI1_CLK>,
-					  <&lsperiph1_ucg0 LSP1_UART0_CLK>,
 					  <&lsperiph1_ucg0 LSP1_TIMERS0_CLK>,
 					  <&lsperiph1_ucg0 LSP1_PWM0_CLK>,
 					  <&lsperiph1_ucg0 LSP1_WDT1_CLK>;
@@ -1607,20 +1600,19 @@
 						102375000
 						87750000
 						153562500
-						27920454
 						87750000
 						87750000
 						87750000>;
 			enabled-clocks = <LSP1_SYS_CLK>;
 			#clock-cells = <1>;
-			/* When driver UART requests to change clock, clock
+			/* When driver UART requests to change clock and clock
 			 * driver sets it lower than the requested one, baud
 			 * rate divisor for the UART becomes less than one.
 			 * With integer divisor set to zero, the baud clock
 			 * is disabled and no serial communications will occur.
-			 * Disable changing UARTx_CLK clocks
+			 * Round up requested frequency for UART0.
 			 */
-			elvees,fixed-freq-mask = <0x40>;
+			elvees,round-up-mask = <0x40>;
 
 		};
 
