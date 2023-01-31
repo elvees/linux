@@ -1014,6 +1014,12 @@ config GPIO_PCF857X
 	  This driver provides an in-kernel interface to those GPIOs using
 	  platform-neutral GPIO calls.
 
+config GPIO_PI4IOE5V6408
+	tristate "Pericom PI4IOE5V6408 I2C GPIO Expander"
+	select REGMAP_I2C
+	help
+	  Say yes here to enable the Pericom PI4IOE5V6408 GPIO Expander
+
 config GPIO_TPIC2810
 	tristate "TPIC2810 8-Bit I2C GPO expander"
 	help
