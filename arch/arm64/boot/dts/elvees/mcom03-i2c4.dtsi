@@ -19,7 +19,9 @@
 		#size-cells = <0>;
 		compatible = "snps,designware-i2c";
 		reg = <0 0x1f090000 0 0x10000>;
-		clocks = <&service_ucg1 SERVICE_I2C4_EXT_CLK>;
+		clocks = <&service_ucg1 SERVICE_I2C4_EXT_CLK>,
+			<&service_ucg1 SERVICE_I2C4_CLK>;
+		clock-names = "ref", "pclk";
 		interrupt-parent = <&qlic0>;
 		interrupts = <37>;
 		i2c-sda-hold-time-ns = <300>;
