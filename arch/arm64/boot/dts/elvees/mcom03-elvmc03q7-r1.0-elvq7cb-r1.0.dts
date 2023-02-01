@@ -149,3 +149,25 @@
 &pcie1 {
 	status = "okay";
 };
+
+&spi1 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&gpio1c 3 GPIO_ACTIVE_LOW>, <&gpio1c 4 GPIO_ACTIVE_LOW>;
+
+	flash1: m25p32@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "m25p32", "jedec,spi-nor";
+		spi-max-frequency = <75000000>;
+		reg = <0x0>;
+	};
+
+	flash2: m25p32@1 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "m25p32", "jedec,spi-nor";
+		spi-max-frequency = <75000000>;
+		reg = <0x1>;
+	};
+};

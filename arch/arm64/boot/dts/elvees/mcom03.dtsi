@@ -1655,6 +1655,12 @@
 						input-enable;
 					};
 				};
+
+				spi1_cfg_default: spi1-cfg {
+					/* pins = spi1_rxd, spi1_ss_in_n */
+					pins = "GPIOC_2", "GPIOC_7";
+					input-enable;
+				};
 			};
 		};
 
@@ -1787,6 +1793,23 @@
 
 			pinctrl-names = "default";
 			pinctrl-0 = <&uart0_cfg_default &uart0_mux_data>;
+		};
+
+		spi1: spi@1760000 {
+			status = "disabled";
+			compatible = "snps,dw-apb-ssi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0 0x1760000 0 0x10000>;
+			clocks = <&lsperiph1_ucg0 LSP1_SSI1_CLK>;
+			num-cs = <4>;
+			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
+
+			/* Workaround of bug MCOM03-1879 with overrun error */
+			snps,fifo-size = <63>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&spi1_mux_data &spi1_mux_ss_in &spi1_cfg_default>;
 		};
 
 		timer0: timer@1790000 {
