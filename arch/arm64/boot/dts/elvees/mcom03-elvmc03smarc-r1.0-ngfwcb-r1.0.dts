@@ -283,6 +283,25 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 
+			plx-pex@2,4 {
+				reg = <0x2000 0 0 0 0>;
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				lan7430@6,0 {
+					reg = <0 0 0 0 0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					microchip,dma-round-robin;
+					phy-handle = <&ethernet_phy_lan7430>;
+
+					ethernet_phy_lan7430: ethernet-phy@1 {
+						reg = <1>;
+					};
+				};
+			};
+
 			plx-pex@2,5 {
 				reg = <0x2800 0 0 0 0>;
 				#address-cells = <3>;
@@ -292,10 +311,12 @@
 					reg = <0 0 0 0 0>;
 					#address-cells = <1>;
 					#size-cells = <0>;
-					phy-connection-type = "rgmii-rxid";
-					phy-handle = <&ethernet_phy>;
 
-					ethernet_phy: ethernet-phy@0 {
+					microchip,dma-round-robin;
+					phy-connection-type = "rgmii-rxid";
+					phy-handle = <&ethernet_phy_lan7431>;
+
+					ethernet_phy_lan7431: ethernet-phy@0 {
 						reg = <0>;
 						ti,op-mode = <DP83869_RGMII_COPPER_ETHERNET>;
 						ti,clk-output-sel = <DP83869_CLK_O_SEL_125MHZ>;
