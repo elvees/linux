@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpio/pericom,pi4ioe5v6408.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: PI4IOE5V6408 I2C GPIO expander
+
+maintainers:
+  - Ilya Popov  <ipopov@elvees.com>
+
+properties:
+  compatible:
+    enum:
+      - pericom,pi4ioe5v6408
+
+  reg:
+    maxItems: 1
+
+  gpio-controller: true
+
+  '#gpio-cells':
+    const: 2
+
+required:
+  - compatible
+  - reg
+  - gpio-controller
+  - "#gpio-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        gpio@43 {
+            compatible = "pericom,pi4ioe5v6408";
+            reg = <0x43>;
+            gpio-controller;
+            #gpio-cells = <2>;
+        };
+    };
+
+...
