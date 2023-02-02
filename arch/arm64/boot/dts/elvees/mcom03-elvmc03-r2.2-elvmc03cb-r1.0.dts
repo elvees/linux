@@ -19,18 +19,35 @@
 		     "elvees,elvmc03",
 		     "elvees,mcom03";
 
-	adv7513_cec_clk: adv7513_cec_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <12000000>;
-	};
-
 	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "sdhci1-supply";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
+	};
+
+	sound_card: sound {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-MC03-CB-Audio";
+		status = "okay";
+
+		simple-audio-card,dai-link@1{
+			reg = <1>;
+			format = "i2s";
+			bitclock-master = <&dailink1_master>;
+			frame-master = <&dailink1_master>;
+
+			dailink1_master: cpu {
+				sound-dai = <&i2s0>;
+			};
+
+			codec {
+				sound-dai = <&adv7513>;
+			};
+		};
 	};
 };
 
@@ -150,6 +167,12 @@
 	 * for 400kHz */
 	clock-frequency = <100000>;
 	status = "okay";
+};
+
+&i2s0 {
+	status = "okay";
+
+	pinctrl-0 = <&i2s0_mux_sdo0 &i2s0_mux_sdi0 &i2s0_mux_sdo1>;
 };
 
 &hsperiph_pinctrl {

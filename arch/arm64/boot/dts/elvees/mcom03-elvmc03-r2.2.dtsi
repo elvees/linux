@@ -36,6 +36,12 @@
 			};
 		};
 	};
+
+	adv7513_cec_clk: adv7513_cec_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12000000>;
+	};
 };
 
 &emac0 {
@@ -97,6 +103,7 @@
 			reg = <1>;
 
 			adv7513: hdmi@39 {
+				#sound-dai-cells = <0>;
 				status = "disabled";
 				compatible = "adi,adv7513";
 				reg = <0x39>, <0x3f>;
