@@ -596,6 +596,7 @@
 #define DMAC_CFG				(0xC00)
 #define DMAC_CFG_COAL_EN_			BIT(16)
 #define DMAC_CFG_CH_ARB_SEL_RX_HIGH_		(0x00000000)
+#define DMAC_CFG_CH_ARB_SEL_RR_			(0x00000C00)
 #define DMAC_CFG_MAX_READ_REQ_MASK_		(0x00000070)
 #define DMAC_CFG_MAX_READ_REQ_SET_(val)	\
 	((((u32)(val)) << 4) & DMAC_CFG_MAX_READ_REQ_MASK_)
@@ -1042,6 +1043,8 @@ struct lan743x_adapter {
 #define LAN743X_ADAPTER_FLAG_OTP		BIT(0)
 	u32			flags;
 	u32			hw_cfg;
+
+	u32			dma_arbitration_mode;
 };
 
 #define LAN743X_COMPONENT_FLAG_RX(channel)  BIT(20 + (channel))

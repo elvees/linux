@@ -1652,7 +1652,7 @@ static int lan743x_dmac_init(struct lan743x_adapter *adapter)
 	}
 	if (!(adapter->csr.flags & LAN743X_CSR_FLAG_IS_A0))
 		data |= DMAC_CFG_COAL_EN_;
-	data |= DMAC_CFG_CH_ARB_SEL_RX_HIGH_;
+	data |= adapter->dma_arbitration_mode;
 	data |= DMAC_CFG_MAX_READ_REQ_SET_(6);
 	lan743x_csr_write(adapter, DMAC_CFG, data);
 	data = DMAC_COAL_CFG_TIMER_LIMIT_SET_(1);
@@ -3378,6 +3378,11 @@ static int lan743x_pcidev_probe(struct pci_dev *pdev,
 	mac_addr = of_get_mac_address(pdev->dev.of_node);
 	if (!IS_ERR(mac_addr))
 		ether_addr_copy(adapter->mac_address, mac_addr);
+
+	if (of_property_read_bool(pdev->dev.of_node, "microchip,dma-round-robin"))
+		adapter->dma_arbitration_mode = DMAC_CFG_CH_ARB_SEL_RR_;
+	else
+		adapter->dma_arbitration_mode = DMAC_CFG_CH_ARB_SEL_RX_HIGH_;
 
 	ret = lan743x_pci_init(adapter, pdev);
 	if (ret)
