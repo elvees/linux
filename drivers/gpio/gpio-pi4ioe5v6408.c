@@ -216,12 +216,19 @@ static int pi4io_probe(
 	return 0;
 }
 
+static const struct of_device_id pi4io_of_match_table[] = {
+	{ .compatible = "pericom,pi4ioe5v6408" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, pi4io_of_match_table);
+
 static const struct i2c_device_id pi4io_id_table[] = { { "pi4io", 0 }, {} };
 MODULE_DEVICE_TABLE(i2c, pi4io_id_table);
 
 static struct i2c_driver pi4io_driver = {
 	.driver = {
 		.name = "pi4io-gpio",
+		.of_match_table = pi4io_of_match_table,
 	},
 	.probe = pi4io_probe,
 	.id_table = pi4io_id_table,
