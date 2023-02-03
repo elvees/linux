@@ -37,18 +37,17 @@ static bool pi4io_writeable_reg(struct device *dev, unsigned int reg)
 {
 	// All odd-numbered registers are writable except for 0xF.
 	if ((reg % 2) == 1) {
-		if (reg != PI4IO_INPUT_STATUS) {
+		if (reg != PI4IO_INPUT_STATUS)
 			return true;
-		}
 	}
 	return false;
 }
 
 static bool pi4io_volatile_reg(struct device *dev, unsigned int reg)
 {
-	if (reg == PI4IO_INPUT_STATUS || reg == PI4IO_INTERRUPT_STATUS) {
+	if (reg == PI4IO_INPUT_STATUS || reg == PI4IO_INTERRUPT_STATUS)
 		return true;
-	}
+
 	return false;
 }
 
@@ -67,7 +66,7 @@ struct pi4io_priv {
 	struct gpio_chip gpio;
 };
 
-static int pi4io_gpio_get_direction(struct gpio_chip *chip, unsigned offset)
+static int pi4io_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
 {
 	int ret, io_dir;
 	struct pi4io_priv *pi4io = gpiochip_get_data(chip);
@@ -83,7 +82,7 @@ static int pi4io_gpio_get_direction(struct gpio_chip *chip, unsigned offset)
 }
 
 static int pi4io_gpio_set_direction(
-	struct gpio_chip *chip, unsigned offset, int direction)
+	struct gpio_chip *chip, unsigned int offset, int direction)
 {
 	int ret;
 	struct pi4io_priv *pi4io = gpiochip_get_data(chip);
@@ -103,7 +102,7 @@ static int pi4io_gpio_set_direction(
 	return ret;
 }
 
-static int pi4io_gpio_get(struct gpio_chip *chip, unsigned offset)
+static int pi4io_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	int ret, out;
 	struct pi4io_priv *pi4io = gpiochip_get_data(chip);
@@ -115,13 +114,13 @@ static int pi4io_gpio_get(struct gpio_chip *chip, unsigned offset)
 		return ret;
 	}
 
-	if (out & (1 << offset)) {
+	if (out & (1 << offset))
 		return 1;
-	}
+
 	return 0;
 }
 
-static void pi4io_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
+static void pi4io_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 {
 	int ret;
 	struct pi4io_priv *pi4io = gpiochip_get_data(chip);
@@ -129,22 +128,22 @@ static void pi4io_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 
 	ret = regmap_update_bits(
 		pi4io->regmap, PI4IO_OUTPUT, 1 << offset, value << offset);
-	if (ret) {
+	if (ret)
 		dev_err(dev, "Failed to write output: %d", ret);
-	}
 }
 
-static int pi4io_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
+static int pi4io_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 {
 	return pi4io_gpio_set_direction(chip, offset, GPIOF_DIR_IN);
 }
 
 static int pi4io_gpio_direction_output(
-	struct gpio_chip *chip, unsigned offset, int value)
+	struct gpio_chip *chip, unsigned int offset, int value)
 {
 	int ret;
 	struct pi4io_priv *pi4io = gpiochip_get_data(chip);
 	struct device *dev = &pi4io->i2c->dev;
+
 	ret = pi4io_gpio_set_direction(chip, offset, GPIOF_DIR_OUT);
 	if (ret) {
 		dev_err(dev, "Failed to set direction: %d", ret);
@@ -159,6 +158,7 @@ static int pi4io_gpio_setup(struct pi4io_priv *pi4io)
 	int ret;
 	struct device *dev = &pi4io->i2c->dev;
 	struct gpio_chip *gc = &pi4io->gpio;
+
 	gc->ngpio = 8;
 	gc->label = pi4io->i2c->name;
 	gc->parent = &pi4io->i2c->dev;
@@ -188,9 +188,8 @@ static int pi4io_probe(
 	struct pi4io_priv *pi4io;
 
 	pi4io = devm_kzalloc(dev, sizeof(struct pi4io_priv), GFP_KERNEL);
-	if (!pi4io) {
+	if (!pi4io)
 		return -ENOMEM;
-	}
 
 	i2c_set_clientdata(client, pi4io);
 	pi4io->i2c = client;
