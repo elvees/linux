@@ -609,6 +609,10 @@ static struct edid *adv7511_get_edid(struct adv7511 *adv7511,
 		/* Reset the EDID_I2C_ADDR register as it might be cleared */
 		regmap_write(adv7511->regmap, ADV7511_REG_EDID_I2C_ADDR,
 			     edid_i2c_addr);
+
+		/* Delay between power-on and first access to ADV7511_DDC_STATUS
+		 * register which may have invalid EDID readiness status yet */
+		msleep(100);
 	}
 
 	edid = drm_do_get_edid(connector, adv7511_get_edid_block, adv7511);
