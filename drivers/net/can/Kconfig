@@ -167,6 +167,13 @@ config PCH_CAN
 	  is an IOH for x86 embedded processor (Intel Atom E6xx series).
 	  This driver can access CAN bus.
 
+config CAN_MFBSP_CAN
+	depends on HAS_IOMEM
+	depends on OF
+	tristate "ELVEES MFBSP CAN controller"
+	help
+	  This driver adds support for the ELVEES MFBSP CAN
+
 source "drivers/net/can/c_can/Kconfig"
 source "drivers/net/can/cc770/Kconfig"
 source "drivers/net/can/ifi_canfd/Kconfig"
