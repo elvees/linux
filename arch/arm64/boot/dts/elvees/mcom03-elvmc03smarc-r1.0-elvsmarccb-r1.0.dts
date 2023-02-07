@@ -213,7 +213,16 @@
 	status = "okay";
 };
 
-/* mfbsp0 interrupt controller */
+/* Connected to XP16 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+/* Connected to XP16 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
+/* mfbsp interrupt controller */
 &qlic0 {
 	status = "okay";
 };
