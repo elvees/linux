@@ -221,6 +221,39 @@
 			num-cs = <4>;
 		};
 
+		mfbsp0_can: mfbsp@1f0a0000 {
+			compatible = "elvees,mfbsp-can";
+			clocks = <&service_ucg1 SERVICE_MFBSP0_CLK>;
+			reg = <0x0 0x1f0a0000 0x0 0x0200>,
+			      <0x0 0x1f0a0200 0x0 0x1100>,
+			      <0x0 0x1f0a1380 0x0 0x0040>;
+			reg-names = "can",
+				    "filters_and_elements",
+				    "cfg";
+			interrupt-parent = <&qlic0>;
+			interrupts = <26>;
+			can,mram-cfg = <0x0 128 64 64 32 32 64>;
+
+			status = "disabled";
+		};
+
+		mfbsp1_can: mfbsp@1f0b0000 {
+			compatible = "elvees,mfbsp-can";
+			clocks = <&service_ucg1 SERVICE_MFBSP1_CLK>;
+			reg = <0x0 0x1f0b0000 0x0 0x0200>,
+			      <0x0 0x1f0b0200 0x0 0x1100>,
+			      <0x0 0x1f0b1380 0x0 0x0040>;
+			reg-names = "can",
+				    "filters_and_elements",
+				    "cfg";
+			interrupt-parent = <&qlic0>;
+			interrupts = <28>;
+			can,mram-cfg = <0x0 128 64 64 32 32 64>;
+
+			status = "disabled";
+		};
+
+
 		mfbsp0_i2s: i2s@0x1f0a1300 {
 			compatible = "elvees,mfbsp-i2s";
 			reg = <0 0x1f0a1300 0 0x40>,
