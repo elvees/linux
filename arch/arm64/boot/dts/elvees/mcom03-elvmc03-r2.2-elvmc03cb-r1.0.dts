@@ -49,7 +49,11 @@
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "ELV-MC03-CB-Audio";
 		status = "okay";
+		simple-audio-card,aux-devs = <&sound_select>;
 		simple-audio-card,routing =
+			"Channel1 IN", "AIFOUT", // for clk, ws on capture
+			"AIFIN", "Channel1 OUT", // demux to sgtl5000
+			"TX", "Channel2 OUT", // demux to hdmi
 			"MIC_IN", "Mic Bias";
 
 		simple-audio-card,dai-link@0{
@@ -88,6 +92,11 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <12288000>;
+	};
+
+	sound_select: sound-select {
+		compatible = "simple-audio-selector";
+		select-gpios = <&pi4ioe5v6408 4 GPIO_ACTIVE_HIGH>;
 	};
 };
 
