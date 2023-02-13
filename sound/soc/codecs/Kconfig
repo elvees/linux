@@ -181,6 +181,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_SGTL5000
 	imply SND_SOC_SI476X
 	imply SND_SOC_SIMPLE_AMPLIFIER
+	imply SND_SOC_SIMPLE_SELECTOR
 	imply SND_SOC_SIRF_AUDIO_CODEC
 	imply SND_SOC_SPDIF
 	imply SND_SOC_SSM2305
@@ -1238,6 +1239,10 @@ config SND_SOC_SIGMADSP_REGMAP
 
 config SND_SOC_SIMPLE_AMPLIFIER
 	tristate "Simple Audio Amplifier"
+	select GPIOLIB
+
+config SND_SOC_SIMPLE_SELECTOR
+	tristate "Simple Audio Selector"
 	select GPIOLIB
 
 config SND_SOC_SIRF_AUDIO_CODEC
