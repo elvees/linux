@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: (GPL-2.0+ OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/elvees,simple-audio-selector.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Simple Audio Selector
+
+maintainers:
+  - Ilya Popov <ipopov@elvees.com>
+
+description: |
+  Simple audio selector is used to control on-board bidirectional hardware mux
+  controlled via GPIO. This selector is used to choose audio slave from
+  multiple slaves connected to single master.
+
+properties:
+  compatible:
+    const: simple-audio-selector
+
+  select-gpios:
+    description: |
+      GPIO used to select the line.
+
+  sound-name-prefix: true
+    description: |
+      Please read name-prefix.txt for details.
+
+required:
+  - compatible
+  - select-gpios
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    selector {
+        compatible = "simple-audio-selector";
+        select-gpios = <&gpio 3 GPIO_ACTIVE_HIGH>;
+    };
