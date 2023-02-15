@@ -1292,7 +1292,7 @@ void avico_bitstream_write_pps(struct avico_ctx *ctx)
 	writeu(bs, 1, 0); /* weighted_pred_flag */
 	writeu(bs, 2, 0); /* weighted_bipred_idc */
 
-	par->pps_qp = par->qp_i;
+	par->pps_qp = 26;
 	writese(bs, par->pps_qp - 26); /* pic_init_qp - 26 */
 	writese(bs, par->pps_qp - 26); /* pic_init_qs - 26 */
 	writese(bs, par->qpc_offset);  /* chroma_qp_index_offset */
