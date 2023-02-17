@@ -20,14 +20,9 @@ properties:
       - const: can
       - const: filters_and_elements
       - const: cfg
-  interrupt-parent:
-    items:
-      - description: specifies the phandle to the parent interrupt controller
   interrupts:
     items:
       - description: interrupt line0
-    minItems: 1
-    maxItems: 1
   clocks:
     items:
       - description: service subsystem clock
