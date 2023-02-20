@@ -53,13 +53,18 @@ additionalProperties: false
 
 examples:
   - |
-    hsperiph_pll: hsperiph_pll {
-        #clock-cells = <0>;
-        compatible = "elvees,mcom03-clk-pll";
-        reg = <0 0x10401000 0 0x8>;
-        clocks = <&xti_clk>;
-        elvees,pll-max-nr = /bits/ 8 <3>;
-        assigned-clocks = <&hsperiph_pll>;
-        assigned-clock-rates = <1125000000>;
+    hsperiph-bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      hsperiph_pll: hsperiph_pll@10401000 {
+          #clock-cells = <0>;
+          compatible = "elvees,mcom03-clk-pll";
+          reg = <0 0x10401000 0 0x8>;
+          clocks = <&xti_clk>;
+          elvees,pll-max-nr = /bits/ 8 <3>;
+          assigned-clocks = <&hsperiph_pll>;
+          assigned-clock-rates = <1125000000>;
+      };
     };
 ...
