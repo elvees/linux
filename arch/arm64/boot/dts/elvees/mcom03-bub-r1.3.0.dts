@@ -281,6 +281,20 @@
 	status = "okay";
 };
 
+/* Connected to XP7 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+/* Connected to XP9 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
+/* mfbsp interrupt controller */
+&qlic0 {
+	status = "okay";
+};
+
 /* For MCom-03 BuB r1.5 */
 &gpio1d {
 	pci0-perstn {
