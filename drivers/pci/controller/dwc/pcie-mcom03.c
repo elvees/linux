@@ -229,7 +229,7 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apb");
 	pcie->apb_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pcie->apb_base)) {
-		dev_err(dev, "Failed to remap dbi memory\n");
+		dev_err(dev, "Failed to remap apb memory\n");
 		return PTR_ERR(pcie->apb_base);
 	}
 
