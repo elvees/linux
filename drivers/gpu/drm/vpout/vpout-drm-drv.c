@@ -26,28 +26,25 @@
 #include <linux/types.h>
 
 #include <drm/drm_fb_cma_helper.h>
+#include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_of.h>
+#include <drm/drm_probe_helper.h>
 
 #include "vpout-drm-drv.h"
 #include "vpout-drm-external.h"
 #include "vpout-drm-link.h"
 
-static struct drm_framebuffer *vpout_drm_fb_create(struct drm_device *drm_dev,
-		struct drm_file *file_priv, struct drm_mode_fb_cmd2 *mode_cmd)
+static struct drm_framebuffer *
+vpout_drm_fb_create(struct drm_device *drm_dev, struct drm_file *file_priv,
+		    const struct drm_mode_fb_cmd2 *mode_cmd)
 {
-	return drm_fb_cma_create(drm_dev, file_priv, mode_cmd);
-}
-
-static void vpout_drm_fb_output_poll_changed(struct drm_device *drm_dev)
-{
-	struct vpout_drm_private *priv = drm_dev->dev_private;
-
-	drm_fbdev_cma_hotplug_event(priv->fbdev);
+	return drm_gem_fb_create(drm_dev, file_priv, mode_cmd);
 }
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
 	.fb_create = vpout_drm_fb_create,
-	.output_poll_changed = vpout_drm_fb_output_poll_changed,
 };
 
 static int
@@ -94,16 +91,17 @@ uint vpout_drm_get_preferred_bpp(struct drm_device *drm_dev)
 {
 	uint bpp = 32;
 	struct drm_connector *con;
+	struct drm_connector_list_iter iter;
 
-	mutex_lock(&drm_dev->mode_config.mutex);
-	drm_for_each_connector(con, drm_dev) {
+	drm_connector_list_iter_begin(drm_dev, &iter);
+	drm_for_each_connector_iter(con, &iter) {
 		if (con->cmdline_mode.specified) {
 			/* get bpp for preferred connector */
 			bpp = vpout_drm_get_connector_info(con)->bpp;
 			break;
 		}
 	}
-	mutex_unlock(&drm_dev->mode_config.mutex);
+	drm_connector_list_iter_end(&iter);
 
 	return bpp;
 }
@@ -112,11 +110,10 @@ uint vpout_drm_get_preferred_bpp(struct drm_device *drm_dev)
  * DRM operations:
  */
 
-static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
+static int vpout_init(struct drm_driver *drv, struct device *dev)
 {
-	struct platform_device *plat_dev = drm_dev->platformdev;
-	struct device *dev = drm_dev->dev;
-
+	struct drm_device *drm_dev;
+	struct platform_device *plat_dev = to_platform_device(dev);
 	struct vpout_drm_private *priv;
 	struct device_node *port;
 	struct resource *res;
@@ -127,11 +124,17 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 	if (!priv)
 		return -ENOMEM;
 
-	priv->wq = alloc_ordered_workqueue("elvees-vpout-drm", 0);
-	if (!priv->wq)
-		return -ENOMEM;
+	drm_dev = drm_dev_alloc(drv, dev);
+	if (IS_ERR(drm_dev))
+		return PTR_ERR(drm_dev);
 
 	drm_dev->dev_private = priv;
+
+	priv->wq = alloc_ordered_workqueue("elvees-vpout-drm", 0);
+	if (!priv->wq) {
+		ret = -ENOMEM;
+		goto fail_free_drmdev;
+	}
 
 	res = platform_get_resource_byname(plat_dev, IORESOURCE_MEM, "lcd");
 
@@ -243,29 +246,22 @@ static int vpout_drm_load(struct drm_device *drm_dev, unsigned long flags)
 	ret = drm_irq_install(drm_dev, platform_get_irq(plat_dev, 0));
 	if (ret < 0) {
 		dev_err(dev, "failed to install IRQ handler\n");
-		goto fail_vblank_cleanup;
+		goto fail_external_cleanup;
 	}
 
-	bpp = vpout_drm_get_preferred_bpp(drm_dev);
-
-	priv->fbdev = drm_fbdev_cma_init(drm_dev, bpp,
-					 drm_dev->mode_config.num_crtc,
-					 drm_dev->mode_config.num_connector);
-
-	if (IS_ERR(priv->fbdev)) {
-		ret = PTR_ERR(priv->fbdev);
+	ret = drm_dev_register(drm_dev, 0);
+	if (ret)
 		goto fail_irq_uninstall;
-	}
 
 	drm_kms_helper_poll_init(drm_dev);
+
+	bpp = vpout_drm_get_preferred_bpp(drm_dev);
+	drm_fbdev_generic_setup(drm_dev, bpp);
 
 	return 0;
 
 fail_irq_uninstall:
 	drm_irq_uninstall(drm_dev);
-
-fail_vblank_cleanup:
-	drm_vblank_cleanup(drm_dev);
 
 fail_external_cleanup:
 	vpout_drm_remove_external_encoders(drm_dev);
@@ -281,39 +277,32 @@ fail_free_wq:
 	flush_workqueue(priv->wq);
 	destroy_workqueue(priv->wq);
 
+fail_free_drmdev:
+	drm_dev_put(drm_dev);
 	drm_dev->dev_private = NULL;
 
 	return ret;
 }
 
-static int vpout_drm_unload(struct drm_device *drm_dev)
+static void vpout_fini(struct drm_device *drm_dev)
 {
 	struct vpout_drm_private *priv = drm_dev->dev_private;
 
 	vpout_drm_remove_external_encoders(drm_dev);
 
-	drm_fbdev_cma_fini(priv->fbdev);
+	drm_dev_unregister(drm_dev);
 	drm_kms_helper_poll_fini(drm_dev);
 	drm_mode_config_cleanup(drm_dev);
-	drm_vblank_cleanup(drm_dev);
+	component_unbind_all(drm_dev->dev, drm_dev);
 
 	drm_irq_uninstall(drm_dev);
-
-	clk_disable_unprepare(priv->clk);
 
 	flush_workqueue(priv->wq);
 	destroy_workqueue(priv->wq);
 
+	clk_disable_unprepare(priv->clk);
 	drm_dev->dev_private = NULL;
-
-	return 0;
-}
-
-static void vpout_drm_lastclose(struct drm_device *drm_dev)
-{
-	struct vpout_drm_private *priv = drm_dev->dev_private;
-
-	drm_fbdev_cma_restore_mode(priv->fbdev);
+	drm_dev_put(drm_dev);
 }
 
 static irqreturn_t vpout_drm_irq(int irq, void *arg)
@@ -324,37 +313,11 @@ static irqreturn_t vpout_drm_irq(int irq, void *arg)
 	return vpout_drm_crtc_irq(priv->crtc);
 }
 
-static int vpout_drm_enable_vblank(struct drm_device *drm_dev, uint pipe)
-{
-	return 0;
-}
-
-static void vpout_drm_disable_vblank(struct drm_device *drm_dev, uint pipe)
-{
-}
-
-static const struct file_operations fops = {
-	.owner              = THIS_MODULE,
-	.open               = drm_open,
-	.release            = drm_release,
-	.unlocked_ioctl     = drm_ioctl,
-	.poll               = drm_poll,
-	.read               = drm_read,
-	.llseek             = no_llseek,
-	.mmap               = drm_gem_cma_mmap,
-};
+DEFINE_DRM_GEM_CMA_FOPS(fops);
 
 static struct drm_driver vpout_drm_driver = {
-	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET |
-			      DRIVER_PRIME,
-	.load               = vpout_drm_load,
-	.unload             = vpout_drm_unload,
-	.lastclose          = vpout_drm_lastclose,
-	.set_busid          = drm_platform_set_busid,
+	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET,
 	.irq_handler        = vpout_drm_irq,
-	.get_vblank_counter = drm_vblank_no_hw_counter,
-	.enable_vblank      = vpout_drm_enable_vblank,
-	.disable_vblank     = vpout_drm_disable_vblank,
 	.gem_free_object    = drm_gem_cma_free_object,
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
@@ -367,8 +330,6 @@ static struct drm_driver vpout_drm_driver = {
 	.gem_prime_mmap     = drm_gem_cma_prime_mmap,
 	.gem_vm_ops         = &drm_gem_cma_vm_ops,
 	.dumb_create        = drm_gem_cma_dumb_create,
-	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,
-	.dumb_destroy       = drm_gem_dumb_destroy,
 	.fops               = &fops,
 	.name               = "vpout-drm",
 	.desc               = "ELVEES VPOUT Controller DRM",
@@ -383,12 +344,18 @@ static struct drm_driver vpout_drm_driver = {
 
 static int vpout_drm_bind(struct device *dev)
 {
-	return drm_platform_init(&vpout_drm_driver, to_platform_device(dev));
+	return vpout_init(&vpout_drm_driver, dev);
 }
 
 static void vpout_drm_unbind(struct device *dev)
 {
-	drm_put_dev(dev_get_drvdata(dev));
+	struct drm_device *drm_dev = dev_get_drvdata(dev);
+
+	/* Check if a subcomponent has already triggered the unloading. */
+	if (!drm_dev->dev_private)
+		return;
+
+	vpout_fini(drm_dev);
 }
 
 static const struct component_master_ops vpout_drm_comp_ops = {

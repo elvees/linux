@@ -16,6 +16,7 @@
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_probe_helper.h>
 #include <drm/drm_of.h>
 
 #include <linux/component.h>
@@ -179,7 +180,7 @@ static int vpout_dsi_create_connector(struct drm_encoder *encoder)
 
 	drm_connector_helper_add(connector, &vpout_dsi_connector_helper_funcs);
 	drm_connector_register(connector);
-	drm_mode_connector_attach_encoder(connector, encoder);
+	drm_connector_attach_encoder(connector, encoder);
 
 	return 0;
 }
@@ -296,7 +297,7 @@ static int vpout_dsi_bind(struct device *dev, struct device *master,
 	DRM_DEBUG_KMS("possible_crtcs = 0x%x\n", encoder->possible_crtcs);
 
 	drm_encoder_init(drm_dev, encoder, &vpout_dsi_encoder_funcs,
-			 DRM_MODE_ENCODER_DSI);
+			 DRM_MODE_ENCODER_DSI, NULL);
 
 	drm_encoder_helper_add(encoder, &vpout_dsi_encoder_helper_funcs);
 

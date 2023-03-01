@@ -53,7 +53,7 @@ static void unref_worker(struct drm_flip_work *work, void *val)
 	struct drm_device *dev = vpout_drm_crtc->base.dev;
 
 	mutex_lock(&dev->mode_config.mutex);
-	drm_framebuffer_unreference(val);
+	drm_framebuffer_put(val);
 	mutex_unlock(&dev->mode_config.mutex);
 }
 
@@ -174,15 +174,13 @@ static void vpout_drm_crtc_set_scanout(struct drm_crtc *crtc,
 	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
 	struct drm_gem_cma_object *gem;
-	unsigned int depth, bpp;
 	dma_addr_t start;
 
-	drm_fb_get_bpp_depth(fb->pixel_format, &depth, &bpp);
 	gem = drm_fb_cma_get_gem_obj(fb, 0);
 
 	start = gem->paddr + fb->offsets[0] +
 		crtc->y * fb->pitches[0] +
-		crtc->x * bpp / 8;
+		crtc->x * fb->format->cpp[0];
 
 	vpout_drm_write(dev, LCDC_AB0, start);
 
@@ -229,7 +227,7 @@ static void vpout_drm_crtc_dphy_timing_set(struct drm_crtc *crtc,
 	reg = lane_count;
 	reg |= DSI_DPI_VCHANNEL_CMD(1) | DSI_DPI_VCHANNEL_VIDEO(0);
 
-	switch (crtc->primary->fb->pixel_format) {
+	switch (crtc->primary->fb->format->format) {
 	case DRM_FORMAT_RGB565:
 		pixel_format = 16;
 		reg |= DSI_DPI_COLOR_FORMAT_RGB565;
@@ -355,7 +353,7 @@ static int vpout_drm_crtc_mode_set(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	uint32_t hfp, hbp, hsw, vfp, vbp, vsw;
 	unsigned int pclk_freq, byteclk_freq; /* MHz */
-	unsigned int depth, bpp;
+	unsigned int bpp;
 	bool dsi = vpout_drm_crtc->info->dsi;
 	int ret;
 
@@ -408,8 +406,7 @@ static int vpout_drm_crtc_mode_set(struct drm_crtc *crtc,
 				 DSI_VIDEO_MODE_NON_BURST_SYNC_EVENTS);
 	}
 
-	drm_fb_get_bpp_depth(crtc->primary->fb->pixel_format, &depth, &bpp);
-
+	bpp = crtc->primary->fb->format->cpp[0] * 8;
 	switch (bpp) {
 	case 16:
 		vpout_drm_write(dev, LCDC_MODE,
@@ -438,7 +435,7 @@ static int vpout_drm_crtc_mode_set(struct drm_crtc *crtc,
 
 	vpout_drm_crtc_set_clk(crtc);
 
-	drm_framebuffer_reference(crtc->primary->fb);
+	drm_framebuffer_get(crtc->primary->fb);
 
 	vpout_drm_crtc_set_scanout(crtc, crtc->primary->fb);
 
@@ -456,14 +453,14 @@ static const struct drm_crtc_helper_funcs vpout_drm_crtc_helper_funcs = {
 static void vpout_drm_crtc_destroy(struct drm_crtc *crtc)
 {
 	vpout_drm_crtc_disable(crtc);
-
 	drm_crtc_cleanup(crtc);
 }
 
 static int vpout_drm_crtc_page_flip(struct drm_crtc *crtc,
 				    struct drm_framebuffer *fb,
 				    struct drm_pending_vblank_event *event,
-				    uint32_t page_flip_flags)
+				    uint32_t page_flip_flags,
+				    struct drm_modeset_acquire_ctx *ctx)
 {
 	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	unsigned long flags;
@@ -471,7 +468,7 @@ static int vpout_drm_crtc_page_flip(struct drm_crtc *crtc,
 	if (vpout_drm_crtc->event)
 		return -EBUSY;
 
-	drm_framebuffer_reference(fb);
+	drm_framebuffer_get(fb);
 
 	crtc->primary->fb = fb;
 
@@ -494,7 +491,8 @@ void vpout_drm_crtc_set_panel_info(struct drm_crtc *crtc,
 	vpout_drm_crtc->info = info;
 }
 
-int vpout_drm_crtc_set_config(struct drm_mode_set *set)
+int vpout_drm_crtc_set_config(struct drm_mode_set *set,
+			      struct drm_modeset_acquire_ctx *ctx)
 {
 	struct vpout_drm_info *info;
 	struct drm_connector *conn;
@@ -507,11 +505,13 @@ int vpout_drm_crtc_set_config(struct drm_mode_set *set)
 	conn = set->num_connectors ? set->connectors[0] : NULL;
 
 	if (conn) {
-		info = vpout_drm_get_encoder_info(conn->encoder);
+		struct drm_encoder *enc = vpout_drm_get_best_encoder(conn);
+
+		info = vpout_drm_get_encoder_info(enc);
 		vpout_drm_crtc_set_panel_info(set->crtc, info);
 	}
 
-	return drm_crtc_helper_set_config(set);
+	return drm_crtc_helper_set_config(set, ctx);
 }
 
 static const struct drm_crtc_funcs vpout_drm_crtc_funcs = {

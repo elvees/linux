@@ -1,6 +1,6 @@
 config DRM_VPOUT
 	tristate "DRM Support for ELVEES VPOUT Display Controller"
-	depends on DRM && OF && ARM && HAVE_DMA_ATTRS
+	depends on DRM && OF && ARM
 	select MFD_SYSCON
 	select REGMAP_MMIO
 	select DRM_KMS_HELPER

@@ -30,6 +30,7 @@
 #include <video/videomode.h>
 #include <linux/component.h>
 #include <drm/drm_of.h>
+#include <drm/drm_probe_helper.h>
 #include "vpout-drm-drv.h"
 
 struct panel {
@@ -204,7 +205,7 @@ vpout_panel_bind(struct device *dev, struct device *master, void *data)
 	encoder->possible_crtcs = crtcs_mask;
 
 	ret = drm_encoder_init(drm_dev, encoder, &panel_encoder_funcs,
-			       DRM_MODE_ENCODER_LVDS);
+			       DRM_MODE_ENCODER_LVDS, NULL);
 	if (ret < 0)
 		goto fail;
 
@@ -220,7 +221,7 @@ vpout_panel_bind(struct device *dev, struct device *master, void *data)
 	connector->interlace_allowed = 0;
 	connector->doublescan_allowed = 0;
 
-	ret = drm_mode_connector_attach_encoder(connector, encoder);
+	ret = drm_connector_attach_encoder(connector, encoder);
 	if (ret)
 		goto connector_cleanup;
 

@@ -110,8 +110,8 @@ insert_proxy(struct drm_device *drm_dev, struct drm_connector *connector)
 	drm_connector_helper_add(connector, proxy_funcs);
 	priv->num_slaves++;
 
-	dev_dbg(dev, "External encoder '%s' connected\n",
-		connector->encoder->name);
+	dev_info(dev, "External encoder '%s' connected\n",
+		vpout_drm_get_best_encoder(connector)->name);
 
 	return 0;
 }
@@ -119,17 +119,18 @@ insert_proxy(struct drm_device *drm_dev, struct drm_connector *connector)
 int vpout_drm_add_external_encoders(struct drm_device *drm_dev)
 {
 	struct drm_connector *connector;
+	struct drm_connector_list_iter iter;
 	int ret;
 
-	mutex_lock(&drm_dev->mode_config.mutex);
-	drm_for_each_connector(connector, drm_dev) {
+	drm_connector_list_iter_begin(drm_dev, &iter);
+	drm_for_each_connector_iter(connector, &iter) {
 		ret = insert_proxy(drm_dev, connector);
 		if (ret) {
 			mutex_unlock(&drm_dev->mode_config.mutex);
 			return ret;
 		}
 	}
-	mutex_unlock(&drm_dev->mode_config.mutex);
+	drm_connector_list_iter_end(&iter);
 
 	/* link encoders with corresponding remote endpoints */
 	return vpout_drm_link_encoders(drm_dev);
@@ -198,14 +199,16 @@ static void store_options(struct drm_connector *connector, const char *option)
 static int lookup_label(struct drm_connector *connector)
 {
 	const char *label = NULL;
+	struct vpout_drm_info *info;
 	char *new_name = NULL;
 	char *option = NULL;
 
-	label = vpout_drm_get_connector_info(connector)->label;
-
+	info = vpout_drm_get_connector_info(connector);
 	/* if label isn't assigned then connector name will not be changed */
-	if (!label)
+	if (!info || !info->label)
 		return 0;
+
+	label = info->label;
 
 	/*
 	 * Create a new connector name.
@@ -240,10 +243,11 @@ static int lookup_label(struct drm_connector *connector)
 int fixup_connectors_names(struct drm_device *drm_dev)
 {
 	struct drm_connector *connector;
+	struct drm_connector_list_iter iter;
 	int ret = 0;
 
-	mutex_lock(&drm_dev->mode_config.mutex);
-	drm_for_each_connector(connector, drm_dev) {
+	drm_connector_list_iter_begin(drm_dev, &iter);
+	drm_for_each_connector_iter(connector, &iter) {
 		/* unregister connector with old name */
 		drm_connector_unregister(connector);
 
@@ -256,7 +260,7 @@ int fixup_connectors_names(struct drm_device *drm_dev)
 		if (ret)
 			break;
 	}
-	mutex_unlock(&drm_dev->mode_config.mutex);
+	drm_connector_list_iter_end(&iter);
 
 	return ret;
 }
@@ -264,13 +268,14 @@ int fixup_connectors_names(struct drm_device *drm_dev)
 int vpout_drm_has_preferred_connectors(struct drm_device *drm_dev)
 {
 	struct drm_connector *connector;
+	struct drm_connector_list_iter iter;
 	int prefs = 0;
 
-	mutex_lock(&drm_dev->mode_config.mutex);
-	drm_for_each_connector(connector, drm_dev) {
+	drm_connector_list_iter_begin(drm_dev, &iter);
+	drm_for_each_connector_iter(connector, &iter) {
 		prefs += connector->cmdline_mode.specified;
 	}
-	mutex_unlock(&drm_dev->mode_config.mutex);
+	drm_connector_list_iter_end(&iter);
 
 	return prefs;
 }

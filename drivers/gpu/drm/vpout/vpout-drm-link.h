@@ -37,4 +37,7 @@ vpout_drm_get_connector_info(struct drm_connector *connector);
 int vpout_drm_link_init(int capacity);
 void vpout_drm_link_release(void);
 
+struct drm_encoder *vpout_drm_get_best_encoder(struct drm_connector
+						*connector);
+
 #endif /* DRIVERS_GPU_DRM_VPOUT_VPOUT_DRM_LINK_H_ */

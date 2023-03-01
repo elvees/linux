@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <linux/mempool.h>
 
+#include <drm/drm_encoder.h>
 #include "vpout-drm-link.h"
 
 enum linkage_state {
@@ -83,7 +84,9 @@ static void put_node(struct linkage *node)
 struct vpout_drm_info*
 vpout_drm_get_connector_info(struct drm_connector *connector)
 {
-	return vpout_drm_get_encoder_info(connector->encoder);
+	struct drm_encoder *enc = vpout_drm_get_best_encoder(connector);
+
+	return enc ? vpout_drm_get_encoder_info(enc) : NULL;
 }
 
 struct vpout_drm_info *vpout_drm_get_encoder_info(struct drm_encoder *encoder)
@@ -281,4 +284,19 @@ void vpout_drm_unlink_all(void)
 	vpout_drm_unlink_safety();
 	manager.num_nodes = 0;
 	mutex_unlock(&manager.locker);
+}
+
+struct drm_encoder *vpout_drm_get_best_encoder(struct drm_connector
+						*connector)
+{
+	int enc_id;
+	// check deprecated field first
+	if (connector->encoder)
+		return connector->encoder;
+
+	enc_id = connector->encoder_ids[0];
+	if (enc_id)
+		return drm_encoder_find(connector->dev, NULL, enc_id);
+
+	return NULL;
 }
