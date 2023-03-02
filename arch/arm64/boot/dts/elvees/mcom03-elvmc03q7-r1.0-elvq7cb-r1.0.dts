@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
 
 #include "mcom03-elvmc03q7-r1.0.dtsi"
 
@@ -64,6 +65,175 @@
 
 		simple-audio-card,codec {
 			sound-dai = <&sgtl5000>;
+		};
+	};
+
+	q7cb-gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-0 = <&sleep_lid_cfg_default>;
+		pinctrl-names = "default";
+		poll-interval = <1000>;
+
+		sleep-button {
+			gpios = <&gpio1a 6 GPIO_ACTIVE_LOW>;
+			label = "Sleep button";
+			linux,code = <KEY_SLEEP>;
+		};
+
+		lid-switch {
+			gpios = <&gpio1a 5 GPIO_ACTIVE_LOW>;
+			label = "Lid Switch";
+			linux,code = <SW_LID>;
+			linux,input-type = <EV_SW>;
+			wakeup-source;
+		};
+	};
+
+	q7cb-leds {
+		compatible = "gpio-leds";
+
+		hl3 {
+			label = "sus_s3#:hl3";
+			gpios = <&gpio0d 6 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl4 {
+			label = "sus_s5#:hl4";
+			gpios = <&gpio0d 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl5 {
+			label = "thrmtrip:hl5";
+			gpios = <&gpio1d 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl14 {
+			label = "gpio0:hl14";
+			gpios = <&gpio0a 0 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl15 {
+			label = "gpio1:hl15";
+			gpios = <&gpio0a 1 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl16 {
+			label = "gpio2:hl16";
+			gpios = <&gpio0b 3 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl17 {
+			label = "gpio3:hl17";
+			gpios = <&gpio0b 4 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	pca9675-keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+		autorepeat;
+
+		btn0 {
+			gpios = <&pca9675 0 GPIO_ACTIVE_LOW>;
+			label = "BTN0";
+			linux,code = <BTN_TRIGGER_HAPPY1>;
+		};
+
+		btn1 {
+			gpios = <&pca9675 1 GPIO_ACTIVE_LOW>;
+			label = "BTN1";
+			linux,code = <BTN_TRIGGER_HAPPY2>;
+		};
+
+		btn2 {
+			gpios = <&pca9675 2 GPIO_ACTIVE_LOW>;
+			label = "BTN2";
+			linux,code = <BTN_TRIGGER_HAPPY3>;
+		};
+
+		btn3 {
+			gpios = <&pca9675 3 GPIO_ACTIVE_LOW>;
+			label = "BTN3";
+			linux,code = <BTN_TRIGGER_HAPPY4>;
+		};
+
+		ext_btn0 {
+			gpios = <&pca9675 4 GPIO_ACTIVE_LOW>;
+			label = "EXT_BTN0";
+			linux,code = <BTN_TRIGGER_HAPPY5>;
+		};
+
+		ext_btn1 {
+			gpios = <&pca9675 5 GPIO_ACTIVE_LOW>;
+			label = "EXT_BTN1";
+			linux,code = <BTN_TRIGGER_HAPPY6>;
+		};
+
+		ext_btn2 {
+			gpios = <&pca9675 6 GPIO_ACTIVE_LOW>;
+			label = "EXT_BTN2";
+			linux,code = <BTN_TRIGGER_HAPPY7>;
+		};
+
+		ext_btn3 {
+			gpios = <&pca9675 7 GPIO_ACTIVE_LOW>;
+			label = "EXT_BTN3";
+			linux,code = <BTN_TRIGGER_HAPPY8>;
+		};
+	};
+
+	pca9675-leds {
+		compatible = "gpio-leds";
+
+		hl10 {
+			gpios = <&pca9675 8 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl11 {
+			gpios = <&pca9675 9 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl12 {
+			gpios = <&pca9675 10 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl13 {
+			gpios = <&pca9675 11 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		ext_led0 {
+			label = "ext:led0";
+			gpios = <&pca9675 12 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		ext_led1 {
+			label = "ext:led1";
+			gpios = <&pca9675 13 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		ext_led2 {
+			label = "ext:led2";
+			gpios = <&pca9675 14 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		ext_led3 {
+			label = "ext:led3";
+			gpios = <&pca9675 15 GPIO_ACTIVE_LOW>;
+			default-state = "off";
 		};
 	};
 };
@@ -143,6 +313,14 @@
 		VDDIO-supply = <&vddio_codec>;
 		VDDD-supply = <&vddio_codec>;
 	};
+
+	/* I2C GPIO expander (PCA9675) */
+	pca9675: pca9675@20 {
+		compatible = "nxp,pca9675";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 /* Connected to PCIe bridge */
@@ -180,4 +358,11 @@
 /* Connected to RJ-45 (XS1) */
 &emac0 {
 	status = "okay";
+};
+	
+&lsperiph1_pinctrl {
+	sleep_lid_cfg_default: gpioa1-sleep-lid-cfg {
+		pins = "GPIOA_5", "GPIOA_6", "GPIOA_7";
+		input-enable;
+	};
 };
