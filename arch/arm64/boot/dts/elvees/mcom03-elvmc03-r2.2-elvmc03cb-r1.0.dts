@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/leds/common.h>
 
 #include "mcom03-elvmc03-r2.2.dtsi"
 
@@ -24,6 +25,18 @@
 		i2c6 = &i2c_cam1;
 		i2c7 = &i2c_lcd;
 		i2c8 = &i2c_fmc;
+	};
+
+	elvmc03cb-leds {
+		compatible = "gpio-leds";
+
+		led-hdd {
+			gpios = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			color = <LED_COLOR_ID_YELLOW>;
+			linux,default-trigger = "disk-activity";
+		};
 	};
 
 	sdhci0_supply: regulator@0 {
