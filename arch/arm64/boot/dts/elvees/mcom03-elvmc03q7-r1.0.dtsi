@@ -7,6 +7,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/net/ti-dp83867.h>
 
 #include "mcom03.dtsi"
 
@@ -108,6 +109,19 @@
 	bus-width = <8>;
 
 	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	phy-reset-gpios = <&gpio0c 7 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <200>;
+
+	ethernet_phy0: ethernet-phy@4 {
+		reg = <0x4>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
 };
 
 &qspi0 {
