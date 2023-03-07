@@ -1267,10 +1267,10 @@ static int mfbsp_can_plat_remove(struct platform_device *pdev)
 	struct net_device *dev = platform_get_drvdata(pdev);
 	struct mfbsp_can_priv *priv = netdev_priv(dev);
 
+	unregister_candev(dev);
 	clk_disable_unprepare(priv->clk);
 
 	reset_control_assert(priv->rst);
-	unregister_candev(dev);
 	platform_set_drvdata(pdev, NULL);
 
 	free_mfbsp_can_dev(dev);
