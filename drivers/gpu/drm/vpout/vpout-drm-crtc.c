@@ -35,6 +35,7 @@
 
 struct vpout_drm_crtc {
 	struct drm_crtc base;
+	struct drm_plane primary;
 	bool enabled;
 	bool frame_done;
 	spinlock_t irq_lock;
@@ -456,11 +457,9 @@ static void vpout_drm_crtc_destroy(struct drm_crtc *crtc)
 	drm_crtc_cleanup(crtc);
 }
 
-static int vpout_drm_crtc_page_flip(struct drm_crtc *crtc,
-				    struct drm_framebuffer *fb,
-				    struct drm_pending_vblank_event *event,
-				    uint32_t page_flip_flags,
-				    struct drm_modeset_acquire_ctx *ctx)
+int vpout_drm_crtc_update_fb(struct drm_crtc *crtc,
+			struct drm_framebuffer *fb,
+			struct drm_pending_vblank_event *event)
 {
 	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	unsigned long flags;
@@ -481,6 +480,15 @@ static int vpout_drm_crtc_page_flip(struct drm_crtc *crtc,
 	spin_unlock_irqrestore(&vpout_drm_crtc->irq_lock, flags);
 
 	return 0;
+}
+
+static int vpout_drm_crtc_page_flip(struct drm_crtc *crtc,
+				    struct drm_framebuffer *fb,
+				    struct drm_pending_vblank_event *event,
+				    uint32_t page_flip_flags,
+				    struct drm_modeset_acquire_ctx *ctx)
+{
+	return vpout_drm_crtc_update_fb(crtc, fb, event);
 }
 
 void vpout_drm_crtc_set_panel_info(struct drm_crtc *crtc,
@@ -619,7 +627,15 @@ struct drm_crtc *vpout_drm_crtc_create(struct drm_device *dev)
 
 	spin_lock_init(&vpout_drm_crtc->irq_lock);
 
-	ret = drm_crtc_init(dev, crtc, &vpout_drm_crtc_funcs);
+	ret = vpout_plane_primary_init(dev, &vpout_drm_crtc->primary);
+	if (ret < 0)
+		goto fail;
+
+	ret = drm_crtc_init_with_planes(dev, crtc,
+		&vpout_drm_crtc->primary,
+		NULL,
+		&vpout_drm_crtc_funcs,
+		"vpout crtc");
 	if (ret < 0)
 		goto fail;
 

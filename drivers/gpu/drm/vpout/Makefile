@@ -6,4 +6,5 @@ vpout-drm-y := \
 	vpout-drm-crtc.o \
 	vpout-drm-drv.o \
 	vpout-drm-external.o \
-	vpout-drm-link.o
+	vpout-drm-link.o \
+	vpout-drm-plane.o

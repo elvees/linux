@@ -62,4 +62,10 @@ irqreturn_t vpout_drm_crtc_irq(struct drm_crtc *crtc);
 
 struct drm_crtc *vpout_drm_crtc_create(struct drm_device *dev);
 
+int vpout_plane_primary_init(struct drm_device *drm,
+	struct drm_plane *plane);
+
+int vpout_drm_crtc_update_fb(struct drm_crtc *crtc,
+			struct drm_framebuffer *fb,
+			struct drm_pending_vblank_event *event);
 #endif /* __VPOUT_DRM_DRV_H__ */
