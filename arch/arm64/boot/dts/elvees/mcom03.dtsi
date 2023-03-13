@@ -30,18 +30,6 @@
 		mmc1 = &sdhci1;
 	};
 
-	reserved_memory: reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		/* ARM Trusted Firmware (BL31) */
-		secmon@80000000 {
-			reg = <0 0x80000000 0 0x80000>;
-			no-map;
-		};
-	};
-
 	cpu_opp_table: cpu_opp_table {
 		compatible = "operating-points-v2";
 		opp-shared;
