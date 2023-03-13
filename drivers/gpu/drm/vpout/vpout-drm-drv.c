@@ -36,15 +36,8 @@
 #include "vpout-drm-external.h"
 #include "vpout-drm-link.h"
 
-static struct drm_framebuffer *
-vpout_drm_fb_create(struct drm_device *drm_dev, struct drm_file *file_priv,
-		    const struct drm_mode_fb_cmd2 *mode_cmd)
-{
-	return drm_gem_fb_create(drm_dev, file_priv, mode_cmd);
-}
-
 static const struct drm_mode_config_funcs mode_config_funcs = {
-	.fb_create = vpout_drm_fb_create,
+	.fb_create = drm_gem_fb_create,
 };
 
 static int
@@ -316,19 +309,14 @@ static irqreturn_t vpout_drm_irq(int irq, void *arg)
 DEFINE_DRM_GEM_CMA_FOPS(fops);
 
 static struct drm_driver vpout_drm_driver = {
-	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET,
+	.driver_features    = DRIVER_GEM | DRIVER_MODESET,
 	.irq_handler        = vpout_drm_irq,
-	.gem_free_object    = drm_gem_cma_free_object,
+	.gem_create_object  = drm_cma_gem_create_object_default_funcs,
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
-	.gem_prime_import   = drm_gem_prime_import,
 	.gem_prime_export   = drm_gem_prime_export,
-	.gem_prime_get_sg_table    = drm_gem_cma_prime_get_sg_table,
 	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
-	.gem_prime_vmap     = drm_gem_cma_prime_vmap,
-	.gem_prime_vunmap   = drm_gem_cma_prime_vunmap,
 	.gem_prime_mmap     = drm_gem_cma_prime_mmap,
-	.gem_vm_ops         = &drm_gem_cma_vm_ops,
 	.dumb_create        = drm_gem_cma_dumb_create,
 	.fops               = &fops,
 	.name               = "vpout-drm",
@@ -410,18 +398,7 @@ static struct platform_driver vpout_drm_platform_driver = {
 	},
 };
 
-static int __init vpout_drm_init(void)
-{
-	return platform_driver_register(&vpout_drm_platform_driver);
-}
-
-static void __exit vpout_drm_fini(void)
-{
-	platform_driver_unregister(&vpout_drm_platform_driver);
-}
-
-module_init(vpout_drm_init);
-module_exit(vpout_drm_fini);
+module_platform_driver(vpout_drm_platform_driver);
 
 MODULE_AUTHOR("Alexey Kiselev <akiselev@elvees.com");
 MODULE_DESCRIPTION("ELVEES VPOUT Controller DRM Driver");
