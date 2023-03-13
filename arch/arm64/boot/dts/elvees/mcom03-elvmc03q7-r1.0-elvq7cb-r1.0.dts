@@ -22,6 +22,50 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	vdda_codec: vdda-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vdda-codec";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	vddio_codec: vddio-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vddio-codec";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	/* "G1" oscillator */
+	audio_mclk: audio_mclk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+	};
+
+	/* TRS (3.5mm jack) connected to SGTL5000 codec.
+	   SGTL5000 connected to MCom-03 I2S0 as I2S slave.
+	   */
+	elvq7cb_i2s_asound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "sgtl5000";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		simple-audio-card,routing =
+			"MIC_IN", "Mic Bias";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sgtl5000>;
+		};
+	};
 };
 
 &uart0 {
@@ -64,6 +108,10 @@
 	video-output = "rgb";
 };
 
+&i2s0 {
+	status = "okay";
+};
+
 &i2c0 {
 	status = "okay";
 	clock-frequency = <100000>;
@@ -76,6 +124,24 @@
 	hwmon@4a {
 		compatible = "ti,lm73";
 		reg = <0x4a>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	sgtl5000: codec@a {
+		status = "okay";
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		#sound-dai-cells = <0>;
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		micbias-resistor-k-ohms = <2>;
+		micbias-voltage-m-volts = <2250>;
+		VDDA-supply = <&vdda_codec>;
+		VDDIO-supply = <&vddio_codec>;
+		VDDD-supply = <&vddio_codec>;
 	};
 };
 
