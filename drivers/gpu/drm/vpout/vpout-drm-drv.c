@@ -25,6 +25,8 @@
 #include <linux/mfd/syscon.h>
 #include <linux/types.h>
 
+#include <drm/drm_atomic.h>
+#include <drm/drm_atomic_helper.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_cma_helper.h>
@@ -32,12 +34,15 @@
 #include <drm/drm_of.h>
 #include <drm/drm_probe_helper.h>
 
+
 #include "vpout-drm-drv.h"
 #include "vpout-drm-external.h"
 #include "vpout-drm-link.h"
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
+	.atomic_check = drm_atomic_helper_check,
+	.atomic_commit = drm_atomic_helper_commit,
 };
 
 static int
@@ -242,6 +247,9 @@ static int vpout_init(struct drm_driver *drv, struct device *dev)
 		goto fail_external_cleanup;
 	}
 
+	/* this will allocate initial states in crtc, planes, encoders */
+	drm_mode_config_reset(drm_dev);
+
 	ret = drm_dev_register(drm_dev, 0);
 	if (ret)
 		goto fail_irq_uninstall;
@@ -309,7 +317,7 @@ static irqreturn_t vpout_drm_irq(int irq, void *arg)
 DEFINE_DRM_GEM_CMA_FOPS(fops);
 
 static struct drm_driver vpout_drm_driver = {
-	.driver_features    = DRIVER_GEM | DRIVER_MODESET,
+	.driver_features    = DRIVER_GEM | DRIVER_MODESET | DRIVER_ATOMIC,
 	.irq_handler        = vpout_drm_irq,
 	.gem_create_object  = drm_cma_gem_create_object_default_funcs,
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,

@@ -55,8 +55,9 @@ struct vpout_drm_private {
 	struct connector_proxy slaves[8];
 };
 
-int vpout_drm_crtc_mode_valid(struct drm_crtc *crtc,
-			      struct drm_display_mode *mode);
+enum drm_mode_status
+vpout_drm_crtc_mode_valid(struct drm_crtc *crtc,
+			const struct drm_display_mode *mode);
 
 irqreturn_t vpout_drm_crtc_irq(struct drm_crtc *crtc);
 

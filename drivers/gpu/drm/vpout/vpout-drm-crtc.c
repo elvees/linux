@@ -24,6 +24,7 @@
 #include <linux/regmap.h>
 
 #include <drm/drm_atomic.h>
+#include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_flip_work.h>
@@ -140,22 +141,16 @@ static void vpout_drm_crtc_disable(struct drm_crtc *crtc)
 
 }
 
-static void vpout_drm_crtc_dpms(struct drm_crtc *crtc, int mode)
+static void vpout_drm_atomic_enable(struct drm_crtc *crtc,
+				struct drm_crtc_state *old_state)
 {
-	if (mode == DRM_MODE_DPMS_ON)
-		vpout_drm_crtc_enable(crtc);
-	else
-		vpout_drm_crtc_disable(crtc);
+	vpout_drm_crtc_enable(crtc);
 }
 
-static void vpout_drm_crtc_prepare(struct drm_crtc *crtc)
+static void vpout_drm_atomic_disable(struct drm_crtc *crtc,
+				struct drm_crtc_state *old_state)
 {
-	vpout_drm_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
-}
-
-static void vpout_drm_crtc_commit(struct drm_crtc *crtc)
-{
-	vpout_drm_crtc_dpms(crtc, DRM_MODE_DPMS_ON);
+	vpout_drm_crtc_disable(crtc);
 }
 
 static void vpout_drm_crtc_set_clk(struct drm_crtc *crtc)
@@ -458,9 +453,9 @@ static int vpout_drm_crtc_atomic_check(struct drm_crtc *crtc,
 }
 
 static const struct drm_crtc_helper_funcs vpout_drm_crtc_helper_funcs = {
-	.dpms = vpout_drm_crtc_dpms,
-	.prepare = vpout_drm_crtc_prepare,
-	.commit = vpout_drm_crtc_commit,
+	.atomic_enable = vpout_drm_atomic_enable,
+	.atomic_disable = vpout_drm_atomic_disable,
+	.mode_valid = vpout_drm_crtc_mode_valid,
 	.mode_fixup = vpout_drm_crtc_mode_fixup,
 	.atomic_check = vpout_drm_crtc_atomic_check,
 	.mode_set_nofb = vpout_drm_crtc_mode_set_nofb,
@@ -497,15 +492,6 @@ int vpout_drm_crtc_update_fb(struct drm_crtc *crtc,
 	return 0;
 }
 
-static int vpout_drm_crtc_page_flip(struct drm_crtc *crtc,
-				    struct drm_framebuffer *fb,
-				    struct drm_pending_vblank_event *event,
-				    uint32_t page_flip_flags,
-				    struct drm_modeset_acquire_ctx *ctx)
-{
-	return vpout_drm_crtc_update_fb(crtc, fb, event);
-}
-
 void vpout_drm_crtc_set_panel_info(struct drm_crtc *crtc,
 				   const struct vpout_drm_info *info)
 {
@@ -534,17 +520,32 @@ int vpout_drm_crtc_set_config(struct drm_mode_set *set,
 		vpout_drm_crtc_set_panel_info(set->crtc, info);
 	}
 
-	return drm_crtc_helper_set_config(set, ctx);
+	return drm_atomic_helper_set_config(set, ctx);
+}
+
+static int vpout_drm_crtc_enable_vblank(struct drm_crtc *crtc)
+{
+	return 0;
+}
+
+static void vpout_drm_crtc_disable_vblank(struct drm_crtc *crtc)
+{
 }
 
 static const struct drm_crtc_funcs vpout_drm_crtc_funcs = {
 	.destroy = vpout_drm_crtc_destroy,
 	.set_config = vpout_drm_crtc_set_config,
-	.page_flip = vpout_drm_crtc_page_flip,
+	.page_flip = drm_atomic_helper_page_flip,
+	.reset = drm_atomic_helper_crtc_reset,
+	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
+	.enable_vblank	= vpout_drm_crtc_enable_vblank,
+	.disable_vblank	= vpout_drm_crtc_disable_vblank,
 };
 
-int vpout_drm_crtc_mode_valid(struct drm_crtc *crtc,
-			      struct drm_display_mode *mode)
+enum drm_mode_status
+vpout_drm_crtc_mode_valid(struct drm_crtc *crtc,
+			const struct drm_display_mode *mode)
 {
 	uint32_t hbp, hfp, hsw, vbp, vfp, vsw;
 
