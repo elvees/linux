@@ -344,23 +344,19 @@ static void vpout_drm_crtc_dphy_timing_set(struct drm_crtc *crtc,
 
 #define PCLK_TO_BYTECLK(val)	DIV_ROUND_UP(val * byteclk_freq, pclk_freq)
 
-static int vpout_drm_crtc_mode_set(struct drm_crtc *crtc,
-				   struct drm_display_mode *mode,
-				   struct drm_display_mode *adjusted_mode,
-				   int x, int y,
-				   struct drm_framebuffer *old_fb)
+static void vpout_drm_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
 	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
-	uint32_t hfp, hbp, hsw, vfp, vbp, vsw;
+	uint32_t hfp, hbp, hsw, vfp, vbp, vsw, bpp;
 	unsigned int pclk_freq, byteclk_freq; /* MHz */
-	unsigned int bpp;
 	bool dsi = vpout_drm_crtc->info->dsi;
-	int ret;
 
-	ret = vpout_drm_crtc_mode_valid(crtc, mode);
-	if (ret != MODE_OK)
-		return ret;
+	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
+	struct drm_framebuffer *fb = crtc->primary->state->fb;
+
+	if (WARN_ON(!fb))
+		return;
 
 	hfp = mode->hsync_start - mode->hdisplay;
 	hbp = mode->htotal - mode->hsync_end;
@@ -407,7 +403,7 @@ static int vpout_drm_crtc_mode_set(struct drm_crtc *crtc,
 				 DSI_VIDEO_MODE_NON_BURST_SYNC_EVENTS);
 	}
 
-	bpp = crtc->primary->fb->format->cpp[0] * 8;
+	bpp = fb->format->cpp[0] * 8;
 	switch (bpp) {
 	case 16:
 		vpout_drm_write(dev, LCDC_MODE,
@@ -422,7 +418,8 @@ static int vpout_drm_crtc_mode_set(struct drm_crtc *crtc,
 				LCDC_MODE_INSIZE(LCDC_MODE_INSIZE_32BPP));
 		break;
 	default:
-		return -EINVAL;
+		dev_err(dev->dev, "Invalid pixel format bpp: %u!\n", bpp);
+		return;
 	}
 
 	if (vpout_drm_crtc->info->invert_pxl_clk)
@@ -436,11 +433,11 @@ static int vpout_drm_crtc_mode_set(struct drm_crtc *crtc,
 
 	vpout_drm_crtc_set_clk(crtc);
 
-	drm_framebuffer_get(crtc->primary->fb);
+	drm_framebuffer_get(fb);
 
-	vpout_drm_crtc_set_scanout(crtc, crtc->primary->fb);
+	vpout_drm_crtc_set_scanout(crtc, fb);
 
-	return 0;
+	crtc->hwmode = crtc->state->adjusted_mode;
 }
 
 static const struct drm_crtc_helper_funcs vpout_drm_crtc_helper_funcs = {
@@ -448,7 +445,7 @@ static const struct drm_crtc_helper_funcs vpout_drm_crtc_helper_funcs = {
 	.prepare = vpout_drm_crtc_prepare,
 	.commit = vpout_drm_crtc_commit,
 	.mode_fixup = vpout_drm_crtc_mode_fixup,
-	.mode_set = vpout_drm_crtc_mode_set,
+	.mode_set_nofb = vpout_drm_crtc_mode_set_nofb,
 };
 
 static void vpout_drm_crtc_destroy(struct drm_crtc *crtc)
