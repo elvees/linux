@@ -23,6 +23,7 @@
 
 #include <linux/regmap.h>
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_flip_work.h>
@@ -440,11 +441,28 @@ static void vpout_drm_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	crtc->hwmode = crtc->state->adjusted_mode;
 }
 
+static int vpout_drm_crtc_atomic_check(struct drm_crtc *crtc,
+				struct drm_crtc_state *state)
+{
+	if (!state->active)
+		return 0;
+
+	if (state->state->planes[0].ptr != crtc->primary ||
+	    state->state->planes[0].state == NULL ||
+	    state->state->planes[0].state->crtc != crtc) {
+		dev_dbg(crtc->dev->dev, "CRTC primary plane must be present");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static const struct drm_crtc_helper_funcs vpout_drm_crtc_helper_funcs = {
 	.dpms = vpout_drm_crtc_dpms,
 	.prepare = vpout_drm_crtc_prepare,
 	.commit = vpout_drm_crtc_commit,
 	.mode_fixup = vpout_drm_crtc_mode_fixup,
+	.atomic_check = vpout_drm_crtc_atomic_check,
 	.mode_set_nofb = vpout_drm_crtc_mode_set_nofb,
 };
 
