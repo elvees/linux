@@ -29,6 +29,7 @@
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
 #include <linux/component.h>
+#include <drm/drm_atomic_helper.h>
 #include <drm/drm_of.h>
 #include <drm/drm_probe_helper.h>
 #include "vpout-drm-drv.h"
@@ -70,29 +71,14 @@ static void panel_encoder_dpms(struct drm_encoder *encoder, int mode)
 					 mode == DRM_MODE_DPMS_ON ? 1 : 0);
 }
 
-static bool panel_encoder_mode_fixup(struct drm_encoder *encoder,
-				     const struct drm_display_mode *mode,
-				     struct drm_display_mode *adjusted_mode)
-{
-	/* nothing needed */
-	return true;
-}
-
-static void panel_encoder_prepare(struct drm_encoder *encoder)
+static void panel_encoder_disable(struct drm_encoder *encoder)
 {
 	panel_encoder_dpms(encoder, DRM_MODE_DPMS_OFF);
 }
 
-static void panel_encoder_commit(struct drm_encoder *encoder)
+static void panel_encoder_enable(struct drm_encoder *encoder)
 {
 	panel_encoder_dpms(encoder, DRM_MODE_DPMS_ON);
-}
-
-static void panel_encoder_mode_set(struct drm_encoder *encoder,
-				   struct drm_display_mode *mode,
-				   struct drm_display_mode *adjusted_mode)
-{
-	/* nothing needed */
 }
 
 static const struct drm_encoder_funcs panel_encoder_funcs = {
@@ -100,11 +86,8 @@ static const struct drm_encoder_funcs panel_encoder_funcs = {
 };
 
 static const struct drm_encoder_helper_funcs panel_encoder_helper_funcs = {
-	.dpms		= panel_encoder_dpms,
-	.prepare	= panel_encoder_prepare,
-	.commit		= panel_encoder_commit,
-	.mode_fixup	= panel_encoder_mode_fixup,
-	.mode_set	= panel_encoder_mode_set,
+	.enable = panel_encoder_enable,
+	.disable = panel_encoder_disable,
 };
 
 /*
@@ -166,10 +149,12 @@ panel_connector_best_encoder(struct drm_connector *connector)
 }
 
 static const struct drm_connector_funcs panel_connector_funcs = {
-	.dpms		= drm_helper_connector_dpms,
-	.detect		= panel_connector_detect,
-	.fill_modes	= drm_helper_probe_single_connector_modes,
-	.destroy	= panel_connector_destroy,
+	.detect = panel_connector_detect,
+	.destroy = panel_connector_destroy,
+	.fill_modes = drm_helper_probe_single_connector_modes,
+	.reset = drm_atomic_helper_connector_reset,
+	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
 static const struct drm_connector_helper_funcs panel_connector_helper_funcs = {
@@ -224,8 +209,6 @@ vpout_panel_bind(struct device *dev, struct device *master, void *data)
 	ret = drm_connector_attach_encoder(connector, encoder);
 	if (ret)
 		goto connector_cleanup;
-
-	connector->encoder = encoder;
 
 	ret = drm_connector_register(connector);
 	if (ret)
