@@ -53,7 +53,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		cpu_pll: cpu_pll {
+		cpu_pll: cpu_pll@1000050 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1000050 0 0x8>;
@@ -197,7 +197,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		service_pll: service_pll {
+		service_pll: service_pll@1f001000 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1f001000 0 0x8>;
@@ -1185,7 +1185,7 @@
 			};
 		};
 
-		hsperiph_pll: hsperiph_pll {
+		hsperiph_pll: hsperiph_pll@10401000 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x10401000 0 0x8>;
