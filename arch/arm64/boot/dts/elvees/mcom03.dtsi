@@ -1427,7 +1427,7 @@
 			pinctrl-0 = <&qspi1_default>;
 		};
 
-		usb0: usb@10000000 {
+		usb0: usb0 {
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
@@ -1450,7 +1450,7 @@
 			};
 		};
 
-		usb1: usb@10100000 {
+		usb1: usb1 {
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
