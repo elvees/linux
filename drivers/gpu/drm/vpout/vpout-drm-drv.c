@@ -39,10 +39,44 @@
 #include "vpout-drm-external.h"
 #include "vpout-drm-link.h"
 
+/*
+ * This is a copy-paste from drm_atomic_helper_commit(), leaving out the async
+ * test. The similar copy-paste implementation appears to be used in many
+ * other drivers too. Full drm_atomic_helper_commit does not working good
+*/
+static int vpout_atomic_helper_commit(struct drm_device *dev,
+		  struct drm_atomic_state *state,
+		  bool async)
+{
+	int ret;
+
+	ret = drm_atomic_helper_prepare_planes(dev, state);
+	if (ret)
+		return ret;
+
+	ret = drm_atomic_helper_swap_state(state, true);
+	if (ret) {
+		drm_atomic_helper_cleanup_planes(dev, state);
+		return ret;
+	}
+
+	drm_atomic_helper_commit_modeset_disables(dev, state);
+
+	drm_atomic_helper_commit_planes(dev, state, 0);
+
+	drm_atomic_helper_commit_modeset_enables(dev, state);
+
+	drm_atomic_helper_wait_for_vblanks(dev, state);
+
+	drm_atomic_helper_cleanup_planes(dev, state);
+
+	return 0;
+}
+
 static const struct drm_mode_config_funcs mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
 	.atomic_check = drm_atomic_helper_check,
-	.atomic_commit = drm_atomic_helper_commit,
+	.atomic_commit = vpout_atomic_helper_commit,
 };
 
 static int
