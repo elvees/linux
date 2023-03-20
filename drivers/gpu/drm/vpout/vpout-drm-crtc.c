@@ -64,12 +64,12 @@ static void vpout_drm_crtc_enable(struct drm_crtc *crtc)
 	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
 	struct vpout_drm_private *priv = dev->dev_private;
-	bool dsi = vpout_drm_crtc->info->dsi;
+	const struct vpout_drm_info *info = vpout_drm_crtc->info;
 
 	if (vpout_drm_crtc->enabled)
 		return;
 
-	if (dsi) {
+	if (info && info->dsi) {
 		vpout_mipi_set(dev, MIPI_RST_ENB_DFE, DSI_RST_DFE_ENABLE);
 		vpout_mipi_set(dev, MIPI_DEVICE_READY, DSI_DEVICE_READY);
 		regmap_update_bits(priv->smctr, SMCTR_MIPI_MUX,
@@ -86,7 +86,7 @@ static void vpout_drm_crtc_enable(struct drm_crtc *crtc)
 
 	vpout_drm_set(dev, LCDC_CSR, LCDC_CSR_RUN);
 
-	if (dsi)
+	if (info && info->dsi)
 		vpout_mipi_set(dev, MIPI_DPI_CONTROL, DSI_DPI_TURN_ON);
 
 	drm_crtc_vblank_on(crtc);
@@ -99,7 +99,7 @@ static void vpout_drm_crtc_disable(struct drm_crtc *crtc)
 	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
 	struct vpout_drm_private *priv = dev->dev_private;
-	bool dsi = vpout_drm_crtc->info->dsi;
+	const struct vpout_drm_info *info = vpout_drm_crtc->info;
 
 	if (!vpout_drm_crtc->enabled)
 		return;
@@ -123,7 +123,7 @@ static void vpout_drm_crtc_disable(struct drm_crtc *crtc)
 
 	vpout_drm_crtc->enabled = false;
 
-	if (dsi)
+	if (info && info->dsi)
 		regmap_update_bits(priv->smctr, SMCTR_MIPI_MUX,
 				   SMCTR_MIPI_MUX_DSI, ~SMCTR_MIPI_MUX_DSI);
 
@@ -331,7 +331,7 @@ static void vpout_drm_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	uint32_t hfp, hbp, hsw, vfp, vbp, vsw, bpp;
 	unsigned int pclk_freq, byteclk_freq; /* MHz */
-	bool dsi = vpout_drm_crtc->info->dsi;
+	const struct vpout_drm_info *info = vpout_drm_crtc->info;
 
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct drm_framebuffer *fb = crtc->primary->state->fb;
@@ -360,7 +360,7 @@ static void vpout_drm_crtc_mode_set_nofb(struct drm_crtc *crtc)
 			LCDC_VT1_VGATE(mode->vdisplay - 1) |
 			LCDC_VT1_VLEN(mode->vtotal - 1));
 
-	if (dsi) {
+	if (info && info->dsi) {
 		vpout_mipi_write(dev, MIPI_DPI_RESOLUTION,
 				 mode->vdisplay << 16 | mode->hdisplay);
 
@@ -403,7 +403,7 @@ static void vpout_drm_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		return;
 	}
 
-	if (vpout_drm_crtc->info->invert_pxl_clk)
+	if (info && info->invert_pxl_clk)
 		vpout_drm_set(dev, LCDC_MODE, LCDC_MODE_PINV);
 
 	if (!(mode->flags & DRM_MODE_FLAG_NHSYNC))
