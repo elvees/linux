@@ -42,23 +42,11 @@ struct vpout_drm_crtc {
 	bool frame_done;
 	spinlock_t irq_lock;
 	wait_queue_head_t frame_done_wq;
-	struct drm_flip_work unref_work;
 	struct drm_pending_vblank_event *event;
 	const struct vpout_drm_info *info;
 };
 
 #define to_vpout_drm_crtc(x) container_of(x, struct vpout_drm_crtc, base)
-
-static void unref_worker(struct drm_flip_work *work, void *val)
-{
-	struct vpout_drm_crtc *vpout_drm_crtc =
-		container_of(work, struct vpout_drm_crtc, unref_work);
-	struct drm_device *dev = vpout_drm_crtc->base.dev;
-
-	mutex_lock(&dev->mode_config.mutex);
-	drm_framebuffer_put(val);
-	mutex_unlock(&dev->mode_config.mutex);
-}
 
 static void vpout_drm_crtc_enable_irqs(struct drm_device *dev)
 {
@@ -168,7 +156,6 @@ static void vpout_drm_crtc_set_clk(struct drm_crtc *crtc)
 static void vpout_drm_crtc_set_scanout(struct drm_crtc *crtc,
 				       struct drm_framebuffer *fb)
 {
-	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
 	struct drm_gem_cma_object *gem;
 	dma_addr_t start;
@@ -180,8 +167,6 @@ static void vpout_drm_crtc_set_scanout(struct drm_crtc *crtc,
 		crtc->x * fb->format->cpp[0];
 
 	vpout_drm_write(dev, LCDC_AB0, start);
-
-	drm_flip_work_queue(&vpout_drm_crtc->unref_work, fb);
 }
 
 static bool vpout_drm_crtc_mode_fixup(struct drm_crtc *crtc,
@@ -429,8 +414,6 @@ static void vpout_drm_crtc_mode_set_nofb(struct drm_crtc *crtc)
 
 	vpout_drm_crtc_set_clk(crtc);
 
-	drm_framebuffer_get(fb);
-
 	vpout_drm_crtc_set_scanout(crtc, fb);
 
 	crtc->hwmode = crtc->state->adjusted_mode;
@@ -474,12 +457,10 @@ int vpout_drm_crtc_update_fb(struct drm_crtc *crtc,
 	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	unsigned long flags;
 
-	if (vpout_drm_crtc->event)
+	if (vpout_drm_crtc->event) {
+		drm_err("already pending page flip!\n");
 		return -EBUSY;
-
-	drm_framebuffer_get(fb);
-
-	crtc->primary->fb = fb;
+	}
 
 	spin_lock_irqsave(&vpout_drm_crtc->irq_lock, flags);
 
@@ -590,7 +571,6 @@ irqreturn_t vpout_drm_crtc_irq(struct drm_crtc *crtc)
 {
 	struct vpout_drm_crtc *vpout_drm_crtc = to_vpout_drm_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
-	struct vpout_drm_private *priv = dev->dev_private;
 	uint32_t stat;
 
 	stat = vpout_drm_read(dev, LCDC_INT);
@@ -598,8 +578,6 @@ irqreturn_t vpout_drm_crtc_irq(struct drm_crtc *crtc)
 
 	if (stat & LCDC_INT_DMA_DONE) {
 		unsigned long flags;
-
-		drm_flip_work_commit(&vpout_drm_crtc->unref_work, priv->wq);
 
 		drm_crtc_handle_vblank(crtc);
 
@@ -638,8 +616,6 @@ struct drm_crtc *vpout_drm_crtc_create(struct drm_device *dev)
 	crtc = &vpout_drm_crtc->base;
 
 	init_waitqueue_head(&vpout_drm_crtc->frame_done_wq);
-
-	drm_flip_work_init(&vpout_drm_crtc->unref_work, "unref", unref_worker);
 
 	spin_lock_init(&vpout_drm_crtc->irq_lock);
 
