@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r2.2";
+	compatible = "elvees,elvmc03smarc-r2.2",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+};
+
+/* Serial port definitions for SMARC */
+ser0: &uart3 { };
+ser1: &uart0 { };
+ser2: &uart2 { };
+ser3: &uart1 { };
+
+&sdhci0 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: w25q16@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
