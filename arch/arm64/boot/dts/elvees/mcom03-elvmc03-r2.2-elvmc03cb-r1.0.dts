@@ -187,25 +187,25 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		i2c01_1: i2c01@0 {
+		i2c_cam0: i2c01@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0>;
 		};
 
-		i2c01_2: i2c01@1 {
+		i2c_cam1: i2c01@1 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <1>;
 		};
 
-		i2c01_3: i2c01@2 {
+		i2c_lcd: i2c01@2 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <2>;
 		};
 
-		i2c01_4: i2c01@3 {
+		i2c_fmc: i2c01@3 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <3>;
