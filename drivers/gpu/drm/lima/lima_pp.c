@@ -397,7 +397,7 @@ int lima_pp_pipe_init(struct lima_device *dev)
 	int frame_size;
 	struct lima_sched_pipe *pipe = dev->pipe + lima_pipe_pp;
 
-	if (dev->id == lima_gpu_mali400)
+	if (dev->id == lima_gpu_mali400 || dev->id == lima_gpu_mali300)
 		frame_size = sizeof(struct drm_lima_m400_pp_frame);
 	else
 		frame_size = sizeof(struct drm_lima_m450_pp_frame);

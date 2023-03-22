@@ -27,15 +27,18 @@ struct lima_ip_desc {
 	void (*fini)(struct lima_ip *ip);
 };
 
+// mali-300 offsets is identical to mali400
 #define LIMA_IP_DESC(ipname, mst0, mst1, off0, off1, func, irq) \
 	[lima_ip_##ipname] = { \
 		.name = #ipname, \
 		.irq_name = irq, \
 		.must_have = { \
+			[lima_gpu_mali300] = mst0, \
 			[lima_gpu_mali400] = mst0, \
 			[lima_gpu_mali450] = mst1, \
 		}, \
 		.offset = { \
+			[lima_gpu_mali300] = off0, \
 			[lima_gpu_mali400] = off0, \
 			[lima_gpu_mali450] = off1, \
 		}, \
@@ -81,12 +84,20 @@ static int lima_clk_init(struct lima_device *dev)
 {
 	int err;
 
-	dev->clk_bus = devm_clk_get(dev->dev, "bus");
-	if (IS_ERR(dev->clk_bus)) {
-		err = PTR_ERR(dev->clk_bus);
-		if (err != -EPROBE_DEFER)
-			dev_err(dev->dev, "get bus clk failed %d\n", err);
-		return err;
+	// mali300 doesn't have bus clock
+	if (dev->id != lima_gpu_mali300) {
+		dev->clk_bus = devm_clk_get(dev->dev, "bus");
+		if (IS_ERR(dev->clk_bus)) {
+			err = PTR_ERR(dev->clk_bus);
+			if (err != -EPROBE_DEFER)
+				dev_err(dev->dev,
+					 "get bus clk failed %d\n", err);
+			return err;
+		}
+
+		err = clk_prepare_enable(dev->clk_bus);
+		if (err)
+			return err;
 	}
 
 	dev->clk_gpu = devm_clk_get(dev->dev, "core");
@@ -96,10 +107,6 @@ static int lima_clk_init(struct lima_device *dev)
 			dev_err(dev->dev, "get core clk failed %d\n", err);
 		return err;
 	}
-
-	err = clk_prepare_enable(dev->clk_bus);
-	if (err)
-		return err;
 
 	err = clk_prepare_enable(dev->clk_gpu);
 	if (err)
@@ -126,7 +133,8 @@ static int lima_clk_init(struct lima_device *dev)
 error_out1:
 	clk_disable_unprepare(dev->clk_gpu);
 error_out0:
-	clk_disable_unprepare(dev->clk_bus);
+	if (dev->clk_bus)
+		clk_disable_unprepare(dev->clk_bus);
 	return err;
 }
 
@@ -252,7 +260,7 @@ static int lima_init_pp_pipe(struct lima_device *dev)
 		struct lima_ip *ppmmu = dev->ip + lima_ip_ppmmu0 + i;
 		struct lima_ip *l2_cache;
 
-		if (dev->id == lima_gpu_mali400)
+		if (dev->id == lima_gpu_mali400 || dev->id == lima_gpu_mali300)
 			l2_cache = dev->ip + lima_ip_l2_cache0;
 		else
 			l2_cache = dev->ip + lima_ip_l2_cache1 + (i >> 2);
@@ -344,7 +352,9 @@ int lima_device_init(struct lima_device *ldev)
 	if (err)
 		goto err_out5;
 
-	dev_info(ldev->dev, "bus rate = %lu\n", clk_get_rate(ldev->clk_bus));
+	if (ldev->clk_bus)
+		dev_info(ldev->dev, "bus rate = %lu\n",
+			clk_get_rate(ldev->clk_bus));
 	dev_info(ldev->dev, "mod rate = %lu", clk_get_rate(ldev->clk_gpu));
 
 	return 0;

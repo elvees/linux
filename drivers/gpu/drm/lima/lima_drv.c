@@ -31,6 +31,10 @@ static int lima_ioctl_get_param(struct drm_device *dev, void *data, struct drm_f
 	switch (args->param) {
 	case DRM_LIMA_PARAM_GPU_ID:
 		switch (ldev->id) {
+		case lima_gpu_mali300:
+			// report that mali400, we dont need to break uapi.
+			// Mesa Gallium lima userspace driver knowns nothing
+			// except mali400 and mali450
 		case lima_gpu_mali400:
 			args->value = DRM_LIMA_PARAM_GPU_ID_MALI400;
 			break;
@@ -342,6 +346,7 @@ static int lima_pdev_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dt_match[] = {
+	{ .compatible = "arm,mali-300", .data = (void *)lima_gpu_mali300 },
 	{ .compatible = "arm,mali-400", .data = (void *)lima_gpu_mali400 },
 	{ .compatible = "arm,mali-450", .data = (void *)lima_gpu_mali450 },
 	{}
