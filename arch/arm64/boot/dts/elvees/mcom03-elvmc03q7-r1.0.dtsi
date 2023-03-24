@@ -214,3 +214,6 @@
 		};
 	};
 };
+
+/* PCIe0 is connected to SATA controller. */
+sata: &pcie0 { };
