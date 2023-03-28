@@ -39,3 +39,10 @@
 	status = "okay";
 };
 
+&emac0 {
+	status = "okay";
+};
+
+&emac1 {
+	status = "okay";
+};

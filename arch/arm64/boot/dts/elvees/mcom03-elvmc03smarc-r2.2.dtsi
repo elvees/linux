@@ -50,3 +50,33 @@ ser3: &uart1 { };
 		m25p,fast-read;
 	};
 };
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+
+	reset-gpios = <&gpio0a 4 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-id0000.011a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x0>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1800>;
+		tx-internal-delay-ps = <1200>;
+	};
+};
+
+&emac1 {
+	phy-handle = <&ethernet_phy1>;
+
+	reset-gpios = <&gpio0a 3 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy1: ethernet-phy@2 {
+		compatible = "ethernet-phy-id0000.011a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x2>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1900>;
+		tx-internal-delay-ps = <1650>;
+	};
+};
