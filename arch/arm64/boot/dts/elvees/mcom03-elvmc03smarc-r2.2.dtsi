@@ -55,6 +55,22 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+
+	hdmi_1v2_vdd_supply: regulator@01 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vdd-1.2v";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	hdmi_3v3_vcc_supply: regulator@02 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vcc-3.3v";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 };
 
 /* Serial port definitions for SMARC */
@@ -116,6 +132,19 @@ ser3: &uart1 { };
 	};
 };
 
+&de_dsi {
+	status = "disabled";
+
+	ports {
+		port@1 {
+			reg = <1>;
+			dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in_p0>;
+			};
+		};
+	};
+};
+
 &i2c2 {
 	status = "okay";
 	// not tested to work on 400k
@@ -134,6 +163,39 @@ ser3: &uart1 { };
 	eeprom@50 {
 		compatible = "microchip,24c32", "atmel,24c32";
 		reg = <0x50>;
+	};
+
+	lt9611uxc: hdmi-bridge@2b {
+		status = "disabled";
+
+		compatible = "lontium,lt9611uxc";
+		reg = <0x2b>;
+
+		vdd-supply = <&hdmi_1v2_vdd_supply>;
+		vcc-supply = <&hdmi_3v3_vcc_supply>;
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&gpio0a 5 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio1a 6 IRQ_TYPE_EDGE_FALLING>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in_p0: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				lt9611_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
 	};
 };
 
