@@ -1468,7 +1468,7 @@
 			reg = <0 0x1910000 0 0x8>;
 			clocks = <&xti_clk>;
 			assigned-clocks = <&sdr_pll0>;
-			assigned-clock-rates = <1890000000>;
+			assigned-clock-rates = <1200000000>;
 		};
 
 		sdr_pll1: sdr_pll1 {
@@ -1505,11 +1505,11 @@
 					  <&sdr_ucg0 SDR_INT_CLK>,
 					  <&sdr_ucg0 SDR_PCI_CLK>,
 					  <&sdr_ucg0 SDR_AUX_PCI_CLK>;
-			assigned-clock-rates = <105000000
-						315000000
-						210000000
-						210000000
-						51000000>;
+			assigned-clock-rates = <100000000
+						600000000
+						400000000
+						200000000
+						50000000>;
 			enabled-clocks = <SDR_CLK_CFG>,
 					 <SDR_EXT_CLK>,
 					 <SDR_INT_CLK>,
