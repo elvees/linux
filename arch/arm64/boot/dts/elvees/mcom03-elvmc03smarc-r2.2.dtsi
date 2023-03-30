@@ -80,3 +80,14 @@ ser3: &uart1 { };
 		tx-internal-delay-ps = <1650>;
 	};
 };
+
+&i2c2 {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	gx21m15: sensor@48 {
+		compatible = "national,lm75b";
+		reg = <0x48>;
+	};
+};
