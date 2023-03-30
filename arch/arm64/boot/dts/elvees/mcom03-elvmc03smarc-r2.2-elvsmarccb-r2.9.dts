@@ -46,3 +46,15 @@
 &emac1 {
 	status = "okay";
 };
+
+/* USB3 SS */
+&usb0 {
+	status = "okay";
+};
+
+/*
+* 2 hubs: 1 on ELV-MC03-SMARC and 1 on ELV-SMARC-CB
+*/
+&usb1 {
+	status = "okay";
+};
