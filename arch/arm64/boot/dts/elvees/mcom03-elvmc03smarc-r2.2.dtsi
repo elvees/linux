@@ -90,4 +90,9 @@ ser3: &uart1 { };
 		compatible = "national,lm75b";
 		reg = <0x48>;
 	};
+
+	bl5372: rtc@32 {
+		compatible = "dallas,ds1337";
+		reg = <0x32>;
+	};
 };
