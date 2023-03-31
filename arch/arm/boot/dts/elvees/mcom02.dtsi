@@ -469,21 +469,16 @@
 		status = "disabled";
 	};
 
-	/* This device is not actually used by any driver. The only purpose
-	 * of this description is to denote the interrupts used by Mali.
-	 * Only if these interrupts are denoted that way Linux allows them
-	 * to be used and detected. Mali driver detects them by probing. */
 	gpu: gpu@37210000 {
-		compatible = "arm,mali-dev";
+		compatible = "arm,mali-300";
 		reg = <0x37210000 0x10000>;
 		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "IRQGP", "IRQGPMMU", "IRQPMU", "IRQPP0",
-			"IRQPPMMU0";
+		interrupt-names = "gp", "gpmmu", "pp0", "ppmmu0";
 		clocks = <&gpu_aclk>;
+		clock-names = "core";
 	};
 
 	spram: spram@20000000 {
