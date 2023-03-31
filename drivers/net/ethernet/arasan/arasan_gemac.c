@@ -1019,6 +1019,12 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 	}
 
 	switch (phydev->speed) {
+	case SPEED_10:
+		reg |= MAC_GLOBAL_CONTROL_SPEED(0);
+
+		if (gpio_is_valid(pd->txclk_125en))
+			gpio_set_value(pd->txclk_125en, 0);
+		break;
 	case SPEED_100:
 		reg |= MAC_GLOBAL_CONTROL_SPEED(1);
 
