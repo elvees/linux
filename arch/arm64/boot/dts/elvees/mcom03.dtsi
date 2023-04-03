@@ -463,8 +463,7 @@
 			enabled-clocks = <MEDIA_MIPI_RX_REFCLK
 					  MEDIA_MIPI_RX0_CFG_CLK
 					  MEDIA_MIPI_RX1_CFG_CLK
-					  MEDIA_CMOS1_CLK
-					  MEDIA_VPU_CLK>;
+					  MEDIA_CMOS1_CLK>;
 			#clock-cells = <1>;
 		};
 
@@ -483,6 +482,49 @@
 			interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1280000 0 0x10000>;
 			resets = <&media_reset MEDIA_RST_VPU>;
+			clocks = <&media_ucg3 MEDIA_VPU_CLK>;
+			clock-names = "vpu_clk";
+			operating-points-v2 = <&vpu_opp_table>;
+
+			vpu_opp_table: vpu-opp-table {
+				compatible = "operating-points-v2";
+				opp-99000000 {
+					opp-hz = /bits/ 64 <99000000>;
+				};
+				opp-118800000 {
+					opp-hz = /bits/ 64 <118800000>;
+				};
+				opp-148500000 {
+					opp-hz = /bits/ 64 <148500000>;
+				};
+				opp-198000000 {
+					opp-hz = /bits/ 64 <198000000>;
+				};
+				opp-216000000 {
+					opp-hz = /bits/ 64 <216000000>;
+				};
+				opp-237000000 {
+					opp-hz = /bits/ 64 <237000000>;
+				};
+				opp-264000000 {
+					opp-hz = /bits/ 64 <264000000>;
+				};
+				opp-297000000 {
+					opp-hz = /bits/ 64 <297000000>;
+				};
+				opp-339428572 {
+					opp-hz = /bits/ 64 <339428572>;
+				};
+				opp-396000000 {
+					opp-hz = /bits/ 64 <396000000>;
+				};
+				opp-475200000 {
+					opp-hz = /bits/ 64 <475200000>;
+				};
+				opp-594000000 {
+					opp-hz = /bits/ 64 <594000000>;
+				};
+			};
 		};
 
 		isp: isp@12a0000 {
