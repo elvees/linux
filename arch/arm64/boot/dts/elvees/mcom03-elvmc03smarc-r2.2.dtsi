@@ -104,3 +104,4 @@ ser3: &uart1 { };
 
 /* I2C definitions for SMARC*/
 i2c_gp: &i2c1 { };
+i2c_pm: &i2c0 { };
