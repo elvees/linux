@@ -62,3 +62,19 @@
 &pcie1 {
 	status = "okay";
 };
+
+&i2c_gp {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	lm75b0: sensor@48 {
+		compatible = "national,lm75b";
+		reg = <0x48>;
+	};
+
+	lm75b1: sensor@49 {
+		compatible = "national,lm75b";
+		reg = <0x49>;
+	};
+};

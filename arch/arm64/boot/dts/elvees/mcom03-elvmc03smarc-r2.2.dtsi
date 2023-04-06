@@ -96,3 +96,6 @@ ser3: &uart1 { };
 		reg = <0x32>;
 	};
 };
+
+/* I2C definitions for SMARC*/
+i2c_gp: &i2c1 { };
