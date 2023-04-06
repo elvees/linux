@@ -95,6 +95,11 @@ ser3: &uart1 { };
 		compatible = "dallas,ds1337";
 		reg = <0x32>;
 	};
+
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
 };
 
 /* I2C definitions for SMARC*/
