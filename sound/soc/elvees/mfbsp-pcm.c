@@ -197,10 +197,10 @@ static int mfbsp_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	mfbsp->capture_dma.desc_addr = desc_addr;
 	mfbsp->capture_dma.desc_list = desc_list;
 
-	return snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
-						     SNDRV_DMA_TYPE_DEV, dev,
-						     MFBSP_PCM_BUFFER_BYTES,
-						     MFBSP_PCM_BUFFER_BYTES);
+	snd_pcm_lib_preallocate_pages_for_all(rtd->pcm, SNDRV_DMA_TYPE_DEV,
+		dev, MFBSP_PCM_BUFFER_BYTES, MFBSP_PCM_BUFFER_BYTES);
+
+	return 0;
 }
 
 static void mfbsp_pcm_free(struct snd_pcm *pcm)
@@ -208,7 +208,7 @@ static void mfbsp_pcm_free(struct snd_pcm *pcm)
 	snd_pcm_lib_preallocate_free_for_all(pcm);
 }
 
-static const struct snd_soc_platform_driver mfbsp_platform_driver = {
+static const struct snd_soc_component_driver mfbsp_component_driver = {
 	.pcm_new	= mfbsp_pcm_new,
 	.pcm_free	= mfbsp_pcm_free,
 	.ops		= &mfbsp_pcm_ops,
@@ -216,6 +216,7 @@ static const struct snd_soc_platform_driver mfbsp_platform_driver = {
 
 int mfbsp_register_platform(struct platform_device *pdev)
 {
-	return devm_snd_soc_register_platform(&pdev->dev,
-					      &mfbsp_platform_driver);
+	return devm_snd_soc_register_component(&pdev->dev,
+						&mfbsp_component_driver,
+						NULL, 0);
 }
