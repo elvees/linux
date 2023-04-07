@@ -1,0 +1,5 @@
+config SND_SOC_ELVEES_MFBSP
+	tristate "ELVEES MFBSP support"
+	help
+	  Say Y or M if you want to add ELVEES Multi-Functional Buffered Serial
+	  Port (MFBSP) support.
