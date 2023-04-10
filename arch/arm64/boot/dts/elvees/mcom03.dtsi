@@ -523,7 +523,36 @@
 			clocks = <&media_ucg0 MEDIA_ISP_SYS_CLK>;
 			clock-names = "core";
 			resets = <&media_reset MEDIA_RST_ISP>;
+			operating-points-v2 = <&isp_opp_table>;
 			status = "disabled";
+
+			isp_opp_table: isp-opp-table {
+				compatible = "operating-points-v2";
+				opp-166500000 {
+					opp-hz = /bits/ 64 <166500000>;
+				};
+				opp-181636364 {
+					opp-hz = /bits/ 64 <181636364>;
+				};
+				opp-199800000 {
+					opp-hz = /bits/ 64 <199800000>;
+				};
+				opp-222000000 {
+					opp-hz = /bits/ 64 <222000000>;
+				};
+				opp-249750000 {
+					opp-hz = /bits/ 64 <249750000>;
+				};
+				opp-285428572 {
+					opp-hz = /bits/ 64 <285428572>;
+				};
+				opp-333000000 {
+					opp-hz = /bits/ 64 <333000000>;
+				};
+				opp-399600000 {
+					opp-hz = /bits/ 64 <399600000>;
+				};
+			};
 		};
 
 		dp: dp@1300000 {
