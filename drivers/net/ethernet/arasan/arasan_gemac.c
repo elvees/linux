@@ -1434,7 +1434,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	pd->phy_interface = res;
 
 	mac = of_get_mac_address(pdev->dev.of_node);
-	if (mac)
+	if (!IS_ERR(mac))
 		ether_addr_copy(pd->dev->dev_addr, mac);
 	else
 		arasan_gemac_get_hwaddr(pd);
