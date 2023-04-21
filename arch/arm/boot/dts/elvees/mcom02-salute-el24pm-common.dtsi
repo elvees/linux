@@ -75,6 +75,15 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-always-on;
 		};
+
+		audio_codec_vddd_reg: regulator@1 {
+			compatible = "regulator-fixed";
+			reg = <0x0>;
+			regulator-name = "audio-codec-vddd";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-always-on;
+		};
 	};
 
 	sound: sound {
@@ -127,9 +136,12 @@
 		#sound-dai-cells = <0>;
 		compatible = "fsl,sgtl5000";
 		reg = <0x0a>;
+		micbias-resistor-k-ohms = <2>;
+		micbias-voltage-m-volts = <2250>;
 		clocks = <&audio_codec_clk>;
 		VDDA-supply = <&audio_codec_reg>;
 		VDDIO-supply = <&audio_codec_reg>;
+		VDDD-supply = <&audio_codec_vddd_reg>;
 	};
 };
 
