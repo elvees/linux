@@ -19,6 +19,13 @@
 		     "elvees,elvmc03",
 		     "elvees,mcom03";
 
+	aliases {
+		i2c5 = &i2c_cam0;
+		i2c6 = &i2c_cam1;
+		i2c7 = &i2c_lcd;
+		i2c8 = &i2c_fmc;
+	};
+
 	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "sdhci1-supply";
@@ -332,3 +339,16 @@
 		};
 	};
 };
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
+
+&csi1 {
+	status = "okay";
+};
+
