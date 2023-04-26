@@ -471,12 +471,18 @@
 			assigned-clocks = <&media_ucg3 MEDIA_MIPI_RX_REFCLK>,
 					  <&media_ucg3 MEDIA_MIPI_RX0_CFG_CLK>,
 					  <&media_ucg3 MEDIA_MIPI_RX1_CFG_CLK>,
+					  <&media_ucg3 MEDIA_MIPI_TX_REFCLK>,
+					  <&media_ucg3 MEDIA_MIPI_TX_CFG_CLK>,
+					  <&media_ucg3 MEDIA_CMOS0_CLK>,
 					  <&media_ucg3 MEDIA_CMOS1_CLK>,
 					  <&media_ucg3 MEDIA_MIPI_TXCLKESC>,
 					  <&media_ucg3 MEDIA_VPU_CLK>;
 			assigned-clock-rates = <27000000
 						27000000
 						27000000
+						27000000
+						27000000
+						148500000
 						27000000
 						19800000
 						594000000>;
