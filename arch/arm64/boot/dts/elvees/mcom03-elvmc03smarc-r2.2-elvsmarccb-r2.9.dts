@@ -89,3 +89,17 @@
 		reg = <0x57>;
 	};
 };
+
+/* Connected to XP7 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+
+/* Connected to XP7 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
+&qlic0 {
+	status = "okay";
+};
