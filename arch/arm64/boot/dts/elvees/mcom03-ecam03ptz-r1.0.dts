@@ -75,6 +75,18 @@
 	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
 };
 
+/* Adjust SDMMC XIN clock frequencies to get better performance
+ * of SD.
+ */
+&hsperiph_ucg1 {
+	assigned-clocks = <&hsperiph_ucg1 HSP_SDMMC0_XIN_CLK>,
+			  <&hsperiph_ucg1 HSP_SDMMC1_XIN_CLK>,
+			  <&hsperiph_ucg1 HSP_NFC_FLASH_CLK>;
+	assigned-clock-rates = <93750000
+				125000000
+				93750000>;
+};
+
 /* Connected to MicroSD card */
 &sdhci0 {
 	status = "okay";
