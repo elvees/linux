@@ -35,7 +35,29 @@
 	sdhci-caps = <0x0 0x0>;
 };
 
+/*
+ * RS-485 not supported in this revision due to bug: MCOM03HW-1288
+ * 4 wire RS-232
+ */
+&ser0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
+};
+
+/* Connects to debug USB-c port */
 &ser1 {
+	status = "okay";
+};
+
+/* Connects to "RPi" header */
+&ser2 {
+	status = "okay";
+};
+
+/* Connects to "SER3" header */
+&ser3 {
 	status = "okay";
 };
 
