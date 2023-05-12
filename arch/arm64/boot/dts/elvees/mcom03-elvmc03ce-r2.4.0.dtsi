@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03-CE r2.4.0";
+	compatible = "elvees,elvmc03ce-r2.4.0",
+		     "elvees,elvmc03ce",
+		     "elvees,mcom03";
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+};
+
+/* Connected to eMMC */
+&sdhci0 {
+	status = "okay";
+
+	non-removable;
+	bus-width = <8>;
+
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
+
+&i2c2 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	bl5372: rtc@32 {
+		compatible = "dallas,ds1337";
+		reg = <0x32>;
+	};
+
+	gx21m15: temperature-sensor@48 {
+		compatible = "national,lm75b";
+		reg = <0x48>;
+	};
+
+	bl24c32a: eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+/* PCIe0 is connected to SATA controller. */
+sata: &pcie0 { };
