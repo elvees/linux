@@ -22,9 +22,8 @@ properties:
     description: |
       GPIO used to select the line.
 
+  # Please read name-prefix.txt for details
   sound-name-prefix: true
-    description: |
-      Please read name-prefix.txt for details.
 
 required:
   - compatible
