@@ -1,1 +1,1 @@
-obj-y += clk-mcom03.o
+obj-y += pll.o gate.o ucg.o common.o refmux.o
