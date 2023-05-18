@@ -121,7 +121,7 @@ static int ina260_init(struct ina260_data *data)
 static int ina260_read_reg(struct device *dev, int reg, unsigned int *regval)
 {
 	struct ina260_data *data = dev_get_drvdata(dev);
-	int ret, retry;
+	int ret;
 
 	dev_dbg(dev, "Starting register %d read\n", reg);
 
@@ -249,7 +249,6 @@ static int ina260_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct ina260_data *data;
 	struct device *hwmon_dev;
-	u32 val;
 	int ret, group = 0;
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
