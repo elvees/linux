@@ -98,6 +98,7 @@ struct lt9611uxc_mode {
  * Enumerate them here to check whether the mode is supported.
  */
 static struct lt9611uxc_mode lt9611uxc_modes[] = {
+	{ 3840, 2160, 30 },
 	{ 1920, 1080, 60 },
 	{ 1920, 1080, 30 },
 	{ 1920, 1080, 25 },
