@@ -162,6 +162,12 @@ ser3: &uart1 { };
 	};
 };
 
+&media_ucg1 {
+	assigned-clocks = <&media_ucg1 MEDIA_DISP_ACLK>,
+			  <&media_ucg1 MEDIA_DISP_MCLK>;
+	assigned-clock-rates = <594000000 297000000>;
+};
+
 &i2c2 {
 	status = "okay";
 	// not tested to work on 400k
