@@ -2,7 +2,7 @@
 /*
  * PCIe RC driver for MCom-03
  *
- * Copyright 2021 RnD Center "ELVEES", JSC
+ * Copyright 2021-2023 RnD Center "ELVEES", JSC
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -28,6 +28,10 @@
 #define SYS_CTRL_OVRD_LTSSM_EN		BIT(31)
 #define SYS_CTRL_DEVICE_TYPE_MASK	GENMASK(3, 0)
 
+#define EDMA_INTx_INT			0x10
+#define EDMA_INTx_INT_ASSERTED		GENMASK(3, 0)
+#define EDMA_INTx_INT_DEASSERTED	GENMASK(7, 4)
+
 #define SYS_JESD_EN_OFF			0x300
 
 #define DEVICE_TYPE_EP	0
@@ -52,6 +56,7 @@ struct mcom03_pcie {
 	u32				sdr_ctl_offset;
 	int				id;
 	struct reset_control		*reset;
+	struct irq_domain		*irq_domain;
 };
 
 static void mcom03_pcie_writel(struct mcom03_pcie *pcie, u32 reg, u32 val)
@@ -163,6 +168,72 @@ static void mcom03_pcie_unset_perst(struct mcom03_pcie *pcie)
 				   SDR_PCI1_PERSTN);
 }
 
+static void mcom03_pcie_legacy_irq_handler(struct irq_desc *desc)
+{
+	struct mcom03_pcie *pcie = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	unsigned long reg;
+	u32 virq, bit;
+
+	chained_irq_enter(chip, desc);
+	reg = mcom03_pcie_readl(pcie, EDMA_INTx_INT);
+
+	if (reg & EDMA_INTx_INT_ASSERTED) {
+		mcom03_pcie_writel(pcie, EDMA_INTx_INT, reg & EDMA_INTx_INT_ASSERTED);
+
+		for_each_set_bit(bit, &reg, PCI_NUM_INTX) {
+			virq = irq_find_mapping(pcie->irq_domain, bit);
+			if (virq)
+				generic_handle_irq(virq);
+		}
+	}
+
+	if (reg & EDMA_INTx_INT_DEASSERTED)
+		mcom03_pcie_writel(pcie, EDMA_INTx_INT, reg & EDMA_INTx_INT_DEASSERTED);
+
+	chained_irq_exit(chip, desc);
+}
+
+static int mcom03_pcie_intx_map(struct irq_domain *domain, unsigned int irq,
+				irq_hw_number_t hwirq)
+{
+	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_simple_irq);
+	irq_set_chip_data(irq, domain->host_data);
+	return 0;
+}
+
+static const struct irq_domain_ops intx_domain_ops = {
+	.map = mcom03_pcie_intx_map,
+	.xlate = pci_irqd_intx_xlate,
+};
+
+static int mcom03_pcie_config_legacy_irq(struct pcie_port *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct device *dev = pci->dev;
+	struct mcom03_pcie *mcom03 = to_mcom03_pcie(pci);
+	struct device_node *node = dev->of_node;
+	struct device_node *intc;
+
+	intc = of_get_child_by_name(node, "legacy-interrupt-controller");
+	if (!intc) {
+		dev_err(dev, "No 'legacy-interrupt-controller' node found\n");
+		return -ENODEV;
+	}
+
+	mcom03->irq_domain = irq_domain_add_linear(intc, PCI_NUM_INTX,
+						   &intx_domain_ops, pp);
+	if (!mcom03->irq_domain) {
+		dev_err(dev, "Failed to create INTx IRQ domain\n");
+		return -EINVAL;
+	}
+
+	irq_set_chained_handler_and_data(pp->irq,
+					 mcom03_pcie_legacy_irq_handler, mcom03);
+
+	return 0;
+}
+
 static int mcom03_add_pcie_port(struct mcom03_pcie *pcie,
 				struct platform_device *pdev)
 {
@@ -171,10 +242,21 @@ static int mcom03_add_pcie_port(struct mcom03_pcie *pcie,
 	struct device *dev = &pdev->dev;
 	int ret;
 
-	// TODO: Add Legacy, Hotplug, LEQ, and other IRQ support
+	// TODO: Add Hotplug, LEQ, and other IRQ support
 	pp->msi_irq = platform_get_irq(pdev, 0);
-	if (pp->msi_irq < 0)
+	if (pp->msi_irq < 0) {
+		dev_err(dev, "Failed to get MSI IRQ\n");
 		return pp->msi_irq;
+	}
+
+	pp->irq = platform_get_irq(pdev, 1);
+	if (pp->irq < 0) {
+		dev_info(dev, "Legacy IRQ not found: only MSI will work\n");
+	} else {
+		ret = mcom03_pcie_config_legacy_irq(pp);
+		if (ret < 0)
+			return ret;
+	}
 
 	pp->ops = &mcom03_pcie_host_ops;
 
