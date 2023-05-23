@@ -260,7 +260,8 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 
 	pcie->reset = devm_reset_control_array_get_shared(dev);
 	if (IS_ERR(pcie->reset)) {
-		dev_err(dev, "Failed to get PCIe resets\n");
+		if (PTR_ERR(pcie->reset) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get PCIe resets\n");
 		return PTR_ERR(pcie->reset);
 	}
 	ret = reset_control_deassert(pcie->reset);
