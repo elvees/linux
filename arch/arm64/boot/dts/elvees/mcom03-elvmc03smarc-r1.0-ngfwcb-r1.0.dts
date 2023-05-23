@@ -272,6 +272,7 @@
 &pcie1 {
 	status = "okay";
 
+	// Note: legacy interrupts must be described in every PCIe bridge DTS node
 	dwc-pcie@0,0 {
 		reg = <0 0 0 0 0>;
 		#address-cells = <3>;
@@ -282,10 +283,50 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 
+			// Legacy interrupts support
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0000 0 0 1 &pcie1_intc 2>,
+					<0000 0 0 2 &pcie1_intc 3>,
+					<0000 0 0 3 &pcie1_intc 4>,
+					<0000 0 0 4 &pcie1_intc 1>;
+
+			plx-pex@2,2 {
+				reg = <0x1000 0 0 0 0>;
+
+				// Legacy interrupts support
+				#interrupt-cells = <1>;
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0000 0 0 1 &pcie1_intc 3>,
+						<0000 0 0 2 &pcie1_intc 4>,
+						<0000 0 0 3 &pcie1_intc 1>,
+						<0000 0 0 4 &pcie1_intc 2>;
+			};
+
+			plx-pex@2,3 {
+				reg = <0x1800 0 0 0 0>;
+
+				// Legacy interrupts support
+				#interrupt-cells = <1>;
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0000 0 0 1 &pcie1_intc 4>,
+						<0000 0 0 2 &pcie1_intc 1>,
+						<0000 0 0 3 &pcie1_intc 2>,
+						<0000 0 0 4 &pcie1_intc 3>;
+			};
+
 			plx-pex@2,4 {
 				reg = <0x2000 0 0 0 0>;
 				#address-cells = <3>;
 				#size-cells = <2>;
+
+				// Legacy interrupts support
+				#interrupt-cells = <1>;
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0000 0 0 1 &pcie1_intc 1>,
+						<0000 0 0 2 &pcie1_intc 2>,
+						<0000 0 0 3 &pcie1_intc 3>,
+						<0000 0 0 4 &pcie1_intc 4>;
 
 				lan7430@6,0 {
 					reg = <0 0 0 0 0>;
@@ -305,6 +346,14 @@
 				reg = <0x2800 0 0 0 0>;
 				#address-cells = <3>;
 				#size-cells = <2>;
+
+				// Legacy interrupts support
+				#interrupt-cells = <1>;
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0000 0 0 1 &pcie1_intc 2>,
+						<0000 0 0 2 &pcie1_intc 3>,
+						<0000 0 0 3 &pcie1_intc 4>,
+						<0000 0 0 4 &pcie1_intc 1>;
 
 				lan7431@7,0 {
 					reg = <0 0 0 0 0>;
