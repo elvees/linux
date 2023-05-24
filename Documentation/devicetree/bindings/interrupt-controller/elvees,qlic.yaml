@@ -28,6 +28,12 @@ properties:
     items:
       - description: specifies the interrupts to parent interrupt controller
 
+  reset-targets-mask:
+    description: |
+      It's 32-bit number, which masks interrupt targets that should be
+      reseted by QLIC driver. If bit N is set in mask, then target N will be reseted by driver
+      during initialization.
+
   reg:
     items:
       - description: specifies the base physical address for hardware
@@ -57,6 +63,7 @@ examples:
         targets = <4>;
         #interrupt-cells = <1>;
         interrupt-parent = <&gic>;
+        reset-targets-mask = <0xF0>;
         interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
         reg = <0 0x1fe00000 0 0x40000>;
       };
