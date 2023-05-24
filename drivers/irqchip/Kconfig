@@ -190,6 +190,12 @@ config CLPS711X_IRQCHIP
 	select SPARSE_IRQ
 	default y
 
+config ELVEES_QLIC
+	tristate "ELVEES QLIC controller support"
+	select IRQ_DOMAIN
+	help
+	  This enables the ELVEES QLIC controller driver.
+
 config OMPIC
 	bool
 
