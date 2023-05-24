@@ -359,7 +359,7 @@
 			};
 		};
 
-		media_pll0: media_pll0 {
+		media_pll0: media_pll0@1320000 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1320000 0 0x8>;
@@ -368,7 +368,7 @@
 			assigned-clock-rates = <1998000000>;
 		};
 
-		media_pll1: media_pll1 {
+		media_pll1: media_pll1@1320010 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1320010 0 0x8>;
@@ -377,7 +377,7 @@
 			assigned-clock-rates = <594000000>;
 		};
 
-		media_pll2: media_pll2 {
+		media_pll2: media_pll2@1320020 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1320020 0 0x8>;
@@ -386,7 +386,7 @@
 			assigned-clock-rates = <495000000>;
 		};
 
-		media_pll3: media_pll3 {
+		media_pll3: media_pll3@1320030 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1320030 0 0x8>;
@@ -696,7 +696,7 @@
 			};
 		};
 
-		lsperiph0_pll0: lsperiph0_pll0 {
+		lsperiph0_pll0: lsperiph0_pll0@1680000 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1680000 0 0x8>;
@@ -1498,7 +1498,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		sdr_pll0: sdr_pll0 {
+		sdr_pll0: sdr_pll0@1910000 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1910000 0 0x8>;
@@ -1507,7 +1507,7 @@
 			assigned-clock-rates = <1200000000>;
 		};
 
-		sdr_pll1: sdr_pll1 {
+		sdr_pll1: sdr_pll1@1910008 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1910008 0 0x8>;
@@ -1516,7 +1516,7 @@
 			assigned-clock-rates = <648000000>;
 		};
 
-		sdr_pll2: sdr_pll2 {
+		sdr_pll2: sdr_pll2@1910010 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1910010 0 0x8>;
@@ -1795,7 +1795,7 @@
 			};
 		};
 
-		lsperiph1_pll0: lsperiph1_pll0 {
+		lsperiph1_pll0: lsperiph1_pll0@17E0000 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x17E0000 0 0x8>;
