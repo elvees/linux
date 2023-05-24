@@ -251,6 +251,10 @@
 			targets = <4>;
 			#interrupt-cells = <1>;
 			interrupt-parent = <&gic>;
+			/* Targets 4-7 are connected to GIC500
+			 * and should be reseted by driver.
+			 */
+			reset-targets-mask = <0xF0>;
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1fe00000 0 0x40000>;
 			status = "disabled";
@@ -1632,6 +1636,10 @@
 			compatible = "elvees,qlic";
 			interrupt-controller;
 			targets = <16>;
+			/* Target 16 are connected to GIC500
+			 * and should be reseted by driver.
+			 */
+			reset-targets-mask = <0x10000>;
 			#interrupt-cells = <1>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
