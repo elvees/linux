@@ -9,7 +9,6 @@
 #include <dt-bindings/thermal/thermal.h>
 
 #include "mcom03.dtsi"
-#include "mcom03-i2c4.dtsi"
 
 / {
 	model = "ELV-MC03 r2.2";
