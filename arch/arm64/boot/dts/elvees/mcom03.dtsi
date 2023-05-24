@@ -1628,9 +1628,6 @@
 			};
 		};
 
-		/* For DeviceTree bindings see linux/modules/velcore3
-		 * repository
-		 */
 		qlic1: interrupt-controller@1940000 {
 			compatible = "elvees,qlic";
 			interrupt-controller;
