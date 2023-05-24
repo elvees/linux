@@ -546,7 +546,6 @@ static void mcom03_dsi_unbind(struct device *dev, struct device *master,
 	struct mcom03_dsi_device *de = dev_get_drvdata(dev);
 
 	dw_mipi_dsi_unbind(de->dsi);
-	dw_mipi_dsi_remove(de->dsi);
 	drm_encoder_cleanup(&de->encoder);
 	clk_bulk_disable(de->num_clocks, de->clocks);
 }
@@ -635,10 +634,15 @@ static int mcom03_dsi_probe(struct platform_device *pdev)
 
 	ret = mcom03_dsi_clocks_init(de);
 	if (ret)
-		return ret;
+		goto dw_cleanup;
 
 	ret = component_add(&pdev->dev, &mcom03_dsi_ops);
 
+dw_cleanup:
+	if (ret) {
+		DRM_DEV_ERROR(dev, "failed to probe mcom03 dsi (%d)", ret);
+		dw_mipi_dsi_remove(de->dsi);
+	}
 	return ret;
 }
 
