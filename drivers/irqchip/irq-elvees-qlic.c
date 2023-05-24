@@ -20,6 +20,7 @@ struct qlic_priv {
 	u32 target_map[QLIC_NR_IRQS];
 	u32 target_list[QLIC_MAX_TARGET];
 	u32 ntargets;
+	u32 reset_targets_mask;
 	u32 current_target;
 	spinlock_t lock;
 	struct platform_device *pdev;
@@ -185,16 +186,18 @@ static void __init qlic_hwreset(struct qlic_priv *priv)
 {
 	int hwirq, target;
 
-	for (target = 0; target < QLIC_MAX_TARGET; ++target)
+	dev_info(&priv->pdev->dev, "Reset targets according to mask 0x%x\n",
+		 priv->reset_targets_mask);
+	for (target = 0; target < QLIC_MAX_TARGET; ++target) {
+		if (!(BIT(target) & priv->reset_targets_mask))
+			continue;
+
 		qlic_write(0, priv, QLIC_THD0 + target * QLIC_THDNEXT);
-
-	for (hwirq = 0; hwirq < QLIC_NR_IRQS; ++hwirq)
-		qlic_write(0, priv, QLIC_PRI0 + hwirq * QLIC_PRI_NEXT);
-
-	for (target = 0; target < QLIC_MAX_TARGET; ++target)
 		for (hwirq = 0; hwirq < QLIC_NR_IRQS; ++hwirq)
-			qlic_write(0, priv, QLIC_ENS0 + QLIC_ENSNEXT * target +
-						hwirq / 32 * 4);
+			qlic_write(0, priv,
+				   QLIC_ENS0 + QLIC_ENSNEXT * target +
+					   hwirq / 32 * 4);
+	}
 }
 
 static int __init fill_targets(struct qlic_priv *priv, struct device_node *np)
@@ -241,7 +244,22 @@ static int qlic_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->reg_base))
 		return PTR_ERR(priv->reg_base);
 
-	qlic_hwreset(priv);
+	ret = of_property_read_u32(pdev->dev.of_node, "reset-targets-mask",
+				   &priv->reset_targets_mask);
+	if (ret == -EINVAL) {
+		/*
+		 * If reset-targets-mask isn't present in Devicetree,
+		 * set it's parameter to max value and reset all targets.
+		 */
+		priv->reset_targets_mask = BIT(QLIC_MAX_TARGET) - 1;
+	} else if (ret) {
+		/* If reset-targets-mask has mistakes, return error */
+		dev_err(&pdev->dev, "Failed to get reset-targets-mask.");
+		return ret;
+	}
+
+	if (priv->reset_targets_mask)
+		qlic_hwreset(priv);
 
 	ret = fill_targets(priv, dev->of_node);
 	if (ret) {
