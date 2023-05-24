@@ -23,6 +23,17 @@
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon console=ttyS0,115200";
 	};
+
+	elvmc03smarc-leds {
+		/*
+		 * VD12, VD13 LEDs is controlled by GPIO11, GPIO12.
+		 * GPIO expander which provided these pins is broken due to bug - MCOM03HW-1318.
+		 */
+		wdt-led {
+			gpios = <&gpio0b 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
 };
 
 &sdhci1 {

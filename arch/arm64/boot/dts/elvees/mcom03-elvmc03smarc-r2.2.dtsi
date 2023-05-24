@@ -5,6 +5,8 @@
 
 /dts-v1/;
 
+#include <dt-bindings/leds/common.h>
+
 #include "mcom03.dtsi"
 
 / {
@@ -12,6 +14,39 @@
 	compatible = "elvees,elvmc03smarc-r2.2",
 		     "elvees,elvmc03smarc",
 		     "elvees,mcom03";
+
+	elvmc03smarc-leds {
+		compatible = "gpio-leds";
+
+		rgb-red {
+			gpios = <&gpio1d 2 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_RED>;
+			default-state = "off";
+		};
+
+		rgb-green {
+			gpios = <&gpio1d 3 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_GREEN>;
+			default-state = "off";
+		};
+
+		rgb-blue {
+			gpios = <&gpio1d 4 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_BLUE>;
+			default-state = "off";
+		};
+
+		user-led1 {
+			gpios = <&gpio0d 7 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
+
+		user-led2 {
+			gpios = <&gpio0b 2 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
 
 	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
