@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/interrupt-controller/elvees,qlic.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+title: ELVEES QLIC Interrupt Controller
+
+maintainers:
+  - Georgy Macharadze <gmacharadze@elvees.com>
+
+description: Bindings for the ELVEES QLIC Interrupt controller.
+
+properties:
+  compatible:
+    const: elvees,qlic
+
+  interrupt-controller: true
+
+  targets:
+    description: |
+      Specifies QLIC targets to parent interrupt controller. Each
+      target corresponds to an interrupt in "interrupt" property.
+
+  "#interrupt-cells":
+    const: 1
+
+  interrupts:
+    items:
+      - description: specifies the interrupts to parent interrupt controller
+
+  reg:
+    items:
+      - description: specifies the base physical address for hardware
+
+required:
+  - compatible
+  - interrupt-controller
+  - targets
+  - "#interrupt-cells"
+  - interrupt-parent
+  - interrupts
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    service-bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      qlic0: interrupt-controller@1fe00000 {
+        compatible = "elvees,qlic";
+        interrupt-controller;
+        targets = <4>;
+        #interrupt-cells = <1>;
+        interrupt-parent = <&gic>;
+        interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+        reg = <0 0x1fe00000 0 0x40000>;
+      };
+    };
