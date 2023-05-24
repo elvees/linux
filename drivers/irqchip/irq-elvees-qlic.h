@@ -18,7 +18,7 @@
 #define QLIC_CCNEXT		0x1000
 
 #define QLIC_MAX_PRIO		7
-#define QLIC_MAX_TARGET		17
+#define QLIC_TARGETS		18
 
 #define QLIC_INTERRUPT_PROPERTIES 3
 

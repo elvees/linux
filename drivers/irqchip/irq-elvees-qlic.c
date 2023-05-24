@@ -18,7 +18,7 @@ struct qlic_priv {
 	struct irq_domain *domain;
 	void __iomem *reg_base;
 	u32 target_map[QLIC_NR_IRQS];
-	u32 target_list[QLIC_MAX_TARGET];
+	u32 target_list[QLIC_TARGETS];
 	u32 ntargets;
 	u32 reset_targets_mask;
 	u32 current_target;
@@ -188,7 +188,7 @@ static void __init qlic_hwreset(struct qlic_priv *priv)
 
 	dev_info(&priv->pdev->dev, "Reset targets according to mask 0x%x\n",
 		 priv->reset_targets_mask);
-	for (target = 0; target < QLIC_MAX_TARGET; ++target) {
+	for (target = 0; target < QLIC_TARGETS; ++target) {
 		if (!(BIT(target) & priv->reset_targets_mask))
 			continue;
 
@@ -251,7 +251,7 @@ static int qlic_probe(struct platform_device *pdev)
 		 * If reset-targets-mask isn't present in Devicetree,
 		 * set it's parameter to max value and reset all targets.
 		 */
-		priv->reset_targets_mask = BIT(QLIC_MAX_TARGET) - 1;
+		priv->reset_targets_mask = BIT(QLIC_TARGETS) - 1;
 	} else if (ret) {
 		/* If reset-targets-mask has mistakes, return error */
 		dev_err(&pdev->dev, "Failed to get reset-targets-mask.");
