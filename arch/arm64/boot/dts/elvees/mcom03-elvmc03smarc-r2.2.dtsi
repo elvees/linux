@@ -140,3 +140,52 @@ ser3: &uart1 { };
 /* I2C definitions for SMARC*/
 i2c_gp: &i2c1 { };
 i2c_pm: &i2c0 { };
+
+/*
+ * GPIO expander is not available due to bug - MCOM03HW-1318.
+ * Workarounds of this bug made on board has added functions to the following GPIO pins
+ * on gpio0a and gpio1a:
+ * * GPIO0_CAM0_PWR# + nRST_ETH1;
+ * * GPIO1_CAM1_PWR# + nRST_ETH0;
+ * * GPIO2_CAM0_RST# + nRST_HDMI;
+ * * GPIO3_CAM1_RST# + INT_HDMI.
+ */
+&gpio0a {
+	gpio-line-names = "", "nSMB_ALERT", "SER0_CTS", "GPIO0_CAM0_PWR#",
+		"GPIO1_CAM1_PWR#", "GPIO2_CAM0_RST#", "INT_LVDS_1V8", "SER0_RTS";
+};
+
+&gpio0b {
+	gpio-line-names = "SER0_RX", "SER0_TX", "nUSER_LED2", "WDT_TIME_OUT#",
+		"PCIE_A_nRST", "SER3_RX", "SER3_TX", "SER2_RX";
+};
+
+&gpio0c {
+	gpio-line-names = "SPI_SCK", "SPI_MOSI", "SPI_MISO", "",
+		"SPI_CS0", "SPI_CS1", "LVDS_nRST", "SDR_h1v8-l1v5";
+};
+
+&gpio0d {
+	gpio-line-names = "SER2_TX", "", "", "I2C_PM_CK",
+		"I2C_PM_DAT", "", "", "nUSER_LED1";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_GP_CK", "I2C_GP_DAT", "I2C2_SCL", "I2C2_SDA",
+		"I2C3_SCL", "I2C3_SDA", "GPIO3_CAM1_RST#", "nINT_GPIOEXP";
+};
+
+&gpio1b {
+	gpio-line-names = "HDMI_I2S_SCLK", "HDMI_I2S_LRCLK", "HDMI_I2S_D",
+		"nSLEEP", "ESPI_RESET#", "USB_HUB_RST#", "SER1_TX", "SER1_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "GPIO12", "GPIO13", "nCHARGING", "nCHARGER_PRSNT",
+		"nTEST", "CARRIER_STBY#", "FORCE_RECOV#", "SATA_PERST";
+};
+
+&gpio1d {
+	gpio-line-names = "nBATLOW", "LCD0_BKLT_PWM", "nLED-R", "nLED-G",
+		"nLED-B", "GPIO5_PWM_OUT", "LCD0_BKLT_EN", "LCD0_VDD_EN";
+};
