@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 RnD Center "ELVEES", JSC
+ * Copyright 2020-2023 RnD Center "ELVEES", JSC
  */
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of_irq.h>
 #include <linux/irqchip/chained_irq.h>
@@ -9,8 +10,6 @@
 #include <linux/spinlock.h>
 
 #include "irq-elvees-qlic.h"
-
-static struct class *qlic_class;
 
 #define QLIC_NR_IRQS 128
 #define QLIC_PRIO 2
@@ -245,29 +244,40 @@ static int qlic_probe(struct platform_device *pdev)
 	qlic_hwreset(priv);
 
 	ret = fill_targets(priv, dev->of_node);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to get targets.");
 		return ret;
+	}
+
 	priv->current_target = 0;
 
 	spin_lock_init(&priv->lock);
 
 	priv->domain = irq_domain_create_linear(pdev->dev.fwnode, QLIC_NR_IRQS,
 						&qlic_domain_ops, priv);
-	if (!priv->domain)
+	if (!priv->domain) {
 		/* Errors printed by irq_domain_create_linear */
+		dev_err(&pdev->dev, "Failed to create irq domain.");
 		return -ENODEV;
+	}
 
 	priv->nirqs = of_property_count_elems_of_size(pdev->dev.of_node,
 						      "interrupts",
 						      sizeof(int));
 	priv->nirqs /= QLIC_INTERRUPT_PROPERTIES;
-	if (priv->nirqs != priv->ntargets)
+	if (priv->nirqs != priv->ntargets) {
+		dev_err(&pdev->dev, "Invalid irq number, %d\n", priv->nirqs);
 		return -EINVAL;
+	}
+
 	priv->irqs = devm_kcalloc(&pdev->dev, priv->nirqs,
 				  sizeof(unsigned int),
 				  GFP_KERNEL | __GFP_ZERO);
-	if (!priv->irqs)
+	if (!priv->irqs) {
+		dev_err(&pdev->dev, "Failed to allocate irqs.");
 		return -ENOMEM;
+	}
+
 	for (i = 0; i < priv->nirqs; ++i) {
 		priv->irqs[i] = platform_get_irq(pdev, i);
 		if (priv->irqs[i] <= 0) {
@@ -292,6 +302,9 @@ static int qlic_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, priv);
+
+	dev_info(&pdev->dev, "Initialized successfully\n");
+
 	return 0;
 irq_err:
 	qlic_free_irqs(priv);
@@ -316,29 +329,16 @@ static const struct of_device_id qlic_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, qlic_dt_ids);
 #endif
 
-static struct platform_driver qlic_driver = {
+static struct platform_driver qlic_plat_driver = {
 	.driver = {
-		.name = "elvees,qlic",
+		.name = KBUILD_MODNAME,
 		.of_match_table = of_match_ptr(qlic_dt_ids),
 	},
 	.probe = qlic_probe,
 	.remove = qlic_remove
 };
 
-static int __init qlic_init(void)
-{
-	qlic_class = class_create(THIS_MODULE, "qlic");
-	return platform_driver_register(&qlic_driver);
-}
-
-static void __exit qlic_exit(void)
-{
-	platform_driver_unregister(&qlic_driver);
-	class_destroy(qlic_class);
-}
+module_platform_driver(qlic_plat_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("ELVEES QLIC driver");
-
-module_init(qlic_init);
-module_exit(qlic_exit);
