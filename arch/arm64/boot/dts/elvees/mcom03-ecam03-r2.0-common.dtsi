@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-pm03cam-r2.0.dtsi"
+#include <dt-bindings/input/input.h>
+
+/ {
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		factory-reset {
+			label = "Factory reset";
+			gpios = <&gpio0a 7 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RESTART>;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rs485>;
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&spi0 {
+	num-cs = <1>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	/* TBD: DC IRIS Control AN41919 */
+};
+
+&emac0 {
+	status = "okay";
+
+	phy-handle = <&ethernet_phy0>;
+
+	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-id0000.011a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x0>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1800>;
+		tx-internal-delay-ps = <1200>;
+	};
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	/* TBD: Analog-to-Digital Converter ADS1000 */
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	/* TDB: Inertial Measurement Unit (IMU) QMI8658C */
+
+	/* TBD: Audio codec ALC5616-CGT */
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+	};
+};
+
+&i2s0 {
+	status = "okay";
+};

@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-ecam03-r2.0-common.dtsi"
+
+/ {
+	model = "ECAM03D r2.0";
+	compatible = "elvees,pm03cam-r2.0-ecam03d-r2.0",
+		     "elvees,pm03cam-r2.0",
+		     "elvees,mcom03";
+};
