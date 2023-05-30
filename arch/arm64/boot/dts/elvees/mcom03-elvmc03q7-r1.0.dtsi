@@ -82,18 +82,6 @@
 &gpio1c {
 	gpio-line-names = "SPI_SCK", "SPI_MOSI", "SPI_MISO", "SPI_CS0",
 		"SPI_CS1", "GPO0", "PCIE_RST#", "SATA_PERST";
-
-	pci-perstn {
-		gpio-hog;
-		gpios = <6 GPIO_ACTIVE_HIGH>;
-		output-high;
-	};
-
-	sata-perstn {
-		gpio-hog;
-		gpios = <7 GPIO_ACTIVE_HIGH>;
-		output-high;
-	};
 };
 
 &gpio1d {
