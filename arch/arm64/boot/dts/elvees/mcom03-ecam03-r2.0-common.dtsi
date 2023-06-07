@@ -95,3 +95,11 @@
 &i2s0 {
 	status = "okay";
 };
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
