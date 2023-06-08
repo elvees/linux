@@ -117,12 +117,6 @@
 	gpio-line-names = "GPIO12", "LED_GREEN", "PCIE_A_RST#", "SATA_PERST#",
 		"GPIO11", "SER3_RX", "SER3_TX", "SER2_RX";
 
-	pci-perstn {
-		gpio-hog;
-		gpios = <2 GPIO_ACTIVE_HIGH>;
-		output-high;
-	};
-
 	sata-perstn {
 		gpio-hog;
 		gpios = <3 GPIO_ACTIVE_HIGH>;
@@ -321,6 +315,10 @@ i2c_gp: &i2c2 {
 
 /* PCIe0 is connected to SATA controller. Should be enabled in carrier DTS. */
 sata: &pcie0 { };
+
+&pcie1 {
+	reset-gpio = <&gpio0b 2 GPIO_ACTIVE_HIGH>;
+};
 
 /* Serial port definitions for SMARC */
 ser1: &uart0 { };
