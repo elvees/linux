@@ -8,7 +8,6 @@
 #include <dt-bindings/net/ti-dp83867.h>
 
 #include "mcom03-elvmc03-r2.2.dtsi"
-#include "mcom03-i2c4.dtsi"
 
 / {
 	model = "ELV-MC03 r2.2, ELV-MC03-CB r1.0";
@@ -96,6 +95,10 @@
 	/* Connected to connector. Some external devices may not support
 	 * for 400kHz */
 	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&qlic0 {
 	status = "okay";
 };
 

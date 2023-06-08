@@ -9,7 +9,6 @@
 #include <dt-bindings/input/linux-event-codes.h>
 
 #include "mcom03-trustphonepm-r1.5.dtsi"
-#include "mcom03-i2c4.dtsi"
 
 / {
 	model = "Trustphone PM r1.5, Trustphone CB r1.1";
@@ -239,6 +238,10 @@
 
 /* Connected to USB hub */
 &usb1 {
+	status = "okay";
+};
+
+&qlic0 {
 	status = "okay";
 };
 
