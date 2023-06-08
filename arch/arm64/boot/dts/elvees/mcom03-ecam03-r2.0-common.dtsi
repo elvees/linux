@@ -41,14 +41,6 @@
 	sdhci-caps = <0x0 0x0>;
 };
 
-&spi0 {
-	num-cs = <1>;
-	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>;
-	status = "okay";
-
-	/* TBD: DC IRIS Control AN41919 */
-};
-
 &emac0 {
 	status = "okay";
 
