@@ -57,6 +57,7 @@ struct mcom03_pcie {
 	int				id;
 	struct reset_control		*reset;
 	struct irq_domain		*irq_domain;
+	struct gpio_desc		*reset_gpio;
 };
 
 static void mcom03_pcie_writel(struct mcom03_pcie *pcie, u32 reg, u32 val)
@@ -158,6 +159,16 @@ static void mcom03_pcie_btn_reset(struct mcom03_pcie *pcie)
 
 static void mcom03_pcie_unset_perst(struct mcom03_pcie *pcie)
 {
+	if (pcie->reset_gpio) {
+		/* "Power Sequencing and Reset Signal Timings" table in
+		 * PCI EXPRESS CARD ELECTROMECHANICAL SPECIFICATION, REV. 3.0
+		 * indicates PERST# should be deasserted after minimum of 100us
+		 * once REFCLK is stable. */
+		usleep_range(100, 200);
+		gpiod_set_value_cansleep(pcie->reset_gpio, 1);
+		usleep_range(1000, 1500);
+	}
+
 	if (pcie->id == 0)
 		regmap_update_bits(pcie->sdr_base, SDR_PCIE_PERSTN,
 				   SDR_PCI0_PERSTN_MODE | SDR_PCI0_PERSTN,
@@ -338,6 +349,15 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 	default:
 		dev_err(dev, "Invalid elvees,ctrl-id %u\n", pcie->id);
 		return -EINVAL;
+	}
+
+	pcie->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(pcie->reset_gpio)) {
+		dev_err(dev, "Can't get 'reset-gpio'\n");
+		return PTR_ERR(pcie->reset_gpio);
+	} else if (!pcie->reset_gpio) {
+		dev_warn(dev, "'reset-gpio' isn't specified in PCIe node\n");
+		dev_info(dev, "PERST must be set with other means\n");
 	}
 
 	pcie->reset = devm_reset_control_array_get_shared(dev);
