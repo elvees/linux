@@ -40,6 +40,21 @@ properties:
   "#address-cells": true
   "#size-cells": true
 
+patternProperties:
+  "^nand@[a-f0-9]$":
+    type: object
+    properties:
+      nand-rb: true
+      label:
+        $ref: /schemas/types.yaml#/definitions/string
+        description:
+          The name of nand chip.
+
+    required:
+      - reg
+      - nand-rb # Required by driver
+      - label # Required by driver
+
 required:
   - compatible
   - reg
@@ -60,4 +75,11 @@ examples:
         interrupts = <0 14 4>;
         #address-cells = <1>;
         #size-cells = <0>;
+
+        nand@0 {
+            reg = <0>;
+            label = "arasan_nand.0";
+            nand-rb = <0>;
+            nand-ecc-mode="hw";
+        };
     };
