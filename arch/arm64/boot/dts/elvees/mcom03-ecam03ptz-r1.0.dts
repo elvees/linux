@@ -34,7 +34,7 @@
 		};
 	};
 
-	/delete-node/ sdr@1900000;
+	/delete-node/ sdr-bus;
 };
 
 &gpio0a {

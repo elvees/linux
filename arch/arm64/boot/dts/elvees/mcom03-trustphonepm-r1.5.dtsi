@@ -19,7 +19,7 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	/delete-node/ sdr@1900000;
+	/delete-node/ sdr-bus;
 };
 
 &emac0 {

@@ -16,5 +16,5 @@
 		     "elvees,ecam03dm",
 		     "elvees,mcom03";
 
-	/delete-node/ sdr@1900000;
+	/delete-node/ sdr-bus;
 };
