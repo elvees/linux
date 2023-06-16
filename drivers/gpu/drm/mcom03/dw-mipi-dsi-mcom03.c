@@ -468,7 +468,12 @@ static const struct dw_mipi_dsi_phy_ops mcom03_dsi_phy_ops = {
 static enum drm_mode_status mcom03_dsi_mode_valid(void *de_data,
 		const struct drm_display_mode *mode)
 {
-	return MODE_OK;
+	struct mcom03_dsi_device *de = de_data;
+	struct clk *pxl_clk = mcom03_get_clk(de, MCOM03_DSI_CLK_PXL);
+	long requested_rate = mode->clock * 1000;
+	long real_rate = clk_round_rate(pxl_clk, requested_rate);
+
+	return (requested_rate == real_rate) ? MODE_OK : MODE_NOCLOCK;
 }
 
 static int mcom03_dsi_setup(struct platform_device *pdev)
