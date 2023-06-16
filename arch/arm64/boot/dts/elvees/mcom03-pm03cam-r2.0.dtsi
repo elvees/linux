@@ -25,44 +25,6 @@
 	};
 };
 
-&gpio0a {
-	gpio-line-names = "AUDIO_INT", "GPIO_OPEN", "ALARM_IN1", "ALARM_IN2",
-		"ACC_INT2", "ACC_INT1", "RTC_INT", "GPIO_RESET";
-};
-
-&gpio0b {
-	gpio-line-names = "UART3_RX", "UART3_RX", "UART3_DE", "UART3_RE",
-		"", "UART1_RX", "UART1_TX", "";
-};
-
-&gpio0c {
-	gpio-line-names = "SPI0_SCL", "SPI0_TXD", "SPI0_RXD", "CMOS_nRST",
-		"SPI0_SS0", "SPI0_SS1", "ETH0_RST", "CdS_INPUT";
-};
-
-&gpio0d {
-	gpio-line-names = "ICR_OFF", "ICR_ON", "AUDIO_SW", "", "", "", "", "";
-};
-
-&gpio1a {
-	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "I2C2_SCL", "I2C2_SDA",
-		"I2C3_SCL", "I2C3_SDA", "INT_ETH", "ALARM_OUT1";
-};
-
-&gpio1b {
-	gpio-line-names = "I2S0_SCLK", "I2S0_WS", "I2S0_SD_OUT", "",
-		"I2S0_SD_IN", "I2S0_SCLK_IN", "UART0_TX", "UART0_RX";
-};
-
-&gpio1c {
-	gpio-line-names = "DIR_FOCUS", "STEP_FOCUS", "DIR_ZOOM", "STEP_ZOOM",
-		"DIR_IRIS", "STEP_IRIS", "MOT_STBY", "MOT_EN";
-};
-
-&gpio1d {
-	gpio-line-names = "", "", "IR_PWM", "LEDR_PWM", "LEDG_PWM", "", "", "";
-};
-
 &hsperiph_pinctrl {
 	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
 };

@@ -13,3 +13,12 @@
 		     "elvees,pm03cam-r2.0",
 		     "elvees,mcom03";
 };
+
+&gpio0c {
+	gpio-line-names = "P_Iris_A", "P_Iris_B", "P_Iris_nA", "CMOS_nRST",
+		"P_Iris_nB", "", "", "";
+};
+
+&gpio0d {
+	gpio-line-names = "IR_nA", "IR_A", "", "", "", "", "", "";
+};
