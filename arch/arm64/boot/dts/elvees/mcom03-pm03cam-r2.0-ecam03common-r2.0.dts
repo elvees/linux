@@ -29,11 +29,13 @@
 	status = "okay";
 };
 
+/* Connected to RS-485 transceiver */
 &uart3 {
 	status = "okay";
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_mux_data &uart3_mux_rs485>;
+	linux,rs485-enabled-at-boot-time;
 };
 
 &sdhci1 {
