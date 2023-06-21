@@ -18,10 +18,12 @@
 		     "elvees,elvmc03smarc",
 		     "elvees,mcom03";
 
+	/* Camera on Rock Pi N10 connected to i2c_lcd pins. Linux ISP driver
+	 * expects the camera to be connected to I2C6. Set alias according
+	 * to it.
+	 */
 	aliases {
-		i2c5 = &i2c_lcd;
-		i2c6 = &i2c_cam0;
-		i2c7 = &i2c_cam1;
+		i2c6 = &i2c_lcd;
 	};
 
 	chosen {
