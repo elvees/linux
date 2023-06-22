@@ -275,8 +275,15 @@ static struct mipi_dsi_device *lt9611uxc_attach_dsi(struct lt9611uxc *lt9611uxc,
 
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
-			  MIPI_DSI_MODE_VIDEO_HSE;
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_HSE;
+
+	if (device_property_present(lt9611uxc->dev, "lontium,dsi-mode-video-burst"))
+		dsi->mode_flags |= MIPI_DSI_MODE_VIDEO_BURST;
+	else
+		dsi->mode_flags |= MIPI_DSI_MODE_VIDEO_SYNC_PULSE;
+
+	if (device_property_present(lt9611uxc->dev, "lontium,dsi-clock-non-continuous"))
+		dsi->mode_flags |= MIPI_DSI_CLOCK_NON_CONTINUOUS;
 
 	ret = mipi_dsi_attach(dsi);
 	if (ret < 0) {
