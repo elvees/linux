@@ -3,6 +3,7 @@
  * phy-can-transceiver.c - phy driver for CAN transceivers
  *
  * Copyright (C) 2021 Texas Instruments Incorporated - https://www.ti.com
+ * Copyright 2023 RnD Center "ELVEES", JSC
  *
  */
 #include<linux/phy/phy.h>
@@ -71,6 +72,10 @@ static const struct of_device_id can_transceiver_phy_ids[] = {
 	{
 		.compatible = "ti,tcan1043",
 		.data = &tcan1043_drvdata
+	},
+	{
+		.compatible = "microchip,ata6561",
+		.data = &tcan1042_drvdata
 	},
 	{ }
 };
