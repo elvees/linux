@@ -141,49 +141,49 @@
 		autorepeat;
 
 		btn0 {
-			gpios = <&pca9675 0 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 0 GPIO_ACTIVE_LOW>;
 			label = "BTN0";
 			linux,code = <BTN_TRIGGER_HAPPY1>;
 		};
 
 		btn1 {
-			gpios = <&pca9675 1 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 1 GPIO_ACTIVE_LOW>;
 			label = "BTN1";
 			linux,code = <BTN_TRIGGER_HAPPY2>;
 		};
 
 		btn2 {
-			gpios = <&pca9675 2 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 2 GPIO_ACTIVE_LOW>;
 			label = "BTN2";
 			linux,code = <BTN_TRIGGER_HAPPY3>;
 		};
 
 		btn3 {
-			gpios = <&pca9675 3 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 3 GPIO_ACTIVE_LOW>;
 			label = "BTN3";
 			linux,code = <BTN_TRIGGER_HAPPY4>;
 		};
 
 		ext_btn0 {
-			gpios = <&pca9675 4 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 4 GPIO_ACTIVE_LOW>;
 			label = "EXT_BTN0";
 			linux,code = <BTN_TRIGGER_HAPPY5>;
 		};
 
 		ext_btn1 {
-			gpios = <&pca9675 5 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 5 GPIO_ACTIVE_LOW>;
 			label = "EXT_BTN1";
 			linux,code = <BTN_TRIGGER_HAPPY6>;
 		};
 
 		ext_btn2 {
-			gpios = <&pca9675 6 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 6 GPIO_ACTIVE_LOW>;
 			label = "EXT_BTN2";
 			linux,code = <BTN_TRIGGER_HAPPY7>;
 		};
 
 		ext_btn3 {
-			gpios = <&pca9675 7 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 7 GPIO_ACTIVE_LOW>;
 			label = "EXT_BTN3";
 			linux,code = <BTN_TRIGGER_HAPPY8>;
 		};
@@ -193,46 +193,46 @@
 		compatible = "gpio-leds";
 
 		hl10 {
-			gpios = <&pca9675 8 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 8 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		hl11 {
-			gpios = <&pca9675 9 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 9 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		hl12 {
-			gpios = <&pca9675 10 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 10 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		hl13 {
-			gpios = <&pca9675 11 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 11 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		ext_led0 {
 			label = "ext:led0";
-			gpios = <&pca9675 12 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 12 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		ext_led1 {
 			label = "ext:led1";
-			gpios = <&pca9675 13 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 13 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		ext_led2 {
 			label = "ext:led2";
-			gpios = <&pca9675 14 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 14 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		ext_led3 {
 			label = "ext:led3";
-			gpios = <&pca9675 15 GPIO_ACTIVE_LOW>;
+			gpios = <&pca9675_1 15 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 	};
@@ -294,6 +294,23 @@
 		compatible = "ti,lm73";
 		reg = <0x4a>;
 	};
+
+	/* I2C GPIO expander (PCA9675) */
+	pca9675_0: gpio-expander@20 {
+		compatible = "nxp,pca9675";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&gpio0d>;
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+
+		gpio-line-names = "", "", "", "PCIe_PRSNT",
+				  "", "I2C_OUT5", "I2C_OUT6", "I2C_OUT7",
+				  "I2C_OUT10", "I2C_EXP_TP1", "I2C_EXP_TP2", "I2C_EXP_TP3",
+				  "I2C_EXP_TP4", "I2C_EXP_TP5", "I2C_EXP_TP6", "I2C_EXP_TP7";
+	};
 };
 
 &i2c1 {
@@ -314,7 +331,7 @@
 	};
 
 	/* I2C GPIO expander (PCA9675) */
-	pca9675: pca9675@20 {
+	pca9675_1: gpio-expander@20 {
 		compatible = "nxp,pca9675";
 		reg = <0x20>;
 		gpio-controller;
