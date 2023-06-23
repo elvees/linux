@@ -38,6 +38,18 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+
+	can_transceiver0: can-phy0 {
+		compatible = "microchip,ata6561";
+		#phy-cells = <0>;
+		standby-gpios = <&gpio1c 2 GPIO_ACTIVE_HIGH>;
+	};
+
+	can_transceiver1: can-phy1 {
+		compatible = "microchip,ata6561";
+		#phy-cells = <0>;
+		standby-gpios = <&gpio1c 3 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &uart0 {
@@ -302,10 +314,12 @@
 /* Connected to XP7 socket through CAN transceiver */
 &mfbsp0_can {
 	status = "okay";
+	phys = <&can_transceiver0>;
 };
 /* Connected to XP9 socket through CAN transceiver */
 &mfbsp1_can {
 	status = "okay";
+	phys = <&can_transceiver1>;
 };
 
 /* mfbsp interrupt controller */
