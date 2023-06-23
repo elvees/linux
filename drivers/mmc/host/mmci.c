@@ -2191,7 +2191,9 @@ static int mmci_probe(struct amba_device *dev,
 	pm_runtime_set_autosuspend_delay(&dev->dev, 50);
 	pm_runtime_use_autosuspend(&dev->dev);
 
-	mmc_add_host(mmc);
+	ret = mmc_add_host(mmc);
+	if (ret)
+		goto clk_disable;
 
 	pm_runtime_put(&dev->dev);
 	return 0;
@@ -2203,7 +2205,7 @@ static int mmci_probe(struct amba_device *dev,
 	return ret;
 }
 
-static int mmci_remove(struct amba_device *dev)
+static void mmci_remove(struct amba_device *dev)
 {
 	struct mmc_host *mmc = amba_get_drvdata(dev);
 
@@ -2231,8 +2233,6 @@ static int mmci_remove(struct amba_device *dev)
 		clk_disable_unprepare(host->clk);
 		mmc_free_host(mmc);
 	}
-
-	return 0;
 }
 
 #ifdef CONFIG_PM
