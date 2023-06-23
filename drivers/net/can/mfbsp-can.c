@@ -21,6 +21,7 @@
 #include <linux/property.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/phy/phy.h>
 
 /* napi related */
 #define MFBSP_CAN_NAPI_WEIGHT	64
@@ -293,6 +294,8 @@ struct mfbsp_can_priv {
 	struct clk *clk;
 	void __iomem *base;
 	u32 irqstatus;
+
+	struct phy *transceiver;
 
 	void __iomem *can_cfg_regs;
 	struct reset_control	*rst;
@@ -936,6 +939,12 @@ static int mfbsp_can_open(struct net_device *dev)
 		goto exit_irq_fail;
 	}
 
+	err = phy_power_on(priv->transceiver);
+	if (err) {
+		netdev_err(dev, "Failed to power on PHY\n");
+		goto failed_free_irq;
+	}
+
 	/* start the mfbsp_can controller */
 	mfbsp_can_start(dev);
 
@@ -943,7 +952,8 @@ static int mfbsp_can_open(struct net_device *dev)
 	netif_start_queue(dev);
 
 	return 0;
-
+failed_free_irq:
+	free_irq(dev->irq, dev);
 exit_irq_fail:
 	close_candev(dev);
 	return err;
@@ -966,6 +976,8 @@ static int mfbsp_can_close(struct net_device *dev)
 	mfbsp_can_stop(dev);
 	free_irq(dev->irq, dev);
 	close_candev(dev);
+
+	phy_power_off(priv->transceiver);
 
 	return 0;
 }
@@ -1102,6 +1114,7 @@ static int mfbsp_can_plat_probe(struct platform_device *pdev)
 	int ret;
 	u32 mram_config_vals[MRAM_CFG_LEN];
 	u32 tx_fifo_size;
+	struct phy *transceiver;
 
 	/* get message ram configuration */
 	ret = of_property_read_u32_array(pdev->dev.of_node, "can,mram-cfg",
@@ -1137,6 +1150,14 @@ static int mfbsp_can_plat_probe(struct platform_device *pdev)
 	}
 
 	priv->device = &pdev->dev;
+
+	transceiver = devm_phy_optional_get(&pdev->dev, NULL);
+	if (IS_ERR(transceiver)) {
+		ret = PTR_ERR(transceiver);
+		dev_err(&pdev->dev, "failed to get phy, %d\n", ret);
+		goto failed_free_dev;
+	}
+	priv->transceiver = transceiver;
 
 	priv->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(priv->clk)) {
