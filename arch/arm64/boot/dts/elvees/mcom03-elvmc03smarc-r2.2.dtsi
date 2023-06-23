@@ -152,6 +152,8 @@ ser3: &uart1 { };
 &de_dsi {
 	status = "disabled";
 
+	dsi-min-clock-frequency = <275000000>;
+
 	ports {
 		port@1 {
 			reg = <1>;
