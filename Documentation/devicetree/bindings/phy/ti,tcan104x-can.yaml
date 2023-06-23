@@ -17,6 +17,7 @@ properties:
     enum:
       - ti,tcan1042
       - ti,tcan1043
+      - microchip,ata6561
 
   '#phy-cells':
     const: 0
