@@ -82,6 +82,7 @@ struct mcom03_dsi_device {
 	u32 mipi_tx_cfg_freq;
 	u32 mipi_tx_ref_freq;
 	u32 dsi_clock_freq;
+	u32 dsi_min_clock_freq;
 	u32 pll_n;
 	u32 pll_m;
 	u8 vco_cntrl;
@@ -382,6 +383,12 @@ static int mcom03_dsi_get_line_mbps(void *de_data,
 	else
 		dsi_clock = DIV_ROUND_UP(mode->clock * bpp, lanes * 2);
 
+	/*
+	 * Minimal DSI frequency for D-PHYs and PLLs to actually drive HS signal.
+	*/
+	if (dsi_clock < de->dsi_min_clock_freq / 1000)
+		dsi_clock = de->dsi_min_clock_freq / 1000;
+
 	de->vco_cntrl = mcom03_dsi_get_best_cfg(dsi_clock, vco_ranges,
 						  ARRAY_SIZE(vco_ranges));
 	de->hsfreqrange = mcom03_dsi_get_best_cfg(dsi_clock * 2,
@@ -606,6 +613,16 @@ static int mcom03_dsi_clocks_init(struct mcom03_dsi_device *de)
 		if (ret) {
 			dev_err(de->dev,
 				"failed to get dsi-clock-frequency");
+			return ret;
+		}
+	}
+
+	if (device_property_present(de->dev, "dsi-min-clock-frequency")) {
+		ret = device_property_read_u32(de->dev, "dsi-min-clock-frequency",
+					       &de->dsi_min_clock_freq);
+		if (ret) {
+			dev_err(de->dev,
+				"failed to get dsi-min-clock-frequency");
 			return ret;
 		}
 	}
