@@ -57,6 +57,11 @@
 	/delete-property/ elvees,power-domain;
 };
 
+&media_clocks {
+	// Disable power domain control due to #MCOM03SW-3389
+	/delete-property/ elvees,power-domain;
+};
+
 &pcie0 {
 	/delete-property/ power-domains;
 };
@@ -74,6 +79,38 @@
 };
 
 &elcore1 {
+	/delete-property/ power-domains;
+};
+
+&gpu {
+	/delete-property/ power-domains;
+};
+
+&vpu {
+	/delete-property/ power-domains;
+};
+
+&isp {
+	/delete-property/ power-domains;
+};
+
+&dp {
+	/delete-property/ power-domains;
+};
+
+&de_dpi {
+	/delete-property/ power-domains;
+};
+
+&de_dsi {
+	/delete-property/ power-domains;
+};
+
+&csi0 {
+	/delete-property/ power-domains;
+};
+
+&csi1 {
 	/delete-property/ power-domains;
 };
 
