@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2022 RnD Center "ELVEES", JSC
+ * Copyright 2022-2024 RnD Center "ELVEES", JSC
  *
  */
 
@@ -8,10 +8,10 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/debugfs.h>
-#include <linux/delay.h>
-#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/of_address.h>
+#include <linux/regmap.h>
+#include <linux/mfd/syscon.h>
 #include <linux/slab.h>
 
 #define PLL_VCO_MAX_FREQ 3600000000UL
@@ -25,9 +25,13 @@
 #define PLL_NR GENMASK(30, 27)
 #define PLL_LOCK BIT(31)
 
+#define REG_PLLCFG 0
+#define REG_PLLDIAG 0x4
+
 struct mcom03_pll {
 	struct clk_hw hw;
-	void __iomem *base;
+	struct regmap *regmap;  /* URB region mapping */
+	u32 offset;  /* offset to PLLCFG register */
 	u8 max_nr;
 	u8 nr;
 	u16 nf;
@@ -39,7 +43,9 @@ static unsigned long pll_recalc_rate(struct clk_hw *hw,
 				     unsigned long parent_rate)
 {
 	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
-	u32 reg = readl(pll->base);
+	u32 reg;
+
+	regmap_read(pll->regmap, pll->offset + REG_PLLCFG, &reg);
 
 	if (reg & PLL_SEL) {
 		if (!(reg & PLL_LOCK)) {
@@ -146,7 +152,7 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			unsigned long parent_rate)
 {
 	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
-	u32 reg = readl(pll->base);
+	u32 reg, val;
 	long res = _pll_round_rate(pll, rate, parent_rate, true);
 
 	if (res < 0)
@@ -160,10 +166,11 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		      FIELD_PREP(PLL_OD, pll->od - 1) |
 		      FIELD_PREP(PLL_SEL, 1) | PLL_MAN;
 
-	if ((readl(pll->base) & ~PLL_LOCK) == reg)
+	regmap_read(pll->regmap, pll->offset + REG_PLLCFG, &val);
+	if ((val & ~PLL_LOCK) == reg)
 		return 0;
 
-	writel(reg, pll->base);
+	regmap_write(pll->regmap, pll->offset + REG_PLLCFG, reg);
 
 	/* PLL resets LOCK bit in few clock cycles after
 	 * new PLL settings are set
@@ -171,8 +178,8 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	udelay(1);
 
 	if (!pll->bypass) {
-		if (readl_poll_timeout(pll->base, reg, reg & PLL_LOCK, 0,
-				       1000)) {
+		if (regmap_read_poll_timeout(pll->regmap, pll->offset + REG_PLLCFG,
+			reg, reg & PLL_LOCK, 0, 1000)) {
 			pr_err("Failed to lock PLL %s\n", clk_hw_get_name(hw));
 			return -EIO;
 		}
@@ -181,28 +188,15 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
-static const struct debugfs_reg32 pll_debug_regs[] = {
-	{ .name = "PLLCFG", .offset = 0 },
-	{ .name = "PLLDIAG", .offset = 0x4 },
-};
-
 static void pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
 {
 	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
-	struct debugfs_regset32 *regset;
 
 	debugfs_create_u8("max-nr", 0400, dentry, &pll->max_nr);
 	debugfs_create_u8("nr", 0400, dentry, &pll->nr);
 	debugfs_create_u16("nf", 0400, dentry, &pll->nf);
 	debugfs_create_u8("od", 0400, dentry, &pll->od);
-	regset = kzalloc(sizeof(*regset), GFP_KERNEL);
-	if (!regset)
-		return;
-
-	regset->regs = pll_debug_regs;
-	regset->nregs = ARRAY_SIZE(pll_debug_regs);
-	regset->base = pll->base;
-	debugfs_create_regset32("registers", 0400, dentry, regset);
+	/* pll->regmap is also present in /sys/kernel/debug/regmap/ */
 }
 
 static const struct clk_ops pll_ops = {
@@ -212,14 +206,72 @@ static const struct clk_ops pll_ops = {
 	.debug_init = pll_debug_init,
 };
 
-static void __init mcom03_clk_pll_init(struct device_node *np)
+static struct regmap * __init mcom03_clk_pll_configure_regmap(struct device_node *np,
+							      void __iomem *pll_base)
 {
-	struct mcom03_pll *pll;
+	struct regmap *regmap;
+	struct regmap_config pll_regmap_config = {
+		.reg_bits = 32,
+		.val_bits = 32,
+		.reg_stride = 4,
+		.cache_type = REGCACHE_NONE,
+		.max_register = REG_PLLDIAG,
+		.name = np->name,
+	};
+
+	regmap = regmap_init_mmio(NULL, pll_base, &pll_regmap_config);
+	if (IS_ERR(regmap)) {
+		pr_err("%s: failed to regmap mmio region: %ld\n", np->name,
+			PTR_ERR(regmap));
+		return ERR_PTR(-EINVAL);
+	}
+
+	return regmap;
+}
+
+struct clk * __init mcom03_clk_pll_register(const char *parent_name,
+					    const char *name,
+					    struct regmap *urb,
+					    u32 offset,
+					    int max_nr)
+{
 	struct clk_init_data init;
 	struct clk *clk;
+
+	struct mcom03_pll *pll = kzalloc(sizeof(*pll), GFP_KERNEL);
+
+	if (!pll)
+		return ERR_PTR(-ENOMEM);
+
+	init.name = name;
+	init.flags = 0;
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
+	init.ops = &pll_ops;
+
+	pll->hw.init = &init;
+	pll->max_nr = max_nr;
+	pll->regmap = urb;
+	pll->offset = offset;
+
+	clk = clk_register(NULL, &pll->hw);
+	if (IS_ERR(clk)) {
+		pr_err("%s: Failed to register clock\n", name);
+		kfree(pll);
+	}
+
+	return clk;
+}
+
+static void __init mcom03_clk_pll_init(struct device_node *np)
+{
+	struct clk *clk;
+	struct regmap *regmap;
 	const char *name;
 	const char *parent_name = of_clk_get_parent_name(np, 0);
+	void __iomem *pll_base;
 	int ret;
+	u8 max_nr;
 
 	if (!parent_name) {
 		pr_err("%s: Failed to get parent clock name\n", np->name);
@@ -237,28 +289,29 @@ static void __init mcom03_clk_pll_init(struct device_node *np)
 		name = np->name;
 	}
 
-	pll = kzalloc(sizeof(*pll), GFP_KERNEL);
-	if (!pll)
-		return;
-
-	ret = of_property_read_u8(np, "elvees,pll-max-nr", &pll->max_nr);
-	if (!ret && (pll->max_nr < 1 || pll->max_nr > 64)) {
+	ret = of_property_read_u8(np, "elvees,pll-max-nr", &max_nr);
+	if (!ret && (max_nr < 1 || max_nr > 64)) {
 		pr_err("%s: Failed to get valid pll-max-nr property (%d)\n",
-		       np->name, pll->max_nr);
-		goto fail;
+		       np->name, max_nr);
+		return;
 	} else if (ret)
-		pll->max_nr = 1;
+		max_nr = 1;
 
-	init.name = name;
-	init.flags = 0;
-	init.parent_names = &parent_name;
-	init.num_parents = 1;
-	init.ops = &pll_ops;
+	pll_base = of_iomap(np, 0);
+	if (!pll_base) {
+		pr_err("%s: Unable to map pll base\n", np->name);
+		return;
+	}
 
-	pll->hw.init = &init;
-	pll->base = of_iomap(np, 0);
+	regmap = mcom03_clk_pll_configure_regmap(np, pll_base);
+	if (IS_ERR(regmap)) {
+		pr_err("%s: Failed to configure regmap\n", np->name);
+		iounmap(pll_base);
+		return;
+	}
 
-	clk = clk_register(NULL, &pll->hw);
+	clk = mcom03_clk_pll_register(parent_name, np->name,
+				      regmap, 0, max_nr);
 	if (IS_ERR(clk)) {
 		pr_err("%s: Failed to register clock\n", np->name);
 		goto fail;
@@ -268,7 +321,8 @@ static void __init mcom03_clk_pll_init(struct device_node *np)
 	return;
 
 fail:
-	kfree(pll);
+	regmap_exit(regmap);
+	iounmap(pll_base);
 }
 
 CLK_OF_DECLARE(mcom03_clk_pll, "elvees,mcom03-clk-pll", mcom03_clk_pll_init);
