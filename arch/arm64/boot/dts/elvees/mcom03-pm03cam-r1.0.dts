@@ -87,6 +87,11 @@
 
 };
 
+&media_clocks {
+	// Not tested on this board
+	/delete-property/ elvees,power-domain;
+};
+
 &gpio0a {
 	gpio-line-names = "UART3_RX", "UART3_TX", "RESERV2", "RESERV3",
 		"CMOS_nRST", "", "RTC_INT", "GPIO_RESET";

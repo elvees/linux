@@ -66,6 +66,11 @@
 	/delete-property/ elvees,power-domain;
 };
 
+&media_clocks {
+	// Not tested on this board
+	/delete-property/ elvees,power-domain;
+};
+
 /* TODO: How to distinguish internal lines from external? How to distinguish
  *       hardware function from GPIO? */
 &gpio0a {

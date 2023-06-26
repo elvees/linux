@@ -70,6 +70,11 @@
 	/delete-property/ elvees,power-domain;
 };
 
+&media_clocks {
+	// Not tested on this board
+	/delete-property/ elvees,power-domain;
+};
+
 /* Connected to MicroSD card */
 &sdhci0 {
 	status = "okay";

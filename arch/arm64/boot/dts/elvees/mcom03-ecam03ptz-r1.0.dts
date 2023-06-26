@@ -39,6 +39,11 @@
 	/delete-node/ sdr-bus;
 };
 
+&media_clocks {
+	// Not tested on this board
+	/delete-property/ elvees,power-domain;
+};
+
 &gpio0a {
 	gpio-line-names = "UART3_RX", "UART3_TX", "ETH_INT", "FACTORY_RST",
 		"ALIN1", "ALIN2", "RTC_INT", "";

@@ -410,6 +410,9 @@
 			elvees,urb = <&media_urb>;
 			reg = <0 0x1320040 0 0x80>, <0 0x13200c0 0 0x80>,
 			      <0 0x1320140 0 0x80>, <0 0x13201c0 0 0x80>;
+			#power-domain-cells = <0>;
+			elvees,power-domain;
+			elvees,service-urb = <&service_urb>;
 			assigned-clocks = <&media_clocks CLK_MEDIA_PLL0>,
 					  <&media_clocks CLK_MEDIA_PLL1>,
 					  <&media_clocks CLK_MEDIA_PLL2>,
@@ -476,6 +479,7 @@
 				reg = <0 0x1200000 0 0x80000>;
 				resets = <&media_reset MEDIA_RST_GPU>;
 				operating-points-v2 = <&gpu_opp_table>;
+				power-domains = <&media_clocks>;
 				status = "okay";
 
 				gpu_opp_table: gpu-opp-table {
@@ -515,6 +519,7 @@
 			resets = <&media_reset MEDIA_RST_VPU>;
 			clocks = <&media_clocks CLK_MEDIA_UCG3_VPU>;
 			clock-names = "vpu_clk";
+			power-domains = <&media_clocks>;
 			operating-points-v2 = <&vpu_opp_table>;
 
 			vpu_opp_table: vpu-opp-table {
@@ -567,6 +572,7 @@
 			resets = <&media_reset MEDIA_RST_ISP>;
 			operating-points-v2 = <&isp_opp_table>;
 			status = "disabled";
+			power-domains = <&media_clocks>;
 
 			isp_opp_table: isp-opp-table {
 				compatible = "operating-points-v2";
@@ -611,6 +617,7 @@
 			clock-names = "pclk", "aclk", "mclk", "pxlclk";
 			arm,malidp-output-port-lines = /bits/ 8 <8 8 8>;
 			status = "disabled";
+			power-domains = <&media_clocks>;
 
 			port {
 				dp_out_dpi: endpoint@0 {
@@ -636,6 +643,7 @@
 				"cmos0_clk";
 			#address-cells = <1>;
 			#size-cells = <0>;
+			power-domains = <&media_clocks>;
 
 			ports {
 				#address-cells = <1>;
@@ -669,6 +677,7 @@
 			elvees,urb = <&media_urb>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			power-domains = <&media_clocks>;
 
 			ports {
 				#address-cells = <1>;
@@ -690,6 +699,7 @@
 			status = "disabled";
 			clocks = <&media_clocks CLK_MEDIA_UCG3_MIPI_RX0_CFG>;
 			clock-names = "mipi_rx0_cfg_clk";
+			power-domains = <&media_clocks>;
 		};
 
 		csi1: dphy@1323040 {
@@ -699,6 +709,7 @@
 			clocks = <&media_clocks CLK_MEDIA_UCG3_MIPI_RX1_CFG>,
 				 <&media_clocks CLK_MEDIA_UCG3_CMOS1>;
 			clock-names = "mipi_rx1_cfg_clk", "cmos1_clk";
+			power-domains = <&media_clocks>;
 		};
 	};
 

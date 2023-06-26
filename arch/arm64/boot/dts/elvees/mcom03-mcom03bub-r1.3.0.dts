@@ -60,6 +60,11 @@
 	/delete-property/ elvees,power-domain;
 };
 
+&media_clocks {
+	// Disable power domain control due to #MCOM03SW-3389
+	/delete-property/ elvees,power-domain;
+};
+
 &uart0 {
 	status = "okay";
 };

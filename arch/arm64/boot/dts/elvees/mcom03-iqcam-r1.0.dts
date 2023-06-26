@@ -74,6 +74,11 @@
 	};
 };
 
+&media_clocks {
+	// Not tested on this board
+	/delete-property/ elvees,power-domain;
+};
+
 &gpio0a {
 	gpio-line-names = "", "GPIO_RESET", "ALARM_IN1", "",
 			  "", "", "", "";
