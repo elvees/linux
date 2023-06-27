@@ -68,8 +68,8 @@ additionalProperties: false
 
 examples:
   - |
-    gpio-controller@0x1f0a1300 {
-      compatible = "evlees,mfbsp-gpio";
+    gpio-controller@1f0a1300 {
+      compatible = "elvees,mfbsp-gpio";
       reg-names = "dat", "dirout";
       clocks = <&service_ucg1 5>;
       clock-names = "bus";
