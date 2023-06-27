@@ -45,7 +45,14 @@
 #define PHY_PLL_29 0x17a
 #define PHY_PLL_30 0x17b
 #define PHY_PLL_31 0x17c
+
 #define PHY_SLEW_0 0x26b
+#define PHY_SLEW_5 0x270
+#define PHY_SLEW_6 0x271
+#define PHY_SLEW_7 0x272
+#define PHY_SR_RANGE BIT(0)
+#define PHY_SR_SEL_TESTER_MASK GENMASK(5, 4)
+#define PHY_SR_RATE_ON 1
 
 enum MCOM03_DSI_CLK {
 	MCOM03_DSI_CLK_PXL,
@@ -83,6 +90,7 @@ struct mcom03_dsi_device {
 	u32 mipi_tx_ref_freq;
 	u32 dsi_clock_freq;
 	u32 dsi_min_clock_freq;
+	u32 lane_rate_mbps;
 	u32 pll_n;
 	u32 pll_m;
 	u8 vco_cntrl;
@@ -301,6 +309,46 @@ static void dphy_writel(struct mcom03_dsi_device *dev, u32 code, u32 data)
 	dsi_write(dev, PHY_TST_CTRL0, 0);
 }
 
+struct mcom03_dsi_slewrate_cfg {
+	int max;
+	u32 val;
+	u8 sr_range;
+};
+
+/* Synopsys DesignWare MIPI DPHY
+ * Table 5-5 Slew rate vs DDL oscilation target */
+struct mcom03_dsi_slewrate_cfg slew_rates[] = {
+	{ .max = 500, .val = 0x384, .sr_range = 1,},
+	{ .max = 1000, .val = 0x4e2, .sr_range = 1,},
+	{ .max = 1500, .val = 0x7d0, .sr_range = 0,},
+};
+
+static void mcom03_dsi_set_slew_rate(struct mcom03_dsi_device *de)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(slew_rates); i++)
+		if (de->lane_rate_mbps < slew_rates[i].max)
+			break;
+
+	if (i >= ARRAY_SIZE(slew_rates)) {
+		dphy_writel(de, PHY_SLEW_0, 0x44);
+		dphy_writel(de, PHY_SLEW_7, FIELD_PREP(PHY_SR_SEL_TESTER_MASK, 0));
+	} else {
+		/*
+		 * Setup slew-rate calibration
+		 * TODO:
+		 * Slew-rate calibration should be overridden for disabled lanes.
+		 * Please read D-PHY databook for details.
+		 */
+		dphy_writel(de, PHY_SLEW_0, 0x40);
+		dphy_writel(de, PHY_SLEW_5, slew_rates[i].val & 0xff);
+		dphy_writel(de, PHY_SLEW_6, (slew_rates[i].val >> 8) & 0xf);
+		dphy_writel(de, PHY_SLEW_7, FIELD_PREP(PHY_SR_SEL_TESTER_MASK, PHY_SR_RATE_ON) |
+			slew_rates[i].sr_range);
+	};
+}
+
 static int mcom03_dsi_phy_init(void *data)
 {
 	struct mcom03_dsi_device *de = (struct mcom03_dsi_device *)data;
@@ -316,7 +364,7 @@ static int mcom03_dsi_phy_init(void *data)
 	writel((de->hsfreqrange << 8) | cfg_clk_freq_range,
 	       de->mipi_tx_base + MIPI_TX_CLK_PARAM);
 
-	dphy_writel(de, PHY_SLEW_0, 0x44);
+	mcom03_dsi_set_slew_rate(de);
 	dphy_writel(de, PHY_PLL_22, 0x3);
 	dphy_writel(de, PHY_PLL_23, 0);
 	dphy_writel(de, PHY_PLL_24, 0x50);
@@ -441,7 +489,7 @@ static int mcom03_dsi_get_line_mbps(void *de_data,
 		return -EINVAL;
 	}
 
-	*lane_mbps = dsi_clock_actual * 2 / 1000;
+	*lane_mbps = de->lane_rate_mbps = dsi_clock_actual * 2 / 1000;
 	dev_dbg(de->dev, "DSI frequency %d kHz (%d Mbps)\n",
 		 dsi_clock_actual, *lane_mbps);
 
