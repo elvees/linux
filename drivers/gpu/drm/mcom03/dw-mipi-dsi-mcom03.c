@@ -46,6 +46,9 @@
 #define PHY_PLL_30 0x17b
 #define PHY_PLL_31 0x17c
 
+#define PHY_RDWR_TX_CB_2 0x1ac
+#define CLKDIV_GP_CLK_EN BIT(4)
+
 #define PHY_SLEW_0 0x26b
 #define PHY_SLEW_5 0x270
 #define PHY_SLEW_6 0x271
@@ -363,6 +366,9 @@ static int mcom03_dsi_phy_init(void *data)
 	writel(0, de->mipi_tx_base + MIPI_TX_CTRL);
 	writel((de->hsfreqrange << 8) | cfg_clk_freq_range,
 	       de->mipi_tx_base + MIPI_TX_CLK_PARAM);
+
+	dphy_writel(de, PHY_RDWR_TX_CB_2, de->lane_rate_mbps <= 450 ? 0xb |
+		    CLKDIV_GP_CLK_EN : 0xb);
 
 	mcom03_dsi_set_slew_rate(de);
 	dphy_writel(de, PHY_PLL_22, 0x3);
