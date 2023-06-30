@@ -78,3 +78,12 @@
 &de_dpi {
 	status = "okay";
 };
+
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 2.0 hub */
+&usb1 {
+	status = "okay";
+};
