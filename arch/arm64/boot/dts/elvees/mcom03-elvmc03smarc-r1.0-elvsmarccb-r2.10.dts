@@ -91,3 +91,14 @@
 &pcie1 {
 	status = "okay";
 };
+
+&i2c_pm {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
