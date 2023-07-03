@@ -23,6 +23,11 @@
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon console=ttyS0,115200";
 	};
+
+	elvmc03smarc-leds {
+		/* red led uses GPIO0_PORTC3 that required for SPI0 */
+		/delete-node/ red;
+	};
 };
 
 &sdhci1 {
@@ -100,5 +105,19 @@
 	eeprom@57 {
 		compatible = "microchip,24c32", "atmel,24c32";
 		reg = <0x57>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>;
+
+	flash1: w25q128jw@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "winbond,w25q16dw", "jedec,spi-nor";
+			spi-max-frequency = <20000000>;
+			reg = <0x0>;
 	};
 };
