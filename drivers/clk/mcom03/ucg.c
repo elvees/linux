@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Copyright 2023-2024 RnD Center "ELVEES", JSC
- *
- */
+
+// Copyright 2023-2025 RnD Center "ELVEES", JSC
 
 #include <linux/clk.h>
 #include <linux/iopoll.h>
@@ -40,26 +38,30 @@ static void ucg_writel(struct mcom03_ucg_chan *chan, u32 val, u32 reg)
 	writel(val, chan->base + reg);
 }
 
-int mcom03_clk_ucg_chan_set_divisor(struct mcom03_ucg_chan *chan, u32 div,
-				    bool use_bypass)
+int mcom03_clk_ucg_chan_set_divisor_nolock(struct mcom03_ucg_chan *chan,
+					   bool use_bypass)
 {
 	int ret = 0;
 	u32 reg_offset = chan->chan_id * sizeof(u32);
-	u32 value = ucg_readl(chan, reg_offset);
-	u32 bp = ucg_readl(chan, BP_CTR_REG);
-	const int is_enabled = value & CLK_EN;
+	u32 value;
+	u32 bp;
+	int is_enabled;
 
-	div = min_t(u32, div, UCG_MAX_DIVIDER);
+	value = ucg_readl(chan, reg_offset);
+	is_enabled = value & CLK_EN;
+	chan->divisor = min_t(u32, chan->divisor, UCG_MAX_DIVIDER);
 	/* Check for divider already correct */
-	if (FIELD_GET(DIV_COEFF, value) == div)
+	if (FIELD_GET(DIV_COEFF, value) == chan->divisor)
 		return 0;
 
 	/* Use bypass mode if channel is enabled */
-	if (use_bypass && is_enabled)
+	if (use_bypass && is_enabled) {
+		bp = ucg_readl(chan, BP_CTR_REG);
 		ucg_writel(chan, bp | BIT(chan->chan_id), BP_CTR_REG);
+	}
 
 	value &= ~DIV_COEFF;
-	value |= FIELD_PREP(DIV_COEFF, div);
+	value |= FIELD_PREP(DIV_COEFF, chan->divisor);
 	ucg_writel(chan, value, reg_offset);
 
 	if (readl_poll_timeout(chan->base + reg_offset, value,
@@ -77,28 +79,32 @@ int mcom03_clk_ucg_chan_set_divisor(struct mcom03_ucg_chan *chan, u32 div,
 }
 
 /* Update divisor to save rate with new parent_rate */
-int mcom03_clk_ucg_chan_update_divisor(struct mcom03_ucg_chan *ucg_chan,
-				       unsigned long parent_rate)
+int mcom03_clk_ucg_chan_update_divisor_nolock(struct mcom03_ucg_chan *ucg_chan,
+					      unsigned long parent_rate)
 {
 	unsigned long rate = clk_hw_get_rate(&ucg_chan->hw);
-	u32 div = ucg_chan->freq_round_up ? parent_rate / rate :
+
+	ucg_chan->divisor = ucg_chan->freq_round_up ? parent_rate / rate :
 			DIV_ROUND_UP(parent_rate, rate);
 
 	if (ucg_chan->is_fixed)
 		return 0;
 
-	return mcom03_clk_ucg_chan_set_divisor(ucg_chan, div, false);
+	return mcom03_clk_ucg_chan_set_divisor_nolock(ucg_chan, false);
 }
 
-void mcom03_clk_ucg_chan_set_bypass(struct mcom03_ucg_chan *chan, bool enable)
+void mcom03_clk_ucg_chan_set_bypass_nolock(struct mcom03_ucg_chan *chan,
+					   bool enable)
 {
-	u32 bp = ucg_readl(chan, BP_CTR_REG);
-	u32 mask = enable ? (bp | BIT(chan->chan_id)) : (bp & ~BIT(chan->chan_id));
+	u32 bp;
+	u32 mask;
 
+	bp = ucg_readl(chan, BP_CTR_REG);
+	mask = enable ? (bp | BIT(chan->chan_id)) : (bp & ~BIT(chan->chan_id));
 	ucg_writel(chan, mask, BP_CTR_REG);
 }
 
-u32 mcom03_clk_ucg_bypass_enable(void __iomem *ucg_base)
+u32 mcom03_clk_ucg_bypass_enable_nolock(void __iomem *ucg_base)
 {
 	u32 mask = 0;
 	u32 chan_id;
@@ -116,7 +122,7 @@ u32 mcom03_clk_ucg_bypass_enable(void __iomem *ucg_base)
 	return mask;
 }
 
-void mcom03_clk_ucg_bypass_disable(void __iomem *ucg_base, u32 mask)
+void mcom03_clk_ucg_bypass_disable_nolock(void __iomem *ucg_base, u32 mask)
 {
 	u32 val;
 
@@ -125,7 +131,7 @@ void mcom03_clk_ucg_bypass_disable(void __iomem *ucg_base, u32 mask)
 	writel(val, ucg_base + BP_CTR_REG);
 }
 
-int mcom03_clk_ucg_chan_enable(struct mcom03_ucg_chan *ucg_chan)
+int mcom03_clk_ucg_chan_enable_nolock(struct mcom03_ucg_chan *ucg_chan)
 {
 	const u32 reg_offset = ucg_chan->chan_id * sizeof(u32);
 	u32 value = ucg_readl(ucg_chan, reg_offset);
@@ -147,16 +153,26 @@ int mcom03_clk_ucg_chan_enable(struct mcom03_ucg_chan *ucg_chan)
 static int mcom03_clk_ucg_chan_enable_hw(struct clk_hw *hw)
 {
 	struct mcom03_ucg_chan *ucg_chan = to_mcom03_ucg_chan(hw);
+	int res = 0;
 
-	return mcom03_clk_ucg_chan_enable(ucg_chan);
+	mcom03_clk_pd_lock(ucg_chan->pd);
+	if (!ucg_chan->pd || ucg_chan->pd->is_enabled) {
+		res = mcom03_clk_ucg_chan_enable_nolock(ucg_chan);
+		ucg_chan->is_enabled = !res;
+	}
+
+	mcom03_clk_pd_unlock(ucg_chan->pd);
+
+	return res;
 }
 
-int mcom03_clk_ucg_chan_disable(struct mcom03_ucg_chan *ucg_chan)
+static int mcom03_clk_ucg_chan_disable_nolock(struct mcom03_ucg_chan *ucg_chan)
 {
 	const u32 reg_offset = ucg_chan->chan_id * sizeof(u32);
-	u32 value = ucg_readl(ucg_chan, reg_offset);
+	u32 value;
 	int res;
 
+	value = ucg_readl(ucg_chan, reg_offset);
 	value &= ~(LPI_EN | CLK_EN);
 	ucg_writel(ucg_chan, value, reg_offset);
 	res = readl_poll_timeout(ucg_chan->base + reg_offset, value,
@@ -173,10 +189,16 @@ static void mcom03_clk_ucg_chan_disable_hw(struct clk_hw *hw)
 {
 	struct mcom03_ucg_chan *ucg_chan = to_mcom03_ucg_chan(hw);
 
-	mcom03_clk_ucg_chan_disable(ucg_chan);
+	mcom03_clk_pd_lock(ucg_chan->pd);
+	if (!ucg_chan->pd || ucg_chan->pd->is_enabled) {
+		if (!mcom03_clk_ucg_chan_disable_nolock(ucg_chan))
+			ucg_chan->is_enabled = false;
+	}
+
+	mcom03_clk_pd_unlock(ucg_chan->pd);
 }
 
-int mcom03_clk_ucg_chan_is_enabled(struct mcom03_ucg_chan *chan)
+int mcom03_clk_ucg_chan_is_enabled_nolock(struct mcom03_ucg_chan *chan)
 {
 	const u32 reg = ucg_readl(chan, chan->chan_id * sizeof(u32));
 
@@ -187,16 +209,30 @@ static int mcom03_clk_ucg_chan_is_enabled_hw(struct clk_hw *hw)
 {
 	struct mcom03_ucg_chan *chan = to_mcom03_ucg_chan(hw);
 
-	return mcom03_clk_ucg_chan_is_enabled(chan);
+	mcom03_clk_pd_lock(chan->pd);
+	if (!chan->pd || chan->pd->is_enabled)
+		chan->is_enabled = mcom03_clk_ucg_chan_is_enabled_nolock(chan);
+
+	mcom03_clk_pd_unlock(chan->pd);
+
+	return chan->is_enabled;
 }
 
 static unsigned long mcom03_clk_ucg_chan_recalc_rate(struct clk_hw *hw,
 						     unsigned long parent_rate)
 {
 	struct mcom03_ucg_chan *ucg_chan = to_mcom03_ucg_chan(hw);
-	u32 reg = ucg_readl(ucg_chan, ucg_chan->chan_id * sizeof(u32));
-	u32 div = FIELD_GET(DIV_COEFF, reg);
-	bool bp = ucg_readl(ucg_chan, BP_CTR_REG) & BIT(ucg_chan->chan_id);
+	u32 reg;
+	bool bp = false;
+
+	mcom03_clk_pd_lock(ucg_chan->pd);
+	if (!ucg_chan->pd || ucg_chan->pd->is_enabled) {
+		reg = ucg_readl(ucg_chan, ucg_chan->chan_id * sizeof(u32));
+		ucg_chan->divisor = FIELD_GET(DIV_COEFF, reg);
+		bp = ucg_readl(ucg_chan, BP_CTR_REG) & BIT(ucg_chan->chan_id);
+	}
+
+	mcom03_clk_pd_unlock(ucg_chan->pd);
 
 	/* Linux call this callback with incorrect parent_rate when setting new
 	 * rate for PLL (specify new parent_rate before changing PLL rate).
@@ -206,10 +242,10 @@ static unsigned long mcom03_clk_ucg_chan_recalc_rate(struct clk_hw *hw,
 	 * Use real parent rate to prevent this.
 	 */
 	parent_rate = clk_get_rate(clk_get_parent(hw->clk));
-	if (!div)
-		div = 1;
+	if (!ucg_chan->divisor)
+		ucg_chan->divisor = 1;
 
-	return bp ? XTI_FREQ : DIV_ROUND_UP(parent_rate, div);
+	return bp ? XTI_FREQ : DIV_ROUND_UP(parent_rate, ucg_chan->divisor);
 }
 
 static long mcom03_clk_ucg_chan_round_rate(struct clk_hw *hw, unsigned long rate,
@@ -229,10 +265,18 @@ static int mcom03_clk_ucg_chan_set_rate(struct clk_hw *hw, unsigned long rate,
 					unsigned long parent_rate)
 {
 	struct mcom03_ucg_chan *ucg_chan = to_mcom03_ucg_chan(hw);
-	u32 div = ucg_chan->freq_round_up ? parent_rate / rate :
+	int ret = 0;
+
+	ucg_chan->divisor = ucg_chan->freq_round_up ? parent_rate / rate :
 			DIV_ROUND_UP(parent_rate, rate);
 
-	return mcom03_clk_ucg_chan_set_divisor(ucg_chan, div, true);
+	mcom03_clk_pd_lock(ucg_chan->pd);
+	if (!ucg_chan->pd || ucg_chan->pd->is_enabled)
+		ret = mcom03_clk_ucg_chan_set_divisor_nolock(ucg_chan, true);
+
+	mcom03_clk_pd_unlock(ucg_chan->pd);
+
+	return ret;
 }
 
 static const struct clk_ops ucg_chan_ops = {

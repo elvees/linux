@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Copyright 2023-2024 RnD Center "ELVEES", JSC
- */
+
+// Copyright 2023-2025 RnD Center "ELVEES", JSC
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -24,6 +23,7 @@ struct mcom03_clk_provider {
 	struct clk_hw_onecell_data *clk_data;
 	struct regmap *urb;
 	struct mcom03_subsystem_clk *sclk;
+	struct mcom03_pm_domain *genpd;
 	unsigned int subsystem;
 };
 
@@ -361,6 +361,7 @@ static void __init mcom03_init_plls(struct device_node *np,
 		struct mcom03_pll *p = &sclk->plls[i];
 
 		p->regmap = prov->urb;
+		p->pd = prov->genpd;
 		ret = mcom03_clk_pll_register(parent_name, p);
 		if (ret) {
 			pr_err("%pOFf: Failed to register clock %s (%d)\n",
@@ -421,6 +422,7 @@ static void __init mcom03_init_refmuxes(struct device_node *np,
 	for (i = 0; i < sclk->nr_refmuxes; i++) {
 		struct mcom03_clk_refmux *p = &sclk->refmuxes[i];
 
+		p->pd = prov->genpd;
 		ret = mcom03_get_refmuxes_parents(np, prov, p->ucg_id,
 						  parent_names, &parent_count);
 		if (ret)
@@ -447,6 +449,7 @@ static void __init mcom03_init_ucgs(struct device_node *np,
 	for (i = 0; i < prov->sclk->nr_ucg_chans; i++) {
 		struct mcom03_ucg_chan *ucg_chan = &prov->sclk->ucg_chans[i];
 
+		ucg_chan->pd = prov->genpd;
 		ret = mcom03_ucg_chan_register(ucg_chan);
 		if (ret) {
 			pr_err("%pOFf: Failed to register clock %s (%d)\n",
@@ -468,6 +471,7 @@ static void __init mcom03_init_gates(struct device_node *np,
 		struct mcom03_clk_gate *p = &prov->sclk->gates[i];
 
 		p->sdr_urb = prov->urb;
+		p->pd = prov->genpd;
 		ret = mcom03_clk_gate_register(p);
 		if (ret) {
 			pr_err("%pOFf: Failed to register clock %s (%d)\n",
@@ -477,6 +481,66 @@ static void __init mcom03_init_gates(struct device_node *np,
 
 		prov->clk_data->hws[p->clk_id] = &p->hw;
 	}
+}
+
+/* enable bypass of all enabled channels */
+static void mcom03_subsys_clk_bypass_enable(struct mcom03_clk_provider *prov)
+{
+	int i;
+
+	for (i = 0; i < prov->sclk->nr_ucg_chans; i++) {
+		struct mcom03_ucg_chan *chan = &prov->sclk->ucg_chans[i];
+
+		if (mcom03_clk_ucg_chan_is_enabled_nolock(chan))
+			mcom03_clk_ucg_chan_set_bypass_nolock(chan, true);
+	}
+}
+
+void mcom03_clk_restore(struct mcom03_clk_provider *prov)
+{
+	int i;
+	struct mcom03_subsystem_clk *sclk = prov->sclk;
+
+	/* Enable bypass of all UCGs enabled channels
+	 * before PLL and REFMUX configuration
+	 */
+	mcom03_subsys_clk_bypass_enable(prov);
+
+	/* Enable PLLs */
+	for (i = 0; i < sclk->nr_plls; i++) {
+		struct mcom03_pll *p = &sclk->plls[i];
+
+		mcom03_clk_pll_update_regs_nolock(p);
+	}
+
+	/* Restore REFMUX */
+	for (i = 0; i < sclk->nr_refmuxes; i++) {
+		struct mcom03_clk_refmux *p = &sclk->refmuxes[i];
+
+		mcom03_clk_mux_set_parent_nolock(&p->hw, p->index);
+	}
+
+	/* Restore dividers in UCGs */
+	for (i = 0; i < sclk->nr_ucg_chans; i++)
+		mcom03_clk_ucg_chan_set_divisor_nolock(&sclk->ucg_chans[i],
+						       false);
+
+	/* Enable all clocks that are not in bypass mode */
+	for (i = 0; i < sclk->nr_ucg_chans; i++) {
+		if (sclk->ucg_chans[i].is_enabled)
+			mcom03_clk_ucg_chan_enable_nolock(&sclk->ucg_chans[i]);
+	}
+
+	/* Restore GATE status */
+	for (i = 0; i < sclk->nr_gates; i++)
+		mcom03_clk_gate_set_nolock(&sclk->gates[i]);
+
+	/* Disable bypass in UCG0 */
+	for (i = 0; i < sclk->nr_ucg_chans; i++)
+		mcom03_clk_ucg_chan_set_bypass_nolock(&sclk->ucg_chans[i], false);
+
+	if (prov->sclk->init)
+		sclk->init(prov);
 }
 
 static bool __init is_valid_subsystem(int sub)
@@ -507,6 +571,14 @@ static int mcom03_of_parse(struct device_node *np,
 
 	prov->subsystem = subsystem;
 	prov->sclk = &mcom03_subsystems[subsystem];
+
+	if (of_property_read_bool(np, "elvees,power-domain")) {
+		prov->genpd = mcom03_power_domain_init(np, subsystem);
+		if (prov->genpd)
+			prov->genpd->clk_provider = prov;
+		else
+			pr_err("%pOFf: Failed to initialize genpd domain", np);
+	}
 
 	prov->urb = syscon_regmap_lookup_by_phandle(np, "elvees,urb");
 	if (IS_ERR(prov->urb)) {

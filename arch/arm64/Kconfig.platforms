@@ -144,6 +144,8 @@ config ARCH_KEEMBAY
 config ARCH_MCOM03
 	bool "ELVEES MCom-03 SoC"
 	select DW_APB_TIMER_OF
+	select PM
+	select PM_GENERIC_DOMAINS
 	help
 	  This enables support for ELVEES MCom-03 SoC
 

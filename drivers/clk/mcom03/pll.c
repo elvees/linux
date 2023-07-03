@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Copyright 2022-2024 RnD Center "ELVEES", JSC
- *
- */
+
+// Copyright 2022-2025 RnD Center "ELVEES", JSC
 
 #include <linux/bitfield.h>
 #include <linux/clk.h>
@@ -33,26 +31,38 @@
 #define REG_PLLCFG 0
 #define REG_PLLDIAG 0x4
 
+
 static unsigned long pll_recalc_rate(struct clk_hw *hw,
 				     unsigned long parent_rate)
 {
 	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
 	u32 reg;
+	bool reg_valid = false;
 
-	regmap_read(pll->regmap, pll->offset + REG_PLLCFG, &reg);
+	mcom03_clk_pd_lock(pll->pd);
+	if (!pll->pd || pll->pd->is_enabled) {
+		regmap_read(pll->regmap, pll->offset + REG_PLLCFG, &reg);
 
-	if (reg & PLL_SEL) {
-		if (!(reg & PLL_LOCK)) {
+		reg_valid = true;
+		pll->nf = FIELD_GET(PLL_NF, reg) + 1;
+		pll->nr = FIELD_GET(PLL_NR, reg) + 1;
+		pll->od = FIELD_GET(PLL_OD, reg) + 1;
+		pll->man = FIELD_GET(PLL_MAN, reg);
+		pll->sel = FIELD_GET(PLL_SEL, reg);
+	}
+
+	mcom03_clk_pd_unlock(pll->pd);
+
+	if (pll->sel) {
+		if (reg_valid && !(reg & PLL_LOCK)) {
 			pr_warn("%s: PLL is not locked\n", clk_hw_get_name(hw));
 			return 0;
-		} else if (reg & PLL_MAN) {
-			pll->nf = FIELD_GET(PLL_NF, reg) + 1;
-			pll->nr = FIELD_GET(PLL_NR, reg) + 1;
-			pll->od = FIELD_GET(PLL_OD, reg) + 1;
+		} else if (pll->man) {
 			return parent_rate * pll->nf / pll->nr / pll->od;
 		}
 	}
-	return parent_rate * (FIELD_GET(PLL_SEL, reg) + 1);
+
+	return parent_rate * (pll->sel + 1);
 }
 
 static long _pll_round_rate(struct mcom03_pll *pll, unsigned long rate,
@@ -108,6 +118,8 @@ static long _pll_round_rate(struct mcom03_pll *pll, unsigned long rate,
 					pll->nf = nf;
 					pll->nr = nr;
 					pll->od = od;
+					pll->man = 1;
+					pll->sel = 1;
 					pll->bypass = false;
 				}
 
@@ -128,7 +140,9 @@ static long _pll_round_rate(struct mcom03_pll *pll, unsigned long rate,
 		pll->nf = closest_nf;
 		pll->nr = closest_nr;
 		pll->od = closest_od;
+		pll->man = 1;
 		pll->bypass = (closest_freq == parent_rate);
+		pll->sel = !pll->bypass;
 	}
 
 	return closest_freq;
@@ -178,7 +192,7 @@ static void pll_children_bypass_enable(struct mcom03_pll *pll)
 		ucg_chan = find_ucg_chan_by_ucg_id(pll, pll->ucg_ids[i]);
 		if (ucg_chan && !ucg_chan->is_fixed &&
 		    is_child_of_pll(ucg_chan->hw.clk, pll->hw.clk))
-			pll->ucg_bypass[i] = mcom03_clk_ucg_bypass_enable(ucg_chan->base);
+			pll->ucg_bypass[i] = mcom03_clk_ucg_bypass_enable_nolock(ucg_chan->base);
 		else
 			pll->ucg_bypass[i] = 0;
 	}
@@ -211,24 +225,19 @@ static void pll_children_bypass_disable(struct mcom03_pll *pll,
 			 */
 			if ((ucg_chan->ucg_id == ucg_id) &&
 			    (pll->ucg_bypass[i] & BIT(ucg_chan->chan_id)))
-				mcom03_clk_ucg_chan_update_divisor(ucg_chan,
-								   pll_rate);
+				mcom03_clk_ucg_chan_update_divisor_nolock(
+					ucg_chan,
+					pll_rate);
 		}
 		if (base)
-			mcom03_clk_ucg_bypass_disable(base, pll->ucg_bypass[i]);
+			mcom03_clk_ucg_bypass_disable_nolock(base, pll->ucg_bypass[i]);
 	}
 }
 
-static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
-			unsigned long parent_rate)
+int mcom03_clk_pll_update_regs_nolock(struct mcom03_pll *pll)
 {
-	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
 	u32 reg, val;
-	long result_rate = _pll_round_rate(pll, rate, parent_rate, true);
 	int ret = 0;
-
-	if (result_rate < 0)
-		return result_rate;
 
 	if (pll->bypass)
 		reg = 0;
@@ -236,19 +245,12 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		reg = FIELD_PREP(PLL_NF, pll->nf - 1) |
 		      FIELD_PREP(PLL_NR, pll->nr - 1) |
 		      FIELD_PREP(PLL_OD, pll->od - 1) |
-		      FIELD_PREP(PLL_SEL, 1) | PLL_MAN;
+		      FIELD_PREP(PLL_MAN, pll->man) |
+		      FIELD_PREP(PLL_SEL, pll->sel);
 
 	regmap_read(pll->regmap, pll->offset + REG_PLLCFG, &val);
 	if ((val & ~PLL_LOCK) == reg)
 		return 0;
-
-	/* Before changing PLL rate we need to enable bypass for all enabled
-	 * channels for all children UCGs. It is required to prevent high
-	 * frequency on UCG output after increase PLL rate.
-	 * After PLL rate changed we need to recalc dividers for UCGs and
-	 * disable bypass.
-	 */
-	pll_children_bypass_enable(pll);
 
 	regmap_write(pll->regmap, pll->offset + REG_PLLCFG, reg);
 
@@ -260,12 +262,40 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (!pll->bypass) {
 		if (regmap_read_poll_timeout(pll->regmap, pll->offset + REG_PLLCFG,
 			reg, reg & PLL_LOCK, 0, 1000)) {
-			pr_err("Failed to lock PLL %s\n", clk_hw_get_name(hw));
+			pr_err("Failed to lock PLL %s\n", clk_hw_get_name(&pll->hw));
 			ret = -EIO;
 		}
 	}
 
-	pll_children_bypass_disable(pll, result_rate);
+	return ret;
+}
+
+static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
+			unsigned long parent_rate)
+{
+	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
+	long result_rate = _pll_round_rate(pll, rate, parent_rate, true);
+	int ret = 0;
+
+	if (result_rate < 0)
+		return result_rate;
+	else if (!result_rate)
+		return -EINVAL;  // result_rate must be greater than zero
+
+	mcom03_clk_pd_lock(pll->pd);
+	if (!pll->pd || pll->pd->is_enabled) {
+		/* Before changing PLL rate we need to enable bypass for all
+		 * enabled channels for all children UCGs. It is required to
+		 * prevent high frequency on UCG output after increase PLL rate.
+		 * After PLL rate changed we need to recalc dividers for UCGs
+		 * and disable bypass.
+		 */
+		pll_children_bypass_enable(pll);
+		ret = mcom03_clk_pll_update_regs_nolock(pll);
+		pll_children_bypass_disable(pll, result_rate);
+	}
+
+	mcom03_clk_pd_unlock(pll->pd);
 
 	return ret;
 }
@@ -276,18 +306,28 @@ static ssize_t _pll_slip_read(struct file *f, char *buffer, size_t len, loff_t *
 	struct mcom03_pll *pll;
 	u32 reg;
 	char slip[2] = "0\n";
-	ssize_t retval;
+	ssize_t retval = 0;
 
 	pll = f->private_data;
 	if (pll == NULL) {
 		pr_err("Failed to get f->private_data structure\n");
 		return 0;
 	}
-	regmap_read(pll->regmap, pll->offset + REG_PLLDIAG, &reg);
-	slip[0] = (reg & field) ? '1' : '0';
 
-	retval = simple_read_from_buffer(buffer, len, offset, slip,
-					 strlen(slip));
+	mcom03_clk_pd_lock(pll->pd);
+	if (!pll->pd || pll->pd->is_enabled)
+		regmap_read(pll->regmap, pll->offset + REG_PLLDIAG, &reg);
+	else
+		retval = -ENODATA;
+
+	mcom03_clk_pd_unlock(pll->pd);
+
+	if (!retval) {
+		slip[0] = (reg & field) ? '1' : '0';
+		retval = simple_read_from_buffer(buffer, len, offset, slip,
+						 strlen(slip));
+	}
+
 	return retval;
 }
 
@@ -344,6 +384,13 @@ int mcom03_clk_pll_register(const char *parent_name, struct mcom03_pll *pll)
 	};
 
 	pll->hw.init = &init;
+
+	/* Set default non-zero values to protect against divide by zero.
+	 * This required only if subsystem hasn't been turned on in
+	 * mcom03_power_domain_init().
+	 */
+	pll->nr = 1;
+	pll->od = 1;
 
 	return clk_hw_register(NULL, &pll->hw);
 }
