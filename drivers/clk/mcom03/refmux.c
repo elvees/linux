@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Copyright 2023-2024 RnD Center "ELVEES", JSC
- *
- */
+
+// Copyright 2023-2025 RnD Center "ELVEES", JSC
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -18,43 +16,59 @@ static struct mcom03_clk_refmux *to_mcom03_refmux(struct clk_hw *hw)
 	return container_of(hw, struct mcom03_clk_refmux, hw);
 }
 
-static DEFINE_SPINLOCK(mcom03_clk_refmux_lock);
-
-static int mcom03_clk_mux_set_parent(struct clk_hw *hw, u8 index)
+int mcom03_clk_mux_set_parent_nolock(struct clk_hw *hw, u8 index)
 {
 	struct mcom03_clk_refmux *refmux = to_mcom03_refmux(hw);
-	unsigned long flags = 0;
-	u32 val = clk_mux_index_to_val(NULL, 0, index);
+	u32 val;
 	u32 old_bp;
 
-	/* Ref MUX is not glitch free. All enabled channels must be turned to
-	 * bypass before ref will be changed.
-	 */
-	spin_lock_irqsave(&mcom03_clk_refmux_lock, flags);
-	old_bp = mcom03_clk_ucg_bypass_enable(refmux->base_ucg);
+	refmux->index = index;
+	if (!refmux->pd || refmux->pd->is_enabled) {
+		/* Ref MUX is not glitch free. All enabled channels must be
+		 * turned to bypass before ref will be changed.
+		 */
+		val = clk_mux_index_to_val(NULL, 0, index);
+		val = val << refmux->shift;
+		old_bp = mcom03_clk_ucg_bypass_enable_nolock(refmux->base_ucg);
+		regmap_update_bits(refmux->regmap,
+				   refmux->offset,
+				   refmux->mask << refmux->shift,
+				   val);
 
-	val = val << refmux->shift;
-	regmap_update_bits(refmux->regmap,
-			   refmux->offset,
-			   refmux->mask << refmux->shift,
-			   val);
-
-	mcom03_clk_ucg_bypass_disable(refmux->base_ucg, old_bp);
-	spin_unlock_irqrestore(&mcom03_clk_refmux_lock, flags);
+		mcom03_clk_ucg_bypass_disable_nolock(refmux->base_ucg, old_bp);
+	}
 
 	return 0;
 }
 
-static u8 mcom03_clk_mux_get_parent(struct clk_hw *hw)
+static int mcom03_clk_mux_set_parent(struct clk_hw *hw, u8 index)
+{
+	struct mcom03_clk_refmux *refmux = to_mcom03_refmux(hw);
+	int ret;
+
+	mcom03_clk_pd_lock(refmux->pd);
+	ret = mcom03_clk_mux_set_parent_nolock(hw, index);
+	mcom03_clk_pd_unlock(refmux->pd);
+
+	return ret;
+}
+
+u8 mcom03_clk_mux_get_parent(struct clk_hw *hw)
 {
 	struct mcom03_clk_refmux *refmux = to_mcom03_refmux(hw);
 	u32 val;
 
-	regmap_read(refmux->regmap, refmux->offset, &val);
-	val >>= refmux->shift;
-	val &= refmux->mask;
+	mcom03_clk_pd_lock(refmux->pd);
+	if (!refmux->pd || refmux->pd->is_enabled) {
+		regmap_read(refmux->regmap, refmux->offset, &val);
+		val >>= refmux->shift;
+		val &= refmux->mask;
+		refmux->index = clk_mux_val_to_index(hw, NULL, 0, val);
+	}
 
-	return clk_mux_val_to_index(hw, NULL, 0, val);
+	mcom03_clk_pd_unlock(refmux->pd);
+
+	return refmux->index;
 }
 
 static int mcom03_clk_mux_determine_rate(struct clk_hw *hw,
