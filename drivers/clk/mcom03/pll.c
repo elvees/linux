@@ -14,6 +14,8 @@
 #include <linux/mfd/syscon.h>
 #include <linux/slab.h>
 
+#include "mcom03-clk.h"
+
 #define PLL_VCO_MAX_FREQ 3600000000UL
 #define PLL_VCO_MIN_FREQ 720000000UL
 #define PLL_NF_MAX 4096
@@ -27,17 +29,6 @@
 
 #define REG_PLLCFG 0
 #define REG_PLLDIAG 0x4
-
-struct mcom03_pll {
-	struct clk_hw hw;
-	struct regmap *regmap;  /* URB region mapping */
-	u32 offset;  /* offset to PLLCFG register */
-	u8 max_nr;
-	u8 nr;
-	u16 nf;
-	u8 od;
-	bool bypass;
-};
 
 static unsigned long pll_recalc_rate(struct clk_hw *hw,
 				     unsigned long parent_rate)
@@ -148,15 +139,93 @@ static long pll_round_rate(struct clk_hw *hw, unsigned long rate,
 	return _pll_round_rate(pll, rate, *parent_rate, false);
 }
 
+/* Find first ucg_chan with requested ucg_id. */
+static struct mcom03_ucg_chan *find_ucg_chan_by_ucg_id(struct mcom03_pll *pll,
+						       u32 ucg_id)
+{
+	struct mcom03_ucg_chan *ucg_chan = pll->sclk->ucg_chans;
+	int i;
+
+	for (i = 0; i < pll->sclk->nr_ucg_chans; i++) {
+		if (ucg_chan[i].ucg_id == ucg_id)
+			return &ucg_chan[i];
+	}
+
+	return NULL;
+}
+
+static bool is_child_of_pll(struct clk *clk, struct clk *pll_clk)
+{
+	while (clk) {
+		clk = clk_get_parent(clk);
+		if (clk == pll_clk)
+			return true;
+	}
+
+	return false;
+}
+
+/* Enable bypass for all children UCGs. */
+static void pll_children_bypass_enable(struct mcom03_pll *pll)
+{
+	struct mcom03_ucg_chan *ucg_chan;
+	int i;
+
+	for (i = 0; i < pll->ucg_count; i++) {
+		ucg_chan = find_ucg_chan_by_ucg_id(pll, pll->ucg_ids[i]);
+		if (ucg_chan && !ucg_chan->is_fixed &&
+		    is_child_of_pll(ucg_chan->hw.clk, pll->hw.clk))
+			pll->ucg_bypass[i] = mcom03_clk_ucg_bypass_enable(ucg_chan->base);
+		else
+			pll->ucg_bypass[i] = 0;
+	}
+}
+
+/* Update dividers to respect new PLL rate and disable UCG
+ * bypass for all children UCGs.
+ */
+static void pll_children_bypass_disable(struct mcom03_pll *pll,
+					unsigned long pll_rate)
+{
+	struct mcom03_ucg_chan *ucg_chan;
+	void __iomem *base;
+	u32 ucg_id;
+	int i, j;
+
+	for (i = 0; i < pll->ucg_count; i++) {
+		base = NULL;
+		ucg_id = pll->ucg_ids[i];
+		for (j = 0; j < pll->sclk->nr_ucg_chans; j++) {
+			ucg_chan = &pll->sclk->ucg_chans[j];
+
+			if (ucg_chan->ucg_id == ucg_id)
+				base = ucg_chan->base;
+
+			/* Update divider is required here only for enabled
+			 * channels (if channel bypass is enabled). Linux will
+			 * restore rate for all children clocks later after
+			 * return to clk_change_rate().
+			 */
+			if ((ucg_chan->ucg_id == ucg_id) &&
+			    (pll->ucg_bypass[i] & BIT(ucg_chan->chan_id)))
+				mcom03_clk_ucg_chan_update_divisor(ucg_chan,
+								   pll_rate);
+		}
+		if (base)
+			mcom03_clk_ucg_bypass_disable(base, pll->ucg_bypass[i]);
+	}
+}
+
 static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			unsigned long parent_rate)
 {
 	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
 	u32 reg, val;
-	long res = _pll_round_rate(pll, rate, parent_rate, true);
+	long result_rate = _pll_round_rate(pll, rate, parent_rate, true);
+	int ret = 0;
 
-	if (res < 0)
-		return res;
+	if (result_rate < 0)
+		return result_rate;
 
 	if (pll->bypass)
 		reg = 0;
@@ -170,6 +239,14 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	if ((val & ~PLL_LOCK) == reg)
 		return 0;
 
+	/* Before changing PLL rate we need to enable bypass for all enabled
+	 * channels for all children UCGs. It is required to prevent high
+	 * frequency on UCG output after increase PLL rate.
+	 * After PLL rate changed we need to recalc dividers for UCGs and
+	 * disable bypass.
+	 */
+	pll_children_bypass_enable(pll);
+
 	regmap_write(pll->regmap, pll->offset + REG_PLLCFG, reg);
 
 	/* PLL resets LOCK bit in few clock cycles after
@@ -181,11 +258,13 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		if (regmap_read_poll_timeout(pll->regmap, pll->offset + REG_PLLCFG,
 			reg, reg & PLL_LOCK, 0, 1000)) {
 			pr_err("Failed to lock PLL %s\n", clk_hw_get_name(hw));
-			return -EIO;
+			ret = -EIO;
 		}
 	}
 
-	return 0;
+	pll_children_bypass_disable(pll, result_rate);
+
+	return ret;
 }
 
 static void pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
@@ -206,123 +285,17 @@ static const struct clk_ops pll_ops = {
 	.debug_init = pll_debug_init,
 };
 
-static struct regmap * __init mcom03_clk_pll_configure_regmap(struct device_node *np,
-							      void __iomem *pll_base)
+int mcom03_clk_pll_register(const char *parent_name, struct mcom03_pll *pll)
 {
-	struct regmap *regmap;
-	struct regmap_config pll_regmap_config = {
-		.reg_bits = 32,
-		.val_bits = 32,
-		.reg_stride = 4,
-		.cache_type = REGCACHE_NONE,
-		.max_register = REG_PLLDIAG,
-		.name = np->name,
+	struct clk_init_data init = {
+		.name = pll->name,
+		.flags = 0,
+		.parent_names = &parent_name,
+		.num_parents = 1,
+		.ops = &pll_ops,
 	};
 
-	regmap = regmap_init_mmio(NULL, pll_base, &pll_regmap_config);
-	if (IS_ERR(regmap)) {
-		pr_err("%s: failed to regmap mmio region: %ld\n", np->name,
-			PTR_ERR(regmap));
-		return ERR_PTR(-EINVAL);
-	}
-
-	return regmap;
-}
-
-struct clk_hw * __init mcom03_clk_pll_register(const char *parent_name,
-					    const char *name,
-					    struct regmap *urb,
-					    u32 offset,
-					    int max_nr)
-{
-	struct clk_init_data init;
-	int ret;
-
-	struct mcom03_pll *pll = kzalloc(sizeof(*pll), GFP_KERNEL);
-
-	if (!pll)
-		return ERR_PTR(-ENOMEM);
-
-	init.name = name;
-	init.flags = 0;
-	init.parent_names = &parent_name;
-	init.num_parents = 1;
-	init.ops = &pll_ops;
-
 	pll->hw.init = &init;
-	pll->max_nr = max_nr;
-	pll->regmap = urb;
-	pll->offset = offset;
 
-	ret = clk_hw_register(NULL, &pll->hw);
-	if (ret) {
-		pr_err("%s: Failed to register clock\n", name);
-		kfree(pll);
-	}
-
-	return &pll->hw;
+	return clk_hw_register(NULL, &pll->hw);
 }
-
-static void __init mcom03_clk_pll_init(struct device_node *np)
-{
-	struct clk_hw *hw;
-	struct regmap *regmap;
-	const char *name;
-	const char *parent_name = of_clk_get_parent_name(np, 0);
-	void __iomem *pll_base;
-	int ret;
-	u8 max_nr;
-
-	if (!parent_name) {
-		pr_err("%s: Failed to get parent clock name\n", np->name);
-		return;
-	}
-
-	ret = of_property_read_string(np, "clock-output-names", &name);
-	if (ret) {
-		/* If property not found then use name of node */
-		if (ret != -EINVAL) {
-			pr_err("%s: Failed to get clock-output-names (%d)\n",
-			       np->name, ret);
-			return;
-		}
-		name = np->name;
-	}
-
-	ret = of_property_read_u8(np, "elvees,pll-max-nr", &max_nr);
-	if (!ret && (max_nr < 1 || max_nr > 64)) {
-		pr_err("%s: Failed to get valid pll-max-nr property (%d)\n",
-		       np->name, max_nr);
-		return;
-	} else if (ret)
-		max_nr = 1;
-
-	pll_base = of_iomap(np, 0);
-	if (!pll_base) {
-		pr_err("%s: Unable to map pll base\n", np->name);
-		return;
-	}
-
-	regmap = mcom03_clk_pll_configure_regmap(np, pll_base);
-	if (IS_ERR(regmap)) {
-		pr_err("%s: Failed to configure regmap\n", np->name);
-		iounmap(pll_base);
-		return;
-	}
-
-	hw = mcom03_clk_pll_register(parent_name, np->name,
-				     regmap, 0, max_nr);
-	if (IS_ERR(hw)) {
-		pr_err("%s: Failed to register clock\n", np->name);
-		goto fail;
-	}
-
-	of_clk_add_hw_provider(np, of_clk_hw_simple_get, hw);
-	return;
-
-fail:
-	regmap_exit(regmap);
-	iounmap(pll_base);
-}
-
-CLK_OF_DECLARE(mcom03_clk_pll, "elvees,mcom03-clk-pll", mcom03_clk_pll_init);

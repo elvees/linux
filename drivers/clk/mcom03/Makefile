@@ -1,1 +1,1 @@
-obj-y += pll.o gate.o ucg.o common.o refmux.o
+obj-y += pll.o gate.o ucg.o refmux.o subsystem-clock.o
