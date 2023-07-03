@@ -164,3 +164,14 @@
 &qlic0 {
 	status = "okay";
 };
+
+&i2c_gp {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	tmp112: sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+};
