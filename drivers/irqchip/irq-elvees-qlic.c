@@ -7,6 +7,7 @@
 #include <linux/of_irq.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/spinlock.h>
 
 #include "irq-elvees-qlic.h"
@@ -24,6 +25,7 @@ struct qlic_priv {
 	u32 current_target;
 	spinlock_t lock;
 	struct platform_device *pdev;
+	struct irq_handler_data *irq_handler;
 	int base_irq;
 	unsigned int *irqs;
 	int nirqs;
@@ -95,6 +97,8 @@ static void qlic_irq_enable(struct irq_data *data)
 	int temp;
 	unsigned long flags;
 
+	pm_runtime_get_sync(&priv->pdev->dev);
+
 	priv->target_map[hwirq] = target;
 
 	qlic_write(QLIC_PRIO, priv, QLIC_PRI0 + hwirq * QLIC_PRI_NEXT);
@@ -127,6 +131,8 @@ static void qlic_irq_disable(struct irq_data *data)
 	qlic_write(temp, priv, QLIC_ENS0 + QLIC_ENSNEXT * target +
 					hwirq / 32 * 4);
 	spin_unlock_irqrestore(&priv->lock, flags);
+
+	pm_runtime_put_sync(&priv->pdev->dev);
 }
 
 static void qlic_irq_mask(struct irq_data *data)
@@ -182,12 +188,12 @@ static const struct irq_domain_ops qlic_domain_ops = {
 	.translate = qlic_domain_translate
 };
 
-static void __init qlic_hwreset(struct qlic_priv *priv)
+static void qlic_hwreset(struct qlic_priv *priv)
 {
 	int hwirq, target;
 
-	dev_info(&priv->pdev->dev, "Reset targets according to mask 0x%x\n",
-		 priv->reset_targets_mask);
+	dev_dbg(&priv->pdev->dev, "Reset targets according to mask 0x%x\n",
+		priv->reset_targets_mask);
 	for (target = 0; target < QLIC_TARGETS; ++target) {
 		if (!(BIT(target) & priv->reset_targets_mask))
 			continue;
@@ -213,26 +219,107 @@ static int __init fill_targets(struct qlic_priv *priv, struct device_node *np)
 	return 0;
 }
 
-static void qlic_free_irqs(struct qlic_priv *priv)
+static int qlic_alloc_irqs(struct qlic_priv *priv)
+{
+	int i;
+	struct irq_handler_data *handler;
+	struct platform_device *pdev = priv->pdev;
+
+	priv->irqs = devm_kcalloc(&pdev->dev, priv->nirqs,
+				  sizeof(unsigned int),
+				  GFP_KERNEL | __GFP_ZERO);
+	if (!priv->irqs) {
+		dev_err(&pdev->dev, "Failed to allocate irqs.");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < priv->nirqs; ++i) {
+		priv->irqs[i] = platform_get_irq(pdev, i);
+		if (priv->irqs[i] <= 0)
+			return -EPROBE_DEFER;
+
+		if (i == 0)
+			priv->base_irq = priv->irqs[i];
+
+		handler = devm_kzalloc(&pdev->dev,
+					sizeof(struct irq_handler_data),
+					GFP_KERNEL);
+		if (!handler)
+			return -ENOMEM;
+
+		handler->target = priv->target_list[i];
+		handler->priv = priv;
+		priv->irq_handler = handler;
+
+		if (!IS_ENABLED(CONFIG_PM))
+			irq_set_chained_handler_and_data(priv->irqs[i],
+							 qlic_handle_irq,
+							 handler);
+	}
+
+	return 0;
+}
+
+static void qlic_irq_handler_set(struct qlic_priv *priv)
 {
 	int i;
 
-	for (i = 0; i < priv->nirqs; i++) {
-		if (!priv->irqs[i])
-			break;
-		irq_set_chained_handler_and_data(priv->irqs[i], NULL, NULL);
-	}
-
-	devm_kfree(&priv->pdev->dev, priv->irqs);
+	for (i = 0; i < priv->nirqs; ++i)
+		irq_set_chained_handler_and_data(priv->irqs[i],
+						 qlic_handle_irq,
+						 priv->irq_handler);
 }
+
+static void qlic_irq_handler_unset(struct qlic_priv *priv)
+{
+	int i;
+
+	for (i = 0; i < priv->nirqs; i++)
+		irq_set_chained_handler_and_data(priv->irqs[i], NULL, NULL);
+}
+
+static int qlic_runtime_suspend(struct device *dev)
+{
+	struct qlic_priv *priv = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s", __func__);
+	qlic_irq_handler_unset(priv);
+
+	return 0;
+}
+
+static int qlic_runtime_resume(struct device *dev)
+{
+	struct qlic_priv *priv = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s", __func__);
+	if (priv->reset_targets_mask)
+		qlic_hwreset(priv);
+
+	/* This will set up gic500 controller to raise irq
+	 * when receive irq from connected qlic.
+	 * This setup should be performed after every cold
+	 * reset of qlic, so this should be called at PM resume
+	 * callback, because PM resume can be called after parent
+	 * subsystem power-on if genpd domains used.
+	 */
+	qlic_irq_handler_set(priv);
+
+	return 0;
+}
+
+const struct dev_pm_ops qlic_pm_ops = {
+	SET_RUNTIME_PM_OPS(qlic_runtime_suspend,
+			   qlic_runtime_resume,
+			   NULL)
+};
 
 static int qlic_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 	struct qlic_priv *priv;
-	struct irq_handler_data *handler_priv;
-	int i, ret;
+	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(struct qlic_priv), GFP_KERNEL);
 	if (!priv)
@@ -288,54 +375,25 @@ static int qlic_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	priv->irqs = devm_kcalloc(&pdev->dev, priv->nirqs,
-				  sizeof(unsigned int),
-				  GFP_KERNEL | __GFP_ZERO);
-	if (!priv->irqs) {
-		dev_err(&pdev->dev, "Failed to allocate irqs.");
-		return -ENOMEM;
-	}
+	qlic_alloc_irqs(priv);
 
-	for (i = 0; i < priv->nirqs; ++i) {
-		priv->irqs[i] = platform_get_irq(pdev, i);
-		if (priv->irqs[i] <= 0) {
-			ret = -EPROBE_DEFER;
-			goto irq_err;
-		}
-		if (i == 0)
-			priv->base_irq = priv->irqs[i];
-
-		handler_priv = devm_kzalloc(&pdev->dev,
-					    sizeof(struct irq_handler_data),
-					    GFP_KERNEL);
-		if (!handler_priv) {
-			ret = -ENOMEM;
-			goto irq_err;
-		}
-		handler_priv->target = priv->target_list[i];
-		handler_priv->priv = priv;
-		irq_set_chained_handler_and_data(priv->irqs[i],
-						 qlic_handle_irq,
-						 handler_priv);
-	}
+	pm_runtime_enable(&priv->pdev->dev);
 
 	platform_set_drvdata(pdev, priv);
 
 	dev_info(&pdev->dev, "Initialized successfully\n");
 
 	return 0;
-irq_err:
-	qlic_free_irqs(priv);
-	return ret;
 }
 
 static int qlic_remove(struct platform_device *pdev)
 {
 	struct qlic_priv *priv = platform_get_drvdata(pdev);
 
-	qlic_free_irqs(priv);
-
+	qlic_irq_handler_unset(priv);
 	irq_domain_remove(priv->domain);
+	pm_runtime_disable(&priv->pdev->dev);
+
 	return 0;
 }
 
@@ -350,6 +408,7 @@ MODULE_DEVICE_TABLE(of, qlic_dt_ids);
 static struct platform_driver qlic_plat_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
+		.pm = &qlic_pm_ops,
 		.of_match_table = of_match_ptr(qlic_dt_ids),
 	},
 	.probe = qlic_probe,
