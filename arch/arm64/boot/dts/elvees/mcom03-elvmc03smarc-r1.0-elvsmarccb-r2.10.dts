@@ -19,6 +19,20 @@
 		     "elvees,elvmc03smarc",
 		     "elvees,mcom03";
 
+	elvsmarccb-leds {
+		compatible = "gpio-leds";
+
+		gpio11-led {
+			gpios = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		gpio12-led {
+			gpios = <&gpio0b 0 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
 	chosen {
 		stdout-path = "serial0:115200n8";
 		bootargs = "earlycon console=ttyS0,115200";
