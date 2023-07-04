@@ -58,6 +58,16 @@
 	status = "okay";
 };
 
+/* Connects to XP6 RPi header */
+&ser2 {
+	status = "okay";
+};
+
+/* Connects to XP15 */
+&ser3 {
+	status = "okay";
+};
+
 &emac0 {
 	status = "okay";
 };
