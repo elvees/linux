@@ -145,3 +145,8 @@
 			reg = <0x0>;
 	};
 };
+
+/* Connected to SATA plug */
+&sata {
+	status = "okay";
+};
