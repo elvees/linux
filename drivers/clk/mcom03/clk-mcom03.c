@@ -20,6 +20,7 @@
 #define XTI_FREQ 27000000
 #define UCG_MAX_DIVIDER 0xfffffU
 #define BP_CTR_REG 0x40
+#define UCG_SIZE 0x48
 
 #define LPI_EN BIT(0)
 #define CLK_EN BIT(1)
@@ -43,12 +44,25 @@ struct mcom03_clk_provider {
 	struct clk_onecell_data clk_data;
 };
 
+struct mcom03_clk_refmux {
+	struct clk_mux mux;
+	void __iomem *base_ucg;
+};
+
 struct mcom03_clk_ucg_chan {
 	struct clk_hw hw;
 	struct clk *parent;
 	void __iomem *base;
 	unsigned int id;
 	bool freq_round_up;
+};
+
+struct mcom03_refmux_data {
+	const char *name;
+	phys_addr_t base_ref;
+	phys_addr_t base_ucg;
+	u32 shift;
+	u32 mask;
 };
 
 struct mcom03_pll {
@@ -66,6 +80,11 @@ static DEFINE_SPINLOCK(mcom03_clk_dsp_lock);
 static struct mcom03_clk_ucg_chan *to_mcom03_ucg_chan(struct clk_hw *hw)
 {
 	return container_of(hw, struct mcom03_clk_ucg_chan, hw);
+}
+
+static struct mcom03_clk_refmux *to_mcom03_refmux(struct clk_mux *mux)
+{
+	return container_of(mux, struct mcom03_clk_refmux, mux);
 }
 
 static u32 ucg_readl(struct mcom03_clk_ucg_chan *ucg_chan, u32 reg)
@@ -109,12 +128,18 @@ static void ucg_chan_disable(struct clk_hw *hw)
 		pr_err("Failed to disable clock %s\n", clk_hw_get_name(hw));
 }
 
-static int ucg_chan_is_enabled(struct clk_hw *hw)
+static int _ucg_chan_is_enabled(struct mcom03_clk_ucg_chan *ucg_chan)
 {
-	struct mcom03_clk_ucg_chan *ucg_chan = to_mcom03_ucg_chan(hw);
 	u32 reg = ucg_readl(ucg_chan, ucg_chan->id * sizeof(u32));
 
 	return FIELD_GET(CLK_EN, reg);
+}
+
+static int ucg_chan_is_enabled(struct clk_hw *hw)
+{
+	struct mcom03_clk_ucg_chan *ucg_chan = to_mcom03_ucg_chan(hw);
+
+	return _ucg_chan_is_enabled(ucg_chan);
 }
 
 static unsigned long ucg_chan_recalc_rate(struct clk_hw *hw,
@@ -366,6 +391,270 @@ static void __init mcom03_clk_ucg_init(struct device_node *np)
 }
 
 CLK_OF_DECLARE(mcom03_clk, "elvees,mcom03-clk-ucg", mcom03_clk_ucg_init);
+
+static u32 mcom03_clk_ucg_set_bypass(struct mcom03_clk_refmux *priv)
+{
+	struct mcom03_clk_ucg_chan ucg_chan;
+	u32 bp_orig;
+	u32 bp;
+
+	/* Ref MUX is not glitch free. All enabled channels must be turned to
+	 * bypass before ref will be changed.
+	 */
+	ucg_chan.base = priv->base_ucg;
+	bp_orig = ucg_readl(&ucg_chan, BP_CTR_REG);
+	bp = bp_orig;
+	for (ucg_chan.id = 0; ucg_chan.id < 16; ucg_chan.id++) {
+		if (_ucg_chan_is_enabled(&ucg_chan))
+			bp |= BIT(ucg_chan.id);
+	}
+	ucg_writel(&ucg_chan, bp, BP_CTR_REG);
+
+	return bp_orig;
+}
+
+static void mcom03_clk_bypass_restore(struct mcom03_clk_refmux *priv, u32 value)
+{
+	struct mcom03_clk_ucg_chan ucg_chan;
+
+	ucg_chan.base = priv->base_ucg;
+	ucg_writel(&ucg_chan, value, BP_CTR_REG);
+}
+
+static DEFINE_SPINLOCK(mcom03_clk_refmux_lock);
+
+static int mcom03_clk_mux_set_parent(struct clk_hw *hw, u8 index)
+{
+	struct clk_mux *mux = to_clk_mux(hw);
+	struct mcom03_clk_refmux *priv = to_mcom03_refmux(mux);
+	unsigned long flags = 0;
+	u32 old_bp;
+	int ret;
+
+	spin_lock_irqsave(&mcom03_clk_refmux_lock, flags);
+	old_bp = mcom03_clk_ucg_set_bypass(priv);
+	ret = clk_mux_ops.set_parent(hw, index);
+	mcom03_clk_bypass_restore(priv, old_bp);
+	spin_unlock_irqrestore(&mcom03_clk_refmux_lock, flags);
+
+	return ret;
+}
+
+static u8 mcom03_clk_mux_get_parent(struct clk_hw *hw)
+{
+	return clk_mux_ops.get_parent(hw);
+}
+
+static int mcom03_clk_mux_determine_rate(struct clk_hw *hw,
+					 struct clk_rate_request *req)
+{
+	return clk_mux_ops.determine_rate(hw, req);
+}
+
+static const struct clk_ops mcom03_clk_mux_ops = {
+	.get_parent = mcom03_clk_mux_get_parent,
+	.set_parent = mcom03_clk_mux_set_parent,
+	.determine_rate = mcom03_clk_mux_determine_rate,
+};
+
+static void __init mcom03_clk_refmux_init(struct device_node *np,
+					  struct mcom03_refmux_data *data)
+{
+	struct clk_init_data init = {};
+	struct mcom03_clk_refmux *priv;
+	unsigned int parent_count;
+	const char *parent_names[4];
+	struct clk *clk;
+	int ret;
+	int i;
+
+	ret = of_property_read_string(np, "clock-output-names", &init.name);
+	if (ret) {
+		if (unlikely(ret != -EINVAL)) {
+			pr_err("%s: Failed to get clock-output-names (%d)\n",
+			       np->full_name, ret);
+			return;
+		}
+		init.name = data->name;
+	}
+
+	parent_count = of_clk_get_parent_count(np);
+	if (parent_count > ARRAY_SIZE(parent_names)) {
+		pr_err("%s: Too many parent clocks (%d but maximum %ld)\n",
+		       np->full_name, parent_count, ARRAY_SIZE(parent_names));
+		return;
+	}
+	for (i = 0; i < parent_count; i++)
+		parent_names[i] = of_clk_get_parent_name(np, i);
+
+	priv = kzalloc(sizeof(struct mcom03_clk_refmux), GFP_KERNEL);
+	if (!priv)
+		return;
+
+	init.ops = &mcom03_clk_mux_ops;
+	init.parent_names = parent_names;
+	init.num_parents = parent_count;
+
+	priv->base_ucg = ioremap(data->base_ucg, UCG_SIZE);
+	priv->mux.reg = ioremap(data->base_ref, 0x4);
+	priv->mux.shift = data->shift;
+	priv->mux.mask = data->mask;
+	priv->mux.hw.init = &init;
+
+	clk = clk_register(NULL, &priv->mux.hw);
+	if (IS_ERR(clk)) {
+		pr_err("%s: Failed to register clock (%ld)\n", np->full_name,
+		       PTR_ERR(clk));
+		kfree(priv);
+		return;
+	}
+
+	ret = of_clk_add_provider(np, of_clk_src_simple_get, clk);
+	if (ret < 0) {
+		pr_err("%s: Failed to add provider (%d)\n", np->full_name, ret);
+		kfree(priv);
+		return;
+	}
+}
+
+struct mcom03_refmux_data mcom03_hsp_refmux0_data = {
+	.name = "hsperiph_refmux0",
+	.base_ref = 0x1040000c,
+	.base_ucg = 0x10410000,
+	.shift = 0,
+	.mask = 0x3,
+};
+
+struct mcom03_refmux_data mcom03_hsp_refmux1_data = {
+	.name = "hsperiph_refmux1",
+	.base_ref = 0x1040000c,
+	.base_ucg = 0x10420000,
+	.shift = 2,
+	.mask = 0x3,
+};
+
+struct mcom03_refmux_data mcom03_hsp_refmux2_data = {
+	.name = "hsperiph_refmux2",
+	.base_ref = 0x1040000c,
+	.base_ucg = 0x10430000,
+	.shift = 4,
+	.mask = 0x3,
+};
+
+struct mcom03_refmux_data mcom03_hsp_refmux3_data = {
+	.name = "hsperiph_refmux3",
+	.base_ref = 0x1040000c,
+	.base_ucg = 0x10440000,
+	.shift = 6,
+	.mask = 0x3,
+};
+
+struct mcom03_refmux_data mcom03_lsp1_refmux_i2s_data = {
+	.name = "lsperiph1_refmux_i2s",
+	.base_ref = 0x17e0010,
+	.base_ucg = 0x17d0000,
+	.shift = 0,
+	.mask = 0x1,
+};
+
+struct mcom03_refmux_data mcom03_sdr_refmux_pcie0_data = {
+	.name = "sdr_refmux_pcie0",
+	.base_ref = 0x1900020,
+	.base_ucg = 0x1908000,
+	.shift = 0,
+	.mask = 0x3,
+};
+
+struct mcom03_refmux_data mcom03_sdr_refmux_pcie1_data = {
+	.name = "sdr_refmux_pcie1",
+	.base_ref = 0x1900030,
+	.base_ucg = 0x1c00000,
+	.shift = 0,
+	.mask = 0x3,
+};
+
+struct mcom03_refmux_data mcom03_sdr_refmux_jesd0tx_data = {
+	.name = "sdr_refmux_jesd0tx",
+	.base_ref = 0x1900024,
+	.base_ucg = 0x19e0000,
+	.shift = 0,
+	.mask = 0x3,
+};
+
+struct mcom03_refmux_data mcom03_sdr_refmux_jesd0rx_data = {
+	.name = "sdr_refmux_jesd0rx",
+	.base_ref = 0x1900028,
+	.base_ucg = 0x19e8000,
+	.shift = 0,
+	.mask = 0x3,
+};
+
+static void __init mcom03_clk_hsp_refmux0_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_hsp_refmux0_data);
+}
+CLK_OF_DECLARE(mcom03_clk_hsp_refmux0, "elvees,mcom03-clk-hsp-refmux0",
+	       mcom03_clk_hsp_refmux0_init);
+
+static void __init mcom03_clk_hsp_refmux1_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_hsp_refmux1_data);
+}
+CLK_OF_DECLARE(mcom03_clk_hsp_refmux1, "elvees,mcom03-clk-hsp-refmux1",
+	       mcom03_clk_hsp_refmux1_init);
+
+static void __init mcom03_clk_hsp_refmux2_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_hsp_refmux2_data);
+}
+CLK_OF_DECLARE(mcom03_clk_hsp_refmux2, "elvees,mcom03-clk-hsp-refmux2",
+	       mcom03_clk_hsp_refmux2_init);
+
+static void __init mcom03_clk_hsp_refmux3_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_hsp_refmux3_data);
+}
+CLK_OF_DECLARE(mcom03_clk_hsp_refmux3, "elvees,mcom03-clk-hsp-refmux3",
+	       mcom03_clk_hsp_refmux3_init);
+
+static void __init mcom03_clk_lsp1_refmux_i2s_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_lsp1_refmux_i2s_data);
+}
+CLK_OF_DECLARE(mcom03_clk_lsp1_refmux_i2s, "elvees,mcom03-clk-lsp1-refmux-i2s",
+	       mcom03_clk_lsp1_refmux_i2s_init);
+
+static void __init mcom03_clk_sdr_refmux_pcie0_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_sdr_refmux_pcie0_data);
+}
+CLK_OF_DECLARE(mcom03_clk_sdr_refmux_pcie0,
+	       "elvees,mcom03-clk-sdr-refmux-pcie0",
+	       mcom03_clk_sdr_refmux_pcie0_init);
+
+static void __init mcom03_clk_sdr_refmux_pcie1_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_sdr_refmux_pcie1_data);
+}
+CLK_OF_DECLARE(mcom03_clk_sdr_refmux_pcie1,
+	       "elvees,mcom03-clk-sdr-refmux-pcie1",
+	       mcom03_clk_sdr_refmux_pcie1_init);
+
+static void __init mcom03_clk_sdr_refmux_jesd0tx_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_sdr_refmux_jesd0tx_data);
+}
+CLK_OF_DECLARE(mcom03_clk_sdr_refmux_jesd0tx,
+	       "elvees,mcom03-clk-sdr-refmux-jesd0tx",
+	       mcom03_clk_sdr_refmux_jesd0tx_init);
+
+static void __init mcom03_clk_sdr_refmux_jesd0rx_init(struct device_node *np)
+{
+	mcom03_clk_refmux_init(np, &mcom03_sdr_refmux_jesd0rx_data);
+}
+CLK_OF_DECLARE(mcom03_clk_sdr_refmux_jesd0rx,
+	       "elvees,mcom03-clk-sdr-refmux-jesd0rx",
+	       mcom03_clk_sdr_refmux_jesd0rx_init);
 
 static void unregister_gate_free_provider(struct mcom03_clk_provider *p)
 {
