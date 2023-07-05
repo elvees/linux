@@ -9,6 +9,11 @@
 #include <dt-bindings/input/input.h>
 
 / {
+	model = "ECAM03COMMON r2.0";
+	compatible = "elvees,pm03cam-r2.0-ecam03common-r2.0",
+		     "elvees,pm03cam-r2.0",
+		     "elvees,mcom03";
+
 	gpio-keys {
 		compatible = "gpio-keys";
 
