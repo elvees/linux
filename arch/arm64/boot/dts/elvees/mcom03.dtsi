@@ -1224,6 +1224,16 @@
 			};
 		};
 
+		/*
+		 * External clock from clk125 pad for HSPERIPH, that can be
+		 * used as UCG input clock by assigned-clock-parents.
+		 */
+		hsperiph_clk125: hsperiph_clk125 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <125000000>;
+		};
+
 		hsperiph_pll: hsperiph_pll@10401000 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
@@ -1234,10 +1244,34 @@
 			assigned-clock-rates = <1125000000>;
 		};
 
+		hsperiph_refmux0: hsperiph_refmux0 {
+			compatible = "elvees,mcom03-clk-hsp-refmux0";
+			clocks = <&hsperiph_pll>, <&hsperiph_clk125>;
+			#clock-cells = <0>;
+		};
+
+		hsperiph_refmux1: hsperiph_refmux1 {
+			compatible = "elvees,mcom03-clk-hsp-refmux1";
+			clocks = <&hsperiph_pll>, <&hsperiph_clk125>;
+			#clock-cells = <0>;
+		};
+
+		hsperiph_refmux2: hsperiph_refmux2 {
+			compatible = "elvees,mcom03-clk-hsp-refmux2";
+			clocks = <&hsperiph_pll>, <&hsperiph_clk125>;
+			#clock-cells = <0>;
+		};
+
+		hsperiph_refmux3: hsperiph_refmux3 {
+			compatible = "elvees,mcom03-clk-hsp-refmux3";
+			clocks = <&hsperiph_pll>, <&hsperiph_clk125>;
+			#clock-cells = <0>;
+		};
+
 		hsperiph_ucg0: ucg@10410000 {
 			compatible = "elvees,mcom03-clk-ucg";
 			reg = <0 0x10410000 0 0x80>;
-			clocks = <&hsperiph_pll>;
+			clocks = <&hsperiph_refmux0>;
 			clock-output-names = "hsp_sys_clk", "hsp_dma_clk",
 					     "hsp_ctr_clk", "spram_clk",
 					     "emac0_clk", "emac1_clk",
@@ -1282,7 +1316,7 @@
 		hsperiph_ucg1: ucg@10420000 {
 			compatible = "elvees,mcom03-clk-ucg";
 			reg = <0 0x10420000 0 0x80>;
-			clocks = <&hsperiph_pll>;
+			clocks = <&hsperiph_refmux1>;
 			clock-output-names = "sdmmc0_xin_clk",
 					     "sdmmc1_xin_clk",
 					     "nfc_clk_flash",
@@ -1300,7 +1334,7 @@
 		hsperiph_ucg2: ucg@10430000 {
 			compatible = "elvees,mcom03-clk-ucg";
 			reg = <0 0x10430000 0 0x80>;
-			clocks = <&hsperiph_pll>;
+			clocks = <&hsperiph_refmux2>;
 			clock-output-names = "emac0_clk_1588",
 					     "emac0_rgmii_txc",
 					     "emac1_clk_1588",
@@ -1311,7 +1345,7 @@
 		hsperiph_ucg3: ucg@10440000 {
 			compatible = "elvees,mcom03-clk-ucg";
 			reg = <0 0x10440000 0 0x80>;
-			clocks = <&hsperiph_pll>;
+			clocks = <&hsperiph_refmux3>;
 			clock-output-names = "usb0_ref_alt_clk",
 					     "usb0_suspend_clk",
 					     "usb1_ref_alt_clk",
@@ -1873,10 +1907,23 @@
 
 		};
 
+		/* i2s0_sclk_in_clk is clock from external pin GPIO1_PORTB_5 */
+		i2s0_sclk_in_clk: i2s0_sclk_in_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <12288000>;
+		};
+
+		lsperiph1_refmux_i2s: lsperiph1_refmux_i2s {
+			compatible = "elvees,mcom03-clk-lsp1-refmux-i2s";
+			clocks = <&lsperiph1_pll0>, <&i2s0_sclk_in_clk>;
+			#clock-cells = <0>;
+		};
+
 		lsperiph1_ucg1: ucg@17d0000 {
 			compatible = "elvees,mcom03-clk-ucg";
 			reg = <0 0x17D0000 0 0x100>;
-			clocks = <&lsperiph1_pll0>;
+			clocks = <&lsperiph1_refmux_i2s>;
 			clock-output-names = "lsp1_i2s_clk";
 
 			assigned-clocks = <&lsperiph1_ucg1 LSP1_I2S_CLK>;
