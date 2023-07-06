@@ -34,8 +34,11 @@ static void mfbsp_i2s_start(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		mfbsp_writel(mfbsp->base, MFBSP_I2S_TSTART, 1);
-	else
+	else {
+		if (mfbsp->bclk_provider || mfbsp->frame_provider)
+			mfbsp_writel(mfbsp->base, MFBSP_I2S_TSTART, 1);
 		mfbsp_writel(mfbsp->base, MFBSP_I2S_RSTART, 1);
+	};
 }
 
 static void mfbsp_i2s_stop(struct snd_pcm_substream *substream,
@@ -43,14 +46,33 @@ static void mfbsp_i2s_stop(struct snd_pcm_substream *substream,
 {
 	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		mfbsp_writel(mfbsp->base, MFBSP_I2S_TSTART, 0);
-	else
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		/*
+		 * MFBSP I2S slave mode: unconditionally turn off MFBSP I2S transmitter.
+		 * MFBSP I2S master mode: turn off the transmitter only if CAPTURE is
+		 * not active, because during CAPTURE, MFBSP I2S receiver is clocked from
+		 * transmitter clock generator, which will be turned off if the transmitter
+		 * is turned off.
+		*/
+		if (!mfbsp->active || !(mfbsp->bclk_provider || mfbsp->frame_provider))
+			mfbsp_writel(mfbsp->base, MFBSP_I2S_TSTART, 0);
+	} else {
 		mfbsp_writel(mfbsp->base, MFBSP_I2S_RSTART, 0);
+		/*
+		 * MFBSP I2S slave mode: don't touch transmitter registers.
+		 * MFBSP I2S master mode: turn off the transmitter if PLAYBACK is not active.
+		 */
+		if (!mfbsp->active && (mfbsp->bclk_provider || mfbsp->frame_provider))
+			mfbsp_writel(mfbsp->base, MFBSP_I2S_TSTART, 0);
+	}
 }
 
 static int mfbsp_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
+	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
+	u32 dir_reg = mfbsp_readl(mfbsp->base, MFBSP_I2S_DIR);
+	u32 tctr_reg = mfbsp_readl(mfbsp->base, MFBSP_I2S_TCTR);
+
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		break;
@@ -60,10 +82,19 @@ static int mfbsp_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBM_CFM:
+		mfbsp->bclk_provider = false;
+		mfbsp->frame_provider = false;
+		break;
+	case SND_SOC_DAIFMT_CBS_CFS:
+		dir_reg |= MFBSP_I2S_DIR_TCLK | MFBSP_I2S_DIR_TCS;
+		mfbsp->bclk_provider = true;
+		mfbsp->frame_provider = true;
 		break;
 	default:
 		return -EINVAL;
 	}
+
+	mfbsp_writel(mfbsp->base, MFBSP_I2S_DIR, dir_reg);
 
 	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
 	case SND_SOC_DAIFMT_NB_NF:
@@ -87,7 +118,14 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
 	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
+	struct device *dev = dai->dev;
+	int ret = -EINVAL;
+	u32 sysclk, clk_div, cs_div;
 	u32 tctr_reg = mfbsp_readl(mfbsp->base, MFBSP_I2S_TCTR);
+	snd_pcm_format_t format = params_format(params);
+
+	if (snd_pcm_format_width(format) < 0)
+		return -EINVAL;
 
 	/*
 	 * EN bit is changed by hardware when we write in TSTART register for
@@ -98,7 +136,7 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 	tctr_reg |= MFBSP_I2S_TCTR_MBF | MFBSP_I2S_TCTR_CSNEG |
 		    MFBSP_I2S_TCTR_DEL | MFBSP_I2S_TCTR_NEG;
 
-	switch (params_format(params)) {
+	switch (format) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 	case SNDRV_PCM_FORMAT_U16_LE:
 		tctr_reg |= MFBSP_I2S_TCTR_SWAP | MFBSP_I2S_TCTR_PACK;
@@ -123,7 +161,7 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 			       MFBSP_I2S_RCTR_DEL | MFBSP_I2S_RCTR_NEG |
 			       MFBSP_I2S_RCTR_CS_CP | MFBSP_I2S_RCTR_CLK_CP;
 
-		switch (params_format(params)) {
+		switch (format) {
 		case SNDRV_PCM_FORMAT_S16_LE:
 		case SNDRV_PCM_FORMAT_U16_LE:
 			rctr_reg |= MFBSP_I2S_RCTR_SWAP | MFBSP_I2S_RCTR_PACK;
@@ -137,20 +175,93 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 		mfbsp_writel(mfbsp->base, MFBSP_I2S_RCTR, rctr_reg);
 	}
 
+	sysclk = clk_get_rate(mfbsp->clk);
+
+	if (mfbsp->bclk_provider) {
+		clk_div = sysclk / (2 * snd_soc_params_to_bclk(params)) - 1;
+		ret = snd_soc_dai_set_clkdiv(dai, MFBSP_TCLK_RATE_DIV, clk_div);
+		if (ret) {
+			dev_err(dev, "Failed to set TCLK_RATE divider, rc=%d\n", ret);
+			return ret;
+		}
+	}
+
+	if (mfbsp->frame_provider) {
+		u32 tctr_reg = mfbsp_readl(mfbsp->base, MFBSP_I2S_TCTR);
+		u32 wordlen = FIELD_GET(MFBSP_I2S_CTR_WORDLEN_MASK, tctr_reg);
+		u32 wordcnt = FIELD_GET(MFBSP_I2S_CTR_WORDCNT_MASK, tctr_reg);
+
+		cs_div = snd_pcm_format_width(format) - 1;
+
+		if (cs_div < ((wordlen + 1)*(wordcnt + 1) - 1)) {
+			dev_err(dev, "Invalid CS divider for: WORDLEN=0x%x WORDCNT=0x%x\n",
+				wordlen, wordcnt);
+			return -EINVAL;
+		}
+
+		ret = snd_soc_dai_set_clkdiv(dai, MFBSP_TCS_RATE_DIV, cs_div);
+		if (ret) {
+			dev_err(dev, "Failed to set TCS_RATE divider, rc=%d\n", ret);
+			return ret;
+		}
+	}
+
 	return 0;
 }
 
 static int mfbsp_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 			     struct snd_soc_dai *dai)
 {
+	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
+
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		mfbsp->active--;
 		mfbsp_i2s_stop(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		mfbsp->active++;
 		mfbsp_i2s_start(substream, dai);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mfbsp_i2s_set_clkdiv(struct snd_soc_dai *dai,
+				int div_id, int div)
+{
+	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
+	u32 val;
+
+	switch (div_id) {
+	case MFBSP_RCLK_RATE_DIV:
+		val = mfbsp_readl(mfbsp->base, MFBSP_I2S_RCTR_RATE) &
+				  ~MFBSP_I2S_CLK_RATE_MASK;
+		mfbsp_writel(mfbsp->base, MFBSP_I2S_RCTR_RATE, val |
+			     FIELD_PREP(MFBSP_I2S_CLK_RATE_MASK, div));
+		break;
+	case MFBSP_RCS_RATE_DIV:
+		val = mfbsp_readl(mfbsp->base, MFBSP_I2S_RCTR_RATE) &
+				  ~MFBSP_I2S_CS_RATE_MASK;
+		mfbsp_writel(mfbsp->base, MFBSP_I2S_RCTR_RATE, val |
+			     FIELD_PREP(MFBSP_I2S_CS_RATE_MASK, div));
+		break;
+	case MFBSP_TCLK_RATE_DIV:
+		val = mfbsp_readl(mfbsp->base, MFBSP_I2S_TCTR_RATE) &
+				  ~MFBSP_I2S_CLK_RATE_MASK;
+		mfbsp_writel(mfbsp->base, MFBSP_I2S_TCTR_RATE, val |
+			     FIELD_PREP(MFBSP_I2S_CLK_RATE_MASK, div));
+		break;
+	case MFBSP_TCS_RATE_DIV:
+		val = mfbsp_readl(mfbsp->base, MFBSP_I2S_TCTR_RATE) &
+				  ~MFBSP_I2S_CS_RATE_MASK;
+		mfbsp_writel(mfbsp->base, MFBSP_I2S_TCTR_RATE, val |
+			     FIELD_PREP(MFBSP_I2S_CS_RATE_MASK, div));
 		break;
 	default:
 		return -EINVAL;
@@ -163,6 +274,7 @@ static const struct snd_soc_dai_ops mfbsp_i2s_dai_ops = {
 	.set_fmt	= mfbsp_i2s_set_fmt,
 	.hw_params	= mfbsp_i2s_hw_params,
 	.trigger	= mfbsp_i2s_trigger,
+	.set_clkdiv	= mfbsp_i2s_set_clkdiv,
 };
 
 static struct snd_soc_dai_driver mfbsp_i2s_dai_driver = {

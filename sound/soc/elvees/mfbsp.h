@@ -50,6 +50,9 @@
 #define MFBSP_I2S_DIR_TCLK		BIT(1)
 #define MFBSP_I2S_DIR_RCLK		BIT(0)
 
+#define MFBSP_I2S_CTR_WORDLEN_MASK	GENMASK(24, 20)
+#define MFBSP_I2S_CTR_WORDCNT_MASK	GENMASK(17, 12)
+
 #define MFBSP_I2S_TCTR_CS_CONT		BIT(29)
 #define MFBSP_I2S_TCTR_CLK_CONT		BIT(28)
 #define MFBSP_I2S_TCTR_SWAP		BIT(27)
@@ -100,6 +103,15 @@
 #define MFBSP_DMA_CSR_WN(v)		((v) << 2)
 #define MFBSP_DMA_CSR_RUN		BIT(0)
 
+/* MFBSP clocks dividers */
+#define MFBSP_I2S_CS_RATE_MASK		GENMASK(31, 16)
+#define MFBSP_I2S_CLK_RATE_MASK		GENMASK(9, 0)
+
+#define MFBSP_RCLK_RATE_DIV		0
+#define MFBSP_RCS_RATE_DIV		1
+#define MFBSP_TCLK_RATE_DIV		2
+#define MFBSP_TCS_RATE_DIV		3
+
 static inline u32 mfbsp_readl(void __iomem *base, u32 offset)
 {
 	return readl(base + offset);
@@ -139,6 +151,9 @@ struct mfbsp_data {
 	struct dma_pool *dma_desc_pool;
 	struct mfbsp_dma_data playback_dma;
 	struct mfbsp_dma_data capture_dma;
+	bool bclk_provider;
+	bool frame_provider;
+	int active;
 };
 
 int mfbsp_register_platform(struct platform_device *pdev);
