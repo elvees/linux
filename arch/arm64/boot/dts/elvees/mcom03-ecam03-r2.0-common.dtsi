@@ -62,7 +62,10 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
-	/* TBD: Analog-to-Digital Converter ADS1000 */
+	adc: adc@48 {
+		compatible = "ti,ads1000";
+		reg = <0x48>;
+	};
 };
 
 &i2c2 {

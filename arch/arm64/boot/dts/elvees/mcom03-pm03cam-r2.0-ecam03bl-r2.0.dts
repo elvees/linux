@@ -12,6 +12,14 @@
 	compatible = "elvees,pm03cam-r2.0-ecam03bl-r2.0",
 		     "elvees,pm03cam-r2.0",
 		     "elvees,mcom03";
+
+	vdd_3v3: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 };
 
 &gpio0c {
@@ -26,4 +34,8 @@
 &gpio1c {
 	gpio-line-names = "Zoom_nB", "Zoom_B", "Zoom_A", "Zoom_nA",
 		"Focus_B", "Focus_nB", "Focus_nA", "Focus_A";
+};
+
+&adc {
+	vdd-supply = <&vdd_3v3>;
 };
