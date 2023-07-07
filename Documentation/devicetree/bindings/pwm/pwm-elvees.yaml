@@ -67,7 +67,7 @@ additionalProperties: false
 examples:
   - |
     pwm: pwm@1770000 {
-      compatible = "elvees,mcom-pwm";
+      compatible = "elvees,elvees-pwm";
       reg = <0 0x1770000 0 0x1000>;
       #pwm-cells = <2>;
       clocks = <&lsperiph1_ucg0 8>;
