@@ -19,6 +19,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/units.h>
+#include <linux/device.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/types.h>
@@ -365,9 +366,7 @@ static int ads1100_probe(struct i2c_client *client)
 	pm_runtime_set_autosuspend_delay(dev, ADS1100_SLEEP_DELAY_MS);
 	pm_runtime_use_autosuspend(dev);
 	pm_runtime_set_active(dev);
-	ret = devm_pm_runtime_enable(dev);
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to enable pm_runtime\n");
+	pm_runtime_enable(dev);
 
 	ret = devm_iio_device_register(dev, indio_dev);
 	if (ret)
@@ -407,10 +406,19 @@ static int ads1100_runtime_resume(struct device *dev)
 				       ADS1100_CONTINUOUS);
 }
 
-static DEFINE_RUNTIME_DEV_PM_OPS(ads1100_pm_ops,
-				 ads1100_runtime_suspend,
-				 ads1100_runtime_resume,
-				 NULL);
+static int ads1100_remove(struct i2c_client *client)
+{
+	pm_runtime_disable(&client->dev);
+
+	return 0;
+}
+
+static const struct dev_pm_ops ads1100_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				pm_runtime_force_resume)
+	SET_RUNTIME_PM_OPS(ads1100_runtime_suspend,
+			   ads1100_runtime_resume, NULL)
+};
 
 static const struct i2c_device_id ads1100_id[] = {
 	{ "ads1100" },
@@ -435,6 +443,7 @@ static struct i2c_driver ads1100_driver = {
 		   .pm = pm_ptr(&ads1100_pm_ops),
 	},
 	.probe_new = ads1100_probe,
+	.remove = ads1100_remove,
 	.id_table = ads1100_id,
 };
 
