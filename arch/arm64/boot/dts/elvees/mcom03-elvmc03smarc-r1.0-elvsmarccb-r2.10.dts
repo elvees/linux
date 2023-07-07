@@ -47,6 +47,18 @@
 		/* red led uses GPIO0_PORTC3 that required for SPI0 */
 		/delete-node/ red;
 	};
+
+	/*
+	 * One 4-pin PWM controlled fan can be used, but tachometer signal is GPIO6
+	 * (connects to GPIO1_D6 on MCom-03), which does not support interrupts.
+	 * No RPM info from tachometer for now.
+	*/
+	fancontrol: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwm 0 40000 0>;
+		#cooling-cells = <2>;
+		cooling-levels = <0 102 180 230>;
+	};
 };
 
 &sdhci1 {
@@ -191,4 +203,30 @@
 
 &csi1 {
 	status = "okay";
+};
+
+&pwm {
+		status = "okay";
+		elvees,output-channel = <0 0 0 0>;
+		elvees,state-on-disable = <1 0 0 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_oena0_mux>;
+};
+
+/*
+ * Upon reaching the trip point the thermal subsystem driver enables the fans.
+ *
+ * Thermal zones can be enabled/disabled via sysfs by writing said state into
+ * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
+ */
+&cpu_thermal {
+	cooling_maps: cooling-maps {
+		map0 {
+			trip = <&cpu_alert0>;
+			cooling-device = <&fancontrol
+					  THERMAL_NO_LIMIT
+					  THERMAL_NO_LIMIT>;
+		};
+	};
 };
