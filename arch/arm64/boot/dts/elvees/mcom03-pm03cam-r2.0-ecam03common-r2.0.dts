@@ -60,8 +60,8 @@
 		reg = <0x0>;
 
 		motorcomm,clk-out-frequency-hz = <0>;
-		rx-internal-delay-ps = <1800>;
-		tx-internal-delay-ps = <1200>;
+		rx-internal-delay-ps = <1650>;
+		tx-internal-delay-ps = <1650>;
 	};
 };
 
