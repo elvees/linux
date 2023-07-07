@@ -160,6 +160,15 @@ config PWM_CROS_EC
 	  PWM driver for exposing a PWM attached to the ChromeOS Embedded
 	  Controller.
 
+config PWM_ELVEES
+	tristate "ELVEES PWM support"
+	depends on ARCH_MCOM03
+	help
+	  Generic PWM framework driver for the ELVEES PWM.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-elvees.
+
 config PWM_EP93XX
 	tristate "Cirrus Logic EP93xx PWM support"
 	depends on ARCH_EP93XX || COMPILE_TEST
