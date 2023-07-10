@@ -39,3 +39,11 @@
 &adc {
 	vdd-supply = <&vdd_3v3>;
 };
+
+&pwm {
+	elvees,output-channel = <0 0 0 0>;
+	elvees,state-on-disable = <1 0 0 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_oena0_mux>;
+	status = "okay";
+};
