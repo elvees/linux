@@ -86,7 +86,7 @@ static int mcom03_reset_sdr_assert(struct reset_controller_dev *rcdev,
 		(struct mcom03_reset_private *)rcdev;
 	const struct sdr_reset *desc = NULL;
 
-	for (i = 0; i < sizeof(sdr_reset_map); i++) {
+	for (i = 0; i < ARRAY_SIZE(sdr_reset_map); i++) {
 		if (sdr_reset_map[i].id == id) {
 			desc = &sdr_reset_map[i];
 			break;
@@ -115,7 +115,7 @@ static int mcom03_reset_sdr_deassert(struct reset_controller_dev *rcdev,
 		(struct mcom03_reset_private *)rcdev;
 	const struct sdr_reset *desc = NULL;
 
-	for (i = 0; i < sizeof(sdr_reset_map); i++) {
+	for (i = 0; i < ARRAY_SIZE(sdr_reset_map); i++) {
 		if (sdr_reset_map[i].id == id) {
 			desc = &sdr_reset_map[i];
 			break;
@@ -147,7 +147,7 @@ static int mcom03_reset_sdr_status(struct reset_controller_dev *rcdev,
 	int ret;
 	const struct sdr_reset *desc = NULL;
 
-	for (i = 0; i < sizeof(sdr_reset_map); i++) {
+	for (i = 0; i < ARRAY_SIZE(sdr_reset_map); i++) {
 		if (sdr_reset_map[i].id == id) {
 			desc = &sdr_reset_map[i];
 			break;
