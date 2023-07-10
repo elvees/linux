@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2015, National Instruments Corp
- * Copyright 2021 RnD Center "ELVEES", JSC
+ * Copyright 2021-2024 RnD Center "ELVEES", JSC
  *
  * Based on Xilinx Zynq Reset controller driver.
  */
@@ -81,29 +81,11 @@ struct mcom03_reset_private {
 static int mcom03_reset_sdr_assert(struct reset_controller_dev *rcdev,
 				   unsigned long id)
 {
-	int i;
-	struct mcom03_reset_private *priv =
-		(struct mcom03_reset_private *)rcdev;
-	const struct sdr_reset *desc = NULL;
+	/* Reset assertion of individual SDR subcomponents causes SDR subsystem
+	 * freeze (see MCOM03-1943). Skip asserts, allow only deasserts.
+	 */
+	dev_dbg(rcdev->dev, "Skip reset of SDR subcomponent: %ld", id);
 
-	for (i = 0; i < ARRAY_SIZE(sdr_reset_map); i++) {
-		if (sdr_reset_map[i].id == id) {
-			desc = &sdr_reset_map[i];
-			break;
-		}
-	}
-	if (!desc)
-		return -ENOTSUPP;
-
-	switch (desc->type) {
-	case RST_PP:
-		return regmap_update_bits(priv->urb,
-					  priv->offset + desc->offset,
-					  PP_MASK, PP_WARM_RST);
-	case RST_MONO:
-		return regmap_write(priv->urb,
-				    priv->offset + desc->offset, 0);
-	}
 	return 0;
 }
 
