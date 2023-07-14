@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/elvees,mcom03-clk-refmux.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: MCom-03 REF MUX
+
+maintainers:
+  - Vasiliy Zasukhin <vzasukhin@elvees.com>
+
+description: |
+  MCom-03 SoC has several UCG (Universal Clock Generator). Some UCGs has up to
+  four input reference clocks. Clock for UCG seleted by reference multiplexor
+  (REF MUX). This file describes REF MUX. UCG is described in
+  elvees,mcom03-clk-ucg.yaml.
+             +---------+  +---------+
+   clk_ref0--|         |  |         |- channel 0
+   clk_ref1--| REF MUX |--|   UCG   |- channel 1
+   clk_ref2--|         |  |         |...
+   clk_ref3--|         |  |         |- channel 15
+             +---------+  +---------+
+
+properties:
+  compatible:
+    enum:
+      - elvees,mcom03-clk-hsp-refmux0
+      - elvees,mcom03-clk-hsp-refmux1
+      - elvees,mcom03-clk-hsp-refmux2
+      - elvees,mcom03-clk-hsp-refmux3
+      - elvees,mcom03-clk-lsp1-refmux-i2s
+      - elvees,mcom03-clk-sdr-refmux-pcie0
+      - elvees,mcom03-clk-sdr-refmux-pcie1
+      - elvees,mcom03-clk-sdr-refmux-jesd0tx
+      - elvees,mcom03-clk-sdr-refmux-jesd0rx
+
+  clocks:
+    minItems: 1
+    maxItems: 4
+    description: Input clocks
+
+  '#clock-cells':
+    const: 0
+
+  clock-output-names: true
+
+  assigned-clocks: true
+
+  assigned-clock-parents: true
+
+required:
+  - compatible
+  - clocks
+  - '#clock-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    hsperiph_refmux2: hsperiph_refmux2 {
+        compatible = "elvees,mcom03-clk-hsp-refmux2";
+        clocks = <&hsperiph_pll>, <&hsperiph_clk125_clk>;
+        #clock-cells = <0>;
+        assigned-clocks = <&hsperiph_refmux2>;
+        assigned-clock-parents = <&hsperiph_clk125_clk>;
+    };
+
+    hsperiph_ucg2: ucg@10430000 {
+        compatible = "elvees,mcom03-clk-ucg";
+        reg = <0 0x10430000 0 0x80>;
+        clocks = <&hsperiph_refmux2>;
+        clock-output-names = "emac0_clk_1588",
+                             "emac0_rgmii_txc",
+                             "emac1_clk_1588",
+                             "emac1_rgmii_txc";
+        #clock-cells = <1>;
+    };
+...

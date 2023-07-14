@@ -9,6 +9,29 @@ title: MCom-03 UCG
 maintainers:
   - Vasiliy Zasukhin <vzasukhin@elvees.com>
 
+description: |
+  MCom-03 SoC has several UCG (Universal Clock Generator). UCG has up to four
+  reference clock inputs and up to 16 output channels. Each channel has
+  own 20-bit divider and gate. All output channels use single reference clock.
+  Some UCGs (in HSPERIPH, LSPERIPH1 and SDR subsystems) can use one of several
+  (up to four) reference clocks. In this case reference clock for dividing
+  can be selected by reference clock multiplexor (REF MUX).
+  MCom-03 datasheet says that REF MUX is part of UCG, but in Linux using
+  separate driver for REF MUX is more convenient. This file describes
+  only UCG. REF MUX is described in elvees,mcom03-clk-refmux.yaml.
+           +---------+   +-------------------+
+           | REF MUX |   |         UCG       |
+           |         |   |    +------------+ |
+           |         |   | +--|-DIV---GATE-|-|- channel 0
+  clk_ref0-|         |   | |  +------------+ |
+  clk_ref1-|         |---|-+--|-DIV---GATE-|-|- channel 1
+  clk_ref2-|         |   | |  +------------+ |
+  clk_ref3-|         |   | +................ |...
+           |         |   | |  +------------+ |
+           |         |   | +--|-DIV---GATE-|-|- channel 15
+           |         |   |    +------------+ |
+           +---------+   +-------------------+
+
 properties:
   compatible:
     enum:
