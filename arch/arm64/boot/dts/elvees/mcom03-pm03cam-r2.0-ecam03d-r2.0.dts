@@ -34,11 +34,7 @@
 
 &gpio1c {
 	gpio-line-names = "Zoom_nB", "Zoom_B", "Zoom_A", "Zoom_nA",
-		"Focus_B", "Focus_nB", "", "Focus_A";
-};
-
-&gpio1d {
-	gpio-line-names = "", "", "Focus_nA", "", "", "", "", "";
+		"Focus_B", "Focus_nB", "Focus_nA", "Focus_A";
 };
 
 &adc {
