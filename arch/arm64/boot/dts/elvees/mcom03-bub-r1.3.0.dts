@@ -15,6 +15,11 @@
 		     "elvees,mcom03-bub",
 		     "elvees,mcom03";
 
+	aliases {
+		mmc0 = &sdhci1;
+		mmc1 = &sdhci0;
+	};
+
 	adv7513_cec_clk: adv7513_cec_clk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
