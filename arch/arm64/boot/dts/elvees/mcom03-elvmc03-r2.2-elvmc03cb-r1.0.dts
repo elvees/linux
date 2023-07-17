@@ -28,7 +28,7 @@
 
 	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
-		regulator-name = "sdhci1-supply";
+		regulator-name = "sdhci0-supply";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
