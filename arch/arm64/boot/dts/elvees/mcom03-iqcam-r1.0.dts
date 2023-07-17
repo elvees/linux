@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "IQCAM r1.0";
+	compatible = "elvees,iqcam-r1.0",
+		     "elvees,iqcam",
+		     "elvees,mcom03";
+
+	/delete-node/ sdr-bus;
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	vdd_3v3: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+};
+
+&gpio0a {
+	gpio-line-names = "", "", "ALARM_IN1", "ALARM_IN2",
+			  "", "", "", "GPIO_RESET";
+};
+
+&gpio0c {
+	gpio-line-names = "P_Iris_A", "P_Iris_B", "P_Iris_nA", "CMOS_nRST",
+			  "P_Iris_nB", "", "", "CdS_INPUT";
+};
+
+&gpio0d {
+	gpio-line-names = "IR_nA", "IR_A", "", "", "", "", "", "";
+};
+
+&gpio1a {
+	gpio-line-names = "", "", "", "", "", "", "", "ALARM_OUT1";
+};
+
+&gpio1c {
+	gpio-line-names = "Zoom_nB", "Zoom_B", "Zoom_A", "Zoom_nA",
+		"Focus_B", "Focus_nB", "Focus_nA", "Focus_A";
+};
+
+&gpio1d {
+	gpio-line-names = "", "", "IR_LED", "", "", "", "", "";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+&qlic0 {
+	status = "okay";
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	adc: adc@48 {
+		compatible = "ti,ads1000";
+		reg = <0x48>;
+		vdd-supply = <&vdd_3v3>;
+	};
+};
+
+&i2c4 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	rtc@51 {
+		compatible = "nxp,pcf85063";
+		reg = <0x51>;
+	};
+};
+
+&sdhci0 {
+	status = "okay";
+
+	non-removable;
+	bus-width = <8>;
+
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: w25q128jw@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "winbond,w25q128";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <50000000>;
+	};
+};
+
+&emac0 {
+	status = "okay";
+
+	phy-handle = <&ethernet_phy0>;
+
+	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-id0000.011a",
+			     "ethernet-phy-ieee802.3-c22";
+		reg = <0x0>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1650>;
+		tx-internal-delay-ps = <1650>;
+		max-speed = <100>;
+	};
+};
+
+&i2s0 {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
