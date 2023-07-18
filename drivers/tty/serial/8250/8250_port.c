@@ -1501,8 +1501,9 @@ static inline void __stop_tx(struct uart_8250_port *p)
 
 	if (em485) {
 		unsigned char lsr = serial_in(p, UART_LSR);
-		p->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;
 		u64 stop_delay = 0;
+
+		p->lsr_saved_flags |= lsr & LSR_SAVE_FLAGS;
 
 		if (!(lsr & UART_LSR_THRE))
 			return;
