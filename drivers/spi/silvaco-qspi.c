@@ -374,14 +374,6 @@ static int silvaco_qspi_init(struct device *dev, struct silvaco_qspi *silvaco)
 	return 0;
 }
 
-#if defined(CONFIG_OF)
-static const struct of_device_id silvaco_qspi_of_match[] = {
-	{ .compatible = "silvaco,axi-qspi" },
-	{ /* sentinel */ }
-};
-MODULE_DEVICE_TABLE(of, silvaco_qspi_of_match);
-#endif
-
 int silvaco_qspi_probe(struct platform_device *pdev)
 {
 	struct silvaco_qspi *silvaco;
@@ -390,9 +382,11 @@ int silvaco_qspi_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret, num_cs = 0;
 
-	master = spi_alloc_master(dev, sizeof(struct silvaco_qspi));
-	if (!master)
-		return -ENODEV;
+	master = devm_spi_alloc_master(dev, sizeof(struct silvaco_qspi));
+	if (!master) {
+		dev_err(dev, "master allocation failed\n");
+		return -ENOMEM;
+	}
 
 	if (of_property_read_u32(pdev->dev.of_node, "num-cs", &num_cs)) {
 		dev_err(dev, "Missing chip select configuration data\n");
@@ -410,21 +404,19 @@ int silvaco_qspi_probe(struct platform_device *pdev)
 	silvaco->clk_axi = devm_clk_get(&pdev->dev, "clk_axi");
 	if (IS_ERR(silvaco->clk_axi)) {
 		dev_err(&pdev->dev, "clk_axi clock not found.\n");
-		ret = PTR_ERR(silvaco->clk_axi);
-		goto silvaco_master_free;
+		return PTR_ERR(silvaco->clk_axi);
 	}
 
 	silvaco->clk_ext = devm_clk_get(&pdev->dev, "clk_ext");
 	if (IS_ERR(silvaco->clk_ext)) {
 		dev_err(&pdev->dev, "clk_ext clock not found.\n");
-		ret = PTR_ERR(silvaco->clk_ext);
-		goto silvaco_master_free;
+		return PTR_ERR(silvaco->clk_ext);
 	}
 
 	ret = clk_prepare_enable(silvaco->clk_axi);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to enable AXI clock.\n");
-		goto silvaco_master_free;
+		return ret;
 	}
 
 	ret = clk_prepare_enable(silvaco->clk_ext);
@@ -457,7 +449,6 @@ int silvaco_qspi_probe(struct platform_device *pdev)
 
 	/* setup the master state. */
 	master->dev.of_node = pdev->dev.of_node;
-	master->bus_num = -1;
 	master->num_chipselect = num_cs;
 	master->bits_per_word_mask = SPI_BPW_MASK(8) | SPI_BPW_MASK(32);
 	master->setup = silvaco_qspi_setup;
@@ -470,13 +461,14 @@ int silvaco_qspi_probe(struct platform_device *pdev)
 		goto assert_reset;
 	}
 
+	platform_set_drvdata(pdev, master);
 	ret = devm_spi_register_master(&pdev->dev, master);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to register spi master.\n");
 		goto assert_reset;
 	}
 
-	dev_dbg(&pdev->dev, "Register Silvaco QSPI driver.\n");
+	dev_info(&pdev->dev, "Register Silvaco QSPI driver.\n");
 
 	return 0;
 
@@ -486,24 +478,30 @@ disable_clk_ext:
 	clk_disable_unprepare(silvaco->clk_ext);
 disable_clk_axi:
 	clk_disable_unprepare(silvaco->clk_axi);
-silvaco_master_free:
-	spi_master_put(master);
 
 	return ret;
 }
 
 int silvaco_qspi_remove(struct platform_device *pdev)
 {
-	struct spi_master *master = spi_master_get(platform_get_drvdata(pdev));
+	struct spi_master *master = platform_get_drvdata(pdev);
 	struct silvaco_qspi *silvaco = spi_master_get_devdata(master);
 
 	clk_disable_unprepare(silvaco->clk_ext);
 	clk_disable_unprepare(silvaco->clk_axi);
 
-	spi_master_put(master);
+	dev_dbg(&pdev->dev, "Unregister Silvaco QSPI driver.\n");
 
 	return 0;
 }
+
+#if defined(CONFIG_OF)
+static const struct of_device_id silvaco_qspi_of_match[] = {
+	{ .compatible = "silvaco,axi-qspi" },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, silvaco_qspi_of_match);
+#endif
 
 static struct platform_driver silvaco_qspi_driver = {
 	.probe = silvaco_qspi_probe,
@@ -515,3 +513,7 @@ static struct platform_driver silvaco_qspi_driver = {
 };
 
 module_platform_driver(silvaco_qspi_driver);
+
+MODULE_AUTHOR("Omar Al-Wadi <oalwadi@elvees.com>");
+MODULE_DESCRIPTION("Silvaco QSPI driver");
+MODULE_LICENSE("GPL");
