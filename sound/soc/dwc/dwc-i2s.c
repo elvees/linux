@@ -536,7 +536,10 @@ static int dw_configure_dai(struct dw_i2s_dev *dev,
 		dw_i2s_dai->capture.channels_min = MIN_CHANNEL_NUM;
 		dw_i2s_dai->capture.channels_max =
 				1 << (COMP1_RX_CHANNELS(comp1) + 1);
-		dw_i2s_dai->capture.formats = formats[idx];
+
+		for (i = 0; i <= idx; i++)
+			dw_i2s_dai->capture.formats |= formats[i];
+
 		dw_i2s_dai->capture.rates = rates;
 	}
 
