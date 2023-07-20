@@ -37,6 +37,41 @@
 			linux,code = <KEY_RESTART>;
 		};
 	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ECAM03 audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		simple-audio-card,aux-devs = <&linein_mic_selector>;
+		simple-audio-card,widgets =
+			"Microphone", "Microphone Jack",
+			"Line", "Line In Jack",
+			"Line", "Line Out Jack";
+		simple-audio-card,routing =
+			"Microphone Jack", "Channel1 IN",
+			"MIC1", "Microphone Jack",
+			"Microphone Jack", "micbias1",
+			"Line In Jack", "Channel2 IN",
+			"MIC2", "Line In Jack",
+			"Line Out Jack", "LOUTL",
+			"Line Out Jack", "LOUTR";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&rt5616>;
+			system-clock-frequency = <12288000>;
+		};
+	};
+
+	linein_mic_selector: audio-selector {
+		compatible = "simple-audio-selector";
+		select-gpios = <&gpio0d 2 GPIO_ACTIVE_LOW>;
+	};
 };
 
 &mfbsp1_gpio {
@@ -103,7 +138,11 @@
 
 	/* TDB: Inertial Measurement Unit (IMU) QMI8658C */
 
-	/* TBD: Audio codec ALC5616-CGT */
+	rt5616: audio-codec@1b {
+		#sound-dai-cells = <0>;
+		compatible = "realtek,rt5616";
+		reg = <0x1b>;
+	};
 };
 
 &i2c3 {
@@ -118,6 +157,12 @@
 
 &i2s0 {
 	status = "okay";
+
+	pinctrl-0 = <&i2s0_default_cfg &i2s0_mux_sdo0
+		     &i2s0_mux_sdi0 &i2s0_mux_ext_clk>;
+
+	assigned-clocks = <&lsperiph1_refmux_i2s>;
+	assigned-clock-parents = <&i2s0_sclk_in_clk>;
 };
 
 &isp {
