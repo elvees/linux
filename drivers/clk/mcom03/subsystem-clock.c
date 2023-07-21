@@ -19,6 +19,9 @@
 #define SDR_URB_PCI1_CTL		0x54
 #define SDR_URB_PCIE_CTL_PAD_EN		BIT(4)
 
+#define MEDIA_URB_SUBSYSTEM_CFG 0x2000
+#define MEDIA_URB_SUBSYSTEM_CFG_PARALLEL_PORT_EN BIT(0)
+
 struct mcom03_clk_provider {
 	struct clk_hw_onecell_data *clk_data;
 	struct regmap *urb;
@@ -244,6 +247,15 @@ void mcom03_sdr_clk_init(struct mcom03_clk_provider *prov)
 			   SDR_URB_PCIE_CTL_PAD_EN);
 }
 
+void mcom03_media_clk_init(struct mcom03_clk_provider *prov)
+{
+	/* TODO: Need to restore previous condition of DPI_EN */
+	regmap_update_bits(prov->urb,
+			   MEDIA_URB_SUBSYSTEM_CFG,
+			   MEDIA_URB_SUBSYSTEM_CFG_PARALLEL_PORT_EN,
+			   MEDIA_URB_SUBSYSTEM_CFG_PARALLEL_PORT_EN);
+}
+
 struct mcom03_subsystem_clk mcom03_subsystems[] = {
 	[MCOM03_SUBSYSTEM_SERVICE] = {
 		.plls = mcom03_service_plls,
@@ -289,6 +301,8 @@ struct mcom03_subsystem_clk mcom03_subsystems[] = {
 		.max_ucg_id = 3,
 
 		.nr_clocks = CLK_MEDIA_NR_CLOCKS,
+
+		.init = mcom03_media_clk_init,
 	},
 	[MCOM03_SUBSYSTEM_DDR] = {
 		.plls = mcom03_ddr_plls,
