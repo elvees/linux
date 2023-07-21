@@ -37,6 +37,16 @@ properties:
   vcc-supply:
     description: Regulator for 3.3V IO power.
 
+  lontium,dsi-mode-video-burst:
+    description: |
+      Set DSI video mode to 'burst' mode.
+      If disabled, 'sync pulses' mode will be enabled.
+    type: boolean
+
+  lontium,dsi-clock-non-continuous:
+    description: Enable non-continuous clocks.
+    type: boolean
+
   ports:
     type: object
 
