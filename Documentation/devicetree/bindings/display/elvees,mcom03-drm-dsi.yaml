@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/elvees,mcom03-drm-dsi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ELVEES MCom-03 DSI display encoder
+
+maintainers:
+  - RnD Center ELVEES, JSC <support@elvees.com>
+
+description:
+  MCom-03 DSI display encoder.
+
+properties:
+  compatible:
+    const: elvees,mcom03-drm-dsi
+
+  reg:
+    items:
+      - description: DSI controller
+      - description: MIPI TX DPHY control registers
+
+  reg-names:
+    items:
+      - const: dsi
+      - const: mipi-tx
+
+  clocks:
+    items:
+      - description: Pixel clock
+      - description: pclk clock
+      - description: disp_aclk clock
+      - description: mipi_tx_cfg clock
+      - description: mipi_tx_ref clock
+      - description: mipi_txlkesc_ref clock
+
+  clock-names:
+    items:
+      - const: pxlclk
+      - const: pclk
+      - const: disp_aclk
+      - const: mipi_tx_cfg
+      - const: mipi_tx_ref
+      - const: mipi_txclkesc
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: Input port from CRTC device
+
+      port@1:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: Output port for DSI interface
+
+    required:
+      - port@0
+
+  elvees,urb:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: Handle to URB of Media subsystem
+
+  dsi-clock-frequency:
+    description:
+      Custom DSI output frequency in hertz. Sometimes it is required to set
+      DSI frequency higher than automatically calculated from pixel clock.
+      By default (or if specified 0) DSI clock will be equal to minimum
+      frequency sufficient for pixel clock.
+    default: 0
+
+  dsi-min-clock-frequency:
+    description:
+      Minimal DSI output frequency in hertz. Sometimes low pixel clock modes
+      could be unstable with some dsi devices. This option overrides calculated
+      DSI frequency for pixel clocks lower then defined value.
+    default: 0
+
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - clocks
+  - clock-names
+  - ports
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/clock/mcom03-clock.h>
+
+    dsi_panel: dsi-panel {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        compatible = "auo,b101uan01";
+        status = "okay";
+        backlight = <&dsi_backlight>;
+        enable-gpios = <&gpio1c 1 GPIO_ACTIVE_HIGH>;
+
+        ports {
+            port {
+                panel_in: endpoint {
+                    remote-endpoint = <&dsi_out>;
+                };
+            };
+        };
+    };
+
+    de_dsi: display-encoder@12c0000 {
+        compatible = "elvees,mcom03-drm-dsi";
+        reg = <0 0x12c0000 0 0x10000>,
+              <0 0x1324000 0 0x1000>;
+        reg-names = "dsi", "mipi-tx";
+        clocks = <&media_ucg1 MEDIA_DISP_PXLCLK>,
+            <&media_ucg0 MEDIA_SYS_ACLK>,
+            <&media_ucg1 MEDIA_DISP_ACLK>,
+            <&media_ucg3 MEDIA_MIPI_TX_CFG_CLK>,
+            <&media_ucg3 MEDIA_MIPI_TX_REFCLK>,
+            <&media_ucg3 MEDIA_MIPI_TXCLKESC>;
+        clock-names = "pxlclk", "pclk", "disp_aclk", "mipi_tx_cfg",
+                      "mipi_tx_ref", "mipi_txclkesc";
+        elvees,urb = <&media_urb>;
+        dsi-clock-frequency = <500000000>;
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                reg = <0>;
+                de_dsi_in: endpoint {
+                    remote-endpoint = <&crtc_out>;
+                };
+            };
+
+            port@1 {
+                reg = <1>;
+                dsi_out: endpoint {
+                    remote-endpoint = <&panel_in>;
+                };
+            };
+        };
+    };
+
+...
