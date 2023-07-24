@@ -216,13 +216,6 @@ ser3: &uart1 { };
 					remote-endpoint = <&dsi_out>;
 				};
 			};
-
-			port@2 {
-				reg = <2>;
-				lt9611_out: endpoint {
-					remote-endpoint = <&hdmi_connector_in>;
-				};
-			};
 		};
 	};
 };
