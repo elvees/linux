@@ -203,6 +203,9 @@ ser3: &uart1 { };
 		reset-gpios = <&gpio0a 5 GPIO_ACTIVE_HIGH>;
 		interrupts-extended = <&gpio1a 6 IRQ_TYPE_EDGE_FALLING>;
 
+		pinctrl-0 = <&hdmi_int_default>;
+		pinctrl-names = "default";
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -275,4 +278,11 @@ i2c_pm: &i2c0 { };
 &gpio1d {
 	gpio-line-names = "nBATLOW", "LCD0_BKLT_PWM", "nLED-R", "nLED-G",
 		"nLED-B", "GPIO5_PWM_OUT", "LCD0_BKLT_EN", "LCD0_VDD_EN";
+};
+
+&lsperiph1_pinctrl {
+	hdmi_int_default: gpioa1-hdmi-int-cfg {
+		pins = "GPIOA_6";
+		input-enable;
+	};
 };
