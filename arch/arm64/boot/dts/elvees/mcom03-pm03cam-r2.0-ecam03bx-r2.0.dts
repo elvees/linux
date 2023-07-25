@@ -13,6 +13,20 @@
 		     "elvees,pm03cam-r2.0-ecam03common-r2.0",
 		     "elvees,pm03cam-r2.0",
 		     "elvees,mcom03";
+
+	gpio-leds {
+		compatible = "gpio-leds";
+
+		green {
+			gpios = <&mfbsp1_gpio 8 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		red {
+			gpios = <&mfbsp1_gpio 9 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
 };
 
 &gpio0c {
@@ -22,4 +36,11 @@
 
 &gpio0d {
 	gpio-line-names = "IR_nA", "IR_A", "", "", "", "", "", "";
+};
+
+&mfbsp1_gpio {
+	status = "okay";
+
+	gpio-line-names = "", "", "", "", "", "", "", "", "GPIO_LEDG", "GPIO_LEDR";
+	gpio-reserved-ranges = <0 8>;
 };
