@@ -650,8 +650,8 @@
 		de_dsi: display_encoder@1 {
 			compatible = "elvees,mcom03-drm-dsi";
 			status = "disabled";
-			reg = <0 0x12c0000 0 0x10000
-			       0 0x1324000 0 0x18>;
+			reg = <0 0x12c0000 0 0x10000>,
+			      <0 0x1324000 0 0x1000>;
 			reg-names = "dsi", "mipi-tx";
 			clocks = <&media_ucg1 MEDIA_DISP_PXLCLK>,
 				 <&media_ucg0 MEDIA_SYS_ACLK>,
