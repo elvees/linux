@@ -193,6 +193,9 @@ ser3: &uart1 { };
 	lt9611uxc: hdmi-bridge@2b {
 		status = "disabled";
 
+		lontium,dsi-mode-video-burst;
+		lontium,dsi-clock-non-continuous;
+
 		compatible = "lontium,lt9611uxc";
 		reg = <0x2b>;
 
