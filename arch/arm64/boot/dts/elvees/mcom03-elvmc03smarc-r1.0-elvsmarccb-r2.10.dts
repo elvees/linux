@@ -59,6 +59,21 @@
 		#cooling-cells = <2>;
 		cooling-levels = <0 102 180 230>;
 	};
+
+	elvsmarccb-keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+		autorepeat;
+
+		pinctrl-0 = <&sleep_button_default>;
+		pinctrl-names = "default";
+
+		sleep {
+			gpios = <&gpio1c 7 GPIO_ACTIVE_LOW>;
+			label = "SLEEP";
+			linux,code = <KEY_SLEEP>;
+		};
+	};
 };
 
 &sdhci1 {
@@ -228,5 +243,12 @@
 					  THERMAL_NO_LIMIT
 					  THERMAL_NO_LIMIT>;
 		};
+	};
+};
+
+&lsperiph1_pinctrl {
+	sleep_button_default: sleep-button-cfg {
+		pins = "GPIOC_7";
+		input-enable;
 	};
 };
