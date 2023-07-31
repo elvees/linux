@@ -112,6 +112,13 @@
 #define MFBSP_TCLK_RATE_DIV		2
 #define MFBSP_TCS_RATE_DIV		3
 
+#define MFBSP_PCM_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | \
+			   SNDRV_PCM_FMTBIT_U16_LE | \
+			   SNDRV_PCM_FMTBIT_S24_LE | \
+			   SNDRV_PCM_FMTBIT_U24_LE | \
+			   SNDRV_PCM_FMTBIT_S32_LE | \
+			   SNDRV_PCM_FMTBIT_U32_LE)
+
 static inline u32 mfbsp_readl(void __iomem *base, u32 offset)
 {
 	return readl(base + offset);

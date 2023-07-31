@@ -155,14 +155,19 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 	 */
 	tctr_reg &= MFBSP_I2S_TCTR_EN | MFBSP_I2S_TCTR_CS_CONT | MFBSP_I2S_TCTR_CLK_CONT;
 	tctr_reg |= MFBSP_I2S_TCTR_MBF | MFBSP_I2S_TCTR_CSNEG |
-		    MFBSP_I2S_TCTR_DEL | MFBSP_I2S_TCTR_NEG;
+		    MFBSP_I2S_TCTR_DEL | MFBSP_I2S_TCTR_NEG |
+		    MFBSP_I2S_TCTR_WORDLEN(snd_pcm_format_width(format)-1) |
+		    MFBSP_I2S_TCTR_WORDCNT(0);
 
 	switch (format) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 	case SNDRV_PCM_FORMAT_U16_LE:
 		tctr_reg |= MFBSP_I2S_TCTR_SWAP | MFBSP_I2S_TCTR_PACK;
-		tctr_reg |= MFBSP_I2S_TCTR_WORDLEN(15) |
-			    MFBSP_I2S_TCTR_WORDCNT(0);
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_U24_LE:
+	case SNDRV_PCM_FORMAT_S32_LE:
+	case SNDRV_PCM_FORMAT_U32_LE:
 		break;
 	default:
 		return -EINVAL;
@@ -180,14 +185,19 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 	if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK) {
 		u32 rctr_reg = MFBSP_I2S_RCTR_MBF | MFBSP_I2S_RCTR_CSNEG |
 			       MFBSP_I2S_RCTR_DEL | MFBSP_I2S_RCTR_NEG |
-			       MFBSP_I2S_RCTR_CS_CP | MFBSP_I2S_RCTR_CLK_CP;
+			       MFBSP_I2S_RCTR_CS_CP | MFBSP_I2S_RCTR_CLK_CP |
+			       MFBSP_I2S_RCTR_WORDLEN(snd_pcm_format_width(format)-1) |
+			       MFBSP_I2S_RCTR_WORDCNT(0);
 
 		switch (format) {
 		case SNDRV_PCM_FORMAT_S16_LE:
 		case SNDRV_PCM_FORMAT_U16_LE:
 			rctr_reg |= MFBSP_I2S_RCTR_SWAP | MFBSP_I2S_RCTR_PACK;
-			rctr_reg |= MFBSP_I2S_RCTR_WORDLEN(15) |
-				    MFBSP_I2S_RCTR_WORDCNT(0);
+			break;
+		case SNDRV_PCM_FORMAT_S24_LE:
+		case SNDRV_PCM_FORMAT_U24_LE:
+		case SNDRV_PCM_FORMAT_S32_LE:
+		case SNDRV_PCM_FORMAT_U32_LE:
 			break;
 		default:
 			return -EINVAL;
@@ -301,8 +311,7 @@ static const struct snd_soc_dai_ops mfbsp_i2s_dai_ops = {
 static struct snd_soc_dai_driver mfbsp_i2s_dai_driver = {
 	.ops			= &mfbsp_i2s_dai_ops,
 	.capture		= {
-		.formats	= SNDRV_PCM_FMTBIT_S16_LE |
-				  SNDRV_PCM_FMTBIT_U16_LE,
+		.formats	= MFBSP_PCM_FORMATS,
 		.rates		= SNDRV_PCM_RATE_8000_48000,
 		.rate_min	= 8000,
 		.rate_max	= 48000,
@@ -310,8 +319,7 @@ static struct snd_soc_dai_driver mfbsp_i2s_dai_driver = {
 		.channels_max	= 2,
 	},
 	.playback		= {
-		.formats	= SNDRV_PCM_FMTBIT_S16_LE |
-				  SNDRV_PCM_FMTBIT_U16_LE,
+		.formats	= MFBSP_PCM_FORMATS,
 		.rates		= SNDRV_PCM_RATE_8000_48000,
 		.rate_min	= 8000,
 		.rate_max	= 48000,
