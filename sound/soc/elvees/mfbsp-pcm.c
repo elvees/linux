@@ -35,8 +35,7 @@ static const struct snd_pcm_hardware mfbsp_pcm_hardware = {
 				  SNDRV_PCM_INFO_INTERLEAVED |
 				  SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				  SNDRV_PCM_INFO_PAUSE,
-	.formats		= SNDRV_PCM_FMTBIT_S16_LE |
-				  SNDRV_PCM_FMTBIT_U16_LE,
+	.formats		= MFBSP_PCM_FORMATS,
 	.rates			= SNDRV_PCM_RATE_8000_48000,
 	.rate_min		= 8000,
 	.rate_max		= 48000,
