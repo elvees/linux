@@ -37,6 +37,10 @@
 		"Focus_B", "Focus_nB", "Focus_nA", "Focus_A";
 };
 
+&gpio1d {
+	gpio-line-names = "", "", "IR_LED", "", "", "", "", "";
+};
+
 &adc {
 	vdd-supply = <&vdd_3v3>;
 };
