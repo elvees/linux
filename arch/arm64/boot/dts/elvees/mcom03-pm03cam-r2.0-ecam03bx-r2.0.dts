@@ -53,4 +53,9 @@
 
 	gpio-line-names = "", "", "", "", "", "", "", "", "GPIO_LEDG", "GPIO_LEDR";
 	gpio-reserved-ranges = <0 8>;
+
+&qmi8658c {
+	mount-matrix = "1", "0", "0",
+		       "0", "1", "0",
+		       "0", "0", "-1";
 };

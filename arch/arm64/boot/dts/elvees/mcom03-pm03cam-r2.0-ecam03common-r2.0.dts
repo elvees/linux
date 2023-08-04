@@ -136,7 +136,15 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
-	/* TDB: Inertial Measurement Unit (IMU) QMI8658C */
+	qmi8658c: imu@6b {
+		compatible = "qst,qmi8658c";
+		reg = <0x6b>;
+		interrupt-parent = <&gpio0a>;
+		interrupts = <5 IRQ_TYPE_LEVEL_HIGH>,
+			     <4 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "INT1", "INT2";
+		label = "imu";
+	};
 
 	rt5616: audio-codec@1b {
 		#sound-dai-cells = <0>;

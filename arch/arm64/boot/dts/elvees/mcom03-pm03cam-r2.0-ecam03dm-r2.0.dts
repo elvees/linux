@@ -14,3 +14,9 @@
 		     "elvees,pm03cam-r2.0",
 		     "elvees,mcom03";
 };
+
+&qmi8658c {
+	mount-matrix = "1", "0", "0",
+		       "0", "1", "0",
+		       "0", "0", "1";
+};
