@@ -23,6 +23,11 @@
 	};
 };
 
+&gpio0a {
+	gpio-line-names = "", "", "ALARM_IN1", "ALARM_IN2",
+		"", "", "", "";
+};
+
 &gpio0c {
 	gpio-line-names = "P_Iris_A", "P_Iris_B", "P_Iris_nA", "CMOS_nRST",
 		"P_Iris_nB", "", "", "CdS_INPUT";
@@ -30,6 +35,11 @@
 
 &gpio0d {
 	gpio-line-names = "IR_nA", "IR_A", "", "", "", "", "", "";
+};
+
+&gpio1a {
+	gpio-line-names = "", "", "", "",
+		"", "", "", "ALARM_OUT";
 };
 
 &gpio1c {
