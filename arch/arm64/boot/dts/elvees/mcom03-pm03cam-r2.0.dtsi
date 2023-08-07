@@ -14,8 +14,6 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	/delete-node/ sdr-bus;
-
 	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "sdhci0-supply";
