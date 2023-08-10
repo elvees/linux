@@ -107,6 +107,42 @@
 			linux,code = <BTN_TRIGGER_HAPPY4>;
 		};
 	};
+
+	vdd_codec: vdd-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd-codec";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	/* "G1" oscillator */
+	audio_mclk: audio_mclk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+	};
+
+	/* TRS (3.5mm jack) connected to SGTL5000 codec.
+	   SGTL5000 connected to MCom-03 I2S0 as I2S slave.
+	   */
+	analog-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-CE-CB analog audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,routing =
+			"MIC_IN", "Mic Bias";
+
+		dailink1_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sgtl5000>;
+		};
+	};
 };
 
 &uart0 {
@@ -187,6 +223,19 @@
 				  "HL12", "HL13", "HL14", "HL15",
 				  "EXT_LED_0", "EXT_LED_1", "EXT_LED_2", "EXT_LED_3";
 	};
+
+	sgtl5000: codec@a {
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		#sound-dai-cells = <0>;
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		micbias-resistor-k-ohms = <2>;
+		micbias-voltage-m-volts = <2250>;
+		VDDA-supply = <&vdd_codec>;
+		VDDIO-supply = <&vdd_codec>;
+		VDDD-supply = <&vdd_codec>;
+	};
 };
 
 &spi1 {
@@ -201,4 +250,8 @@
 		spi-max-frequency = <75000000>;
 		reg = <0x0>;
 	};
+};
+
+&i2s0 {
+	status = "okay";
 };
