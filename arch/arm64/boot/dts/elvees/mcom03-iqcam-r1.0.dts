@@ -45,12 +45,12 @@
 };
 
 &gpio0c {
-	gpio-line-names = "P_Iris_A", "P_Iris_B", "P_Iris_nA", "CMOS_nRST",
-			  "P_Iris_nB", "", "", "CdS_INPUT";
+	gpio-line-names = "P_Iris_nB", "P_Iris_A", "P_Iris_B", "CMOS_nRST",
+			  "P_Iris_nA", "", "", "CdS_INPUT";
 };
 
 &gpio0d {
-	gpio-line-names = "IR_nA", "IR_A", "", "", "", "", "", "";
+	gpio-line-names = "IR_A", "IR_nA", "", "", "", "", "", "";
 };
 
 &gpio1a {
@@ -58,12 +58,12 @@
 };
 
 &gpio1c {
-	gpio-line-names = "Zoom_nB", "Zoom_B", "Zoom_A", "Zoom_nA",
-		"Focus_B", "Focus_nB", "Focus_nA", "Focus_A";
+	gpio-line-names = "Focus_nB", "Focus_B", "Zoom_nA", "Zoom_A",
+			  "Focus_nA", "Focus_A", "IR_M", "Zoom_nB";
 };
 
 &gpio1d {
-	gpio-line-names = "", "", "IR_LED", "", "", "", "", "";
+	gpio-line-names = "", "", "Zoom_B", "", "", "", "", "";
 };
 
 &uart0 {
