@@ -736,20 +736,20 @@ static unsigned long pll_recalc_rate(struct clk_hw *hw,
 {
 	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
 	u32 reg = readl(pll->base);
-	unsigned long freq;
 
-	if (!(reg & PLL_LOCK)) {
-		freq = 0;
-		pr_warn("%s: PLL is not locked\n", clk_hw_get_name(hw));
-	} else if (reg & PLL_MAN) {
-		pll->nf = FIELD_GET(PLL_NF, reg) + 1;
-		pll->nr = FIELD_GET(PLL_NR, reg) + 1;
-		pll->od = FIELD_GET(PLL_OD, reg) + 1;
-		freq = parent_rate * pll->nf / pll->nr / pll->od;
-	} else
-		freq = parent_rate * (FIELD_GET(PLL_SEL, reg) + 1);
+	if (reg & PLL_SEL) {
+		if (!(reg & PLL_LOCK)) {
+			pr_warn("%s: PLL is not locked\n", clk_hw_get_name(hw));
+			return 0;
+		} else if (reg & PLL_MAN) {
+			pll->nf = FIELD_GET(PLL_NF, reg) + 1;
+			pll->nr = FIELD_GET(PLL_NR, reg) + 1;
+			pll->od = FIELD_GET(PLL_OD, reg) + 1;
+			return parent_rate * pll->nf / pll->nr / pll->od;
+		}
+	}
 
-	return freq;
+	return parent_rate * (FIELD_GET(PLL_SEL, reg) + 1);
 }
 
 static long _pll_round_rate(struct mcom03_pll *pll, unsigned long rate,
