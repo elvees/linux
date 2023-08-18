@@ -5,10 +5,12 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
@@ -69,12 +71,17 @@ struct silvaco_qspi_regs {
 
 struct silvaco_qspi {
 	struct device *dev;
+	struct regmap *urb_syscon;
 	struct silvaco_qspi_regs *regs;
 	struct spi_transfer *xfer;
 
 	struct clk *clk_axi;
 	struct clk *clk_ext;
 	struct reset_control *rst_ctrl;
+
+	/* URB register addresses for XIP mode managing */
+	unsigned int xip_en_req_reg;
+	unsigned int xip_en_out_reg;
 
 	unsigned int tx_count;
 	unsigned int rx_count;
@@ -344,7 +351,6 @@ static int silvaco_qspi_init(struct device *dev, struct silvaco_qspi *silvaco)
 	int ret = 0;
 	u32 reg = 0;
 
-	silvaco->dev = dev;
 	writel(0, &regs->en);
 	ret = readl_poll_timeout(&regs->en, reg, ~(reg) & BIT(0), 0, 1000);
 	if (ret) {
@@ -374,6 +380,38 @@ static int silvaco_qspi_init(struct device *dev, struct silvaco_qspi *silvaco)
 	return 0;
 }
 
+static void silvaco_qspi_set_platform_registers(struct silvaco_qspi *silvaco)
+{
+	struct device_node *np = silvaco->dev->of_node;
+
+	if (of_device_is_compatible(np, "elvees,mcom03-hsperiph-qspi")) {
+		silvaco->xip_en_req_reg = 0x0010;
+		silvaco->xip_en_out_reg = 0x0014;
+	} else if (of_device_is_compatible(np, "elvees,mcom03-service-qspi")) {
+		silvaco->xip_en_req_reg = 0x2004;
+		silvaco->xip_en_out_reg = 0x2008;
+	}
+}
+
+static int silvaco_qspi_set_operation_mode(struct silvaco_qspi *silvaco)
+{
+	u32 qspi_mode = 0, val;
+	int ret;
+
+	of_property_read_u32(silvaco->dev->of_node, "silvaco,qspi-mode", &qspi_mode);
+	if (qspi_mode != 0 && qspi_mode != 1) {
+		dev_warn(silvaco->dev, "Wrong value for 'silvaco,qspi-mode' property (%u)\n",
+			 qspi_mode);
+		qspi_mode = 0;
+	}
+
+	regmap_write(silvaco->urb_syscon, silvaco->xip_en_req_reg, qspi_mode);
+	ret = regmap_read_poll_timeout(silvaco->urb_syscon, silvaco->xip_en_out_reg,
+				       val, qspi_mode == val, 0, 100);
+
+	return ret;
+}
+
 int silvaco_qspi_probe(struct platform_device *pdev)
 {
 	struct silvaco_qspi *silvaco;
@@ -400,6 +438,20 @@ int silvaco_qspi_probe(struct platform_device *pdev)
 	}
 
 	silvaco = spi_master_get_devdata(master);
+	silvaco->dev = dev;
+
+	silvaco_qspi_set_platform_registers(silvaco);
+
+	silvaco->urb_syscon = syscon_regmap_lookup_by_phandle(dev->of_node, "elvees,urb");
+	if (!IS_ERR(silvaco->urb_syscon)) {
+		ret = silvaco_qspi_set_operation_mode(silvaco);
+		if (ret) {
+			dev_err(dev, "Can't set operation mode\n");
+			return ret;
+		}
+	} else {
+		dev_info(dev, "'elvees,urb' DTS property is absent; URB registers won't be set\n");
+	}
 
 	silvaco->clk_axi = devm_clk_get(&pdev->dev, "clk_axi");
 	if (IS_ERR(silvaco->clk_axi)) {
