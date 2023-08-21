@@ -198,6 +198,14 @@
 		#size-cells = <2>;
 		ranges;
 
+		service_urb: urb@1f000000 {
+			compatible = "elvees,mcom03-urb", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0 0x1f000000 0 0x10000>;
+			ranges = <0 0 0 0x10000>;
+		};
+
 		service_pll: service_pll@1f001000 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
@@ -263,10 +271,12 @@
 
 		qspi0: spi@1ff00000 {
 			status = "disabled";
-			compatible = "silvaco,axi-qspi";
+			compatible = "elvees,mcom03-service-qspi", "silvaco,axi-qspi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0 0x1ff00000 0 0x10000>;
+			elvees,urb = <&service_urb>;
+			silvaco,qspi-mode = <0>;
 			clock-names = "clk_axi", "clk_ext";
 			clocks = <&service_ucg1 SERVICE_QSPI0_CLK>,
 				 <&service_ucg1 SERVICE_QSPI0_EXT_CLK>;
@@ -1485,10 +1495,12 @@
 		};
 
 		qspi1: spi@10260000 {
-			compatible = "silvaco,axi-qspi";
+			compatible = "elvees,mcom03-hsperiph-qspi", "silvaco,axi-qspi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0 0x10260000 0 0x10000>;
+			elvees,urb = <&hsperiph_urb>;
+			silvaco,qspi-mode = <0>;
 			clock-names = "clk_axi", "clk_ext";
 			clocks = <&hsperiph_ucg0 HSP_QSPI_CLK>,
 				 <&hsperiph_ucg1 HSP_QSPI_EXT_CLK>;
