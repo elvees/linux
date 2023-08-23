@@ -83,5 +83,6 @@
 	adc@4f {
 		compatible = "ti,ads1110";
 		reg = <0x4f>;
+		label = "light-sensor";
 	};
 };
