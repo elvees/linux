@@ -984,6 +984,8 @@ patternProperties:
     description: Silex Insight
   "^siliconmitus,.*":
     description: Silicon Mitus, Inc.
+  "^silvaco,.*":
+    description: Silvaco Group, Inc.
   "^simtek,.*":
     description: Cypress Semiconductor Corporation (Simtek Corporation)
   "^sinlinx,.*":

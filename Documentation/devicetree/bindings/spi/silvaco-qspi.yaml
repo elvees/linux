@@ -11,7 +11,15 @@ maintainers:
 
 properties:
   compatible:
-    const: silvaco,axi-qspi
+    oneOf:
+      - items:
+          - enum:
+              - elvees,mcom03-hsperiph-qspi   # MCom-03 HSPERIPH URB support
+              - elvees,mcom03-service-qspi    # MCom-03 SERVICE URB support
+          - const: silvaco,axi-qspi
+
+      - items:
+          - const: silvaco,axi-qspi           # generic Silvaco QSPI controller
 
   reg:
     maxItems: 1
@@ -36,6 +44,19 @@ properties:
     minimum: 1
     maximum: 8
 
+  elvees,urb:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      A phandle to the syscon node describing URB registers.
+
+  silvaco,qspi-mode:
+    description: 0 - normal mode; 1 - XIP mode
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum:
+      - 0
+      - 1
+    default: 0
+
 # Slave schema can be found in file spi-controller.yaml in the same directory
 
 additionalProperties: false
@@ -54,9 +75,10 @@ examples:
 
     qspi0: spi@1ff00000 {
       status = "disabled";
-      compatible = "silvaco,axi-qspi";
+      compatible = "elvees,mcom03-hsperiph-qspi", "silvaco,axi-qspi";
       #address-cells = <1>;
       #size-cells = <0>;
+      silvaco,qspi-mode = <0>;
       reg = <0 0x1ff00000 0 0x10000>;
       clock-names = "clk_axi", "clk_ext";
       clocks = <&service_ucg1 SERVICE_QSPI0_CLK>,
