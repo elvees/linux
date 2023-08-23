@@ -66,7 +66,7 @@
 			sound-dai = <&rt5616>;
 			system-clock-frequency = <12288000>;
 		};
-       };
+	};
 
 	linein_mic_selector: audio-selector {
 		compatible = "simple-audio-selector";
@@ -75,7 +75,7 @@
 };
 
 &gpio0a {
-	gpio-line-names = "", "", "ALARM_IN1", "ALARM_IN2",
+	gpio-line-names = "", "", "ALARM_IN1", "",
 			  "", "", "", "GPIO_RESET";
 };
 
