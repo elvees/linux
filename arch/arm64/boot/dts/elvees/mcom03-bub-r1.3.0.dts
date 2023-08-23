@@ -85,9 +85,9 @@
  * of SD and eMMC.
  */
 &hsperiph_ucg1 {
-	assigned-clocks = <&hsperiph_ucg1 HSP_SDMMC0_XIN_CLK>,
-			  <&hsperiph_ucg1 HSP_SDMMC1_XIN_CLK>,
-			  <&hsperiph_ucg1 HSP_NFC_FLASH_CLK>;
+	assigned-clocks = <&hsperiph_ucg1 CLK_HSP_UCG1_SDMMC0_XIN>,
+			  <&hsperiph_ucg1 CLK_HSP_UCG1_SDMMC1_XIN>,
+			  <&hsperiph_ucg1 CLK_HSP_UCG1_NFC_FLASH>;
 	assigned-clock-rates = <93750000
 				125000000
 				93750000>;

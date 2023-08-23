@@ -227,8 +227,8 @@
 };
 
 &media_ucg1 {
-	assigned-clocks = <&media_ucg1 MEDIA_DISP_ACLK>,
-			  <&media_ucg1 MEDIA_DISP_MCLK>;
+	assigned-clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
+			  <&media_ucg1 CLK_MEDIA_UCG1_DISP_M>;
 	assigned-clock-rates = <594000000 297000000>;
 };
 
