@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r2.6.1.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r2.6.1, ELV-SMARC-CB r2.10.3";
+	compatible = "elvees,elvmc03smarc-r2.6.1-elvsmarccb-r2.10.3",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r2.10.3",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r2.6.1",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* SDIO_WP is not connected to SMARC connector XS1 */
+	disable-wp;
+};
+
+&sdhci1_default {
+	/* The default clock pad drive strength of 6 mA is insufficient
+	 * for some ELV-SMARC-CBs resulting in unstable SDMMC performance
+	 */
+	clk {
+		pins = "SDMMC1_CLK";
+		drive-strength = <8>;
+	};
+};
+
+/* Connects to XP12(RS-232) or XP13(RS-485) chosen by SA8 switch */
+&ser0 {
+	status = "okay";
+};
+
+/* Connects to debug USB Type-C port */
+&ser1 {
+	status = "okay";
+};
+
+/* Connects to XP6 RPi header */
+&ser2 {
+	status = "okay";
+};
+
+/* Connects to XP15 */
+&ser3 {
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+};
+
+&emac1 {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 3.0 hub */
+&usb1 {
+	status = "okay";
+};
+
+&i2c_pm {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+&i2c_gp {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	tmp112_cb: temperature-sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>;
+
+	flash1: w25q128jw@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q16dw", "jedec,spi-nor";
+		spi-max-frequency = <20000000>;
+		reg = <0x0>;
+	};
+};
+
+/* Connected to XP5 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+
+/* Connected to XP5 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
+&qlic0 {
+	status = "okay";
+};
