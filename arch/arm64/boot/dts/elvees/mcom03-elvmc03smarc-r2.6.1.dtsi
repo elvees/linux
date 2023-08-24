@@ -1,0 +1,215 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/leds/common.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r2.6.1";
+	compatible = "elvees,elvmc03smarc-r2.6.1",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	elvmc03smarc-leds {
+		compatible = "gpio-leds";
+
+		rgb-red {
+			gpios = <&gpio1d 2 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_RED>;
+			default-state = "off";
+		};
+
+		rgb-green {
+			gpios = <&gpio1d 3 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_GREEN>;
+			default-state = "off";
+		};
+
+		rgb-blue {
+			gpios = <&gpio1d 4 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_BLUE>;
+			default-state = "off";
+		};
+
+		user-led1 {
+			gpios = <&gpio0d 7 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
+
+		user-led2 {
+			gpios = <&gpio0b 2 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+};
+
+/* Serial port definitions for SMARC */
+ser0: &uart3 { };
+ser1: &uart0 { };
+ser2: &uart2 { };
+ser3: &uart1 { };
+
+&sdhci0 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: w25q16@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&xl9555 9 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-id0000.011a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x0>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1800>;
+		tx-internal-delay-ps = <1200>;
+	};
+};
+
+&emac1 {
+	phy-handle = <&ethernet_phy1>;
+	reset-gpios = <&xl9555 8 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy1: ethernet-phy@2 {
+		compatible = "ethernet-phy-id0000.011a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x2>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1900>;
+		tx-internal-delay-ps = <1650>;
+	};
+};
+
+sata: &pcie0 { };
+
+&i2c2 {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	tmp112: temperature-sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+
+	bl5372: rtc@32 {
+		compatible = "dallas,ds1337";
+		reg = <0x32>;
+	};
+
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+/* I2C definitions for SMARC*/
+i2c_gp: &i2c1 { };
+i2c_pm: &i2c0 { };
+
+&gpio0a {
+	gpio-line-names = "", "nSMB_ALERT", "SER0_CTS", "GPIO0_CAM0_PWR#",
+		"GPIO1_CAM1_PWR#", "GPIO2_CAM0_RST#", "INT_LVDS_1V8", "SER0_RTS";
+};
+
+&gpio0b {
+	gpio-line-names = "SER0_RX", "SER0_TX", "nUSER_LED2", "WDT_TIME_OUT#",
+		"PCIE_A_nRST", "SER3_RX", "SER3_TX", "SER2_RX";
+};
+
+&gpio0c {
+	gpio-line-names = "SPI_SCK", "SPI_MOSI", "SPI_MISO", "SPIO_SS_IN",
+		"SPI_CS0", "SPI_CS1", "LVDS_nRST", "SDR_h1v8-l1v5";
+};
+
+&gpio0d {
+	gpio-line-names = "SER2_TX", "", "", "I2C_PM_CK",
+		"I2C_PM_DAT", "", "", "nUSER_LED1";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_GP_CK", "I2C_GP_DAT", "I2C2_SCL", "I2C2_SDA",
+		"I2C3_SCL", "I2C3_SDA", "GPIO3_CAM1_RST#", "nINT_GPIOEXP";
+};
+
+&gpio1b {
+	gpio-line-names = "HDMI_I2S_SCLK", "HDMI_I2S_LRCLK", "HDMI_I2S_D",
+		"nSLEEP", "ESPI_RESET#", "USB_HUB_RST#", "SER1_TX", "SER1_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "GPIO12", "GPIO13", "nCHARGING", "nCHARGER_PRSNT",
+		"nTEST", "CARRIER_STBY#", "FORCE_RECOV#", "SATA_PERST";
+};
+
+&gpio1d {
+	gpio-line-names = "nBATLOW", "LCD0_BKLT_PWM", "nLED-R", "nLED-G",
+		"nLED-B", "GPIO5_PWM_OUT", "LCD0_BKLT_EN", "LCD0_VDD_EN";
+};
+
+&lsperiph1_pinctrl {
+	xl9555_int: xl9555-int {
+		pins = "GPIOA_7";
+		input-enable;
+	};
+};
+
+&i2c3 {
+	status = "okay";
+	/* On MCom-03 video sensors are handled by userspace drivers and are
+	 * not described in DeviceTree. Limit clock-frequency to 100 kHz because
+	 * this is maximum frequency for many sensors (for example OV5647). */
+	clock-frequency = <100000>;
+
+	xl9555: gpio-expander@20 {
+		compatible = "nxp,pca9555";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&xl9555_int>;
+
+		gpio-line-names = "GPIO4", "GPIO6", "GPIO7", "GPIO8", "GPIO9", "GPIO10",
+			"GPIO11", " PCIE_WAKE#", "nRST_ETH1", "nRST_ETH0", "nRST_HDMI", "",
+			"INT_HDMI", "nINT_RTC", "nINT_ETH0", "nINT_ETH1";
+	};
+};
