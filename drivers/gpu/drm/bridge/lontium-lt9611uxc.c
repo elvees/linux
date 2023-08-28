@@ -930,40 +930,6 @@ static int lt9611uxc_probe(struct i2c_client *client,
 	if (ret)
 		goto err_of_put;
 
-	lt9611uxc_reset(lt9611uxc);
-
-	ret = lt9611uxc_read_device_rev(lt9611uxc);
-	if (ret) {
-		dev_err(dev, "failed to read chip rev\n");
-		goto err_disable_regulators;
-	}
-
-retry:
-	ret = lt9611uxc_read_version(lt9611uxc);
-	if (ret < 0) {
-		dev_err(dev, "failed to read FW version\n");
-		goto err_disable_regulators;
-	} else if (ret == 0) {
-		if (!fw_updated) {
-			fw_updated = true;
-			dev_err(dev, "FW version 0, enforcing firmware update\n");
-			ret = lt9611uxc_firmware_update(lt9611uxc);
-			if (ret < 0)
-				goto err_disable_regulators;
-			else
-				goto retry;
-		} else {
-			dev_err(dev, "FW version 0, update failed\n");
-			ret = -EOPNOTSUPP;
-			goto err_disable_regulators;
-		}
-	} else if (ret < 0x40) {
-		dev_info(dev, "FW version 0x%x, HPD not supported\n", ret);
-	} else {
-		lt9611uxc->hpd_supported = true;
-	}
-	lt9611uxc->fw_version = ret;
-
 	init_waitqueue_head(&lt9611uxc->wq);
 	INIT_WORK(&lt9611uxc->work, lt9611uxc_hpd_work);
 
@@ -974,6 +940,40 @@ retry:
 		dev_err(dev, "failed to request irq\n");
 		goto err_disable_regulators;
 	}
+
+	lt9611uxc_reset(lt9611uxc);
+
+	ret = lt9611uxc_read_device_rev(lt9611uxc);
+	if (ret) {
+		dev_err(dev, "failed to read chip rev\n");
+		goto err_disable_irq;
+	}
+
+retry:
+	ret = lt9611uxc_read_version(lt9611uxc);
+	if (ret < 0) {
+		dev_err(dev, "failed to read FW version\n");
+		goto err_disable_irq;
+	} else if (ret == 0) {
+		if (!fw_updated) {
+			fw_updated = true;
+			dev_err(dev, "FW version 0, enforcing firmware update\n");
+			ret = lt9611uxc_firmware_update(lt9611uxc);
+			if (ret < 0)
+				goto err_disable_irq;
+			else
+				goto retry;
+		} else {
+			dev_err(dev, "FW version 0, update failed\n");
+			ret = -EOPNOTSUPP;
+			goto err_disable_irq;
+		}
+	} else if (ret < 0x40) {
+		dev_info(dev, "FW version 0x%x, HPD not supported\n", ret);
+	} else {
+		lt9611uxc->hpd_supported = true;
+	}
+	lt9611uxc->fw_version = ret;
 
 	i2c_set_clientdata(client, lt9611uxc);
 
@@ -987,6 +987,10 @@ retry:
 	drm_bridge_add(&lt9611uxc->bridge);
 
 	return lt9611uxc_audio_init(dev, lt9611uxc);
+
+err_disable_irq:
+	disable_irq(client->irq);
+	flush_scheduled_work();
 
 err_disable_regulators:
 	regulator_bulk_disable(ARRAY_SIZE(lt9611uxc->supplies), lt9611uxc->supplies);
