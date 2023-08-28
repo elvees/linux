@@ -11,7 +11,7 @@
 #include "mcom03.dtsi"
 
 / {
-	model = "IQCAM r1.0";
+	model = "QVC-MiR501Z1-S";
 	compatible = "elvees,iqcam-r1.0",
 		     "elvees,iqcam",
 		     "elvees,mcom03";
