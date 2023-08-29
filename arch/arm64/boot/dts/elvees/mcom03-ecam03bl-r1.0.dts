@@ -15,15 +15,11 @@
 	compatible = "elvees,ecam03bl-r1.0",
 		     "elvees,ecam03bl",
 		     "elvees,mcom03";
+};
 
-	leds {
-		compatible = "gpio-leds";
-
-		ir {
-			gpios = <&gpio1c 3 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-	};
+/* IR_LED is named GPIO_S_PWR in schematics */
+&gpio1c {
+	gpio-line-names = "", "", "", "IR_LED", "", "", "", "";
 };
 
 &i2c3 {
