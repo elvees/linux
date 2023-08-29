@@ -535,14 +535,15 @@ static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd,
 	struct sk_buff *skb;
 	u16 packet_length = (status & 0x3fff);
 
-	/* remove crc from packet lendth */
+	/* remove crc from packet length */
 	packet_length -= 4;
 
 	dev->stats.rx_packets++;
 	dev->stats.rx_bytes += packet_length;
 
 	dma_unmap_single(&pd->pdev->dev, pd->rx_buffers[index].mapping,
-			 packet_length, DMA_FROM_DEVICE);
+			 skb_tailroom(pd->rx_buffers[index].skb),
+			 DMA_FROM_DEVICE);
 
 	skb = pd->rx_buffers[index].skb;
 
