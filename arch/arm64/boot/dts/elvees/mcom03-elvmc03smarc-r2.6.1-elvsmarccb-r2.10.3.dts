@@ -84,6 +84,10 @@
 	status = "okay";
 };
 
+&pcie1 {
+	status = "okay";
+};
+
 &i2c_pm {
 	status = "okay";
 	// not tested to work on 400k
