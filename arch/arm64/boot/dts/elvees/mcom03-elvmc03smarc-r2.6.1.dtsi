@@ -55,6 +55,22 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+
+	hdmi_1v2_vdd_supply: regulator@01 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vdd-1.2v";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	hdmi_3v3_vcc_supply: regulator@02 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vcc-3.3v";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 };
 
 /* Serial port definitions for SMARC */
@@ -135,6 +151,35 @@ sata: &pcie0 { };
 		compatible = "microchip,24c32", "atmel,24c32";
 		reg = <0x50>;
 	};
+
+	lt9611uxc: hdmi-bridge@2b {
+		status = "disabled";
+
+		lontium,dsi-mode-video-burst;
+		lontium,dsi-clock-non-continuous;
+
+		compatible = "lontium,lt9611uxc";
+		reg = <0x2b>;
+
+		vdd-supply = <&hdmi_1v2_vdd_supply>;
+		vcc-supply = <&hdmi_3v3_vcc_supply>;
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&xl9555 10 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&xl9555 12 IRQ_TYPE_EDGE_FALLING>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in_p0: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
 };
 
 /* I2C definitions for SMARC*/
@@ -212,4 +257,23 @@ i2c_pm: &i2c0 { };
 			"GPIO11", " PCIE_WAKE#", "nRST_ETH1", "nRST_ETH0", "nRST_HDMI", "",
 			"INT_HDMI", "nINT_RTC", "nINT_ETH0", "nINT_ETH1";
 	};
+};
+
+&de_dsi {
+	dsi-min-clock-frequency = <275000000>;
+
+	ports {
+		port@1 {
+			reg = <1>;
+			dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in_p0>;
+			};
+		};
+	};
+};
+
+&media_ucg1 {
+	assigned-clocks = <&media_ucg1 MEDIA_DISP_ACLK>,
+			  <&media_ucg1 MEDIA_DISP_MCLK>;
+	assigned-clock-rates = <594000000 297000000>;
 };

@@ -22,6 +22,19 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	hdmi_connector: hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
 };
 
 &sdhci1 {
@@ -136,4 +149,25 @@
 
 &qlic0 {
 	status = "okay";
+};
+
+&dp {
+	status = "okay";
+};
+
+&de_dsi {
+	status = "okay";
+};
+
+&lt9611uxc {
+	status = "okay";
+
+	ports {
+		port@2 {
+			reg = <2>;
+			lt9611_out: endpoint {
+				remote-endpoint = <&hdmi_connector_in>;
+			};
+		};
+	};
 };
