@@ -1519,6 +1519,9 @@
 			clocks = <&xti_clk>;
 			elvees,urb = <&sdr_urb>;
 			reg = <0 0x1900000 0 0x80>;
+			#power-domain-cells = <0>;
+			elvees,power-domain;
+			elvees,service-urb = <&service_urb>;
 			assigned-clocks = <&sdr_clocks CLK_SDR_PLL0>,
 					  <&sdr_clocks CLK_SDR_PLL1>,
 					  <&sdr_clocks CLK_SDR_PLL2>,
@@ -1585,6 +1588,7 @@
 				elvees,ctrl-id = <0>;
 				msi-parent = <&its>;
 				status = "disabled";
+				power-domains = <&sdr_clocks>;
 
 				// Legacy interrupts support
 				#interrupt-cells = <1>;
@@ -1630,6 +1634,7 @@
 				elvees,ctrl-id = <1>;
 				msi-parent = <&its>;
 				status = "disabled";
+				power-domains = <&sdr_clocks>;
 
 				// Legacy interrupts support
 				#interrupt-cells = <1>;
@@ -1657,6 +1662,7 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1940000 0 0x40000>;
+			power-domains = <&sdr_clocks>;
 		};
 
 		elcores {
@@ -1683,6 +1689,7 @@
 				clock-names = "main_clk", "clk_cfg", "ext_clk",
 					      "int_clk", "pci_clk";
 				operating-points-v2 = <&dsp_opp_table>;
+				power-domains = <&sdr_clocks>;
 			};
 
 			elcore1: elcore@1c80000 {
@@ -1703,6 +1710,7 @@
 				clock-names = "main_clk", "clk_cfg", "ext_clk",
 					      "int_clk", "pci_clk";
 				operating-points-v2 = <&dsp_opp_table>;
+				power-domains = <&sdr_clocks>;
 			};
 		};
 

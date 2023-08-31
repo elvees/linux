@@ -28,6 +28,31 @@
 	};
 };
 
+&sdr_clocks {
+	// Not tested on this board
+	/delete-property/ elvees,power-domain;
+};
+
+&pcie0 {
+	/delete-property/ power-domains;
+};
+
+&pcie1 {
+	/delete-property/ power-domains;
+};
+
+&qlic1 {
+	/delete-property/ power-domains;
+};
+
+&elcore0 {
+	/delete-property/ power-domains;
+};
+
+&elcore1 {
+	/delete-property/ power-domains;
+};
+
 &hsperiph_pinctrl {
 	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
 };
