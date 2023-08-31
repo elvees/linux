@@ -87,6 +87,14 @@
 		clock-frequency = <12000000>;
 	};
 
+	lt9211_1v8: regulator@03 {
+		compatible = "regulator-fixed";
+		regulator-name = "rgb-lvds-vcc-1.8v";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
 	hdmi_sound: hdmi-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "ELV-MC03-SMARC HDMI Audio";
@@ -228,6 +236,34 @@ sata: &pcie0 { };
 			};
 		};
 	};
+
+	lt9211: rgb-lvds-bridge@2d {
+		compatible = "lontium,lt9211";
+		reg = <0x2d>;
+		status = "disabled";
+
+		reset-gpios = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio0a 6 IRQ_TYPE_EDGE_FALLING>;
+
+		vccio-supply = <&lt9211_1v8>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			// rgb
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+
+				lt9211_in: endpoint@2 {
+					reg = <2>;
+					remote-endpoint = <&rgb_out>;
+				};
+			};
+		};
+	};
 };
 
 /* I2C definitions for SMARC*/
@@ -353,4 +389,16 @@ i2c_pm: &i2c0 { };
 	assigned-clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
 			  <&media_ucg1 CLK_MEDIA_UCG1_DISP_M>;
 	assigned-clock-rates = <594000000 297000000>;
+};
+
+&de_dpi {
+	ports {
+		port@1 {
+			reg = <1>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&lt9211_in>;
+			};
+		};
+	};
 };
