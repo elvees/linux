@@ -71,6 +71,23 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
+
+	hdmi_sound: hdmi-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-MC03-SMARC HDMI Audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "disabled";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&lt9611uxc>;
+		};
+	};
 };
 
 /* Serial port definitions for SMARC */
