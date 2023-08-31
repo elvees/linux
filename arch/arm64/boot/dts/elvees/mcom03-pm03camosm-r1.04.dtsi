@@ -28,6 +28,11 @@
 	};
 };
 
+&sdr_clocks {
+	// Not tested on this board
+	/delete-property/ elvees,power-domain;
+};
+
 &hsperiph_pinctrl {
 	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
 };
