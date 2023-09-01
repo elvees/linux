@@ -70,6 +70,7 @@ static void mfbsp_i2s_stop(struct snd_pcm_substream *substream,
 static int mfbsp_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
+	struct device *dev = dai->dev;
 	u32 dir_reg = mfbsp_readl(mfbsp->base, MFBSP_I2S_DIR);
 	u32 tctr_reg = mfbsp_readl(mfbsp->base, MFBSP_I2S_TCTR);
 
@@ -103,8 +104,27 @@ static int mfbsp_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		return -EINVAL;
 	}
 
+	/*
+	 * If SND_SOC_DAIFMT_GATED is enabled in master mode, transmitter clock
+	 * generator generates TCLK only if there is data in the transmit buffer.
+	 * TCLK is also used to receive data (driver supports only schemes,
+	 * described in Figure 37.12, 37.18 of the MCom-03 User Manual). As a
+	 * result, during CAPTURE, transmitter buffer is always empty and MFBSP
+	 * does not generate TCLK, required for receiving data. For this reason,
+	 * SND_SOC_DAIFMT_GATED mode is not supported.
+	 * SND_SOC_DAIFMT_CONT is supported since in this mode MFBSP generates TCLK
+	 * if the transmitter is enabled (MFBSP_I2S_TSTART = 1).
+	*/
 	switch (fmt & SND_SOC_DAIFMT_CLOCK_MASK) {
+	case SND_SOC_DAIFMT_CONT:
+		mfbsp_writel(mfbsp->base, MFBSP_I2S_TCTR, tctr_reg | MFBSP_I2S_TCTR_CS_CONT |
+			     MFBSP_I2S_TCTR_CLK_CONT);
+		break;
 	case SND_SOC_DAIFMT_GATED:
+		if (mfbsp->bclk_provider || mfbsp->frame_provider) {
+			dev_err(dev, "Gated clocks are not supported in master mode\n");
+			return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -131,8 +151,9 @@ static int mfbsp_i2s_hw_params(struct snd_pcm_substream *substream,
 	 * EN bit is changed by hardware when we write in TSTART register for
 	 * playback stream. Because TCTR register is changed for both
 	 * playback and capture, we need to save EN bit unchanged.
+	 * Continuous clocks configuration should be unchanged.
 	 */
-	tctr_reg &= MFBSP_I2S_TCTR_EN;
+	tctr_reg &= MFBSP_I2S_TCTR_EN | MFBSP_I2S_TCTR_CS_CONT | MFBSP_I2S_TCTR_CLK_CONT;
 	tctr_reg |= MFBSP_I2S_TCTR_MBF | MFBSP_I2S_TCTR_CSNEG |
 		    MFBSP_I2S_TCTR_DEL | MFBSP_I2S_TCTR_NEG;
 
