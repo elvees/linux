@@ -102,7 +102,7 @@
 		status = "disabled";
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
-		clock-frequency = <12288000>;
+		clock-frequency = <12000000>;
 	};
 };
 
