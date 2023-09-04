@@ -1,0 +1,78 @@
+ELVEES MCom-03 PCIe interface
+
+ELVEES MCom-03 PCIe host Controller is based on the Synopsys DesignWare PCI
+hardware. It shares common functions with the PCIe DesignWare core driver
+and inherits common properties defined in
+Documentation/devicetree/bindings/pci/designware-pcie.txt
+Additional properties are described here.
+
+Required properties:
+
+compatible: Should be "elvees,mcom03-pcie"
+dma-ranges: Ranges for the inbound memory regions. The property describes how
+	    the physical address space of device maps to system memory.
+elvees,ctrl-id: PCIe controller ID number (0 or 1)
+elvees,urb: A phandle of the SDR subsystem URB
+interrupts: Should contain MSI interrupt number as the first entry. The second
+	    entry may contain legacy interrupt number and is optional.
+msi-parent: A phandle of the GIC ITS node
+reg: Three register ranges as listed in the reg-names property
+reg-names: Should contain 3 names: "dbi" for the DesignWare PCIe registers,
+	   "apb" for the ELVEES specific application registers, "config" for
+	   the configuration space address
+resets: Should contain platform-specific resets (see the example)
+
+
+Optional properties:
+
+pcie_intc: Interrupt controller device node for the Legacy IRQ chip
+interrupt-cells: should be set to 1
+interrupt-map-mask and interrupt-map:
+	standard PCI properties to define the mapping of the
+	PCIe interface to interrupt
+
+
+Example configuration:
+
+pcie0: pcie@2000000 {
+	compatible = "elvees,mcom03-pcie";
+	reg = <0x0 0x2000000 0x0 0x400000>,
+	      <0x0 0x1a00000 0x0 0x800>,
+	      <0x0 0x60000000 0x0 0x10000000>;
+	reg-names = "dbi", "apb", "config";
+	#address-cells = <3>;
+	#size-cells = <2>;
+	device_type = "pci";
+	ranges = <0x83000000 0x0 0x00000000
+		  0x4 0x00000000
+		  0x1 0x00000000>;
+	dma-ranges = <0x42000000 0x0 0x40000000
+		      0x8 0x40000000 0x2 0x80000000>,
+		     <0x42000000 0x4 0x0
+		      0xc 0x0 0x1 0x80000000>;
+	num-viewport = <32>;
+	num-lanes = <4>;
+
+	interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>, // MSI
+		     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>; // Legacy
+	resets = <&sdr_reset SDR_RST_EXT_ICT>,
+		 <&sdr_reset SDR_RST_BBD_ICT>,
+		 <&sdr_reset SDR_RST_PCI_ICT>;
+	elvees,urb = <&sdr_urb>;
+	elvees,ctrl-id = <0>;
+	msi-parent = <&its>;
+
+	// Legacy interrupts support
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0 0 0 7>;
+	interrupt-map = <0000 0 0 1 &pcie0_intc 1>,
+			<0000 0 0 2 &pcie0_intc 2>,
+			<0000 0 0 3 &pcie0_intc 3>,
+			<0000 0 0 4 &pcie0_intc 4>;
+
+	pcie0_intc: legacy-interrupt-controller {
+		interrupt-controller;
+		#address-cells = <0>;
+		#interrupt-cells = <1>;
+	};
+};
