@@ -97,6 +97,10 @@
 	status = "okay";
 };
 
+&sata {
+	status = "okay";
+};
+
 &pcie1 {
 	status = "okay";
 };

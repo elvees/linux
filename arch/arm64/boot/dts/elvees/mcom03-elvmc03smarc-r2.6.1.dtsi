@@ -294,3 +294,5 @@ i2c_pm: &i2c0 { };
 			  <&media_ucg1 MEDIA_DISP_MCLK>;
 	assigned-clock-rates = <594000000 297000000>;
 };
+
+sata: &pcie0 { };
