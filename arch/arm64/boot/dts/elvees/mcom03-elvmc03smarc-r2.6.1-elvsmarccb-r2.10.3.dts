@@ -35,6 +35,23 @@
 			};
 		};
 	};
+
+	elvsmarccb_asound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-SMARC-CB analog audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,continuous-clock;
+
+		dailink1_master: simple-audio-card,cpu {
+				sound-dai = <&mfbsp0_i2s>;
+		};
+
+		simple-audio-card,codec {
+				sound-dai = <&es8327>;
+		};
+	};
 };
 
 &sdhci1 {
@@ -125,6 +142,23 @@
 		compatible = "ti,tmp112";
 		reg = <0x48>;
 	};
+
+	es8327: codec@18 {
+		compatible = "everest,es8326";
+		reg = <0x18>;
+
+		interrupt-parent = <&xl9555>;
+		interrupts = <5 IRQ_TYPE_EDGE_RISING>;
+
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		#sound-dai-cells = <0>;
+		everest,mic1-src = [22];
+		everest,mic2-src = [44];
+		everest,jack-pol = [0e];
+		everest,interrupt-src = [08];
+		everest,interrupt-clk = [45];
+	};
 };
 
 &spi0 {
@@ -181,5 +215,14 @@
 };
 
 &i2s0 {
+	status = "okay";
+};
+
+/* SMARC S38-42 (I2S0*) pins connected to mfbsp0 */
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+&audio_mclk {
 	status = "okay";
 };
