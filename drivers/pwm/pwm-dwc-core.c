@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
+#include <linux/clk.h>
 #include <linux/pm_runtime.h>
 #include <linux/pwm.h>
 
@@ -43,6 +44,9 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 	u32 ctrl;
 	u32 high;
 	u32 low;
+
+	if (dwc->clk)
+		dwc->clk_rate = clk_get_rate(dwc->clk);
 
 	/*
 	 * Calculate width of low and high period in terms of input clock
@@ -128,6 +132,8 @@ static int dwc_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	pm_runtime_get_sync(chip->dev);
 
+	if (dwc->clk)
+		dwc->clk_rate = clk_get_rate(dwc->clk);
 	clk_rate = dwc->clk_rate;
 
 	ctrl = dwc_pwm_readl(dwc, DWC_TIM_CTRL(pwm->hwpwm));
