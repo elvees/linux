@@ -52,6 +52,13 @@
 				sound-dai = <&es8327>;
 		};
 	};
+
+	fancontrol: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwm 1 40000 0>;
+		#cooling-cells = <2>;
+		cooling-levels = <0 102 180 230>;
+	};
 };
 
 &sdhci1 {
@@ -225,4 +232,30 @@
 
 &audio_mclk {
 	status = "okay";
+};
+
+&pwm {
+		status = "okay";
+		elvees,output-channel = <0 1 0 0>;
+		elvees,state-on-disable = <0 1 0 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_oenb1_mux>;
+};
+
+/*
+ * Upon reaching the trip point the thermal subsystem driver enables the fans.
+ *
+ * Thermal zones can be enabled/disabled via sysfs by writing said state into
+ * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
+ */
+&cpu_thermal {
+	cooling_maps: cooling-maps {
+		map0 {
+			trip = <&cpu_alert0>;
+			cooling-device = <&fancontrol
+					  THERMAL_NO_LIMIT
+					  THERMAL_NO_LIMIT>;
+		};
+	};
 };

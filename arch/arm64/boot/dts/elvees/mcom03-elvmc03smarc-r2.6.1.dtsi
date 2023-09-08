@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/thermal/thermal.h>
 
 #include "mcom03.dtsi"
 
@@ -100,6 +101,22 @@
 
 		simple-audio-card,codec {
 			sound-dai = <&lt9611uxc>;
+		};
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			thermal-sensors = <&pvt 0>;
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			trips {
+				cpu_alert0: cpu-alert-0 {
+					temperature = <50000>;
+					hysteresis = <1000>;
+					type = "active";
+				};
+			};
 		};
 	};
 };
