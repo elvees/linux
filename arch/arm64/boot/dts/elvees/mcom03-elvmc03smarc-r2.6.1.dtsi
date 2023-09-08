@@ -48,6 +48,12 @@
 		};
 	};
 
+	aliases {
+		i2c5 = &i2c_cam0;
+		i2c6 = &i2c_cam1;
+		i2c7 = &i2c_lcd;
+	};
+
 	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "sdhci0-supply";
@@ -281,6 +287,31 @@ i2c_pm: &i2c0 { };
 		gpio-line-names = "GPIO4", "GPIO6", "GPIO7", "GPIO8", "GPIO9", "GPIO10",
 			"GPIO11", " PCIE_WAKE#", "nRST_ETH1", "nRST_ETH0", "nRST_HDMI", "",
 			"INT_HDMI", "nINT_RTC", "nINT_ETH0", "nINT_ETH1";
+	};
+
+	i2c-switch@70 {
+		compatible = "nxp,pca9546";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		i2c_cam0: i2c3@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c_cam1: i2c3@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c_lcd: i2c3@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
 	};
 };
 
