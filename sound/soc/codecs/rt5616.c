@@ -1343,6 +1343,7 @@ static int rt5616_i2c_probe(struct i2c_client *i2c,
 	struct rt5616_priv *rt5616;
 	unsigned int val;
 	int ret;
+	int i;
 
 	rt5616 = devm_kzalloc(&i2c->dev, sizeof(struct rt5616_priv),
 			      GFP_KERNEL);
@@ -1359,7 +1360,15 @@ static int rt5616_i2c_probe(struct i2c_client *i2c,
 		return ret;
 	}
 
-	regmap_read(rt5616->regmap, RT5616_DEVICE_ID, &val);
+	/* After power on reset (POR), the codec sometimes does not respond
+	 * to the first I2C request. We'll try three times.
+	 */
+	for (i = 0; i < 3; i++) {
+		regmap_read(rt5616->regmap, RT5616_DEVICE_ID, &val);
+		if (val == 0x6281)
+			break;
+	}
+
 	if (val != 0x6281) {
 		dev_err(&i2c->dev,
 			"Device with ID register %#x is not rt5616\n",
