@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03-Q7 r2.1.1";
+	compatible = "elvees,elvmc03q7-r2.1.1",
+		     "elvees,elvmc03q7",
+		     "elvees,mcom03";
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+};
+
+&gpio0a {
+	gpio-line-names = "", "", "UART3_CTS", "",
+		"HDMI_nRST", "RTC_INT", "INT_LVDS", "UART3_RTS";
+};
+
+&gpio0b {
+	gpio-line-names = "UART3_RX", "UART3_TX", "nUSER_LED1", "nUSER_LED2",
+		"", "GBE_LINK", "EN_SDR", "SDR_h1v8-l1v5";
+};
+
+&gpio0c {
+	gpio-line-names = "CAM0_IO-1", "LVDS_VDD_EN", "CAM0_IO-0", "GPII1",
+		"GPO0", "GPII0", "LVDS_nRST", "THRMTRIP#";
+};
+
+&gpio0d {
+	gpio-line-names = "FAN_PWMOUT", "BATLOW#", "THRM#", "I2C0_SCL",
+		"I2C0_SDA", "I2C0_SMBALERT", "SUS_S3#", "SUS_S5#";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_CK", "I2C_DAT", "I2C2_SCL", "I2C2_SDA",
+		"GPIO0", "GPIO1", "WAKE1#", "PCIE_WAKE#";
+};
+
+&gpio1b {
+	gpio-line-names = "I2S_CLK", "I2S_WS", "I2S_SDO", "I2S_RST#",
+		"I2S_SDI", "USB_HUB_RST#", "GPIO2", "GPIO3";
+
+	reset-usb-vl817-hub-hog {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&gpio1c {
+	gpio-line-names = "GPIO5", "GPIO6", "GPIO7", "INT_ETH",
+		"LVDS_BLEN", "PCIE_RST#", "GPIO4", "SATA_PERST";
+};
+
+&gpio1d {
+	gpio-line-names = "nRST_ETH", "INT_HDMI", "LVDS_BLT_CTRL", "SPKR",
+		"FAN_TACHOIN", "nLED-R", "nLED-G", "nLED-B";
+};
+
+/* Connected to eMMC */
+&sdhci0 {
+	status = "okay";
+
+	non-removable;
+	bus-width = <8>;
+
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	phy-reset-gpios = <&gpio1d 0 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-id0000.011a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x0>;
+		interrupts-extended = <&gpio1a 4 IRQ_TYPE_LEVEL_LOW>;
+
+		rx-internal-delay-ps = <1800>;
+		tx-internal-delay-ps = <1200>;
+	};
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: w25q16@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
+
+&i2c2 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	bl5372: rtc@32 {
+		compatible = "dallas,ds1337";
+		reg = <0x32>;
+	};
+
+	tmp112: temperature-sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+};
+
+/* PCIe0 is connected to SATA controller. */
+sata: &pcie0 { };
