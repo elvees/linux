@@ -301,10 +301,6 @@
 		reg = <0x20>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		interrupt-parent = <&gpio0d>;
-		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
-		interrupt-controller;
-		#interrupt-cells = <2>;
 
 		gpio-line-names = "", "", "", "PCIe_PRSNT",
 				  "", "I2C_OUT5", "I2C_OUT6", "I2C_OUT7",
