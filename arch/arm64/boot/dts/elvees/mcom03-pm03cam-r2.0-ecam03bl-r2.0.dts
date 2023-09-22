@@ -21,6 +21,11 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
+
+	gpio-alarm {
+		compatible = "gpio-alarm";
+		intrusion-gpios = <&gpio0a 1 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &gpio0a {
