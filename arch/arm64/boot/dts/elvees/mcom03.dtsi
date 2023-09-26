@@ -252,10 +252,12 @@
 			targets = <4>;
 			#interrupt-cells = <1>;
 			interrupt-parent = <&gic>;
-			/* Targets 4-7 are connected to GIC500
-			 * and should be reseted by driver.
+			/* Targets 0-3 links to RISC0.
+			 *
+			 * It is ok for Linux if targets 0-3 are not
+			 * initialized by RISC0.
 			 */
-			reset-targets-mask = <0xF0>;
+			reset-targets-mask = <0xFF0>;
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1fe00000 0 0x40000>;
 			status = "disabled";
@@ -1619,10 +1621,8 @@
 			compatible = "elvees,qlic";
 			interrupt-controller;
 			targets = <16>;
-			/* Target 16 are connected to GIC500
-			 * and should be reseted by driver.
-			 */
-			reset-targets-mask = <0x10000>;
+			// TODO: Update mask when RISC1 firmware will be used.
+			reset-targets-mask = <0x3FFFF>;
 			#interrupt-cells = <1>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
