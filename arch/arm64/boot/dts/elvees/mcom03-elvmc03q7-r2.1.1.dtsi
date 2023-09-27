@@ -22,6 +22,22 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+
+	hdmi_1v2_vdd_supply: regulator@01 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vdd-1.2v";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	hdmi_3v3_vcc_supply: regulator@02 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vcc-3.3v";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 };
 
 &gpio0a {
@@ -123,6 +139,48 @@
 	tmp112: temperature-sensor@48 {
 		compatible = "ti,tmp112";
 		reg = <0x48>;
+	};
+
+	lt9611uxc: hdmi-bridge@2b {
+		status = "disabled";
+
+		lontium,dsi-mode-video-burst;
+		lontium,dsi-clock-non-continuous;
+
+		compatible = "lontium,lt9611uxc";
+		reg = <0x2b>;
+
+		vdd-supply = <&hdmi_1v2_vdd_supply>;
+		vcc-supply = <&hdmi_3v3_vcc_supply>;
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&gpio0a 4 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio1a 5 IRQ_TYPE_LEVEL_LOW>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in_p0: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
+};
+
+&de_dsi {
+	dsi-min-clock-frequency = <275000000>;
+
+	ports {
+		port@1 {
+			reg = <1>;
+			dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in_p0>;
+			};
+		};
 	};
 };
 
