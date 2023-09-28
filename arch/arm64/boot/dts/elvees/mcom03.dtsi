@@ -1491,13 +1491,17 @@
 			assigned-clock-rates = <648000000>;
 		};
 
-		sdr_pll2: sdr_pll2 {
+		/* DSP clock */
+		sdr_pll2: sdr_pll2@1910010 {
 			#clock-cells = <0>;
 			compatible = "elvees,mcom03-clk-pll";
 			reg = <0 0x1910010 0 0x8>;
 			clocks = <&xti_clk>;
 			assigned-clocks = <&sdr_pll2>;
-			assigned-clock-rates = <459000000>;
+			/* Clock rate must match to one of the values
+			 * described in dsp-opp-table.
+			 */
+			assigned-clock-rates = <432000000>;
 		};
 
 		sdr_ucg0: ucg@1900000 {
