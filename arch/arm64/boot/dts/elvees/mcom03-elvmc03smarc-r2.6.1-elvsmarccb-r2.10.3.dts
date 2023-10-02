@@ -259,3 +259,25 @@
 		};
 	};
 };
+
+&qspi1 {
+	status = "okay";
+
+	qspi_flash: spi-nor@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* Highest frequency for IC installed into socket */
+		spi-max-frequency = <3000000>;
+		m25p,fast-read;
+	};
+};
+
+&qspi1_default {
+	/* Max clock frequency is 1 MHz with default pad drive strength.
+	 * This value increases max clock frequency to 3 MHz */
+	clk {
+		drive-strength = <10>;
+	};
+};
