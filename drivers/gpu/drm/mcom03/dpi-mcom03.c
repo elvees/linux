@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 
 enum MCOM03_DPI_CLK {
 	MCOM03_DPI_CLK_PXL,
@@ -74,13 +75,16 @@ void mcom03_dpi_mode_set(struct drm_encoder *encoder,
 	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
 	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
 
+	pm_runtime_get_sync(de->dev);
 	clk_set_rate(cmos0_clk, mode->clock * 1000);
+	pm_runtime_put(de->dev);
 }
 
 void mcom03_dpi_enable(struct drm_encoder *encoder)
 {
 	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
 
+	pm_runtime_get_sync(de->dev);
 	clk_enable(mcom03_get_clk(de, MCOM03_DPI_CLK_PXL));
 	clk_enable(mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0));
 }
@@ -91,6 +95,7 @@ void mcom03_dpi_disable(struct drm_encoder *encoder)
 
 	clk_disable(mcom03_get_clk(de, MCOM03_DPI_CLK_PXL));
 	clk_disable(mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0));
+	pm_runtime_put(de->dev);
 }
 
 static const struct drm_encoder_helper_funcs mcom03_dpi_encoder_helper_funcs = {
@@ -115,6 +120,8 @@ static int mcom03_dpi_bind(struct device *dev, struct device *master,
 
 	DRM_DEBUG_KMS("possible_crtcs = 0x%x\n", encoder->possible_crtcs);
 
+	pm_runtime_get_sync(de->dev);
+
 	// when drm master binds all components here, we enable all
 	// required clocks for dpi interface.
 	// External outputs clocks (cmos0 and pixclk) are not needed now.
@@ -126,6 +133,7 @@ static int mcom03_dpi_bind(struct device *dev, struct device *master,
 
 	if (ret) {
 		DRM_DEV_ERROR(dev, "failed to enable clocks: %d!\n", ret);
+		pm_runtime_put(de->dev);
 		return ret;
 	}
 
@@ -140,6 +148,8 @@ static int mcom03_dpi_bind(struct device *dev, struct device *master,
 		}
 	}
 
+	pm_runtime_put(de->dev);
+
 	return ret;
 }
 
@@ -148,9 +158,11 @@ static void mcom03_dpi_unbind(struct device *dev, struct device *master,
 {
 	struct mcom03_dpi_device *de = dev_get_drvdata(dev);
 
+	pm_runtime_get_sync(de->dev);
 	drm_encoder_cleanup(&de->encoder);
 	clk_disable(mcom03_get_clk(de, MCOM03_DPI_CLK_DISP_A));
 	clk_disable(mcom03_get_clk(de, MCOM03_DPI_CLK_SYS));
+	pm_runtime_put_sync(de->dev);
 }
 
 static const struct component_ops mcom03_dpi_ops = {
@@ -231,13 +243,19 @@ static int mcom03_dpi_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	pm_runtime_enable(&pdev->dev);
+
 	ret = component_add(&pdev->dev, &mcom03_dpi_ops);
+
+	if (ret)
+		pm_runtime_disable(&pdev->dev);
 
 	return ret;
 }
 
 static int mcom03_dpi_remove(struct platform_device *pdev)
 {
+	pm_runtime_disable(&pdev->dev);
 	component_del(&pdev->dev, &mcom03_dpi_ops);
 	return 0;
 }
