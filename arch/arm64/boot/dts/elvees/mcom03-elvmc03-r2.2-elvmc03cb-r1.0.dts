@@ -37,6 +37,13 @@
 			color = <LED_COLOR_ID_YELLOW>;
 			linux,default-trigger = "disk-activity";
 		};
+
+		/* PWM_A0 */
+		hl13 {
+			gpios = <&gpio1d 2 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
 	};
 
 	sdhci0_supply: regulator@0 {
