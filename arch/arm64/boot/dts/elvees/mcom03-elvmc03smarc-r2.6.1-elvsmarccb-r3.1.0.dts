@@ -1,0 +1,275 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r2.6.1.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r2.6.1, ELV-SMARC-CB r3.1.0";
+	compatible = "elvees,elvmc03smarc-r2.6.1-elvsmarccb-r3.1.0",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r3.1.0",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r2.6.1",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	hdmi_connector: hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
+
+	elvsmarccb_asound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-SMARC-CB analog audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,continuous-clock;
+
+		dailink1_master: simple-audio-card,cpu {
+				sound-dai = <&mfbsp0_i2s>;
+		};
+
+		simple-audio-card,codec {
+				sound-dai = <&es8327>;
+		};
+	};
+
+	fancontrol: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwm 1 40000 0>;
+		#cooling-cells = <2>;
+		cooling-levels = <0 102 180 230>;
+	};
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&sdhci1_default {
+	/* The default clock pad drive strength of 6 mA is insufficient
+	 * for some ELV-SMARC-CBs resulting in unstable SDMMC performance
+	 */
+	clk {
+		pins = "SDMMC1_CLK";
+		drive-strength = <8>;
+	};
+};
+
+/* Connects to XP8(RS-232) or XP9(RS-485) chosen by SA5 switch */
+&ser0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
+};
+
+/* Connects to debug USB Type-C port */
+&ser1 {
+	status = "okay";
+};
+
+/* Connects to XP12 RPi header */
+&ser2 {
+	status = "okay";
+};
+
+/* Connects to XP11 */
+&ser3 {
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+};
+
+&emac1 {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 3.0 hub */
+&usb1 {
+	status = "okay";
+};
+
+&i2c_pm {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+&i2c_gp {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	tmp112_cb: temperature-sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+
+	es8327: codec@18 {
+		compatible = "everest,es8326";
+		reg = <0x18>;
+
+		interrupt-parent = <&xl9555>;
+		interrupts = <5 IRQ_TYPE_EDGE_RISING>;
+
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		#sound-dai-cells = <0>;
+		everest,mic1-src = [22];
+		everest,mic2-src = [44];
+		everest,jack-pol = [0e];
+		everest,interrupt-src = [08];
+		everest,interrupt-clk = [45];
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>;
+
+	flash1: w25q128jw@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q16dw", "jedec,spi-nor";
+		spi-max-frequency = <20000000>;
+		reg = <0x0>;
+	};
+};
+
+/* Connected to XP3 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+
+/* Connected to XP3 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
+&qlic0 {
+	status = "okay";
+};
+
+&dp {
+	status = "okay";
+};
+
+&de_dsi {
+	status = "okay";
+};
+
+&lt9611uxc {
+	status = "okay";
+
+	ports {
+		port@2 {
+			reg = <2>;
+			lt9611_out: endpoint {
+				remote-endpoint = <&hdmi_connector_in>;
+			};
+		};
+	};
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+&i2s0 {
+	status = "okay";
+};
+
+/* SMARC S38-42 (I2S0*) pins connected to mfbsp0 */
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+&audio_mclk {
+	status = "okay";
+};
+
+&pwm {
+		status = "okay";
+		elvees,output-channel = <0 1 0 0>;
+		elvees,state-on-disable = <0 1 0 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_oenb1_mux>;
+};
+
+/*
+ * Upon reaching the trip point the thermal subsystem driver enables the fans.
+ *
+ * Thermal zones can be enabled/disabled via sysfs by writing said state into
+ * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
+ */
+&cpu_thermal {
+	cooling_maps: cooling-maps {
+		map0 {
+			trip = <&cpu_alert0>;
+			cooling-device = <&fancontrol
+					  THERMAL_NO_LIMIT
+					  THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&qspi1 {
+	status = "okay";
+
+	qspi_flash: spi-nor@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* Highest frequency for IC installed into socket */
+		spi-max-frequency = <3000000>;
+		m25p,fast-read;
+	};
+};
+
+&qspi1_default {
+	/* Max clock frequency is 1 MHz with default pad drive strength.
+	 * This value increases max clock frequency to 3 MHz */
+	clk {
+		drive-strength = <10>;
+	};
+};
