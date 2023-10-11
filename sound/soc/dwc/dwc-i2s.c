@@ -499,7 +499,6 @@ static int dw_configure_dai(struct dw_i2s_dev *dev,
 	u32 comp2 = i2s_read_reg(dev->i2s_base, dev->i2s_reg_comp2);
 	u32 fifo_depth = 1 << (1 + COMP1_FIFO_DEPTH_GLOBAL(comp1));
 	u32 idx;
-	int i;
 
 	if (dev->capability & DWC_I2S_RECORD &&
 			dev->quirks & DW_I2S_QUIRK_COMP_PARAM1)
@@ -519,10 +518,7 @@ static int dw_configure_dai(struct dw_i2s_dev *dev,
 		dw_i2s_dai->playback.channels_min = MIN_CHANNEL_NUM;
 		dw_i2s_dai->playback.channels_max =
 				1 << (COMP1_TX_CHANNELS(comp1) + 1);
-
-		for (i = 0; i <= idx; i++)
-			dw_i2s_dai->playback.formats |= formats[i];
-
+		dw_i2s_dai->playback.formats = formats[idx];
 		dw_i2s_dai->playback.rates = rates;
 	}
 
