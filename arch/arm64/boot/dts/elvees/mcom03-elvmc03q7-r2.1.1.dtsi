@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
 
 #include "mcom03.dtsi"
 
@@ -14,6 +15,28 @@
 	compatible = "elvees,elvmc03q7-r2.1.1",
 		     "elvees,elvmc03q7",
 		     "elvees,mcom03";
+
+	elvmc03q7-leds {
+		compatible = "gpio-leds";
+
+		rgb-red {
+			gpios = <&gpio1d 5 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_RED>;
+			default-state = "off";
+		};
+
+		rgb-green {
+			gpios = <&gpio1d 6 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_GREEN>;
+			default-state = "off";
+		};
+
+		rgb-blue {
+			gpios = <&gpio1d 7 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_BLUE>;
+			default-state = "off";
+		};
+	};
 
 	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
