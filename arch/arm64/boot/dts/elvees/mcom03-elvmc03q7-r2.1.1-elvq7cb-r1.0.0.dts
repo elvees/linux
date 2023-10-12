@@ -259,3 +259,15 @@
 		};
 	};
 };
+
+&hdmi_sound {
+	status = "okay";
+};
+
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+&qlic0 {
+	status = "okay";
+};
