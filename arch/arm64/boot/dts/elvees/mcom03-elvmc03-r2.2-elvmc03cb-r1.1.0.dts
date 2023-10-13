@@ -11,10 +11,10 @@
 #include "mcom03-elvmc03-r2.2.dtsi"
 
 / {
-	model = "ELV-MC03 r2.2, ELV-MC03-CB r1.0";
-	compatible = "elvees,elvmc03-r2.2-elvmc03cb-r1.0",
+	model = "ELV-MC03 r2.2, ELV-MC03-CB r1.1.0";
+	compatible = "elvees,elvmc03-r2.2-elvmc03cb-r1.1.0",
 		     "elvees,elvmc03-elvmc03cb",
-		     "elvees,elvmc03cb-r1.0",
+		     "elvees,elvmc03cb-r1.1.0",
 		     "elvees,elvmc03cb",
 		     "elvees,elvmc03-r2.2",
 		     "elvees,elvmc03",

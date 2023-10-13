@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include "mcom03-elvmc03-r2.2-elvmc03cb-r1.0.dts"
+#include "mcom03-elvmc03-r2.2-elvmc03cb-r1.1.0.dts"
 
 / {
 	panel {
