@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-2.0-only or BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/gpio-alarm.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Alarms connected to GPIO lines
+
+maintainers:
+  - Oleg Ivanov <oaivanov@elvees.com>
+
+properties:
+  compatible:
+    enum:
+      - gpio-alarm
+
+  temp-gpios:
+    description:
+      This pin going active indicates temp alarm.
+
+  intrusion-gpios:
+    description:
+      This pin going active indicates intrusion alarm.
+
+required:
+  - compatible
+
+anyOf:
+  - required:
+      - temp-gpios
+  - required:
+      - intrusion-gpios
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    gpio-alarm {
+      compatible = "gpio-alarm";
+      temp-gpios = <&gpio0a 1 GPIO_ACTIVE_LOW>,
+                   <&gpio0a 2 GPIO_ACTIVE_LOW>;
+      intrusion-gpios = <&gpio0a 3 GPIO_ACTIVE_LOW>,
+                        <&gpio0a 4 GPIO_ACTIVE_LOW>;
+    };
