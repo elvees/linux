@@ -1132,6 +1132,8 @@ static int mfbsp_can_plat_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "can");
 	addr = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(addr))
+		return PTR_ERR(addr);
 
 	/* allocate the mfbsp_can device */
 	dev = mfbsp_can_alloc_dev(pdev, addr, tx_fifo_size);
@@ -1143,9 +1145,8 @@ static int mfbsp_can_plat_probe(struct platform_device *pdev)
 	priv = netdev_priv(dev);
 
 	dev->irq = platform_get_irq(pdev, 0);
-
-	if (IS_ERR(addr) || dev->irq < 0) {
-		ret = -EINVAL;
+	if (dev->irq < 0) {
+		ret = dev->irq;
 		goto failed_free_dev;
 	}
 
