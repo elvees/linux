@@ -78,6 +78,41 @@ static int arasan_gemac_nway_reset(struct net_device *dev)
 	return genphy_restart_aneg(pd->phy_dev);
 }
 
+static int arasan_gemac_get_ts_info(struct net_device *netdev,
+				    struct ethtool_ts_info *info)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(netdev);
+
+	if (!IS_REACHABLE(CONFIG_PTP_1588_CLOCK)) {
+		info->phc_index = -1;
+		info->so_timestamping |= SOF_TIMESTAMPING_TX_SOFTWARE |
+					 SOF_TIMESTAMPING_RX_SOFTWARE |
+					 SOF_TIMESTAMPING_SOFTWARE;
+		return 0;
+	}
+
+	info->phc_index = ptp_clock_index(pd->ptp.clock);
+
+	info->so_timestamping |=
+		SOF_TIMESTAMPING_TX_SOFTWARE | SOF_TIMESTAMPING_RX_SOFTWARE |
+		SOF_TIMESTAMPING_SOFTWARE | SOF_TIMESTAMPING_TX_HARDWARE |
+		SOF_TIMESTAMPING_RX_HARDWARE | SOF_TIMESTAMPING_RAW_HARDWARE;
+	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
+
+	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) |
+
+			   BIT(HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
+			   BIT(HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
+			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
+			   BIT(HWTSTAMP_FILTER_PTP_V2_SYNC) |
+
+			   BIT(HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
+			   BIT(HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
+			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
+			   BIT(HWTSTAMP_FILTER_PTP_V2_DELAY_REQ);
+	return 0;
+}
+
 static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.get_drvinfo = arasan_gemac_get_drvinfo,
 	.get_regs_len = arasan_gemac_get_regs_len,
@@ -88,6 +123,7 @@ static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
 	.nway_reset = arasan_gemac_nway_reset,
+	.get_ts_info = arasan_gemac_get_ts_info,
 };
 
 static void arasan_gemac_set_hwaddr(struct net_device *dev)
@@ -391,7 +427,7 @@ static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 static inline void arasan_gemac_tx_update_stats(struct net_device *dev,
 						u32 status, u32 length)
 {
-	if (unlikely(status & 0x7fffffff)) {
+	if (unlikely(status & 0x3fffffff)) {
 		dev->stats.tx_errors++;
 	} else {
 		dev->stats.tx_packets++;
@@ -403,6 +439,7 @@ static inline void arasan_gemac_tx_update_stats(struct net_device *dev,
 static bool arasan_gemac_try_complete_tx(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+	struct arasan_gemac_ring_info *desc;
 	int freed = 0;
 	unsigned long flags;
 
@@ -426,10 +463,16 @@ static bool arasan_gemac_try_complete_tx(struct net_device *dev)
 
 		status = pd->tx_ring[tail].status;
 		misc = pd->tx_ring[tail].misc;
+		desc = &pd->tx_buffers[tail];
 
 		/* Check if DMA still owns this descriptor */
 		if (unlikely(DMA_TDES0_OWN_BIT & status))
 			break;
+
+		if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK))
+			if (unlikely(skb_shinfo(desc->skb)->tx_flags &
+				     SKBTX_HW_TSTAMP))
+				arasan_gemac_ptp_do_txstamp(pd, desc->skb);
 
 		arasan_gemac_tx_update_stats(dev, status, misc);
 
@@ -469,6 +512,12 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_BUSY;
 	}
 
+	if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK))
+		if ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
+			pd->tx_ring[head].status = DMA_TDES0_TSTAMP;
+			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+		}
+
 	/* skb_tx_timestamp() should be called before
 	 * preparing the descriptor, because at this time the DMA can work
 	 * without kicking.
@@ -495,7 +544,7 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	dma_wmb();
 
 	/* assign ownership to DMAC */
-	pd->tx_ring[head].status = DMA_TDES0_OWN_BIT;
+	pd->tx_ring[head].status |= DMA_TDES0_OWN_BIT;
 
 	/* synchronize head for complete_tx() */
 	smp_store_release(&pd->tx_ring_head, (head + 1)  % TX_RING_SIZE);
@@ -546,6 +595,11 @@ static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd,
 	skb_put(skb, packet_length);
 
 	skb->protocol = eth_type_trans(skb, dev);
+
+	if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK))
+		if ((pd->rx_ring[index].misc & DMA_RDES1_PTP_TSTMP) ||
+		    (pd->rx_ring[index].misc & DMA_RDES1_PTP_PACKET))
+			arasan_gemac_ptp_do_rxstamp(pd, skb);
 
 	netif_receive_skb(skb);
 }
@@ -1259,6 +1313,59 @@ static int arasan_gemac_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
+#if IS_REACHABLE(CONFIG_PTP_1588_CLOCK)
+int arasan_gemac_hwstamp_get(struct arasan_gemac_ptp *ptp, struct ifreq *rq)
+{
+	int res;
+
+	res = copy_to_user(rq->ifr_data, &ptp->tstamp_config,
+			   sizeof(ptp->tstamp_config));
+
+	return (res > 0) ? -EFAULT : 0;
+}
+
+int arasan_gemac_hwstamp_set(struct arasan_gemac_ptp *ptp, struct ifreq *rq)
+{
+	int res;
+	struct arasan_gemac_pdata *pd =
+		container_of(ptp, struct arasan_gemac_pdata, ptp);
+
+	if (copy_from_user(&ptp->tstamp_config, rq->ifr_data,
+			   sizeof(ptp->tstamp_config)))
+		return -EFAULT;
+
+	res = arasan_gemac_ptp_hwstamp_set(pd);
+	if (res != 0)
+		return res;
+
+	res = copy_to_user(rq->ifr_data, &ptp->tstamp_config,
+			   sizeof(ptp->tstamp_config));
+
+	return (res > 0) ? -EFAULT : 0;
+}
+
+static int arasan_gemac_do_ioctl(struct net_device *dev, struct ifreq *rq,
+				 int cmd)
+{
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	switch (cmd) {
+	case SIOCSHWTSTAMP:
+		return arasan_gemac_hwstamp_set(&pd->ptp, rq);
+	case SIOCGHWTSTAMP:
+		return arasan_gemac_hwstamp_get(&pd->ptp, rq);
+	}
+
+	return phy_do_ioctl(dev, rq, cmd);
+}
+#else
+static int arasan_gemac_do_ioctl(struct net_device *dev, struct ifreq *rq,
+				 int cmd)
+{
+	return phy_do_ioctl(dev, rq, cmd);
+}
+#endif
+
 #ifdef CONFIG_NET_POLL_CONTROLLER
 static void arasan_gemac_poll_controller(struct net_device *dev)
 {
@@ -1277,7 +1384,7 @@ static const struct net_device_ops arasan_gemac_netdev_ops = {
 	.ndo_set_rx_mode = arasan_gemac_set_rx_mode,
 	.ndo_set_mac_address = arasan_gemac_set_mac_address,
 	.ndo_change_mtu = arasan_gemac_change_mtu,
-	.ndo_do_ioctl	= phy_do_ioctl, // FIXME: revisit after v5.15.
+	.ndo_do_ioctl	= arasan_gemac_do_ioctl, // FIXME: revisit after v5.15.
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = arasan_gemac_poll_controller,
 #endif
@@ -1446,6 +1553,12 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 
 	netdev_dbg(dev, "Arasan GEMAC hardware FIFO size: %d\n",
 		   pd->hwfifo_size);
+
+	if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK)) {
+		res = arasan_gemac_ptp_init(pd);
+		if (res)
+			goto err_reset_assert;
+	}
 
 	/* Register the network interface */
 	res = register_netdev(dev);

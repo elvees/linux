@@ -15,11 +15,14 @@
 #include <linux/genalloc.h>
 #include <linux/if_vlan.h>
 #include <linux/netdevice.h>
+#include <linux/net_tstamp.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
+#include <linux/ptp_clock_kernel.h>
 #include <linux/reset.h>
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
+#include <linux/timecounter.h>
 
 /* GEMAC TX descriptor can describe 4K buffer.
  * But currently some unexplored bugs are observed if we set Jumbo frame
@@ -95,6 +98,25 @@
 #define MAC_VLAN_TPID2                            0x01EC
 #define MAC_VLAN_TPID3                            0x01F0
 
+#define MODULE_1588_CR                            0x0300
+#define INC_ATTRIBUTES                            0x0304
+#define PTP_ETHER_TYPE                            0x0308
+#define PTP_MESSAGE_ID                            0x030C
+#define PTP_UDP_PORT_REG                          0x0310
+#define SYS_TIME_VAL_LO                           0x0320
+#define SYS_TIME_VAL_UP                           0x0324
+#define SYS_TIME_ADJ_CTRL_LO                      0x0328
+#define SYS_TIME_ADJ_CTRL_UP                      0x032C
+#define TX_TSTAMP_VAL_LO                          0x0330
+#define TX_TSTAMP_VAL_UP                          0x0334
+#define RX_TSTAMP_VAL_LO                          0x0340
+#define RX_TSTAMP_VAL_UP                          0x0344
+#define RX_PTP_PACKET_ATTR_LO                     0x0348
+#define RX_PTP_PACKET_ATTR_MI                     0x034C
+#define RX_PTP_PACKET_ATTR_HI                     0x0350
+#define MODULE_1588_INT_REG                       0x0360
+#define MODULE_1588_INT_EN_REG                    0x0364
+
 #define ARASAN_REGS_END                           0x0368
 
 /* Arasan GEMAC register fields */
@@ -148,14 +170,42 @@
 #define MAC_INTERRUPT_ENABLE_UNDERRUN                 BIT(0)
 #define MAC_IRQ_STATUS_UNDERRUN                       BIT(0)
 
+#define RX_PTP_PACKET_V2_L2                           0x0
+#define RX_PTP_PACKET_V1_L4                           0x1
+#define RX_PTP_PACKET_V2_L2_L4                        0x2
+
+#define MODULE_1588_CR_TX_TSTAMP_EN                   BIT(1)
+#define MODULE_1588_CR_RX_TSTAMP_EN                   BIT(2)
+#define MODULE_1588_CR_RX_PACKET_TYPE(VAL, TYPE)   \
+	(((VAL) & 0xffffffc7) | ((TYPE) << 3))
+
+#define INC_ATTRIBUTES_VAL(VAL)                       ((VAL) & 0xffffff)
+#define INC_ATTRIBUTES_PERIOD(VAL)                    ((VAL) << 24)
+
+#define PTP_ETHERTYPE                                 0x88f7
+
+#define PTP_SYNC_MESSAGE_ID                           0x0
+#define PTP_DELAY_REQ_MESSAGE_ID                      0x1
+
+#define PTP_UDP_PORT_319                              0x013f
+
+#define MODULE_1588_RX_TSTAMP_IRQ                     BIT(1)
+#define MODULE_1588_TX_TSTAMP_IRQ                     BIT(0)
+
+#define MODULE_1588_RX_TSTAMP_IRQ_EN                  BIT(1)
+#define MODULE_1588_TX_TSTAMP_IRQ_EN                  BIT(0)
+
 /* DMA descriptor fields */
 
 #define DMA_RDES0_OWN_BIT      BIT(31)
 #define DMA_RDES0_FD           BIT(30)
 #define DMA_RDES0_LD           BIT(29)
+#define DMA_RDES1_PTP_PACKET   BIT(31)
+#define DMA_RDES1_PTP_TSTMP    BIT(30)
 #define DMA_RDES1_EOR          BIT(26)
 
 #define DMA_TDES0_OWN_BIT      BIT(31)
+#define DMA_TDES0_TSTAMP       BIT(30)
 #define DMA_TDES1_IOC          BIT(31)
 #define DMA_TDES1_LS           BIT(30)
 #define DMA_TDES1_FS           BIT(29)
@@ -181,6 +231,20 @@ struct arasan_gemac_dma_desc {
 struct arasan_gemac_ring_info {
 	struct sk_buff *skb;
 	dma_addr_t mapping;
+};
+
+struct arasan_gemac_ptp {
+	struct ptp_clock *clock;
+	struct ptp_clock_info clock_info;
+	struct hwtstamp_config tstamp_config;
+
+	u32 clk_1588_freq;
+	/* ts_lock used to prevent concurrent access to clk_1588 registers */
+	spinlock_t ts_lock;
+
+	u32 sw_mul;
+	struct cyclecounter cycle_counter;
+	struct timecounter time_counter;
 };
 
 struct arasan_gemac_pdata {
@@ -224,6 +288,13 @@ struct arasan_gemac_pdata {
 
 	phy_interface_t     phy_interface;
 	int phy_irq[PHY_MAX_ADDR];
+
+	struct arasan_gemac_ptp ptp;
 };
+
+int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd);
+void arasan_gemac_ptp_do_txstamp(struct arasan_gemac_pdata *pd, struct sk_buff *skb);
+void arasan_gemac_ptp_do_rxstamp(struct arasan_gemac_pdata *pd, struct sk_buff *skb);
+int arasan_gemac_ptp_init(struct arasan_gemac_pdata *pd);
 
 #endif /* _ARASAN_GEMAC_H */
