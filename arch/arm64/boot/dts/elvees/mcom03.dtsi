@@ -1391,6 +1391,10 @@
 					     "emac0_rgmii_txc",
 					     "emac1_clk_1588",
 					     "emac1_rgmii_txc";
+			assigned-clocks = <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_1588>,
+					  <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC1_1588>;
+			assigned-clock-rates = <125000000
+						125000000>;
 			#clock-cells = <1>;
 		};
 
@@ -1422,8 +1426,9 @@
 				#size-cells = <0>;
 				reg = <0 0x10200000 0 0x1000>;
 				clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_EMAC0>,
-					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_RGMII_TXC>;
-				clock-names = "busclk", "txc";
+					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_RGMII_TXC>,
+					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_1588>;
+				clock-names = "busclk", "txc", "clk_1588";
 				interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 				resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
 				elvees,ctrl-id = <0>;
@@ -1442,8 +1447,9 @@
 				#size-cells = <0>;
 				reg = <0 0x10210000 0 0x1000>;
 				clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_EMAC1>,
-					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC1_RGMII_TXC>;
-				clock-names = "busclk", "txc";
+					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC1_RGMII_TXC>,
+					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC1_1588>;
+				clock-names = "busclk", "txc", "clk_1588";
 				interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 				resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
 				elvees,ctrl-id = <1>;
