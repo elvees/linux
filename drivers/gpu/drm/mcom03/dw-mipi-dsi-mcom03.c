@@ -14,6 +14,7 @@
 #include <linux/component.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 
 #include <drm/bridge/dw_mipi_dsi.h>
 
@@ -98,6 +99,8 @@ struct mcom03_dsi_device {
 	u32 pll_m;
 	u8 vco_cntrl;
 	u8 hsfreqrange;
+	bool is_clk_enabled;
+	bool is_inited;
 };
 
 struct mcom03_dsi_pll_cfg {
@@ -360,6 +363,11 @@ static int mcom03_dsi_phy_init(void *data)
 	if (!de->pll_m)
 		return -EINVAL;
 
+	if (!de->is_inited) {
+		pm_runtime_get_sync(de->dev);
+		de->is_inited = true;
+	}
+
 	cfg_clk_freq_range = (de->mipi_tx_cfg_freq - 17000000) * 4 / 1000000;
 
 	writel(MIPI_TX_CTRL_SHADOW_CLEAR, de->mipi_tx_base + MIPI_TX_CTRL);
@@ -520,10 +528,30 @@ mcom03_dsi_phy_get_timing(void *de_data, unsigned int lane_mbps,
 	return 0;
 }
 
+void mcom03_dsi_power_off(void *de_data)
+{
+	struct mcom03_dsi_device *de = de_data;
+
+	if (de->is_inited) {
+		pm_runtime_put(de->dev);
+		de->is_inited = false;
+	}
+}
+
+void mcom03_dsi_power_on(void *de_data)
+{
+	struct mcom03_dsi_device *de = de_data;
+
+	if (!de->is_inited)
+		mcom03_dsi_phy_init(de_data);
+}
+
 static const struct dw_mipi_dsi_phy_ops mcom03_dsi_phy_ops = {
 	.init = mcom03_dsi_phy_init,
 	.get_lane_mbps = mcom03_dsi_get_line_mbps,
 	.get_timing = mcom03_dsi_phy_get_timing,
+	.power_off = mcom03_dsi_power_off,
+	.power_on = mcom03_dsi_power_on,
 };
 
 static enum drm_mode_status mcom03_dsi_mode_valid(void *de_data,
@@ -589,11 +617,14 @@ static int mcom03_dsi_bind(struct device *dev, struct device *master,
 
 	DRM_DEBUG_KMS("possible_crtcs = 0x%x\n", encoder->possible_crtcs);
 
+	pm_runtime_get_sync(dev);
 	ret = clk_bulk_enable(de->num_clocks, de->clocks);
 	if (ret) {
 		dev_err(de->dev, "failed to enable clocks (%d)\n", ret);
+		pm_runtime_put(dev);
 		return ret;
 	}
+	de->is_clk_enabled = true;
 
 	drm_simple_encoder_init(drm, encoder, DRM_MODE_ENCODER_DSI);
 
@@ -602,6 +633,7 @@ static int mcom03_dsi_bind(struct device *dev, struct device *master,
 		dev_err(de->dev, "failed to bind DSI encoder (%d)\n", ret);
 		drm_encoder_cleanup(encoder);
 	}
+	pm_runtime_put(dev);
 
 	return ret;
 }
@@ -611,9 +643,13 @@ static void mcom03_dsi_unbind(struct device *dev, struct device *master,
 {
 	struct mcom03_dsi_device *de = dev_get_drvdata(dev);
 
+	pm_runtime_get_sync(dev);
 	dw_mipi_dsi_unbind(de->dsi);
 	drm_encoder_cleanup(&de->encoder);
 	clk_bulk_disable(de->num_clocks, de->clocks);
+	de->is_clk_enabled = false;
+	de->is_inited = false;
+	pm_runtime_put(dev);
 }
 
 static const struct component_ops mcom03_dsi_ops = {
@@ -712,13 +748,18 @@ static int mcom03_dsi_probe(struct platform_device *pdev)
 	if (ret)
 		goto dw_cleanup;
 
+	pm_runtime_enable(&pdev->dev);
+
 	ret = component_add(&pdev->dev, &mcom03_dsi_ops);
+	if (!ret)
+		return 0;
+
+	pm_runtime_disable(&pdev->dev);
 
 dw_cleanup:
-	if (ret) {
-		DRM_DEV_ERROR(dev, "failed to probe mcom03 dsi (%d)", ret);
-		dw_mipi_dsi_remove(de->dsi);
-	}
+	DRM_DEV_ERROR(dev, "failed to probe mcom03 dsi (%d)", ret);
+	dw_mipi_dsi_remove(de->dsi);
+
 	return ret;
 }
 
@@ -728,9 +769,35 @@ static int mcom03_dsi_remove(struct platform_device *pdev)
 		(struct mcom03_dsi_device *)dev_get_drvdata(&pdev->dev);
 
 	component_del(&pdev->dev, &mcom03_dsi_ops);
+	pm_runtime_disable(&pdev->dev);
 	dw_mipi_dsi_remove(de->dsi);
 	return 0;
 }
+
+static int mcom03_dsi_runtime_pm_suspend(struct device *dev)
+{
+	struct mcom03_dsi_device *de = dev_get_drvdata(dev);
+
+	if (de->is_clk_enabled)
+		clk_bulk_disable(de->num_clocks, de->clocks);
+
+	return 0;
+}
+
+static int mcom03_dsi_runtime_pm_resume(struct device *dev)
+{
+	struct mcom03_dsi_device *de = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (de->is_clk_enabled)
+		ret = clk_bulk_enable(de->num_clocks, de->clocks);
+
+	return ret;
+}
+
+static const struct dev_pm_ops mcom03_dsi_pm_ops = {
+	SET_RUNTIME_PM_OPS(mcom03_dsi_runtime_pm_suspend, mcom03_dsi_runtime_pm_resume, NULL)
+};
 
 static const struct of_device_id mcom03_dsi_dt_ids[] = {
 	{ .compatible = "elvees,mcom03-drm-dsi", },
@@ -744,6 +811,7 @@ struct platform_driver mcom03_dsi_driver = {
 	.driver = {
 		.name = "mcom03-encoder-dsi",
 		.of_match_table = mcom03_dsi_dt_ids,
+		.pm = &mcom03_dsi_pm_ops,
 	},
 };
 
