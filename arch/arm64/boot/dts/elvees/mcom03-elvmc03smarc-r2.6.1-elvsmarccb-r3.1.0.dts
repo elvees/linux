@@ -75,6 +75,20 @@
 			linux,code = <KEY_SLEEP>;
 		};
 	};
+
+	elvsmarccb-leds {
+		compatible = "gpio-leds";
+
+		gpio11-led {
+			gpios = <&xl9555 6 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		gpio12-led {
+			gpios = <&gpio1c 0 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
 };
 
 &sdhci1 {
