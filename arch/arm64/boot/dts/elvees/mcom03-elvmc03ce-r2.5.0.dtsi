@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03-CE r2.5.0";
+	compatible = "elvees,elvmc03ce-r2.5.0",
+		     "elvees,elvmc03ce",
+		     "elvees,mcom03";
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+};
+
+&gpio0a {
+	gpio-line-names = "I2C0_SMBALERT", "nPCIE_WAKE", "UART3_CTS", "INT_HDMI",
+		"INT_ETH", "RTC_INT", "INT_LVDS", "UART3_RTS";
+};
+
+&gpio0b {
+	gpio-line-names = "UART3_RX", "UART3_TX", "SLEEP#", "",
+		"GPIO1", "TPM_PP", "LVDS_BLEN", "SDR_h1v8-l1v5";
+};
+
+&gpio0c {
+	gpio-line-names = "GPI0", "GPI3", "LVDS_VDD_EN", "GPO1",
+		"HDMI_nRST", "LID#", "LVDS_nRST", "RST_ETH#";
+};
+
+&gpio0d {
+	gpio-line-names = "SUS_STAT#", "BATLOW#", "SUS_S4#", "I2C0_SCL",
+		"I2C0_SDA", "GPI2", "SUS_S3#", "SUS_S5#";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_CK", "I2C_DAT", "I2C2_SCL", "I2C2_SDA",
+		"I2C3_SCL", "I2C3_SDA", "WAKE1#", "THRM#";
+};
+
+&gpio1b {
+	gpio-line-names = "I2S_CLK", "I2S_WS", "I2S_SDO", "I2S_RST#",
+		"I2S_SDI", "USB_HUB_RST#", "GPIO2", "GPIO0";
+};
+
+&gpio1c {
+	gpio-line-names = "SPI_SCK", "SPI_MOSI", "SPI_MISO", "nUSER_LED1",
+		"nUSER_LED2", "SPI_CS#", "GPI1", "SATA_PERST";
+};
+
+&gpio1d {
+	gpio-line-names = "nLED-R", "nLED-G", "LVDS_BLT_CTRL", "SPKR",
+		"FAN_PWMOUTp", "nLED-B", "FAN_TACHINp", "THRMTRIP#";
+};
+
+/* Connected to eMMC */
+&sdhci0 {
+	status = "okay";
+
+	non-removable;
+	bus-width = <8>;
+
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
+
+&i2c2 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	bl5372: rtc@32 {
+		compatible = "dallas,ds1337";
+		reg = <0x32>;
+	};
+
+	gx21m15: temperature-sensor@48 {
+		compatible = "national,lm75b";
+		reg = <0x48>;
+	};
+
+	bl24c32a: eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+/* PCIe0 is connected to SATA controller. */
+sata: &pcie0 { };

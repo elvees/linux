@@ -1,0 +1,240 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
+
+#include "mcom03-elvmc03ce-r2.5.0.dtsi"
+
+/ {
+	model = "ELV-MC03-CE r2.5.0, ELV-CE-CB r1.0.0";
+	compatible = "elvees,elvmc03ce-r2.5.0-elvcecb-r1.0.0",
+		     "elvees,elvmc03ce-elvcecb",
+		     "elvees,elvcecb-r1.0.0",
+		     "elvees,elvcecb",
+		     "elvees,elvmc03ce-r2.5.0",
+		     "elvees,elvmc03ce",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	elvcecb-leds {
+		compatible = "gpio-leds";
+
+		hl3 {
+			gpios = <&gpio0d 6 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl4 {
+			gpios = <&gpio0d 2 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl5 {
+			gpios = <&gpio0d 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl6 {
+			gpios = <&gpio0d 0 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl7 {
+			gpios = <&gpio1d 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl11 {
+			gpios = <&gpio0b 3 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl12 {
+			gpios = <&pca9675_1 8 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl13 {
+			gpios = <&pca9675_1 9 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl14 {
+			gpios = <&pca9675_1 10 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		hl15 {
+			gpios = <&pca9675_1 11 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	elvcecb-keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+		autorepeat;
+
+		btn0 {
+			gpios = <&pca9675_1 0 GPIO_ACTIVE_LOW>;
+			label = "BTN0";
+			linux,code = <BTN_TRIGGER_HAPPY1>;
+		};
+
+		btn1 {
+			gpios = <&pca9675_1 1 GPIO_ACTIVE_LOW>;
+			label = "BTN1";
+			linux,code = <BTN_TRIGGER_HAPPY2>;
+		};
+
+		btn2 {
+			gpios = <&pca9675_1 2 GPIO_ACTIVE_LOW>;
+			label = "BTN2";
+			linux,code = <BTN_TRIGGER_HAPPY3>;
+		};
+
+		btn3 {
+			gpios = <&pca9675_1 3 GPIO_ACTIVE_LOW>;
+			label = "BTN3";
+			linux,code = <BTN_TRIGGER_HAPPY4>;
+		};
+	};
+
+	vdd_codec: vdd-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd-codec";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	/* "G1" oscillator */
+	audio_mclk: audio_mclk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+	};
+
+	/* TRS (3.5mm jack) connected to SGTL5000 codec.
+	   SGTL5000 connected to MCom-03 I2S0 as I2S slave.
+	   */
+	analog-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-CE-CB analog audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,routing =
+			"MIC_IN", "Mic Bias";
+
+		dailink1_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sgtl5000>;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+/* Connected to PCIe bridge */
+&pcie1 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+
+	/* I2C GPIO expander (PCA9675) */
+	pca9675_0: gpio-expander@20 {
+		compatible = "nxp,pca9675";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		gpio-line-names = "", "", "PCA_PCIe_PRSNT_3V3", "PCIe_PRSNT",
+				  "", "I2C_OUT5", "I2C_OUT6", "I2C_OUT7",
+				  "I2C_OUT10", "I2C_EXP_TP1", "I2C_EXP_TP2", "I2C_EXP_TP3",
+				  "I2C_EXP_TP4", "I2C_EXP_TP5", "I2C_EXP_TP6", "I2C_EXP_TP7";
+	};
+
+	hwmon@49 {
+		compatible = "ti,lm73";
+		reg = <0x49>;
+	};
+
+	hwmon@4a {
+		compatible = "ti,lm73";
+		reg = <0x4a>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	/* I2C GPIO expander (PCA9675) */
+	pca9675_1: gpio-expander@20 {
+		compatible = "nxp,pca9675";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		gpio-line-names = "BTN_0", "BTN_1", "BTN_2", "BTN_3",
+				  "EXT_BTN_0", "EXT_BTN_1", "EXT_BTN_2", "EXT_BTN_3",
+				  "HL12", "HL13", "HL14", "HL15",
+				  "EXT_LED_0", "EXT_LED_1", "EXT_LED_2", "EXT_LED_3";
+	};
+
+	sgtl5000: codec@a {
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		#sound-dai-cells = <0>;
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		micbias-resistor-k-ohms = <2>;
+		micbias-voltage-m-volts = <2250>;
+		VDDA-supply = <&vdd_codec>;
+		VDDIO-supply = <&vdd_codec>;
+		VDDD-supply = <&vdd_codec>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&gpio1c 5 GPIO_ACTIVE_LOW>;
+
+	flash1: m25p32@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "m25p32", "jedec,spi-nor";
+		spi-max-frequency = <75000000>;
+		reg = <0x0>;
+	};
+};
+
+&i2s0 {
+	status = "okay";
+};
