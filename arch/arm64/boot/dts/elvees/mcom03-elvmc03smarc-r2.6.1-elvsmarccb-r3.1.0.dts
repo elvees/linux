@@ -310,3 +310,7 @@
 		drive-strength = <10>;
 	};
 };
+
+&pcie1 {
+	status = "okay";
+};
