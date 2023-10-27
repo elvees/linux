@@ -1898,6 +1898,17 @@
 			pinctrl-0 = <&spi1_mux_data &spi1_mux_ss_in &spi1_default_cfg>;
 		};
 
+		timers_pwm: timer0-pwm@1790000 {
+			compatible = "snps,dw-apb-timers-pwm2";
+			snps,pwm-number = <2>;
+			reg = <0 0x1790000 0 0x28>;
+			#pwm-cells = <3>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_SYS>,
+				 <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
+			clock-names = "bus", "timer";
+			status = "disabled";
+		};
+
 		timer0: timer@1790000 {
 			compatible = "snps,dw-apb-timer";
 			reg = <0 0x1790000 0 0x14>;
