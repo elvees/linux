@@ -156,6 +156,19 @@
 			sound-dai = <&sgtl5000>;
 		};
 	};
+
+	hdmi_connector: hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
 };
 
 &uart0 {
@@ -261,5 +274,26 @@
  * USB 3.0 on-board double connector.
  */
 &usb1 {
+	status = "okay";
+};
+
+&lt9611uxc {
+	status = "okay";
+
+	ports {
+		port@2 {
+			reg = <2>;
+			lt9611_out: endpoint {
+				remote-endpoint = <&hdmi_connector_in>;
+			};
+		};
+	};
+};
+
+&dp {
+	status = "okay";
+};
+
+&de_dsi {
 	status = "okay";
 };
