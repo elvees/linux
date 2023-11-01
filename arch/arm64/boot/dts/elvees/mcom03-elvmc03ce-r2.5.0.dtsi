@@ -71,6 +71,24 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
+
+	hdmi_sound: hdmi-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-MC03-CE HDMI Audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		simple-audio-card,continuous-clock;
+		status = "disabled";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&mfbsp0_i2s>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&lt9611uxc>;
+		};
+	};
 };
 
 &gpio0a {
