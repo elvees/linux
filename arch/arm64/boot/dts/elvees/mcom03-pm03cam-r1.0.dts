@@ -156,7 +156,7 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
-	sgtl5000: audio-codec@0a {
+	sgtl5000: audio-codec@a {
 		#sound-dai-cells = <0>;
 		compatible = "fsl,sgtl5000";
 		reg = <0x0a>;
