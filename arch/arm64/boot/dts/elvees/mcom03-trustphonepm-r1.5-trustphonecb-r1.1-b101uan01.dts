@@ -35,8 +35,7 @@
 	};
 };
 
-
-&de_dpi {
+&de_dsi {
 	status = "okay";
 
 	dsi-panel@0 {
