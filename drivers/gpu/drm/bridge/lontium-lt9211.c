@@ -6,6 +6,7 @@
  *   2xDSI/2xLVDS/1xDPI -> 2xDSI/2xLVDS/1xDPI
  * Currently supported is:
  *   1xDSI -> 1xLVDS
+ *   1xDPI -> 1xLVDS
  *
  * Copyright (C) 2022 Marek Vasut <marex@denx.de>
  */
@@ -160,7 +161,7 @@ static int lt9211_system_init(struct lt9211 *ctx)
 				      ARRAY_SIZE(lt9211_system_init_seq));
 }
 
-static int lt9211_configure_rx(struct lt9211 *ctx)
+static int lt9211_configure_rx_dsi(struct lt9211 *ctx)
 {
 	const struct reg_sequence lt9211_rx_phy_seq[] = {
 		{ 0x8202, 0x44 },
@@ -226,18 +227,34 @@ static int lt9211_configure_rx(struct lt9211 *ctx)
 				      ARRAY_SIZE(lt9211_rx_div_clear_seq));
 }
 
-static int lt9211_autodetect_rx(struct lt9211 *ctx,
-				const struct drm_display_mode *mode)
+static int lt9211_configure_rx_ttl(struct lt9211 *ctx,
+				   const struct drm_bridge_state *bridge_state)
 {
-	u16 width, height;
-	u32 byteclk;
-	u8 buf[5];
-	u8 format;
+	int ret;
+	const struct reg_sequence lt9211_ttlrx_phy_seq[] = {
+		{0x8228, 0x40},
+		{0x8261, 0x01},
+		{0x8263, 0x00},
+		{0x8588, 0x80},
+		{0x8545, 0x70}, // 0x70 D0-D23:BGR, 0x00 D0-D23:RGB
+		{0x8547, 0x07},
+	};
+
+	ret = regmap_multi_reg_write(ctx->regmap, lt9211_ttlrx_phy_seq,
+				     ARRAY_SIZE(lt9211_ttlrx_phy_seq));
+	if (ret)
+		return ret;
+
+	return 0;
+};
+
+static int lt9211_get_clock(struct lt9211 *ctx, unsigned int regval,
+			    u32 *byteclk)
+{
 	u8 bc[3];
 	int ret;
 
-	/* Measure ByteClock frequency. */
-	ret = regmap_write(ctx->regmap, 0x8600, 0x01);
+	ret = regmap_write(ctx->regmap, 0x8600, regval);
 	if (ret)
 		return ret;
 
@@ -250,7 +267,38 @@ static int lt9211_autodetect_rx(struct lt9211 *ctx,
 		return ret;
 
 	/* RX ByteClock in kHz */
-	byteclk = ((bc[0] & 0xf) << 16) | (bc[1] << 8) | bc[2];
+	*byteclk = ((bc[0] & 0xf) << 16) | (bc[1] << 8) | bc[2];
+
+	return 0;
+};
+
+static int lt9211_autodetect_rx_ttl(struct lt9211 *ctx,
+				    const struct drm_display_mode *mode)
+{
+	u32 byteclk;
+	int ret;
+
+	ret = lt9211_get_clock(ctx, 0x14, &byteclk);
+	if (ret)
+		return ret;
+
+	dev_dbg(ctx->dev, "RX: byteclock=%d, mode.clock=%d kHz\n", byteclk, mode->clock);
+
+	return 0;
+};
+
+static int lt9211_autodetect_rx_dsi(struct lt9211 *ctx,
+				    const struct drm_display_mode *mode)
+{
+	u16 width, height;
+	u32 byteclk;
+	u8 buf[5];
+	u8 format;
+	int ret;
+
+	ret = lt9211_get_clock(ctx, 0x01, &byteclk);
+	if (ret)
+		return ret;
 
 	/* Width/Height/Format Auto-detection */
 	ret = regmap_bulk_read(ctx->regmap, 0xd082, buf, sizeof(buf));
@@ -291,8 +339,52 @@ static int lt9211_autodetect_rx(struct lt9211 *ctx,
 	return 0;
 }
 
-static int lt9211_configure_timing(struct lt9211 *ctx,
-				   const struct drm_display_mode *mode)
+static int lt9211_configure_timing_rx_ttl(struct lt9211 *ctx,
+					  const struct drm_display_mode *mode)
+{
+	u8 buf[18];
+	u16 hdisp, vdisp;
+	int ret;
+
+	/* Measure input timings. */
+	ret = regmap_write(ctx->regmap, 0x8620, 0x00);
+	if (ret)
+		return ret;
+
+	msleep(100);
+
+	ret = regmap_bulk_read(ctx->regmap, 0x8670, buf, sizeof(buf));
+	if (ret)
+		return ret;
+
+	hdisp = (buf[16]<<8) + buf[17];
+	vdisp = (buf[14]<<8) + buf[15];
+
+	if (mode->hdisplay != hdisp || mode->vdisplay != vdisp) {
+		dev_err(ctx->dev, "Incorrect resolution: set: %dx%d, expected: %dx%d\n",
+			vdisp, hdisp, mode->vdisplay, mode->hdisplay);
+		dev_dbg(ctx->dev, "TIMINGS: detected sync_polarity reg[0x8670]=0x%x\n",
+			buf[0]);
+		dev_dbg(ctx->dev, "TIMINGS: vfp=%d vs=%d vbp=%d vact=%d vtotal=%d\n",
+			buf[5], buf[1], buf[4], vdisp, (buf[10]<<8) + buf[11]);
+		dev_dbg(ctx->dev, "TIMINGS: hfp=%d hs=%d hbp=%d hact=%d htotal=%d\n",
+			(buf[8]<<8) + buf[9], (buf[2]<<8) + buf[3], (buf[6]<<8) + buf[7],
+			hdisp, (buf[12]<<8) + buf[13]);
+		return -EIO;
+	}
+
+	// Some sync polarity config from demo.
+	if (!(buf[0] & 0x1))
+		ret = regmap_update_bits(ctx->regmap, 0x8547, 0x10, 0x10); // hsync
+
+	if (!(buf[0] & 0x2))
+		ret = regmap_update_bits(ctx->regmap, 0x8547, 0x20, 0x20); // vsync
+
+	return 0;
+};
+
+static int lt9211_configure_timing_rx_dsi(struct lt9211 *ctx,
+					  const struct drm_display_mode *mode)
 {
 	const struct reg_sequence lt9211_timing[] = {
 		{ 0xd00d, (mode->vtotal >> 8) & 0xff },
@@ -539,21 +631,37 @@ static void lt9211_atomic_enable(struct drm_bridge *bridge,
 	if (ret)
 		return;
 
-	ret = lt9211_configure_rx(ctx);
-	if (ret)
-		return;
+	if (ctx->input_iface == DSI_IFACE) {
+		ret = lt9211_configure_rx_dsi(ctx);
+		if (ret)
+			return;
 
-	ret = lt9211_autodetect_rx(ctx, mode);
-	if (ret)
-		return;
+		ret = lt9211_autodetect_rx_dsi(ctx, mode);
+		if (ret)
+			return;
 
-	ret = lt9211_configure_timing(ctx, mode);
-	if (ret)
-		return;
+		ret = lt9211_configure_timing_rx_dsi(ctx, mode);
+		if (ret)
+			return;
 
-	ret = lt9211_configure_plls(ctx, mode);
-	if (ret)
-		return;
+		ret = lt9211_configure_plls(ctx, mode);
+		if (ret)
+			return;
+
+	} else if (ctx->input_iface == DPI_IFACE) {
+		ret = lt9211_configure_rx_ttl(ctx, bridge_state);
+		if (ret)
+			return;
+
+		ret = lt9211_autodetect_rx_ttl(ctx, mode);
+		if (ret)
+			return;
+
+		// almost for debug info but also for some polarity config?
+		ret = lt9211_configure_timing_rx_ttl(ctx, mode);
+		if (ret)
+			return;
+	}
 
 	ret = lt9211_configure_tx(ctx, lvds_format_jeida, lvds_format_24bpp,
 				  bus_flags & DRM_BUS_FLAG_DE_HIGH);
@@ -792,9 +900,11 @@ static int lt9211_probe(struct i2c_client *client,
 	ctx->bridge.of_node = dev->of_node;
 	drm_bridge_add(&ctx->bridge);
 
-	ret = lt9211_host_attach(ctx);
-	if (ret)
-		drm_bridge_remove(&ctx->bridge);
+	if (ctx->input_iface == DSI_IFACE) {
+		ret = lt9211_host_attach(ctx);
+		if (ret)
+			drm_bridge_remove(&ctx->bridge);
+	}
 
 	return ret;
 }
