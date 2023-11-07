@@ -31,7 +31,7 @@
 	};
 
 	/* TRS (3.5mm jack) connected to ES8316 codec.
-	   ES8316 connected to MCom-03 MFBSP0 as I2S master.
+	   ES8316 connected to MCom-03 MFBSP0.
 	 */
 	aux_sound {
 		compatible = "simple-audio-card";
@@ -39,16 +39,18 @@
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&dailink1_master>;
 		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,continuous-clock;
+		simple-audio-card,routing =
+			"MIC2", "Mic Bias";
 
-		simple-audio-card,cpu {
+		dailink1_master: simple-audio-card,cpu {
 			sound-dai = <&mfbsp0_i2s>;
 		};
 
-		dailink1_master: simple-audio-card,codec {
+		simple-audio-card,codec {
 			sound-dai = <&es8316>;
 		};
 	};
-
 };
 
 /* Connected to Raspberry Pi header */
