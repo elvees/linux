@@ -28,7 +28,7 @@
  * Intel Cherry Trail platforms (19.2MHz MCLK, 48kHz LRCK).
  */
 static const unsigned int supported_mclk_lrck_ratios[] = {
-	256, 384, 400, 500, 512, 768, 1024
+	250, 256, 384, 400, 500, 512, 768, 1024
 };
 
 struct es8316_priv {
