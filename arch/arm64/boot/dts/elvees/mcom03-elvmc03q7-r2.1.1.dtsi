@@ -16,6 +16,10 @@
 		     "elvees,elvmc03q7",
 		     "elvees,mcom03";
 
+	aliases {
+		i2c5 = &i2c_cam0;
+	};
+
 	elvmc03q7-leds {
 		compatible = "gpio-leds";
 
@@ -210,6 +214,40 @@
 			};
 		};
 	};
+
+	i2c-switch@70 {
+		compatible = "ti,tca9546", "nxp,pca9546";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		/* Sub-buses in a mux doesn't respect status property, so they
+		 * are always enabled. */
+
+		i2c_cam0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c_usbh: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c_lvds_did: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+
+		i2c_lvds_blc: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+	};
 };
 
 &de_dsi {
@@ -227,3 +265,11 @@
 
 /* PCIe0 is connected to SATA controller. */
 sata: &pcie0 { };
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
