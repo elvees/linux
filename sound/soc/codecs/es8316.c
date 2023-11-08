@@ -29,7 +29,7 @@
  */
 #define NR_SUPPORTED_MCLK_LRCK_RATIOS ARRAY_SIZE(supported_mclk_lrck_ratios)
 static const unsigned int supported_mclk_lrck_ratios[] = {
-	256, 384, 400, 500, 512, 768, 1024
+	250, 256, 384, 400, 500, 512, 768, 1024
 };
 
 struct es8316_priv {
