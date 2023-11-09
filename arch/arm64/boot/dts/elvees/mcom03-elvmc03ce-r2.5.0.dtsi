@@ -50,6 +50,12 @@
 &gpio1b {
 	gpio-line-names = "I2S_CLK", "I2S_WS", "I2S_SDO", "I2S_RST#",
 		"I2S_SDI", "USB_HUB_RST#", "GPIO2", "GPIO0";
+
+	reset-usb-vl817-hub-hog {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
 };
 
 &gpio1c {

@@ -238,3 +238,15 @@
 &i2s0 {
 	status = "okay";
 };
+
+/* Connected to bottom slot of USB 3.0 on-board double connector */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 2.0 on-board double connector and top slot of
+ * USB 3.0 on-board double connector.
+ */
+&usb1 {
+	status = "okay";
+};
