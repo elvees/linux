@@ -106,6 +106,19 @@
 			label = "BTN3";
 			linux,code = <BTN_TRIGGER_HAPPY4>;
 		};
+
+		sleep {
+			gpios = <&gpio0b 2 GPIO_ACTIVE_LOW>;
+			label = "SLEEP";
+			linux,code = <KEY_SLEEP>;
+		};
+
+		lid {
+			gpios = <&gpio0c 5 GPIO_ACTIVE_LOW>;
+			label = "LID";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+		};
 	};
 
 	vdd_codec: vdd-codec {
