@@ -186,7 +186,9 @@ ser3: &uart1 { };
 	};
 };
 
-sata: &pcie0 { };
+sata: &pcie0 {
+	reset-gpio = <&gpio1c 7 GPIO_ACTIVE_HIGH>;
+};
 
 &i2c2 {
 	status = "okay";
@@ -398,4 +400,8 @@ i2c_pm: &i2c0 { };
 			};
 		};
 	};
+};
+
+&pcie1 {
+	reset-gpio = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
 };
