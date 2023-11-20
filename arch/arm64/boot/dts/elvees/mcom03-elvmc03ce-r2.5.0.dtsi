@@ -104,8 +104,8 @@
 		reg = <0x32>;
 	};
 
-	gx21m15: temperature-sensor@48 {
-		compatible = "national,lm75b";
+	tmp112: temperature-sensor@48 {
+		compatible = "ti,tmp112";
 		reg = <0x48>;
 	};
 
