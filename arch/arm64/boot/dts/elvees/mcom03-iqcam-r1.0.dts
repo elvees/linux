@@ -137,6 +137,16 @@
 
 };
 
+&i2c3 {
+	clock-frequency = <100000>;
+	status = "okay";
+
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+	};
+};
+
 &i2c4 {
 	clock-frequency = <400000>;
 	status = "okay";
