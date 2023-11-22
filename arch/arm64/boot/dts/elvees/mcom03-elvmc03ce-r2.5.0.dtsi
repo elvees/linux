@@ -234,3 +234,17 @@
 
 /* PCIe0 is connected to SATA controller. */
 sata: &pcie0 { };
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0c 7 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-ieee802.3-c22";
+		reg = <0x0>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1950>;
+		tx-internal-delay-ps = <1350>;
+	};
+};

@@ -309,3 +309,11 @@
 &qlic0 {
 	status = "okay";
 };
+
+&emac0 {
+	status = "okay";
+};
+
+&ethernet_phy0 {
+	max-speed = <100>;
+};
