@@ -40,6 +40,15 @@
 /* DSI lane count - 0 means 4 lanes ; 1, 2, 3 means 1, 2, 3 lanes. */
 #define REG_DSI_LANE_COUNT(n)			((n) & 3)
 
+#define MAX_PORTS_NUM	3
+
+enum supported_iface {
+	DSI_IFACE,
+	LVDS_IFACE,
+	DPI_IFACE,
+	MAX_IFACE,
+};
+
 struct lt9211 {
 	struct drm_bridge		bridge;
 	struct device			*dev;
@@ -48,6 +57,8 @@ struct lt9211 {
 	struct drm_bridge		*panel_bridge;
 	struct gpio_desc		*reset_gpio;
 	struct regulator		*vccio;
+	unsigned int			input_iface;
+	unsigned int			output_iface;
 	bool				lvds_dual_link;
 	bool				lvds_dual_link_even_odd_swap;
 };
@@ -625,7 +636,7 @@ static const struct drm_bridge_funcs lt9211_funcs = {
 
 static int lt9211_parse_dt(struct lt9211 *ctx)
 {
-	struct device_node *port2, *port3;
+	struct device_node *port2, *port3, *node = NULL;
 	struct drm_bridge *panel_bridge;
 	struct device *dev = ctx->dev;
 	struct drm_panel *panel;
@@ -646,6 +657,28 @@ static int lt9211_parse_dt(struct lt9211 *ctx)
 	of_node_put(port2);
 	of_node_put(port3);
 
+	/* Parse endpoints */
+	for_each_endpoint_of_node(dev->of_node, node) {
+		struct of_endpoint ep;
+
+		of_graph_parse_endpoint(node, &ep);
+		dev_dbg(dev, "Endpoint %pOF on port %d",
+			ep.local_node, ep.port);
+
+		if (ep.port > MAX_PORTS_NUM) {
+			dev_err(dev, "Invalid endpoint %s on port %d",
+				of_node_full_name(ep.local_node), ep.port);
+			continue;
+		}
+
+		if (ep.port == 0 && ep.id < MAX_IFACE)
+			ctx->input_iface = ep.id;
+
+		if (ep.port == 2 && ep.id < MAX_IFACE)
+			ctx->output_iface = ep.id;
+	}
+	of_node_put(node);
+
 	if (dual_link == DRM_LVDS_DUAL_LINK_ODD_EVEN_PIXELS) {
 		ctx->lvds_dual_link = true;
 		/* Odd pixels to LVDS Channel A, even pixels to B */
@@ -656,7 +689,8 @@ static int lt9211_parse_dt(struct lt9211 *ctx)
 		ctx->lvds_dual_link_even_odd_swap = true;
 	}
 
-	ret = drm_of_find_panel_or_bridge(dev->of_node, 2, 0, &panel, &panel_bridge);
+	ret = drm_of_find_panel_or_bridge(dev->of_node, 2, ctx->output_iface,
+					  &panel, &panel_bridge);
 	if (ret < 0)
 		return ret;
 	if (panel) {
