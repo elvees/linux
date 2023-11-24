@@ -41,6 +41,20 @@ properties:
           Primary MIPI DSI port-1 for MIPI input or
           LVDS port-1 for LVDS input or DPI input.
 
+        patternProperties:
+          "^endpoint@[0-2]$":
+            type: object
+
+            properties:
+              reg:
+                enum: [0, 1, 2]
+                default: 0
+                description: |
+                  Physical interface to be used:
+                  0: DSI
+                  1: LVDS
+                  2: DPI
+
       port@1:
         $ref: /schemas/graph.yaml#/properties/port
         description:
@@ -53,6 +67,20 @@ properties:
         description:
           Primary MIPI DSI port-1 for MIPI output or
           LVDS port-1 for LVDS output or DPI output.
+
+        patternProperties:
+          "^endpoint@[0-2]$":
+            type: object
+
+            properties:
+              reg:
+                enum: [0, 1, 2]
+                default: 0
+                description: |
+                  Physical interface to be used:
+                  0: DSI
+                  1: LVDS
+                  2: DPI
 
       port@3:
         $ref: /schemas/graph.yaml#/properties/port
