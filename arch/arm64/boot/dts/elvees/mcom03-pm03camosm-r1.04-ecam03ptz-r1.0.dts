@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-pm03camosm-r1.04.dtsi"
+
+/ {
+	model = "PM03CAM-OSM r1.04, ECAM03PTZ r1.0";
+	compatible = "elvees,pm03camosm-r1.04-ecam03ptz-r1.0",
+		     "elvees,pm03camosm-ecam03ptz",
+		     "elvees,ecam03ptz-r1.0",
+		     "elvees,ecam03ptz",
+		     "elvees,pm03camosm-r1.04",
+		     "elvees,pm03camosm",
+		     "elvees,mcom03";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* SDIO WP is not routed */
+	disable-wp;
+};
+
+&emac0 {
+	status = "okay";
+
+	phy-handle = <&ethernet_phy0>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-id001c.c916", "ethernet-phy-ieee802.3-c22";
+		reg = <0x4>;
+	};
+};
