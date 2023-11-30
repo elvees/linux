@@ -465,7 +465,7 @@
 					  <&media_ucg2 MEDIA_GPU_CORE_CLK>;
 			assigned-clock-rates = <247500000
 						247500000
-						247500000>;
+						61875000>;
 			enabled-clocks = <MEDIA_GPU_SYS_CLK MEDIA_GPU_MEM_CLK>;
 			#clock-cells = <1>;
 		};
