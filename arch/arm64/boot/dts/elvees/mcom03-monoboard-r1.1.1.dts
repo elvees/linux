@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "MCom-03 MONO-BOARD r1.1.1";
+	compatible = "elvees,monoboard-r1.1.1",
+		     "elvees,monoboard",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0c 0 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-id4f51.e91a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x0>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1800>;
+		tx-internal-delay-ps = <1200>;
+	};
+};
