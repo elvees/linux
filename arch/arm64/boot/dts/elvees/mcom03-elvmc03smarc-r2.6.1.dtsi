@@ -345,6 +345,10 @@ i2c_pm: &i2c0 { };
 	};
 };
 
+&media_pll1 {
+	assigned-clock-rates = <2376000000>;
+};
+
 &media_ucg1 {
 	assigned-clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
 			  <&media_ucg1 CLK_MEDIA_UCG1_DISP_M>;
