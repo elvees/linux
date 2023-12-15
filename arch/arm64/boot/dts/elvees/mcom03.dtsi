@@ -1626,7 +1626,7 @@
 					  <&sdr_ucg0 SDR_INT_CLK>,
 					  <&sdr_ucg0 SDR_PCI_CLK>,
 					  <&sdr_ucg0 SDR_AUX_PCI_CLK>;
-			assigned-clock-rates = <100000000
+			assigned-clock-rates = <200000000
 						600000000
 						400000000
 						200000000
