@@ -15,7 +15,6 @@
 #include <linux/crc32.h>
 #include <linux/dma-mapping.h>
 #include <linux/etherdevice.h>
-#include <linux/ethtool.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -113,6 +112,83 @@ static int arasan_gemac_get_ts_info(struct net_device *netdev,
 	return 0;
 }
 
+u32 arasan_gemac_get_stat(struct arasan_gemac_pdata *pd, u32 ctrl_reg,
+			  u32 data_h_reg, u32 data_l_reg, int offset)
+{
+	int timeout = 1000;
+	u32 reg;
+	u32 data_high, data_low;
+
+	arasan_gemac_writel(pd, ctrl_reg,
+			    offset | MAC_STATCTR_CONTROL_START_READ);
+
+	reg = arasan_gemac_readl(pd, ctrl_reg);
+	while ((--timeout) && (reg & MAC_STATCTR_CONTROL_START_READ)) {
+		reg = arasan_gemac_readl(pd, ctrl_reg);
+		usleep_range(1, 5);
+	}
+
+	if (!timeout) {
+		netdev_err(pd->dev,
+			   "Failed to read stat: Control Reg 0x%x Counter Num %d\n",
+			   ctrl_reg, offset);
+		return 0;
+	}
+
+	data_high = arasan_gemac_readl(pd, data_h_reg);
+	data_low = arasan_gemac_readl(pd, data_l_reg);
+
+	return MAC_STATCTR_DATA_HIGH(data_high) |
+	       MAC_STATCTR_DATA_LOW(data_low);
+}
+
+static void arasan_gemac_get_ethtool_stats(struct net_device *dev,
+					   struct ethtool_stats *stats,
+					   u64 *data)
+{
+	int i;
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	for (i = 0; i < ARASAN_GEMAC_STATS_LEN; ++i) {
+		pd->ethtool_stats[i] = (u64)arasan_gemac_get_stat(pd,
+			arasan_gemac_stats[i].ctrl_reg,
+			arasan_gemac_stats[i].data_h_reg,
+			arasan_gemac_stats[i].data_l_reg,
+			arasan_gemac_stats[i].offset);
+	}
+
+	memcpy(data, &pd->ethtool_stats, sizeof(u64) * ARASAN_GEMAC_STATS_LEN);
+}
+
+static void arasan_gemac_get_ethtool_strings(struct net_device *dev, u32 sset,
+					     u8 *p)
+{
+	int i;
+
+	switch (sset) {
+	case ETH_SS_STATS:
+		for (i = 0; i < ARASAN_GEMAC_STATS_LEN;
+		     i++, p += ETH_GSTRING_LEN) {
+			memcpy(p, arasan_gemac_stats[i].stat_string,
+			       ETH_GSTRING_LEN);
+		}
+		break;
+	default:
+		netdev_warn(dev, "No such ethtool string %d\n", sset);
+		break;
+	}
+}
+
+static int arasan_gemac_get_sset_count(struct net_device *dev, int sset)
+{
+	switch (sset) {
+	case ETH_SS_STATS:
+		return ARASAN_GEMAC_STATS_LEN;
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
 static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.get_drvinfo = arasan_gemac_get_drvinfo,
 	.get_regs_len = arasan_gemac_get_regs_len,
@@ -124,6 +200,9 @@ static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
 	.nway_reset = arasan_gemac_nway_reset,
 	.get_ts_info = arasan_gemac_get_ts_info,
+	.get_ethtool_stats = arasan_gemac_get_ethtool_stats,
+	.get_strings = arasan_gemac_get_ethtool_strings,
+	.get_sset_count = arasan_gemac_get_sset_count,
 };
 
 static void arasan_gemac_set_hwaddr(struct net_device *dev)

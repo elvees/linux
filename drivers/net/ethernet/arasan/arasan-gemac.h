@@ -23,6 +23,7 @@
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
 #include <linux/timecounter.h>
+#include <linux/ethtool.h>
 
 /* GEMAC TX descriptor can describe 4K buffer.
  * But currently some unexplored bugs are observed if we set Jumbo frame
@@ -170,6 +171,10 @@
 #define MAC_MDIO_CONTROL_PHY_ADDR(VAL)                ((VAL) << 0)
 #define MAC_MDIO_CONTROL_START_FRAME(VAL)             ((VAL) << 15)
 
+#define MAC_STATCTR_CONTROL_START_READ                BIT(15)
+#define MAC_STATCTR_DATA_HIGH(VAL)                    (((VAL) & 0xffff) << 16)
+#define MAC_STATCTR_DATA_LOW(VAL)                     ((VAL) & 0xffff)
+
 #define MAC_INTERRUPT_ENABLE_UNDERRUN                 BIT(0)
 #define MAC_IRQ_STATUS_UNDERRUN                       BIT(0)
 
@@ -214,6 +219,49 @@
 #define DMA_TDES1_FS           BIT(29)
 #define DMA_TDES1_EOR          BIT(26)
 
+/* Tx stats counter numbers */
+
+#define ARASAN_GEMAC_TX_OK                            0
+#define ARASAN_GEMAC_TX_TOTAL                         1
+#define ARASAN_GEMAC_TX_OCTETS_OK                     2
+#define ARASAN_GEMAC_TX_EOP_ERR                       3
+#define ARASAN_GEMAC_TX_SINGLE_COLLISION              4
+#define ARASAN_GEMAC_TX_MULTIPLE_COLLISION            5
+#define ARASAN_GEMAC_TX_LATE_COLLISION                6
+#define ARASAN_GEMAC_TX_EXCESSIVE_COLLISION           7
+#define ARASAN_GEMAC_TX_UNICAST                       8
+#define ARASAN_GEMAC_TX_MULTICAST                     9
+#define ARASAN_GEMAC_TX_BROADCAST                     10
+#define ARASAN_GEMAC_TX_PAUSE                         11
+
+/* Rx stats counter numbers */
+
+#define ARASAN_GEMAC_RX_OK                            0
+#define ARASAN_GEMAC_RX_TOTAL                         1
+#define ARASAN_GEMAC_RX_CRC_ERR                       2
+#define ARASAN_GEMAC_RX_ALIGN_ERR                     3
+#define ARASAN_GEMAC_RX_ERROR                         4
+#define ARASAN_GEMAC_RX_OCTET_OK                      5
+#define ARASAN_GEMAC_RX_OCTET_TOTAL                   6
+#define ARASAN_GEMAC_RX_UNICAST                       7
+#define ARASAN_GEMAC_RX_MULTICAST                     8
+#define ARASAN_GEMAC_RX_BROADCAST                     9
+#define ARASAN_GEMAC_RX_PAUSE                         10
+#define ARASAN_GEMAC_RX_LEN_ERR                       11
+#define ARASAN_GEMAC_RX_UNDER_SIZED                   12
+#define ARASAN_GEMAC_RX_OVER_SIZED                    13
+#define ARASAN_GEMAC_RX_FRAGMENTS                     14
+#define ARASAN_GEMAC_RX_JABBER                        15
+#define ARASAN_GEMAC_RX_LEN_64                        16
+#define ARASAN_GEMAC_RX_LEN_65_127                    17
+#define ARASAN_GEMAC_RX_LEN_128_255                   18
+#define ARASAN_GEMAC_RX_LEN_256_511                   19
+#define ARASAN_GEMAC_RX_LEN_512_1023                  20
+#define ARASAN_GEMAC_RX_LEN_1024_1518                 21
+#define ARASAN_GEMAC_RX_LEN_1519_PLUS                 22
+#define ARASAN_GEMAC_RX_DROPPED_BUFF_FULL             23
+#define ARASAN_GEMAC_RX_TRUNC_BUFF_FULL               24
+
 #define arasan_gemac_readl(port, reg) readl((port)->regs + (reg))
 #define arasan_gemac_writel(port, reg, value) \
 	writel((value), (port)->regs + (reg))
@@ -223,6 +271,75 @@
 #define CLOCK_BUS 0
 #define CLOCK_TXC 1
 #define CLOCK_1588 2
+
+struct arasan_gemac_statistic {
+	char stat_string[ETH_GSTRING_LEN];
+	int offset;
+	u32 ctrl_reg;
+	u32 data_h_reg;
+	u32 data_l_reg;
+};
+
+#define ARASAN_GEMAC_TX_STAT(name, title) {	\
+	.stat_string = title,			\
+	.offset = ARASAN_GEMAC_TX_##name,	\
+	.ctrl_reg = MAC_TX_STATCTR_CONTROL,	\
+	.data_h_reg = MAC_TX_STATCTR_DATA_HIGH,	\
+	.data_l_reg = MAC_TX_STATCTR_DATA_LOW	\
+}
+
+#define ARASAN_GEMAC_RX_STAT(name, title) {	\
+	.stat_string = title,			\
+	.offset = ARASAN_GEMAC_RX_##name,	\
+	.ctrl_reg = MAC_RX_STATCTR_CONTROL,	\
+	.data_h_reg = MAC_RX_STATCTR_DATA_HIGH,	\
+	.data_l_reg = MAC_RX_STATCTR_DATA_LOW	\
+}
+
+static const struct arasan_gemac_statistic arasan_gemac_stats[] = {
+	ARASAN_GEMAC_TX_STAT(OK, "frames_tx_ok"),
+	ARASAN_GEMAC_TX_STAT(TOTAL, "frames_tx_total"),
+	ARASAN_GEMAC_TX_STAT(OCTETS_OK, "octets_tx_ok"),
+	ARASAN_GEMAC_TX_STAT(EOP_ERR, "frames_tx_eop_err"),
+	ARASAN_GEMAC_TX_STAT(SINGLE_COLLISION, "frames_tx_single_collision"),
+	ARASAN_GEMAC_TX_STAT(MULTIPLE_COLLISION,
+			     "frames_tx_multiple_collision"),
+	ARASAN_GEMAC_TX_STAT(LATE_COLLISION, "frames_tx_late_collision"),
+	ARASAN_GEMAC_TX_STAT(EXCESSIVE_COLLISION,
+			     "frames_tx_excessive_collision"),
+	ARASAN_GEMAC_TX_STAT(UNICAST, "frames_tx_unicast"),
+	ARASAN_GEMAC_TX_STAT(MULTICAST, "frames_tx_multicast"),
+	ARASAN_GEMAC_TX_STAT(BROADCAST, "frames_tx_broadcast"),
+	ARASAN_GEMAC_TX_STAT(PAUSE, "frames_tx_pause"),
+
+	ARASAN_GEMAC_RX_STAT(OK, "frames_rx_ok"),
+	ARASAN_GEMAC_RX_STAT(TOTAL, "frames_rx_total"),
+	ARASAN_GEMAC_RX_STAT(CRC_ERR, "frames_rx_crc_err"),
+	ARASAN_GEMAC_RX_STAT(ALIGN_ERR, "frames_rx_align_err"),
+	ARASAN_GEMAC_RX_STAT(ERROR, "frames_rx_error"),
+	ARASAN_GEMAC_RX_STAT(OCTET_OK, "octet_rx_ok"),
+	ARASAN_GEMAC_RX_STAT(OCTET_TOTAL, "octet_rx_total"),
+	ARASAN_GEMAC_RX_STAT(UNICAST, "frames_rx_unicast"),
+	ARASAN_GEMAC_RX_STAT(MULTICAST, "frames_rx_multicast"),
+	ARASAN_GEMAC_RX_STAT(BROADCAST, "frames_rx_broadcast"),
+	ARASAN_GEMAC_RX_STAT(PAUSE, "frames_rx_pause"),
+	ARASAN_GEMAC_RX_STAT(LEN_ERR, "frames_rx_length_err"),
+	ARASAN_GEMAC_RX_STAT(UNDER_SIZED, "frames_rx_under_sized"),
+	ARASAN_GEMAC_RX_STAT(OVER_SIZED, "frames_rx_over_sized"),
+	ARASAN_GEMAC_RX_STAT(FRAGMENTS, "frames_rx_fragments"),
+	ARASAN_GEMAC_RX_STAT(JABBER, "frames_rx_jabber"),
+	ARASAN_GEMAC_RX_STAT(LEN_64, "frames_rx_len_64"),
+	ARASAN_GEMAC_RX_STAT(LEN_65_127, "frames_rx_len_65_127"),
+	ARASAN_GEMAC_RX_STAT(LEN_128_255, "frames_rx_len_128_255"),
+	ARASAN_GEMAC_RX_STAT(LEN_256_511, "frames_rx_len_256_511"),
+	ARASAN_GEMAC_RX_STAT(LEN_512_1023, "frames_rx_len_512_1023"),
+	ARASAN_GEMAC_RX_STAT(LEN_1024_1518, "frames_rx_len_1024_1518"),
+	ARASAN_GEMAC_RX_STAT(LEN_1519_PLUS, "frames_rx_len_1519_plus"),
+	ARASAN_GEMAC_RX_STAT(DROPPED_BUFF_FULL, "frames_rx_dropped_buff_full"),
+	ARASAN_GEMAC_RX_STAT(TRUNC_BUFF_FULL, "frames_rx_truncated_buff_full"),
+};
+
+#define ARASAN_GEMAC_STATS_LEN ARRAY_SIZE(arasan_gemac_stats)
 
 struct arasan_gemac_dma_desc {
 	u32 status;
@@ -288,6 +405,8 @@ struct arasan_gemac_pdata {
 	u32                 mdc_freq;
 	u32                 tx_threshold;
 	u8                  axi_width64;
+
+	u64 ethtool_stats[ARASAN_GEMAC_STATS_LEN];
 
 	phy_interface_t     phy_interface;
 	int phy_irq[PHY_MAX_ADDR];
