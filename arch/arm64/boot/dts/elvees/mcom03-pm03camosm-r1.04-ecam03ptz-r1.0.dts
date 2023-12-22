@@ -36,6 +36,30 @@
 			linux,code = <KEY_RESTART>;
 		};
 	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "analog-audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		simple-audio-card,widgets =
+			"Microphone", "Microphone Jack",
+			"Line", "Line Out Jack";
+		simple-audio-card,routing =
+			"MIC1", "Microphone Jack",
+			"Microphone Jack", "micbias1",
+			"Line Out Jack", "LOUTL",
+			"Line Out Jack", "LOUTR";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&rt5616>;
+		};
+	};
 };
 
 &gpio0a {
@@ -178,6 +202,18 @@
 	};
 };
 
+&i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	rt5616: audio-codec@1b {
+		#sound-dai-cells = <0>;
+		compatible = "realtek,rt5616";
+		reg = <0x1b>;
+		rt,pll-src-bclk;
+	};
+};
+
 &i2c2 {
 	status = "okay";
 	clock-frequency = <100000>;
@@ -228,4 +264,8 @@
 		spi-cpol;
 		label = "iris:focus";
 	};
+};
+
+&i2s0 {
+	status = "okay";
 };
