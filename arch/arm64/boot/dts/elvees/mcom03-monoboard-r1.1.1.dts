@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
 
 #include "mcom03.dtsi"
 
@@ -18,10 +19,59 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	sdhci0_supply: regulator@00 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	fancontrol: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwm 0 40000 0>;
+		#cooling-cells = <2>;
+		cooling-levels = <0 102 180 230>;
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			thermal-sensors = <&pvt 0>;
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			trips {
+				cpu_alert0: cpu-alert-0 {
+					temperature = <50000>;
+					hysteresis = <1000>;
+					type = "active";
+				};
+			};
+
+			cooling_maps: cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device = <&fancontrol
+							  THERMAL_NO_LIMIT
+							  THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+	};
 };
 
+// SER0
 &uart0 {
 	status = "okay";
+};
+
+// SER1 connects to RS-232(XP19)
+&uart3 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
 };
 
 &emac0 {
@@ -34,7 +84,131 @@
 		reg = <0x0>;
 
 		motorcomm,clk-out-frequency-hz = <0>;
-		rx-internal-delay-ps = <1800>;
-		tx-internal-delay-ps = <1200>;
+		rx-internal-delay-ps = <1650>;
+		tx-internal-delay-ps = <1050>;
 	};
+};
+
+&emac1 {
+	status = "okay";
+	phy-handle = <&ethernet_phy1>;
+	reset-gpios = <&gpio0c 1 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy1: ethernet-phy@2 {
+		compatible = "ethernet-phy-id4f51.e91a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x2>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1650>;
+		tx-internal-delay-ps = <1350>;
+	};
+};
+
+&sdhci0 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: w25q128@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* Highest frequency for "Read Data" command on W25Q128JW.
+		 */
+		spi-max-frequency = <50000000>;
+		m25p,fast-read;
+	};
+};
+
+// Connected to USB HUB
+&usb0 {
+	status = "okay";
+};
+
+// Connected to USB HUB
+&usb1 {
+	status = "okay";
+};
+
+&gpio0a {
+	gpio-line-names = "SDIO_WAKE_#INT", "nSMB_ALERT", "SER1_CTS", "nINT_ETH0",
+		"nINT_ETH1", "nINT_RTC", "INT_LVDS", "SER1_RTS";
+};
+
+&gpio0b {
+	gpio-line-names = "SER1_RX", "SER1_TX", "UART_WAKE#", "nRST_MIPI_LVDS",
+		"EMMc_nRST", "SER3_RX", "SER3_TX", "SER2_RX";
+};
+
+&gpio0c {
+	gpio-line-names = "nRST_ETH1", "nRST_ETH1", "LVDS_nDETECT", "SPIO_SS_IN",
+		"LVDS_ENBKL", "PCIeSATA_nRST", "", "SDR_h1v8-l1v5";
+};
+
+&gpio0d {
+	gpio-line-names = "SER2_TX", "", "", "", "", "", "", "";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_GP_CK", "I2C_GP_DAT", "I2C2_SCL", "I2C2_SDA",
+		"I2C3_SCL", "I2C3_SDA", "M.2_ALERT#", "INT_HDMI";
+};
+
+&gpio1b {
+	gpio-line-names = "HDMI_I2S_SCLK", "HDMI_I2S_LRCLK", "HDMI_I2S_D",
+		"MIRR_SENS", "LVDS_BL_nEN", "USB_HUB_nRST", "SER0_TX", "SER0_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "DP_CONV_nRST", "STM_nRST", "HDMI_SPLIT_nRST", "SD_BRIDGE_RST",
+		"SDIO_RESET#", "STM_BOOT0", "", "nRST_HDMI";
+};
+
+&gpio1d {
+	gpio-line-names = "", "LVDS_BL_PWM", "FAN_PWM_1", "FAN_PWM_2",
+		"", "PC_SPEAKER", "", "";
+};
+
+i2c_gp: &i2c1  {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	// DA5
+	tmp112_0: temperature-sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+
+	// DA2
+	tmp112_1: temperature-sensor@49 {
+		compatible = "ti,tmp112";
+		reg = <0x49>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&pwm {
+	status = "okay";
+	elvees,output-channel = <0 0 0 0>;
+	elvees,state-on-disable = <0 0 0 0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_oena0_mux>;
 };
