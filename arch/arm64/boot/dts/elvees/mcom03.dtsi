@@ -1719,6 +1719,7 @@
 					      0xc 0x0 0x1 0x80000000>;
 				num-viewport = <32>;
 				num-lanes = <4>;
+				linux,pci-domain = <0>;
 				// TODO: HP, AER, etc. interrupts
 				interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>, // MSI
 					     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>; // Legacy
@@ -1763,6 +1764,7 @@
 					      0xc 0x0 0x1 0x80000000>;
 				num-viewport = <32>;
 				num-lanes = <4>;
+				linux,pci-domain = <1>;
 				// TODO: HP, AER, etc. interrupts
 				interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>, // MSI
 					     <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>; // Legacy
