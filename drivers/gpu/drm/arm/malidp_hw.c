@@ -1212,6 +1212,13 @@ static irqreturn_t malidp_de_irq(int irq, void *arg)
 	if ((status & de->vsync_irq) && malidp->crtc.enabled)
 		drm_crtc_handle_vblank(&malidp->crtc);
 
+	if (status & MALIDP_DE_IRQ_UNDERRUN)
+		printk_ratelimited(KERN_ERR "mali-dp: Display underrun error\n");
+	if (status & MALIDP550_DE_IRQ_SATURATION)
+		printk_ratelimited(KERN_ERR "mali-dp: Saturation error\n");
+	if (status & MALIDP550_DE_IRQ_AXI_ERR)
+		printk_ratelimited(KERN_ERR "mali-dp: AXI bus error\n");
+
 #ifdef CONFIG_DEBUG_FS
 	if (status & de->err_mask) {
 		malidp_error(malidp, &malidp->de_errors, status,
