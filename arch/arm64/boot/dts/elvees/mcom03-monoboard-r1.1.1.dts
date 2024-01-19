@@ -28,6 +28,14 @@
 		regulator-always-on;
 	};
 
+	lt9211_1v8: regulator@01 {
+		compatible = "regulator-fixed";
+		regulator-name = "rgb-lvds-vcc-1.8v";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
 	fancontrol: pwm-fan {
 		compatible = "pwm-fan";
 		pwms = <&pwm 0 40000 0>;
@@ -201,6 +209,17 @@ i2c_gp: &i2c1  {
 	eeprom@50 {
 		compatible = "microchip,24c32", "atmel,24c32";
 		reg = <0x50>;
+	};
+
+	lt9211: rgb-lvds-bridge@2d {
+		compatible = "lontium,lt9211";
+		reg = <0x2d>;
+		status = "disable";
+
+		reset-gpios = <&gpio0b 3 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio0a 6 IRQ_TYPE_EDGE_FALLING>; // not used actually
+
+		vccio-supply = <&lt9211_1v8>;
 	};
 };
 

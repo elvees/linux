@@ -25,6 +25,7 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.6.1-elvsmarccb-r3.1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-iqcam-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-monoboard-r1.1.1.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-monoboard-r1.1.1-b156xw02-v0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-pm03camosm-r1.04-ecam03ptz-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-pm03cam-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-pm03cam-r2.0-ecam03common-r2.0.dtb
