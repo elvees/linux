@@ -229,14 +229,14 @@ static struct regmap * __init mcom03_clk_pll_configure_regmap(struct device_node
 	return regmap;
 }
 
-struct clk * __init mcom03_clk_pll_register(const char *parent_name,
+struct clk_hw * __init mcom03_clk_pll_register(const char *parent_name,
 					    const char *name,
 					    struct regmap *urb,
 					    u32 offset,
 					    int max_nr)
 {
 	struct clk_init_data init;
-	struct clk *clk;
+	int ret;
 
 	struct mcom03_pll *pll = kzalloc(sizeof(*pll), GFP_KERNEL);
 
@@ -254,18 +254,18 @@ struct clk * __init mcom03_clk_pll_register(const char *parent_name,
 	pll->regmap = urb;
 	pll->offset = offset;
 
-	clk = clk_register(NULL, &pll->hw);
-	if (IS_ERR(clk)) {
+	ret = clk_hw_register(NULL, &pll->hw);
+	if (ret) {
 		pr_err("%s: Failed to register clock\n", name);
 		kfree(pll);
 	}
 
-	return clk;
+	return &pll->hw;
 }
 
 static void __init mcom03_clk_pll_init(struct device_node *np)
 {
-	struct clk *clk;
+	struct clk_hw *hw;
 	struct regmap *regmap;
 	const char *name;
 	const char *parent_name = of_clk_get_parent_name(np, 0);
@@ -310,14 +310,14 @@ static void __init mcom03_clk_pll_init(struct device_node *np)
 		return;
 	}
 
-	clk = mcom03_clk_pll_register(parent_name, np->name,
-				      regmap, 0, max_nr);
-	if (IS_ERR(clk)) {
+	hw = mcom03_clk_pll_register(parent_name, np->name,
+				     regmap, 0, max_nr);
+	if (IS_ERR(hw)) {
 		pr_err("%s: Failed to register clock\n", np->name);
 		goto fail;
 	}
 
-	of_clk_add_provider(np, of_clk_src_simple_get, clk);
+	of_clk_add_hw_provider(np, of_clk_hw_simple_get, hw);
 	return;
 
 fail:

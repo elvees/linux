@@ -18,11 +18,11 @@ struct mcom03_clk_provider *mcom03_clk_alloc_provider(struct device_node *node,
 	if (!p)
 		return NULL;
 
-	p->clk_data.clks = kcalloc(count, sizeof(struct clk *), GFP_KERNEL);
-	if (!p->clk_data.clks)
+	p->clk_data = kzalloc(struct_size(p->clk_data, hws, count), GFP_KERNEL);
+	if (!p->clk_data)
 		goto free_provider;
 
-	p->clk_data.clk_num = count;
+	p->clk_data->num = count;
 	p->node = node;
 	p->base = of_iomap(node, 0);
 	if (!p->base) {
@@ -33,7 +33,7 @@ struct mcom03_clk_provider *mcom03_clk_alloc_provider(struct device_node *node,
 	return p;
 
 free_clks:
-	kfree(p->clk_data.clks);
+	kfree(p->clk_data);
 free_provider:
 	kfree(p);
 	return NULL;

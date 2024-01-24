@@ -79,7 +79,6 @@ static void __init mcom03_clk_refmux_init(struct device_node *np,
 	struct mcom03_clk_refmux *priv;
 	unsigned int parent_count;
 	const char *parent_names[4];
-	struct clk *clk;
 	int ret;
 	int i;
 
@@ -116,15 +115,15 @@ static void __init mcom03_clk_refmux_init(struct device_node *np,
 	priv->mux.mask = data->mask;
 	priv->mux.hw.init = &init;
 
-	clk = clk_register(NULL, &priv->mux.hw);
-	if (IS_ERR(clk)) {
-		pr_err("%s: Failed to register clock (%ld)\n", np->full_name,
-		       PTR_ERR(clk));
+	ret = clk_hw_register(NULL, &priv->mux.hw);
+	if (ret) {
+		pr_err("%s: Failed to register clock (%d)\n", np->full_name,
+		       ret);
 		kfree(priv);
 		return;
 	}
 
-	ret = of_clk_add_provider(np, of_clk_src_simple_get, clk);
+	ret = of_clk_add_hw_provider(np, of_clk_hw_simple_get, &priv->mux.hw);
 	if (ret < 0) {
 		pr_err("%s: Failed to add provider (%d)\n", np->full_name, ret);
 		kfree(priv);

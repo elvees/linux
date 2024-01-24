@@ -228,17 +228,17 @@ static const struct clk_ops ucg_chan_fixed_ops = {
 	.recalc_rate = mcom03_clk_ucg_chan_recalc_rate,
 };
 
-static struct clk *mcom03_ucg_chan_register(unsigned int id,
-					    const char *name,
-					    const char *parent_name,
-					    void __iomem *base,
-					    u32 fixed_freq_mask,
-					    u32 round_up_mask)
+static struct clk_hw *mcom03_ucg_chan_register(unsigned int id,
+					       const char *name,
+					       const char *parent_name,
+					       void __iomem *base,
+					       u32 fixed_freq_mask,
+					       u32 round_up_mask)
 {
 
 	struct mcom03_ucg_chan *chan_clk;
 	struct clk_init_data init;
-	struct clk *clk;
+	int ret;
 
 	chan_clk = kzalloc(sizeof(*chan_clk), GFP_KERNEL);
 	if (!chan_clk)
@@ -257,11 +257,13 @@ static struct clk *mcom03_ucg_chan_register(unsigned int id,
 	chan_clk->id = id;
 	chan_clk->freq_round_up = round_up_mask & BIT(id);
 
-	clk = clk_register(NULL, &chan_clk->hw);
-	if (IS_ERR(clk))
+	ret = clk_hw_register(NULL, &chan_clk->hw);
+	if (ret) {
 		kfree(chan_clk);
+		return ERR_PTR(ret);
+	}
 
-	return clk;
+	return &chan_clk->hw;
 }
 
 static void enable_clocks(struct mcom03_clk_provider *provider,
@@ -280,7 +282,7 @@ static void enable_clocks(struct mcom03_clk_provider *provider,
 			pr_err("Unknown clock channel %d\n", clk_id);
 			continue;
 		}
-		clk = provider->clk_data.clks[clk_id];
+		clk = provider->clk_data->hws[clk_id]->clk;
 		if (IS_ERR(clk))
 			continue;
 		err = clk_prepare_enable(clk);
@@ -356,15 +358,15 @@ static void __init mcom03_clk_ucg_init(struct device_node *np)
 		return;
 
 	for (i = 0; i < count; i++) {
-		p->clk_data.clks[channels[i]] = mcom03_ucg_chan_register(
+		p->clk_data->hws[channels[i]] = mcom03_ucg_chan_register(
 			channels[i], names[i], parent_name, p->base,
 			fixed_freq_mask, round_up_mask);
-		if (IS_ERR(p->clk_data.clks[channels[i]]))
+		if (IS_ERR(p->clk_data->hws[channels[i]]))
 			pr_warn("%s: Failed to register clock %s: %ld\n",
 				np->name, names[i],
-				PTR_ERR(p->clk_data.clks[channels[i]]));
+				PTR_ERR(p->clk_data->hws[channels[i]]));
 	}
-	of_clk_add_provider(p->node, of_clk_src_onecell_get, &p->clk_data);
+	of_clk_add_hw_provider(p->node, of_clk_hw_onecell_get, p->clk_data);
 	enable_clocks(p, max_channel);
 }
 

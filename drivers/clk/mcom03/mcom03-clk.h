@@ -12,7 +12,7 @@
 struct mcom03_clk_provider {
 	struct device_node *node;
 	void __iomem *base;
-	struct clk_onecell_data clk_data;
+	struct clk_hw_onecell_data *clk_data;
 };
 
 struct mcom03_clk_provider *mcom03_clk_alloc_provider(struct device_node *node,

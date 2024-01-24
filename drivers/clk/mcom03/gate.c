@@ -79,16 +79,16 @@ static const struct clk_ops mcom03_clk_gate_ops = {
 };
 
 
-static struct clk *mcom03_clk_gate_register(const char *name,
-					    const char *parent_name,
-					    struct regmap *urb,
-					    unsigned int reg,
-					    u8 bit_idx,
-					    spinlock_t *lock)
+static struct clk_hw *mcom03_clk_gate_register(const char *name,
+					       const char *parent_name,
+					       struct regmap *urb,
+					       unsigned int reg,
+					       u8 bit_idx,
+					       spinlock_t *lock)
 {
-	struct clk *clk;
 	struct clk_init_data init;
 	struct mcom03_clk_gate *g;
+	int ret;
 
 	g = kzalloc(sizeof(*g), GFP_KERNEL);
 	if (!g)
@@ -104,13 +104,13 @@ static struct clk *mcom03_clk_gate_register(const char *name,
 	g->bit_idx = bit_idx;
 	g->lock = lock;
 	g->hw.init = &init;
-	clk = clk_register(NULL, &g->hw);
-	if (IS_ERR(clk)) {
+	ret = clk_hw_register(NULL, &g->hw);
+	if (ret) {
 		kfree(g);
 		return NULL;
 	}
 
-	return clk;
+	return &g->hw;
 }
 
 struct regmap_config urb_regmap_config = {
@@ -168,31 +168,31 @@ static void __init mcom03_clk_dsp_gate_init(struct device_node *np)
 		goto err_regmap_exit;
 
 	for (i = 0; i < 2; i++) {
-		p->clk_data.clks[i] = mcom03_clk_gate_register(clk_names[i],
+		p->clk_data->hws[i] = mcom03_clk_gate_register(clk_names[i],
 							       parent_name,
 							       urb,
 							       SDR_DSP_CTL,
 							       SDR_DSP_CTL_DSP0_CLK_EN_BIT + i,
 							       &mcom03_clk_dsp_lock);
-		if (IS_ERR(p->clk_data.clks[i])) {
+		if (IS_ERR(p->clk_data->hws[i])) {
 			pr_err("%s: Failed to register gate (%ld)\n",
-			       clk_names[i], PTR_ERR(p->clk_data.clks[i]));
+			       clk_names[i], PTR_ERR(p->clk_data->hws[i]));
 			goto err_unregister;
 		}
 	}
 
-	ret = of_clk_add_provider(p->node, of_clk_src_onecell_get,
-				  &p->clk_data);
+	ret = of_clk_add_hw_provider(p->node, of_clk_hw_onecell_get,
+				     p->clk_data);
 	if (ret >= 0)
 		return;
 
 	pr_err("%s: Failed to add clk provider (%d)\n", np->name, ret);
 err_unregister:
 	for (i = 0; i < 2; i++) {
-		if (!IS_ERR_OR_NULL(p->clk_data.clks[i]))
-			clk_unregister(p->clk_data.clks[i]);
+		if (!IS_ERR_OR_NULL(p->clk_data->hws[i]))
+			clk_hw_unregister(p->clk_data->hws[i]);
 	}
-	kfree(p->clk_data.clks);
+	kfree(p->clk_data);
 	kfree(p);
 err_regmap_exit:
 	regmap_exit(urb);
