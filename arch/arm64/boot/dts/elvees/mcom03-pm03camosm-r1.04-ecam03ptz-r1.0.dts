@@ -98,3 +98,10 @@
 		reg = <0x4>;
 	};
 };
+
+&uart1 {
+	status = "okay";
+	rts-gpios = <&gpio0b 2 GPIO_ACTIVE_HIGH>;
+	linux,rs485-enabled-at-boot-time;
+	snps,rs485-disable-hw-support;
+};
