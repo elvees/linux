@@ -18,6 +18,59 @@
 		     "elvees,mcom03";
 };
 
+&gpio0a {
+	gpio-line-names = "ProgGPIO_SW", "IRIS_ZERO_POS",
+		"ZOOM1_ZERO_POS", "ZOOM2_ZERO_POS",
+		"H_ZERO_POS", "V_ZERO_POZ",
+		"CASE_OPEN_INT", "ALARM_IN1";
+};
+
+&gpio0b {
+	gpio-line-names = "IR_LASER_UART_RX", "IR_LASER_UART_TX",
+		"RS-485 UART RE/DE", "",
+		"V_DIAG", "RS485_UART_RX",
+		"RS485_UART_TX", "";
+};
+
+&gpio0c {
+	gpio-line-names = "H_ENN", "H_V_MOTOR_SEL",
+		"H_INDX", "H_STEP",
+		"H_DIR", "V_ENN",
+		"V_STEP", "V_INDX";
+};
+
+&gpio0d {
+	gpio-line-names = "H_V_MOTOR_UART_TX", "H_V_MOTOR_UART_RX",
+		"V_DIR", "ZOOM1_ZOOM2_VD_SYNC",
+		"ALARM_OUT", "CSI_IMX_RST",
+		"CTRL", "";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_ALC_SCL", "I2C_ALC_SDA",
+		"I2C_AMBLIGH_SCL", "I2C_AMBLIGH_SDA",
+		"I2C_IMX_SCL", "I2C_IMX_SDA",
+		"ALARM_IN2", "INT/PMEB";
+};
+
+&gpio1b {
+	gpio-line-names = " ", " ", " ", " ",
+		"", "RST_ZOOM_FOCUS_IRIS_IR",
+		"DBG_UART_TX", "DBG_UART_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "SPI_ZOOM_IRIS_FOCUS_IR", " ",
+		" ", "CS_ZOOM1_ZOOM2_IR1",
+		"CS_IRIS_FOCUS_IR2", "", "", "";
+};
+
+&gpio1d {
+	gpio-line-names = "IRIS_FOCUS_VD_SYNC", "H_DIAG",
+		"FAN_CTRL", "IR_LED_PWM",
+		"", "", "", "";
+};
+
 &uart0 {
 	status = "okay";
 };
