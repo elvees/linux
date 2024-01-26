@@ -246,7 +246,10 @@ void dw8250_setup_port(struct uart_port *p)
 	struct uart_8250_port *up = up_to_u8250p(p);
 	u32 reg, old_dlf;
 
-	pd->hw_rs485_support = dw8250_detect_rs485_hw(p);
+	pd->hw_rs485_support = 0;
+	if (!device_property_read_bool(p->dev,
+				       "snps,rs485-disable-hw-support"))
+		pd->hw_rs485_support = dw8250_detect_rs485_hw(p);
 	if (pd->hw_rs485_support) {
 		p->rs485_config = dw8250_rs485_config;
 		up->lsr_save_mask = LSR_SAVE_FLAGS | DW_UART_LSR_ADDR_RCVD;
