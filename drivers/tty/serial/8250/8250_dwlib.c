@@ -161,7 +161,10 @@ void dw8250_setup_port(struct uart_port *p)
 	struct dw8250_port_data *pd = p->private_data;
 	u32 reg;
 
-	pd->hw_rs485_support = dw8250_detect_rs485_hw(p);
+	pd->hw_rs485_support = 0;
+	if (!device_property_read_bool(p->dev,
+				       "snps,rs485-disable-hw-support"))
+		pd->hw_rs485_support = dw8250_detect_rs485_hw(p);
 	if (pd->hw_rs485_support) {
 		p->rs485_config = dw8250_rs485_config;
 	} else {
