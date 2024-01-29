@@ -101,7 +101,7 @@ examples:
                     "cfg";
         interrupt-parent = <&qlic0>;
         interrupts = <26>;
-        clocks = <&service_ucg1 SERVICE_MFBSP0_CLK>;
+        clocks = <&service_ucg1 CLK_SERVICE_UCG0_MFBSP0>;
         elvees,mram-cfg = <0x0 128 64 64 32 32 64>;
       };
     };
