@@ -116,12 +116,12 @@ examples:
         reg = <0 0x12c0000 0 0x10000>,
               <0 0x1324000 0 0x1000>;
         reg-names = "dsi", "mipi-tx";
-        clocks = <&media_ucg1 MEDIA_DISP_PXLCLK>,
-            <&media_ucg0 MEDIA_SYS_ACLK>,
-            <&media_ucg1 MEDIA_DISP_ACLK>,
-            <&media_ucg3 MEDIA_MIPI_TX_CFG_CLK>,
-            <&media_ucg3 MEDIA_MIPI_TX_REFCLK>,
-            <&media_ucg3 MEDIA_MIPI_TXCLKESC>;
+        clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_PXL>,
+            <&media_ucg0 CLK_MEDIA_UCG0_SYSA>,
+            <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
+            <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TX_CFG>,
+            <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TX_REF>,
+            <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TXCLKESC>;
         clock-names = "pxlclk", "pclk", "disp_aclk", "mipi_tx_cfg",
                       "mipi_tx_ref", "mipi_txclkesc";
         elvees,urb = <&media_urb>;
