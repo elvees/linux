@@ -125,7 +125,7 @@ examples:
     /*
      * Using SoC internal PLL as USB ref clock source
      * ref clock phandle in clocks property changed to
-     * <&hsperiph_ucg3 HSP_USB0_REF_ALT_CLK>
+     * <&hsperiph_ucg3 CLK_HSP_UCG3_USB0_REF_ALT>
      */
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/clock/mcom03-clock.h>
@@ -142,7 +142,7 @@ examples:
           ranges;
           compatible = "elvees,mcom03-dwc3";
           clock-names = "sys", "ref", "suspend";
-          clocks = <&usb_sys_clk>, <&hsperiph_ucg3 HSP_USB0_REF_ALT_CLK>, <&usb_suspend_clk>;
+          clocks = <&usb_sys_clk>, <&hsperiph_ucg3 CLK_HSP_UCG3_USB0_REF_ALT>, <&usb_suspend_clk>;
           resets = <&hsperiph_reset HSPERIPH_RST_USB0>;
           elvees,urb = <&hsperiph_urb>;
           elvees,clk-ref-alt;
