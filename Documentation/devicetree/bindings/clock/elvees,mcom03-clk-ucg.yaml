@@ -85,15 +85,12 @@ examples:
         reg = <0 0x13200c0 0 0x80>;
         clocks = <&media_pll1>;
 
-        /* For example MEDIA_DISP_ACLK=0, MEDIA_DISP_MCLK=5,
-         * MEDIA_DISP_PXLCLK=8 */
-        clock-indices = <MEDIA_DISP_ACLK MEDIA_DISP_MCLK MEDIA_DISP_PXLCLK>;
         clock-output-names = "disp_aclk", "disp_mclk", "disp_pxlclk";
-        assigned-clocks = <&media_ucg1 MEDIA_DISP_ACLK>,
-                          <&media_ucg1 MEDIA_DISP_MCLK>;
+        assigned-clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
+                          <&media_ucg1 CLK_MEDIA_UCG1_DISP_M>;
         assigned-clock-rates = <297000000
                                 148500000>;
-        enabled-clocks = <MEDIA_DISP_ACLK>;
+        enabled-clocks = <CLK_MEDIA_UCG1_DISP_A>;
         #clock-cells = <1>;
     };
 ...
