@@ -223,6 +223,21 @@ i2c_gp: &i2c1  {
 	};
 };
 
+&i2c4 {
+	status = "okay";
+	// Maximum frequency for BL5372
+	clock-frequency = <100000>;
+
+	bl5372: rtc@32 {
+		compatible = "ricoh,rs5c372a";
+		reg = <0x32>;
+	};
+};
+
+&qlic0 {
+	status = "okay";
+};
+
 &pwm {
 	status = "okay";
 	elvees,output-channel = <0 0 0 0>;
