@@ -81,7 +81,7 @@ examples:
       silvaco,qspi-mode = <0>;
       reg = <0 0x1ff00000 0 0x10000>;
       clock-names = "clk_axi", "clk_ext";
-      clocks = <&service_ucg1 SERVICE_QSPI0_CLK>,
-              <&service_ucg1 SERVICE_QSPI0_EXT_CLK>;
+      clocks = <&service_ucg1 CLK_SERVICE_UCG0_QSPI0>,
+              <&service_ucg1 CLK_SERVICE_UCG0_QSPI0_EXT>;
       num-cs = <4>;
     };
