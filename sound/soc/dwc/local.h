@@ -10,6 +10,7 @@
 #define __DESIGNWARE_LOCAL_H
 
 #include <linux/clk.h>
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/types.h>
 #include <sound/dmaengine_pcm.h>
@@ -117,6 +118,14 @@ struct dw_i2s_dev {
 			bool *period_elapsed);
 	unsigned int tx_ptr;
 	unsigned int rx_ptr;
+
+	struct {
+		struct dentry *root;
+		u32 tx_fifo_overrun;
+		u32 tx_fifo_empty;
+		u32 rx_fifo_overrun;
+		u32 rx_data_available;
+	} debugfs;
 };
 
 #if IS_ENABLED(CONFIG_SND_DESIGNWARE_PCM)

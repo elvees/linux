@@ -26,6 +26,35 @@
 #include <sound/dmaengine_pcm.h>
 #include "local.h"
 
+#ifdef CONFIG_DEBUG_FS
+static void i2s_remove_debugfs(struct dw_i2s_dev *dev)
+{
+	debugfs_remove_recursive(dev->debugfs.root);
+}
+
+static void i2s_create_debugfs(struct dw_i2s_dev *dev)
+{
+	dev->debugfs.root = debugfs_create_dir("dwc-i2s", NULL);
+
+	debugfs_create_u32("tx_fifo_overrun", 0444, dev->debugfs.root,
+			   &dev->debugfs.tx_fifo_overrun);
+	debugfs_create_u32("tx_fifo_empty", 0444, dev->debugfs.root,
+			   &dev->debugfs.tx_fifo_empty);
+	debugfs_create_u32("rx_fifo_overrun", 0444, dev->debugfs.root,
+			   &dev->debugfs.rx_fifo_overrun);
+	debugfs_create_u32("rx_data_available", 0444, dev->debugfs.root,
+			   &dev->debugfs.rx_data_available);
+}
+#else
+static void i2s_remove_debugfs(struct dw_i2s_dev *dev)
+{
+}
+
+static void i2s_create_debugfs(struct dw_i2s_dev *dev)
+{
+}
+#endif
+
 static inline void i2s_write_reg(void __iomem *io_base, int reg, u32 val)
 {
 	writel(val, io_base + reg);
@@ -118,6 +147,7 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 		 */
 		if ((isr[i] & ISR_TXFE) && (i == 0) && dev->use_pio) {
 			dw_pcm_push_tx(dev);
+			dev->debugfs.tx_fifo_empty++;
 			irq_valid = true;
 		}
 
@@ -127,18 +157,19 @@ static irqreturn_t i2s_irq_handler(int irq, void *dev_id)
 		 */
 		if ((isr[i] & ISR_RXDA) && (i == 0) && dev->use_pio) {
 			dw_pcm_pop_rx(dev);
+			dev->debugfs.rx_data_available++;
 			irq_valid = true;
 		}
 
 		/* Error Handling: TX */
 		if (isr[i] & ISR_TXFO) {
-			dev_err_ratelimited(dev->dev, "TX overrun (ch_id=%d)\n", i);
+			dev->debugfs.tx_fifo_overrun++;
 			irq_valid = true;
 		}
 
-		/* Error Handling: TX */
+		/* Error Handling: RX */
 		if (isr[i] & ISR_RXFO) {
-			dev_err_ratelimited(dev->dev, "RX overrun (ch_id=%d)\n", i);
+			dev->debugfs.rx_fifo_overrun++;
 			irq_valid = true;
 		}
 	}
@@ -660,6 +691,8 @@ static int dw_i2s_probe(struct platform_device *pdev)
 		}
 	}
 
+	i2s_create_debugfs(dev);
+
 	dev->i2s_reg_comp1 = I2S_COMP_PARAM_1;
 	dev->i2s_reg_comp2 = I2S_COMP_PARAM_2;
 	if (pdata) {
@@ -736,6 +769,8 @@ static int dw_i2s_remove(struct platform_device *pdev)
 
 	if (dev->capability & DW_I2S_MASTER)
 		clk_disable_unprepare(dev->clk);
+
+	i2s_remove_debugfs(dev);
 
 	pm_runtime_disable(&pdev->dev);
 	return 0;
