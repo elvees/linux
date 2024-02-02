@@ -139,3 +139,18 @@
 		};
 	};
 };
+
+&i2c2 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	max31875r2: temperature-sensor@4a {
+		compatible = "ti,tmp103";
+		reg = <0x4a>;
+	};
+
+	bh1750fvi: light-sensor@5c {
+		compatible = "rohm,bh1750";
+		reg = <0x5c>;
+	};
+};
