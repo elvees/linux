@@ -16,6 +16,14 @@
 		     "elvees,pm03camosm-r1.04",
 		     "elvees,pm03camosm",
 		     "elvees,mcom03";
+
+	fancontrol: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwm 0 10000000 0>;
+
+		#cooling-cells = <2>;
+		cooling-levels = <0 102 180 230>;
+	};
 };
 
 &gpio0a {
@@ -104,4 +112,30 @@
 	rts-gpios = <&gpio0b 2 GPIO_ACTIVE_HIGH>;
 	linux,rs485-enabled-at-boot-time;
 	snps,rs485-disable-hw-support;
+};
+
+&pwm {
+		status = "okay";
+		elvees,output-channel = <0 0 0 0>;
+		elvees,state-on-disable = <1 0 0 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_oena0_mux>;
+};
+
+/*
+ * Upon reaching the trip point the thermal subsystem driver enables the fans.
+ *
+ * Thermal zones can be enabled/disabled via sysfs by writing said state into
+ * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
+ */
+&cpu_thermal {
+	cooling_maps: cooling-maps {
+		map0 {
+			trip = <&cpu_alert0>;
+			cooling-device = <&fancontrol
+					  THERMAL_NO_LIMIT
+					  THERMAL_NO_LIMIT>;
+		};
+	};
 };
