@@ -22,6 +22,7 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r1.0-rockpi-n10-rpi-dsi-7inch.d
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.2-elvsmarccb-r2.9.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.6.1-elvsmarccb-r2.10.3.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.6.1-elvsmarccb-r3.1.0.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-iqcam-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-monoboard-r1.1.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-pm03camosm-r1.04-ecam03ptz-r1.0.dtb
