@@ -154,3 +154,16 @@
 		reg = <0x5c>;
 	};
 };
+
+&i2c3 {
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
