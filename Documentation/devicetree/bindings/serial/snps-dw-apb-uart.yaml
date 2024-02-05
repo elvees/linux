@@ -96,6 +96,12 @@ properties:
       register. Define this if your serial port does not use this pin.
     type: boolean
 
+  snps,rs485-disable-hw-support:
+    description: Manually disable RS-485 HW support. Define this if you want
+    to disable RS-485 hardware support regardless of whether it is actually
+    present or not.
+    type: boolean
+
 required:
   - compatible
   - reg
