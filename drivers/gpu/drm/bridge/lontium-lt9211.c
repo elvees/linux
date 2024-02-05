@@ -36,6 +36,7 @@
 #define REG_CHIPID1_VALUE			0x01
 #define REG_CHIPID2				0x8102
 #define REG_CHIPID2_VALUE			0xe3
+#define REG_CHIPID2_VALUE_U4			0xe4
 
 #define REG_DSI_LANE				0xd000
 /* DSI lane count - 0 means 4 lanes ; 1, 2, 3 means 1, 2, 3 lanes. */
@@ -133,7 +134,7 @@ static int lt9211_read_chipid(struct lt9211 *ctx)
 
 	/* Test for known Chip ID. */
 	if (chipid[0] != REG_CHIPID0_VALUE || chipid[1] != REG_CHIPID1_VALUE ||
-	    chipid[2] != REG_CHIPID2_VALUE) {
+	    (chipid[2] != REG_CHIPID2_VALUE && chipid[2] != REG_CHIPID2_VALUE_U4)) {
 		dev_err(ctx->dev, "Unknown Chip ID: 0x%02x 0x%02x 0x%02x\n",
 			chipid[0], chipid[1], chipid[2]);
 		return -EINVAL;
