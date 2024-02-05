@@ -54,7 +54,7 @@
 	status = "okay";
 
 	bl5372: rtc@32 {
-		compatible = "dallas,ds1337";
+		compatible = "ricoh,rs5c372a";
 		reg = <0x32>;
 	};
 
