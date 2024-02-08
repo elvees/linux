@@ -151,6 +151,17 @@ config VCNL3020
 	  To compile this driver as a module, choose M here: the
 	  module will be called vcnl3020.
 
+config VCNL36821S
+	tristate "VCNL36821S proximity sensor"
+	select REGMAP_I2C
+	depends on I2C
+	help
+	  Say Y here if you want to build a driver for the Vishay VCNL36821S
+	  proximity sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called vcnl36821s.
+
 config VL53L0X_I2C
 	tristate "STMicroelectronics VL53L0X ToF ranger sensor (I2C)"
 	depends on I2C
