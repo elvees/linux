@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2024 RnD Center "ELVEES", JSC
+ */
+
+#include "mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1.dts"
+
+/ {
+	vdd_lcd: regulator_lcd@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd-panel-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	backlight: backlight {
+		compatible = "gpio-backlight";
+		gpios = <&gpio1d 6 GPIO_ACTIVE_HIGH>; // LCD0_BLKT_EN
+		default-on;
+	};
+
+	lvds_panel0: panel {
+		compatible = "b133xw04-v1", "panel-lvds";
+
+		power-supply = <&vdd_lcd>;
+
+		enable-gpios = <&gpio1d 7 GPIO_ACTIVE_HIGH>; // LCD0_VDD_EN
+		backlight = <&backlight>;
+
+		width-mm = <294>;
+		height-mm = <166>;
+
+		data-mapping = "jeida-18";
+
+		panel-timing {
+			clock-frequency = <72000000>;
+
+			// 1366 x 768 from B133XW04 v.1 EDID, SAMSUNG 133AT17-L01
+			hactive = <1366>;
+			vactive = <768>;
+			// TODO: Reacalc to 1500 x 800 total resolution for 60 Hz refresh rate
+			hfront-porch = <48>;
+			hback-porch = <34>;
+			hsync-len = <32>;
+			vsync-len = <5>;
+			vfront-porch = <2>;
+			vback-porch = <5>;
+
+			de-active = <0>;
+			vsync-active = <0>;
+			hsync-active = <0>;
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				panel_input_0: endpoint {
+					remote-endpoint = <&lt9211_lvds_out_0>;
+				};
+			};
+		};
+	};
+};
+
+&lt9211 {
+	status = "okay";
+
+	ports {
+		// lvds-out
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			lt9211_lvds_out_0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel_input_0>;
+			};
+		};
+	};
+};
+
+&de_dpi {
+	status = "okay";
+};
+
+/* No PWM for now so ...
+ * LCD0_BLKT_PWM may break power-up sequence for some panels, use with caution
+ * remove after switch to pwm-backlight driver */
+&gpio1d {
+	lcd0-blkt-pwm {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
