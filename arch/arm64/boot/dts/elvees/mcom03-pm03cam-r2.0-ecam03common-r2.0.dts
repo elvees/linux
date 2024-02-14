@@ -169,7 +169,7 @@
 	pinctrl-0 = <&i2s0_default_cfg &i2s0_mux_sdo0
 		     &i2s0_mux_sdi0 &i2s0_mux_ext_clk>;
 
-	assigned-clocks = <&lsperiph1_refmux_i2s>;
+	assigned-clocks = <&lsperiph1_clocks CLK_LSP1_REFMUX_I2S>;
 	assigned-clock-parents = <&i2s0_sclk_in_clk>;
 };
 

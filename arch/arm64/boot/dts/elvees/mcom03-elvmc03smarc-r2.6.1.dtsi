@@ -381,14 +381,11 @@ i2c_pm: &i2c0 { };
 	};
 };
 
-&media_pll1 {
-	assigned-clock-rates = <2376000000>;
-};
-
-&media_ucg1 {
-	assigned-clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
-			  <&media_ucg1 CLK_MEDIA_UCG1_DISP_M>;
-	assigned-clock-rates = <594000000 297000000>;
+&dp {
+	assigned-clocks = <&media_clocks CLK_MEDIA_PLL1>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_M>;
+	assigned-clock-rates = <2376000000 594000000 297000000>;
 };
 
 &de_dpi {

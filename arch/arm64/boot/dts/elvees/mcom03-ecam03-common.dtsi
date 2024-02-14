@@ -65,18 +65,6 @@
 	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
 };
 
-/* Adjust SDMMC XIN clock frequencies to get better performance
- * of SD.
- */
-&hsperiph_ucg1 {
-	assigned-clocks = <&hsperiph_ucg1 CLK_HSP_UCG1_SDMMC0_XIN>,
-			  <&hsperiph_ucg1 CLK_HSP_UCG1_SDMMC1_XIN>,
-			  <&hsperiph_ucg1 CLK_HSP_UCG1_NFC_FLASH>;
-	assigned-clock-rates = <93750000
-				125000000
-				93750000>;
-};
-
 /* Connected to MicroSD card */
 &sdhci0 {
 	status = "okay";
@@ -86,6 +74,12 @@
 	 */
 	sdhci-caps-mask = <0x7 0x4000000>;
 	sdhci-caps = <0x0 0x0>;
+
+	/* Adjust SDMMC XIN clock frequencies to get better performance
+	 * of SD.
+	 */
+	assigned-clocks = <&hsperiph_clocks CLK_HSP_UCG1_SDMMC0_XIN>;
+	assigned-clock-rates = <93750000>;
 };
 
 &i2c2 {
@@ -134,6 +128,8 @@
 &nand {
 	status = "okay";
 	pinctrl-0 = <&nand_default &nand_voltage_18>;
+	assigned-clocks = <&hsperiph_clocks CLK_HSP_UCG1_NFC_FLASH>;
+	assigned-clock-rates = <93750000>;
 
 	nand@0 {
 		reg = <0>;

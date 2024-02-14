@@ -54,29 +54,25 @@
 		#size-cells = <2>;
 		ranges;
 
-		cpu_pll: cpu_pll@1000050 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1000050 0 0x8>;
-			clocks = <&xti_clk>;
+		cpu_urb: urb@1000000 {
+			compatible = "elvees,mcom03-urb", "syscon",
+				     "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0 0x1000000 0 0x200>;
+			ranges = <0 0 0 0x200>;
 		};
 
-		cpu_ucg: ucg@1080000 {
-			compatible = "elvees,mcom03-clk-ucg";
+		cpu_clocks: clock-controller@1080000 {
+			compatible = "elvees,mcom03-clk-pm";
+			#clock-cells = <1>;
+			elvees,subsystem = <MCOM03_SUBSYSTEM_CPU>;
+			clocks = <&xti_clk>;
+			elvees,urb = <&cpu_urb>;
 			reg = <0 0x1080000 0 0x80>;
-			clocks = <&cpu_pll>;
-			clock-output-names = "cpu_sys_clk", "cpu_core_clk",
-					     "cpu_dbus_clk";
 			enabled-clocks = <CLK_CPU_UCG0_SYS
 					  CLK_CPU_UCG0_CORE
 					  CLK_CPU_UCG0_DBUS>;
-
-			/* Set all channels as fixed because any attempt to
-			 * change frequency will result in a violation of
-			 * frequency ratio and this will cause a hang.
-			 */
-			elvees,fixed-freq-mask = <0x7>;
-			#clock-cells = <1>;
 		};
 	};
 
@@ -89,7 +85,7 @@
 			device_type = "cpu";
 			enable-method = "psci";
 			reg = <0x0>;
-			clocks = <&cpu_pll>;
+			clocks = <&cpu_clocks CLK_CPU_PLL0>;
 			operating-points-v2 = <&cpu_opp_table>;
 			i-cache-size = <0x8000>;
 			i-cache-line-size = <64>;
@@ -105,7 +101,7 @@
 			device_type = "cpu";
 			enable-method = "psci";
 			reg = <0x1>;
-			clocks = <&cpu_pll>;
+			clocks = <&cpu_clocks CLK_CPU_PLL0>;
 			operating-points-v2 = <&cpu_opp_table>;
 			i-cache-size = <0x8000>;
 			i-cache-line-size = <64>;
@@ -121,7 +117,7 @@
 			device_type = "cpu";
 			enable-method = "psci";
 			reg = <0x2>;
-			clocks = <&cpu_pll>;
+			clocks = <&cpu_clocks CLK_CPU_PLL0>;
 			operating-points-v2 = <&cpu_opp_table>;
 			i-cache-size = <0x8000>;
 			i-cache-line-size = <64>;
@@ -137,7 +133,7 @@
 			device_type = "cpu";
 			enable-method = "psci";
 			reg = <0x3>;
-			clocks = <&cpu_pll>;
+			clocks = <&cpu_clocks CLK_CPU_PLL0>;
 			operating-points-v2 = <&cpu_opp_table>;
 			i-cache-size = <0x8000>;
 			i-cache-line-size = <64>;
@@ -206,29 +202,13 @@
 			ranges = <0 0 0 0x10000>;
 		};
 
-		service_pll: service_pll@1f001000 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1f001000 0 0x8>;
-			clocks = <&xti_clk>;
-		};
-
-		service_ucg1: ucg@1f020000 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x1f020000 0 0x80>;
-			clocks = <&service_pll>;
+		service_clocks: clock-controller@1f020000 {
+			compatible = "elvees,mcom03-clk-pm";
 			#clock-cells = <1>;
-
-			clock-output-names = "service_apb_clk",
-					     "service_core_clk",
-					     "qspi0_clk", "bpam_clk",
-					     "risc0_clk", "mfbsp0_clk",
-					     "mfbsp1_clk", "mailbox0_clk",
-					     "pvtctr_clk", "i2c4_clk",
-					     "trng_clk", "spiotp_clk",
-					     "i2c4_ext_clk", "qspi0_ext_clk",
-					     "clkout_clk", "risc0_tck_clk";
-
+			elvees,subsystem = <MCOM03_SUBSYSTEM_SERVICE>;
+			clocks = <&xti_clk>;
+			elvees,urb = <&service_urb>;
+			reg = <0 0x1f020000 0 0x80>;
 			enabled-clocks = <CLK_SERVICE_UCG0_APB
 					  CLK_SERVICE_UCG0_CORE
 					  CLK_SERVICE_UCG0_QSPI0
@@ -237,8 +217,6 @@
 					  CLK_SERVICE_UCG0_PVTCTR
 					  CLK_SERVICE_UCG0_TRNG
 					  CLK_SERVICE_UCG0_QSPI0_EXT>;
-
-			elvees,fixed-freq-mask = <0x3fff>;
 		};
 
 		wdt0: watchdog@1f080000 {
@@ -248,7 +226,7 @@
 		pvt: pvt@1f050000 {
 			compatible = "moortec,mr75202";
 			reg = <0 0x1f050000 0 0x1000>;
-			clocks = <&service_ucg1 CLK_SERVICE_UCG0_PVTCTR>;
+			clocks = <&service_clocks CLK_SERVICE_UCG0_PVTCTR>;
 			moortec,name = "mcom03";
 			moortec,labels = "cpu", "sdr", "media", "service";
 			#thermal-sensor-cells = <1>;
@@ -280,14 +258,14 @@
 			elvees,urb = <&service_urb>;
 			silvaco,qspi-mode = <0>;
 			clock-names = "clk_axi", "clk_ext";
-			clocks = <&service_ucg1 CLK_SERVICE_UCG0_QSPI0>,
-				 <&service_ucg1 CLK_SERVICE_UCG0_QSPI0_EXT>;
+			clocks = <&service_clocks CLK_SERVICE_UCG0_QSPI0>,
+				 <&service_clocks CLK_SERVICE_UCG0_QSPI0_EXT>;
 			num-cs = <4>;
 		};
 
 		mfbsp0_can: mfbsp@1f0a0000 {
 			compatible = "elvees,mfbsp-can";
-			clocks = <&service_ucg1 CLK_SERVICE_UCG0_MFBSP0>;
+			clocks = <&service_clocks CLK_SERVICE_UCG0_MFBSP0>;
 			reg = <0x0 0x1f0a0000 0x0 0x0200>,
 			      <0x0 0x1f0a0200 0x0 0x1100>,
 			      <0x0 0x1f0a1380 0x0 0x0040>;
@@ -303,7 +281,7 @@
 
 		mfbsp1_can: mfbsp@1f0b0000 {
 			compatible = "elvees,mfbsp-can";
-			clocks = <&service_ucg1 CLK_SERVICE_UCG0_MFBSP1>;
+			clocks = <&service_clocks CLK_SERVICE_UCG0_MFBSP1>;
 			reg = <0x0 0x1f0b0000 0x0 0x0200>,
 			      <0x0 0x1f0b0200 0x0 0x1100>,
 			      <0x0 0x1f0b1380 0x0 0x0040>;
@@ -319,7 +297,7 @@
 
 		mfbsp0_gpio: gpio-controller@0x1f0a1300 {
 			compatible = "elvees,mfbsp-gpio";
-			clocks = <&service_ucg1 CLK_SERVICE_UCG0_MFBSP0>;
+			clocks = <&service_clocks CLK_SERVICE_UCG0_MFBSP0>;
 			clock-names = "bus";
 			reg-names = "dat", "dirout";
 			reg = <0 0x1f0a130c 0 4>, <0 0x1f0a1308 0 4>;
@@ -330,7 +308,7 @@
 
 		mfbsp1_gpio: gpio-controller@0x1f0b1300 {
 			compatible = "elvees,mfbsp-gpio";
-			clocks = <&service_ucg1 CLK_SERVICE_UCG0_MFBSP1>;
+			clocks = <&service_clocks CLK_SERVICE_UCG0_MFBSP1>;
 			clock-names = "bus";
 			reg-names = "dat", "dirout";
 			reg = <0 0x1f0b130c 0 4>, <0 0x1f0b1308 0 4>;
@@ -352,7 +330,7 @@
 			interrupt-names = "dma-playback",
 					  "dma-capture";
 			#sound-dai-cells = <0>;
-			clocks = <&service_ucg1 CLK_SERVICE_UCG0_MFBSP0>;
+			clocks = <&service_clocks CLK_SERVICE_UCG0_MFBSP0>;
 			status = "disabled";
 		};
 
@@ -361,13 +339,37 @@
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1f090000 0 0x10000>;
-			clocks = <&service_ucg1 CLK_SERVICE_UCG0_I2C4_EXT>,
-				 <&service_ucg1 CLK_SERVICE_UCG0_I2C4>;
+			clocks = <&service_clocks CLK_SERVICE_UCG0_I2C4_EXT>,
+				 <&service_clocks CLK_SERVICE_UCG0_I2C4>;
 			clock-names = "ref", "pclk";
 			interrupt-parent = <&qlic0>;
 			interrupts = <37>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
+		};
+	};
+
+	ddr-bus {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		ddr_urb: urb@c000000 {
+			compatible = "elvees,mcom03-urb", "syscon", "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0 0xc000000 0 0x10000>;
+			ranges = <0 0 0 0x10000>;
+		};
+
+		ddr_clocks: clock-controller@c010000 {
+			compatible = "elvees,mcom03-clk-pm";
+			#clock-cells = <1>;
+			elvees,subsystem = <MCOM03_SUBSYSTEM_DDR>;
+			clocks = <&xti_clk>;
+			elvees,urb = <&ddr_urb>;
+			reg = <0 0xc010000 0 0x80>, <0 0xc020000 0 0x80>;
 		};
 	};
 
@@ -392,106 +394,46 @@
 			};
 		};
 
-		media_pll0: media_pll0@1320000 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1320000 0 0x8>;
-			clocks = <&xti_clk>;
-			assigned-clocks = <&media_pll0>;
-			assigned-clock-rates = <1998000000>;
-		};
-
-		media_pll1: media_pll1@1320010 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1320010 0 0x8>;
-			clocks = <&xti_clk>;
-			assigned-clocks = <&media_pll1>;
-			assigned-clock-rates = <594000000>;
-		};
-
-		media_pll2: media_pll2@1320020 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1320020 0 0x8>;
-			clocks = <&xti_clk>;
-			assigned-clocks = <&media_pll2>;
-			assigned-clock-rates = <2592000000>;
-		};
-
-		media_pll3: media_pll3@1320030 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1320030 0 0x8>;
-			clocks = <&xti_clk>;
-			assigned-clocks = <&media_pll3>;
-			assigned-clock-rates = <2376000000>;
-		};
-
-		media_ucg0: ucg@1320040 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x1320040 0 0x80>;
-			clocks = <&media_pll0>;
-			clock-output-names = "media_sys_aclk", "isp_sys_clk";
-			assigned-clocks = <&media_ucg0 CLK_MEDIA_UCG0_SYSA>,
-					  <&media_ucg0 CLK_MEDIA_UCG0_ISP_SYS>;
-			assigned-clock-rates = <124875000
-						399600000>;
-			enabled-clocks = <CLK_MEDIA_UCG0_SYSA>;
+		media_clocks: clock-controller@1320040 {
+			compatible = "elvees,mcom03-clk-pm";
 			#clock-cells = <1>;
-		};
-
-		media_ucg1: ucg@13200c0 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x13200c0 0 0x80>;
-			clocks = <&media_pll1>;
-			clock-output-names = "disp_aclk", "disp_mclk",
-					     "disp_pxlclk";
-			assigned-clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
-					  <&media_ucg1 CLK_MEDIA_UCG1_DISP_M>;
-			assigned-clock-rates = <297000000
-						148500000>;
-			#clock-cells = <1>;
-		};
-
-		media_ucg2: ucg@1320140 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x1320140 0 0x80>;
-			clocks = <&media_pll2>;
-			clock-output-names = "gpu_sys_clk", "gpu_mem_clk",
-					     "gpu_core_clk";
-			assigned-clocks = <&media_ucg2 CLK_MEDIA_UCG2_GPU_SYS>,
-					  <&media_ucg2 CLK_MEDIA_UCG2_GPU_MEM>,
-					  <&media_ucg2 CLK_MEDIA_UCG2_GPU_CORE>;
-			assigned-clock-rates = <518400000
+			elvees,subsystem = <MCOM03_SUBSYSTEM_MEDIA>;
+			clocks = <&xti_clk>;
+			elvees,urb = <&media_urb>;
+			reg = <0 0x1320040 0 0x80>, <0 0x13200c0 0 0x80>,
+			      <0 0x1320140 0 0x80>, <0 0x13201c0 0 0x80>;
+			assigned-clocks = <&media_clocks CLK_MEDIA_PLL0>,
+					  <&media_clocks CLK_MEDIA_PLL1>,
+					  <&media_clocks CLK_MEDIA_PLL2>,
+					  <&media_clocks CLK_MEDIA_PLL3>,
+					  <&media_clocks CLK_MEDIA_UCG0_SYSA>,
+					  <&media_clocks CLK_MEDIA_UCG0_ISP_SYS>,
+					  <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+					  <&media_clocks CLK_MEDIA_UCG1_DISP_M>,
+					  <&media_clocks CLK_MEDIA_UCG2_GPU_SYS>,
+					  <&media_clocks CLK_MEDIA_UCG2_GPU_MEM>,
+					  <&media_clocks CLK_MEDIA_UCG2_GPU_CORE>,
+					  <&media_clocks CLK_MEDIA_UCG3_MIPI_RX_REF>,
+					  <&media_clocks CLK_MEDIA_UCG3_MIPI_RX0_CFG>,
+					  <&media_clocks CLK_MEDIA_UCG3_MIPI_RX1_CFG>,
+					  <&media_clocks CLK_MEDIA_UCG3_MIPI_TX_REF>,
+					  <&media_clocks CLK_MEDIA_UCG3_MIPI_TX_CFG>,
+					  <&media_clocks CLK_MEDIA_UCG3_CMOS0>,
+					  <&media_clocks CLK_MEDIA_UCG3_CMOS1>,
+					  <&media_clocks CLK_MEDIA_UCG3_MIPI_TXCLKESC>,
+					  <&media_clocks CLK_MEDIA_UCG3_VPU>;
+			assigned-clock-rates = <1998000000
+						594000000
+						2592000000
+						2376000000
+						124875000
+						399600000
+						297000000
+						148500000
 						518400000
-						518400000>;
-			enabled-clocks = <CLK_MEDIA_UCG2_GPU_SYS
-					  CLK_MEDIA_UCG2_GPU_MEM>;
-			#clock-cells = <1>;
-		};
-
-		media_ucg3: ucg@13201c0 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x13201c0 0 0x80>;
-			clocks = <&media_pll3>;
-			clock-output-names = "mipi_rx_refclk",
-					     "mipi_rx0_cfg_clk",
-					     "mipi_rx1_cfg_clk",
-					     "mipi_tx_ref_clk",
-					     "mipi_tx_cfg_clk",
-					     "cmos0_clk", "cmos1_clk",
-					     "mipi_txclkesc", "vpu_clk";
-			assigned-clocks = <&media_ucg3 CLK_MEDIA_UCG3_MIPI_RX_REF>,
-					  <&media_ucg3 CLK_MEDIA_UCG3_MIPI_RX0_CFG>,
-					  <&media_ucg3 CLK_MEDIA_UCG3_MIPI_RX1_CFG>,
-					  <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TX_REF>,
-					  <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TX_CFG>,
-					  <&media_ucg3 CLK_MEDIA_UCG3_CMOS0>,
-					  <&media_ucg3 CLK_MEDIA_UCG3_CMOS1>,
-					  <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TXCLKESC>,
-					  <&media_ucg3 CLK_MEDIA_UCG3_VPU>;
-			assigned-clock-rates = <27000000
+						518400000
+						518400000
+						27000000
 						27000000
 						27000000
 						27000000
@@ -500,11 +442,13 @@
 						27000000
 						19800000
 						594000000>;
-			enabled-clocks = <CLK_MEDIA_UCG3_MIPI_RX_REF
+			enabled-clocks = <CLK_MEDIA_UCG0_SYSA
+					  CLK_MEDIA_UCG2_GPU_SYS
+					  CLK_MEDIA_UCG2_GPU_MEM
+					  CLK_MEDIA_UCG3_MIPI_RX_REF
 					  CLK_MEDIA_UCG3_MIPI_RX0_CFG
 					  CLK_MEDIA_UCG3_MIPI_RX1_CFG
 					  CLK_MEDIA_UCG3_CMOS1>;
-			#clock-cells = <1>;
 		};
 
 		dma32-bus {
@@ -515,9 +459,9 @@
 			dma-ranges = <0 0 8 0 1 0>;
 
 			gpu: gpu@1200000 {
-				clocks = <&media_ucg2 CLK_MEDIA_UCG2_GPU_SYS>,
-					 <&media_ucg2 CLK_MEDIA_UCG2_GPU_MEM>,
-					 <&media_ucg2 CLK_MEDIA_UCG2_GPU_CORE>;
+				clocks = <&media_clocks CLK_MEDIA_UCG2_GPU_SYS>,
+					 <&media_clocks CLK_MEDIA_UCG2_GPU_MEM>,
+					 <&media_clocks CLK_MEDIA_UCG2_GPU_CORE>;
 				clock-names = "sys", "mem", "core";
 				compatible = "img,gpu";
 				interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
@@ -561,7 +505,7 @@
 			interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x1280000 0 0x10000>;
 			resets = <&media_reset MEDIA_RST_VPU>;
-			clocks = <&media_ucg3 CLK_MEDIA_UCG3_VPU>;
+			clocks = <&media_clocks CLK_MEDIA_UCG3_VPU>;
 			clock-names = "vpu_clk";
 			operating-points-v2 = <&vpu_opp_table>;
 
@@ -610,7 +554,7 @@
 			compatible = "img,v2505-isp";
 			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0 0x12a0000 0 0x10000>;
-			clocks = <&media_ucg0 CLK_MEDIA_UCG0_ISP_SYS>;
+			clocks = <&media_clocks CLK_MEDIA_UCG0_ISP_SYS>;
 			clock-names = "core";
 			resets = <&media_reset MEDIA_RST_ISP>;
 			operating-points-v2 = <&isp_opp_table>;
@@ -652,10 +596,10 @@
 			interrupt-names = "DE", "SE";
 			reg = <0 0x1300000 0 0x10000>;
 			resets = <&media_reset MEDIA_RST_DISPLAY>;
-			clocks = <&media_ucg0 CLK_MEDIA_UCG0_SYSA>,
-				 <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
-				 <&media_ucg1 CLK_MEDIA_UCG1_DISP_M>,
-				 <&media_ucg1 CLK_MEDIA_UCG1_DISP_PXL>;
+			clocks = <&media_clocks CLK_MEDIA_UCG0_SYSA>,
+				 <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+				 <&media_clocks CLK_MEDIA_UCG1_DISP_M>,
+				 <&media_clocks CLK_MEDIA_UCG1_DISP_PXL>;
 			clock-names = "pclk", "aclk", "mclk", "pxlclk";
 			arm,malidp-output-port-lines = /bits/ 8 <8 8 8>;
 			status = "disabled";
@@ -676,10 +620,10 @@
 		de_dpi: display_encoder@0 {
 			compatible = "elvees,mcom03-drm-dpi";
 			status = "disabled";
-			clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_PXL>,
-				 <&media_ucg0 CLK_MEDIA_UCG0_SYSA>,
-				 <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
-				 <&media_ucg3 CLK_MEDIA_UCG3_CMOS0>;
+			clocks = <&media_clocks CLK_MEDIA_UCG1_DISP_PXL>,
+				 <&media_clocks CLK_MEDIA_UCG0_SYSA>,
+				 <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+				 <&media_clocks CLK_MEDIA_UCG3_CMOS0>;
 			clock-names = "pxlclk", "pclk", "disp_aclk",
 				"cmos0_clk";
 			#address-cells = <1>;
@@ -705,12 +649,12 @@
 			reg = <0 0x12c0000 0 0x10000>,
 			      <0 0x1324000 0 0x1000>;
 			reg-names = "dsi", "mipi-tx";
-			clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_PXL>,
-				 <&media_ucg0 CLK_MEDIA_UCG0_SYSA>,
-				 <&media_ucg1 CLK_MEDIA_UCG1_DISP_A>,
-				 <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TX_CFG>,
-				 <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TX_REF>,
-				 <&media_ucg3 CLK_MEDIA_UCG3_MIPI_TXCLKESC>;
+			clocks = <&media_clocks CLK_MEDIA_UCG1_DISP_PXL>,
+				 <&media_clocks CLK_MEDIA_UCG0_SYSA>,
+				 <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+				 <&media_clocks CLK_MEDIA_UCG3_MIPI_TX_CFG>,
+				 <&media_clocks CLK_MEDIA_UCG3_MIPI_TX_REF>,
+				 <&media_clocks CLK_MEDIA_UCG3_MIPI_TXCLKESC>;
 			clock-names = "pxlclk", "pclk", "disp_aclk",
 				      "mipi_tx_cfg", "mipi_tx_ref",
 				      "mipi_txclkesc";
@@ -736,7 +680,7 @@
 			compatible = "elvees,mcom03-dw-mipi-dphy";
 			elvees,urb = <&media_urb>;
 			status = "disabled";
-			clocks = <&media_ucg3 CLK_MEDIA_UCG3_MIPI_RX0_CFG>;
+			clocks = <&media_clocks CLK_MEDIA_UCG3_MIPI_RX0_CFG>;
 			clock-names = "mipi_rx0_cfg_clk";
 		};
 
@@ -744,8 +688,8 @@
 			compatible = "elvees,mcom03-dw-mipi-dphy";
 			elvees,urb = <&media_urb>;
 			status = "disabled";
-			clocks = <&media_ucg3 CLK_MEDIA_UCG3_MIPI_RX1_CFG>,
-				 <&media_ucg3 CLK_MEDIA_UCG3_CMOS1>;
+			clocks = <&media_clocks CLK_MEDIA_UCG3_MIPI_RX1_CFG>,
+				 <&media_clocks CLK_MEDIA_UCG3_CMOS1>;
 			clock-names = "mipi_rx1_cfg_clk", "cmos1_clk";
 		};
 	};
@@ -769,50 +713,32 @@
 			};
 		};
 
-		lsperiph0_pll0: lsperiph0_pll0@1680000 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1680000 0 0x8>;
+		lsperiph0_clocks: clock-controller@1690000 {
+			compatible = "elvees,mcom03-clk-pm";
+			#clock-cells = <1>;
+			elvees,subsystem = <MCOM03_SUBSYSTEM_LSPERIPH0>;
 			clocks = <&xti_clk>;
-			assigned-clocks = <&lsperiph0_pll0>;
-			assigned-clock-rates = <189000000>;
-		};
-
-		lsperiph0_ucg0: ucg@1690000 {
-			compatible = "elvees,mcom03-clk-ucg";
+			elvees,urb = <&lsperiph0_urb>;
 			reg = <0 0x1690000 0 0x80>;
-			clocks = <&lsperiph0_pll0>;
-			clock-output-names = "lsp0_sys_clk", "uart3_clk",
-					     "uart1_clk", "uart2_clk",
-					     "spi0_clk", "i2c0_clk",
-					     "gpio0_dbclk";
-			assigned-clocks = <&lsperiph0_ucg0 CLK_LSP0_UCG0_SYS>,
-					  <&lsperiph0_ucg0 CLK_LSP0_UCG0_SPI0>,
-					  <&lsperiph0_ucg0 CLK_LSP0_UCG0_I2C0>,
-					  <&lsperiph0_ucg0 CLK_LSP0_UCG0_GPIO0_DB>;
-			assigned-clock-rates = <94500000
+			assigned-clocks = <&lsperiph0_clocks CLK_LSP0_PLL0>,
+					  <&lsperiph0_clocks CLK_LSP0_UCG0_SYS>,
+					  <&lsperiph0_clocks CLK_LSP0_UCG0_SPI0>,
+					  <&lsperiph0_clocks CLK_LSP0_UCG0_I2C0>,
+					  <&lsperiph0_clocks CLK_LSP0_UCG0_GPIO0_DB>;
+			assigned-clock-rates = <189000000
+						94500000
 						94500000
 						94500000
 						1000000>;
 			enabled-clocks = <CLK_LSP0_UCG0_SYS>;
-			#clock-cells = <1>;
-			/* When driver UART requests to change clock and clock
-			 * driver sets it lower than the requested one, baud
-			 * rate divisor for the UART becomes less than one.
-			 * With integer divisor set to zero, the baud clock
-			 * is disabled and no serial communications will occur.
-			 * Round up requested frequency for UARTs.
-			 */
-			elvees,round-up-mask = <0xE>;
 		};
-
 
 		i2c0: i2c@1630000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1630000 0 0x10000>;
-			clocks = <&lsperiph0_ucg0 CLK_LSP0_UCG0_I2C0>;
+			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_I2C0>;
 			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
@@ -824,8 +750,8 @@
 		uart1: serial0@1640000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1640000 0 0x1000>;
-			clocks = <&lsperiph0_ucg0 CLK_LSP0_UCG0_UART1
-				  &lsperiph0_ucg0 CLK_LSP0_UCG0_SYS>;
+			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_UART1
+				  &lsperiph0_clocks CLK_LSP0_UCG0_SYS>;
 			clock-names = "baudclk", "apb_pclk";
 			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
@@ -839,8 +765,8 @@
 		uart2: serial0@1650000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1650000 0 0x1000>;
-			clocks = <&lsperiph0_ucg0 CLK_LSP0_UCG0_UART2
-				  &lsperiph0_ucg0 CLK_LSP0_UCG0_SYS>;
+			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_UART2
+				  &lsperiph0_clocks CLK_LSP0_UCG0_SYS>;
 			clock-names = "baudclk", "apb_pclk";
 			interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
@@ -855,8 +781,8 @@
 		uart3: serial0@1660000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1660000 0 0x1000>;
-			clocks = <&lsperiph0_ucg0 CLK_LSP0_UCG0_UART3
-				  &lsperiph0_ucg0 CLK_LSP0_UCG0_SYS>;
+			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_UART3
+				  &lsperiph0_clocks CLK_LSP0_UCG0_SYS>;
 			clock-names = "baudclk", "apb_pclk";
 			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
@@ -874,7 +800,7 @@
 			 * GPIO driver controls clock named "bus" which we can
 			 * use to handle the debounce filter clock
 			 */
-			clocks = <&lsperiph0_ucg0 CLK_LSP0_UCG0_GPIO0_DB>;
+			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_GPIO0_DB>;
 			clock-names = "bus";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1102,7 +1028,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0 0x1620000 0 0x10000>;
-			clocks = <&lsperiph0_ucg0 CLK_LSP0_UCG0_SPI0>;
+			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_SPI0>;
 			interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
 			num-cs = <4>;
 			/* Workaround of bug MCOM03-1879 with overrun error */
@@ -1129,7 +1055,7 @@
 			ranges;
 			reg = <0 0 0 0x10000>;
 			no-memory-wc;
-			clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_SPRAM>;
+			clocks = <&hsperiph_clocks CLK_HSP_UCG0_SPRAM>;
 
 			emac_desc_pool: sram-pool@0 {
 				reg = <0 0 0 0x2000>;
@@ -1286,65 +1212,35 @@
 			clock-frequency = <125000000>;
 		};
 
-		hsperiph_pll: hsperiph_pll@10401000 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x10401000 0 0x8>;
-			clocks = <&xti_clk>;
-			elvees,pll-max-nr = /bits/ 8 <3>;
-			assigned-clocks = <&hsperiph_pll>;
-			assigned-clock-rates = <1125000000>;
-		};
-
-		hsperiph_refmux0: hsperiph_refmux0 {
-			compatible = "elvees,mcom03-clk-hsp-refmux0";
-			clocks = <&hsperiph_pll>, <&hsperiph_clk125>;
-			#clock-cells = <0>;
-		};
-
-		hsperiph_refmux1: hsperiph_refmux1 {
-			compatible = "elvees,mcom03-clk-hsp-refmux1";
-			clocks = <&hsperiph_pll>, <&hsperiph_clk125>;
-			#clock-cells = <0>;
-		};
-
-		hsperiph_refmux2: hsperiph_refmux2 {
-			compatible = "elvees,mcom03-clk-hsp-refmux2";
-			clocks = <&hsperiph_pll>, <&hsperiph_clk125>;
-			#clock-cells = <0>;
-		};
-
-		hsperiph_refmux3: hsperiph_refmux3 {
-			compatible = "elvees,mcom03-clk-hsp-refmux3";
-			clocks = <&hsperiph_pll>, <&hsperiph_clk125>;
-			#clock-cells = <0>;
-		};
-
-		hsperiph_ucg0: ucg@10410000 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x10410000 0 0x80>;
-			clocks = <&hsperiph_refmux0>;
-			clock-output-names = "hsp_sys_clk", "hsp_dma_clk",
-					     "hsp_ctr_clk", "spram_clk",
-					     "emac0_clk", "emac1_clk",
-					     "usb0_clk", "usb1_clk",
-					     "nfc_clk", "pdma2_clk",
-					     "sdmmc0_clk", "sdmmc1_clk",
-					     "qspi_clk";
-			assigned-clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_SYS>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_DMA>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_CTR>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_SPRAM>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_EMAC0>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_EMAC1>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_USB0>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_USB1>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_NFC>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_PDMA2>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_SDMMC0>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_SDMMC1>,
-					  <&hsperiph_ucg0 CLK_HSP_UCG0_QSPI>;
-			assigned-clock-rates = <225000000
+		hsperiph_clocks: clock-controller@10410000 {
+			compatible = "elvees,mcom03-clk-pm";
+			#clock-cells = <1>;
+			elvees,subsystem = <MCOM03_SUBSYSTEM_HSPERIPH>;
+			clocks = <&xti_clk>, <&hsperiph_clk125>;
+			elvees,urb = <&hsperiph_urb>;
+			reg = <0 0x10410000 0 0x80>, <0 0x10420000 0 0x80>,
+			      <0 0x10430000 0 0x80>, <0 0x10440000 0 0x80>;
+			assigned-clocks = <&hsperiph_clocks CLK_HSP_PLL0>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_SYS>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_DMA>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_CTR>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_SPRAM>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_EMAC0>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_EMAC1>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_USB0>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_USB1>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_NFC>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_PDMA2>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_SDMMC0>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_SDMMC1>,
+					  <&hsperiph_clocks CLK_HSP_UCG0_QSPI>,
+					  <&hsperiph_clocks CLK_HSP_UCG1_SDMMC0_XIN>,
+					  <&hsperiph_clocks CLK_HSP_UCG1_SDMMC1_XIN>,
+					  <&hsperiph_clocks CLK_HSP_UCG1_NFC_FLASH>,
+					  <&hsperiph_clocks CLK_HSP_UCG3_USB0_SUSPEND>,
+					  <&hsperiph_clocks CLK_HSP_UCG3_USB1_SUSPEND>;
+			assigned-clock-rates = <1125000000
+						225000000
 						225000000
 						93750000
 						225000000
@@ -1356,61 +1252,17 @@
 						225000000
 						93750000
 						93750000
-						93750000>;
+						93750000
+						125000000
+						93750000
+						93750000
+						25000000
+						25000000>;
 			enabled-clocks = <CLK_HSP_UCG0_SYS
 					  CLK_HSP_UCG0_DMA
 					  // TODO: Decide what to do
 					  //       with CTR_CLK
 					  CLK_HSP_UCG0_CTR>;
-			#clock-cells = <1>;
-		};
-
-		hsperiph_ucg1: ucg@10420000 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x10420000 0 0x80>;
-			clocks = <&hsperiph_refmux1>;
-			clock-output-names = "sdmmc0_xin_clk",
-					     "sdmmc1_xin_clk",
-					     "nfc_clk_flash",
-					     "qspi_ext_clk",
-					     "ust_clk";
-			assigned-clocks = <&hsperiph_ucg1 CLK_HSP_UCG1_SDMMC0_XIN>,
-					  <&hsperiph_ucg1 CLK_HSP_UCG1_SDMMC1_XIN>,
-					  <&hsperiph_ucg1 CLK_HSP_UCG1_NFC_FLASH>;
-			assigned-clock-rates = <125000000
-						93750000
-						93750000>;
-			#clock-cells = <1>;
-		};
-
-		hsperiph_ucg2: ucg@10430000 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x10430000 0 0x80>;
-			clocks = <&hsperiph_refmux2>;
-			clock-output-names = "emac0_clk_1588",
-					     "emac0_rgmii_txc",
-					     "emac1_clk_1588",
-					     "emac1_rgmii_txc";
-			assigned-clocks = <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_1588>,
-					  <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC1_1588>;
-			assigned-clock-rates = <125000000
-						125000000>;
-			#clock-cells = <1>;
-		};
-
-		hsperiph_ucg3: ucg@10440000 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x10440000 0 0x80>;
-			clocks = <&hsperiph_refmux3>;
-			clock-output-names = "usb0_ref_alt_clk",
-					     "usb0_suspend_clk",
-					     "usb1_ref_alt_clk",
-					     "usb1_suspend_clk";
-			assigned-clocks = <&hsperiph_ucg3 CLK_HSP_UCG3_USB0_SUSPEND>,
-					  <&hsperiph_ucg3 CLK_HSP_UCG3_USB1_SUSPEND>;
-			assigned-clock-rates = <25000000
-						25000000>;
-			#clock-cells = <1>;
 		};
 
 		dma32-bus {
@@ -1425,9 +1277,9 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0 0x10200000 0 0x1000>;
-				clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_EMAC0>,
-					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_RGMII_TXC>,
-					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_1588>;
+				clocks = <&hsperiph_clocks CLK_HSP_UCG0_EMAC0>,
+					 <&hsperiph_clocks CLK_HSP_UCG2_EMAC0_RGMII_TXC>,
+					 <&hsperiph_clocks CLK_HSP_UCG2_EMAC0_1588>;
 				clock-names = "busclk", "txc", "clk_1588";
 				interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 				resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
@@ -1446,9 +1298,9 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0 0x10210000 0 0x1000>;
-				clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_EMAC1>,
-					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC1_RGMII_TXC>,
-					 <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC1_1588>;
+				clocks = <&hsperiph_clocks CLK_HSP_UCG0_EMAC1>,
+					 <&hsperiph_clocks CLK_HSP_UCG2_EMAC1_RGMII_TXC>,
+					 <&hsperiph_clocks CLK_HSP_UCG2_EMAC1_1588>;
 				clock-names = "busclk", "txc", "clk_1588";
 				interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 				resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
@@ -1470,8 +1322,8 @@
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
 			/* Linux driver requires the following clock names */
 			clock-names = "clk_xin", "clk_ahb";
-			clocks = <&hsperiph_ucg1 CLK_HSP_UCG1_SDMMC0_XIN>,
-				 <&hsperiph_ucg0 CLK_HSP_UCG0_SDMMC0>;
+			clocks = <&hsperiph_clocks CLK_HSP_UCG1_SDMMC0_XIN>,
+				 <&hsperiph_clocks CLK_HSP_UCG0_SDMMC0>;
 			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC0>;
 			elvees,ctrl-id = <0>;
 			status = "disabled";
@@ -1504,8 +1356,8 @@
 			arasan,soc-ctl-syscon = <&hsperiph_urb>;
 			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "clk_xin", "clk_ahb";
-			clocks = <&hsperiph_ucg1 CLK_HSP_UCG1_SDMMC1_XIN>,
-				 <&hsperiph_ucg0 CLK_HSP_UCG0_SDMMC1>;
+			clocks = <&hsperiph_clocks CLK_HSP_UCG1_SDMMC1_XIN>,
+				 <&hsperiph_clocks CLK_HSP_UCG0_SDMMC1>;
 			resets = <&hsperiph_reset HSPERIPH_RST_SDMMC1>;
 			elvees,ctrl-id = <1>;
 			status = "disabled";
@@ -1533,8 +1385,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			resets = <&hsperiph_reset HSPERIPH_RST_NFC>;
-			clocks = <&hsperiph_ucg1 CLK_HSP_UCG1_NFC_FLASH>,
-				 <&hsperiph_ucg0 CLK_HSP_UCG0_NFC>;
+			clocks = <&hsperiph_clocks CLK_HSP_UCG1_NFC_FLASH>,
+				 <&hsperiph_clocks CLK_HSP_UCG0_NFC>;
 			clock-names = "bus", "controller";
 			status = "disabled";
 
@@ -1550,8 +1402,8 @@
 			elvees,urb = <&hsperiph_urb>;
 			silvaco,qspi-mode = <0>;
 			clock-names = "clk_axi", "clk_ext";
-			clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_QSPI>,
-				 <&hsperiph_ucg1 CLK_HSP_UCG1_QSPI_EXT>;
+			clocks = <&hsperiph_clocks CLK_HSP_UCG0_QSPI>,
+				 <&hsperiph_clocks CLK_HSP_UCG1_QSPI_EXT>;
 			resets = <&hsperiph_reset HSPERIPH_RST_QSPI>;
 			num-cs = <4>;
 			status = "disabled";
@@ -1566,9 +1418,9 @@
 			ranges;
 			compatible = "elvees,mcom03-dwc3";
 			clock-names = "sys", "ref", "suspend";
-			clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_USB0>,
+			clocks = <&hsperiph_clocks CLK_HSP_UCG0_USB0>,
 				 <&usb_ref_clk>,
-				 <&hsperiph_ucg3 CLK_HSP_UCG3_USB0_SUSPEND>;
+				 <&hsperiph_clocks CLK_HSP_UCG3_USB0_SUSPEND>;
 			resets = <&hsperiph_reset HSPERIPH_RST_USB0>;
 			elvees,urb = <&hsperiph_urb>;
 			elvees,ctrl-id = <0>;
@@ -1590,9 +1442,9 @@
 			ranges;
 			compatible = "elvees,mcom03-dwc3";
 			clock-names = "sys", "ref", "suspend";
-			clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_USB1>,
+			clocks = <&hsperiph_clocks CLK_HSP_UCG0_USB1>,
 				 <&usb_ref_clk>,
-				 <&hsperiph_ucg3 CLK_HSP_UCG3_USB1_SUSPEND>;
+				 <&hsperiph_clocks CLK_HSP_UCG3_USB1_SUSPEND>;
 			resets = <&hsperiph_reset HSPERIPH_RST_USB1>;
 			elvees,urb = <&hsperiph_urb>;
 			elvees,ctrl-id = <1>;
@@ -1615,66 +1467,6 @@
 		#size-cells = <2>;
 		ranges;
 
-		sdr_pll0: sdr_pll0@1910000 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1910000 0 0x8>;
-			clocks = <&xti_clk>;
-			assigned-clocks = <&sdr_pll0>;
-			assigned-clock-rates = <1200000000>;
-		};
-
-		sdr_pll1: sdr_pll1@1910008 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1910008 0 0x8>;
-			clocks = <&xti_clk>;
-			assigned-clocks = <&sdr_pll1>;
-			assigned-clock-rates = <648000000>;
-		};
-
-		/* DSP clock */
-		sdr_pll2: sdr_pll2@1910010 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x1910010 0 0x8>;
-			clocks = <&xti_clk>;
-			assigned-clocks = <&sdr_pll2>;
-			/* Clock rate must match to one of the values
-			 * described in dsp-opp-table.
-			 */
-			assigned-clock-rates = <405000000>;
-		};
-
-		sdr_ucg0: ucg@1900000 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x1900000 0 0x80>;
-			clocks = <&sdr_pll0>;
-			clock-output-names = "sdr_clk_cfg", "sdr_ext_clk",
-					     "sdr_int_clk", "sdr_pci_clk",
-					     "sdr_vcu_aclk", "sdr_acc0_clk",
-					     "sdr_acc1_clk", "sdr_acc2_clk",
-					     "sdr_aux_pci_clk", "sdr_gnss_clk",
-					     "sdr_dfe_alt_clk", "sdr_vcu_clk",
-					     "sdr_lvds_clk";
-			assigned-clocks = <&sdr_ucg0 CLK_SDR_UCG0_CFG>,
-					  <&sdr_ucg0 CLK_SDR_UCG0_EXT>,
-					  <&sdr_ucg0 CLK_SDR_UCG0_INT>,
-					  <&sdr_ucg0 CLK_SDR_UCG0_PCI>,
-					  <&sdr_ucg0 CLK_SDR_UCG0_AUX_PCI>;
-			assigned-clock-rates = <200000000
-						600000000
-						400000000
-						200000000
-						50000000>;
-			enabled-clocks = <CLK_SDR_UCG0_CFG>,
-					 <CLK_SDR_UCG0_EXT>,
-					 <CLK_SDR_UCG0_INT>,
-					 <CLK_SDR_UCG0_PCI>,
-					 <CLK_SDR_UCG0_AUX_PCI>;
-			#clock-cells = <1>;
-		};
-
 		sdr_urb: urb@1910000 {
 			compatible = "elvees,mcom03-urb", "syscon",
 				     "simple-mfd";
@@ -1691,12 +1483,39 @@
 			};
 		};
 
-		dsp_gate: clock-controller@191004c {
-			compatible = "elvees,mcom03-dsp-gate";
-			reg = <0 0x191004c 0 0x4>;
-			clocks = <&sdr_pll2>;
-			clock-output-names = "dsp0_clk", "dsp1_clk";
+		sdr_clocks: clock-controller@1900000 {
+			compatible = "elvees,mcom03-clk-pm";
 			#clock-cells = <1>;
+			elvees,subsystem = <MCOM03_SUBSYSTEM_SDR>;
+			clocks = <&xti_clk>;
+			elvees,urb = <&sdr_urb>;
+			reg = <0 0x1900000 0 0x80>;
+			assigned-clocks = <&sdr_clocks CLK_SDR_PLL0>,
+					  <&sdr_clocks CLK_SDR_PLL1>,
+					  <&sdr_clocks CLK_SDR_PLL2>,
+					  <&sdr_clocks CLK_SDR_UCG0_CFG>,
+					  <&sdr_clocks CLK_SDR_UCG0_EXT>,
+					  <&sdr_clocks CLK_SDR_UCG0_INT>,
+					  <&sdr_clocks CLK_SDR_UCG0_PCI>,
+					  <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+			assigned-clock-rates = <1200000000
+						648000000
+			/* PLL2 clock rate must match to one of the values
+			 * described in dsp-opp-table.
+			 */
+						405000000
+						200000000
+						600000000
+						400000000
+						200000000
+						50000000>;
+			enabled-clocks = <CLK_SDR_UCG0_CFG>,
+					 <CLK_SDR_UCG0_EXT>,
+					 <CLK_SDR_UCG0_INT>,
+					 <CLK_SDR_UCG0_PCI>,
+					 <CLK_SDR_UCG0_AUX_PCI>,
+					 <CLK_SDR_GATE_PCIE0>,
+					 <CLK_SDR_GATE_PCIE1>;
 		};
 
 		/* This node isn't real PCIe bus, but if it's name equals to "pcie", kernel will
@@ -1827,11 +1646,11 @@
 					 <&sdr_reset SDR_RST_EXT_ICT>,
 					 <&sdr_reset SDR_RST_BBD_ICT>,
 					 <&sdr_reset SDR_RST_PCI_ICT>;
-				clocks = <&dsp_gate 0>,
-					 <&sdr_ucg0 CLK_SDR_UCG0_CFG>,
-					 <&sdr_ucg0 CLK_SDR_UCG0_EXT>,
-					 <&sdr_ucg0 CLK_SDR_UCG0_INT>,
-					 <&sdr_ucg0 CLK_SDR_UCG0_PCI>;
+				clocks = <&sdr_clocks CLK_SDR_GATE_DSP0>,
+					 <&sdr_clocks CLK_SDR_UCG0_CFG>,
+					 <&sdr_clocks CLK_SDR_UCG0_EXT>,
+					 <&sdr_clocks CLK_SDR_UCG0_INT>,
+					 <&sdr_clocks CLK_SDR_UCG0_PCI>;
 				clock-names = "main_clk", "clk_cfg", "ext_clk",
 					      "int_clk", "pci_clk";
 				operating-points-v2 = <&dsp_opp_table>;
@@ -1847,11 +1666,11 @@
 					 <&sdr_reset SDR_RST_EXT_ICT>,
 					 <&sdr_reset SDR_RST_BBD_ICT>,
 					 <&sdr_reset SDR_RST_PCI_ICT>;
-				clocks = <&dsp_gate 1>,
-					 <&sdr_ucg0 CLK_SDR_UCG0_CFG>,
-					 <&sdr_ucg0 CLK_SDR_UCG0_EXT>,
-					 <&sdr_ucg0 CLK_SDR_UCG0_INT>,
-					 <&sdr_ucg0 CLK_SDR_UCG0_PCI>;
+				clocks = <&sdr_clocks CLK_SDR_GATE_DSP1>,
+					 <&sdr_clocks CLK_SDR_UCG0_CFG>,
+					 <&sdr_clocks CLK_SDR_UCG0_EXT>,
+					 <&sdr_clocks CLK_SDR_UCG0_INT>,
+					 <&sdr_clocks CLK_SDR_UCG0_PCI>;
 				clock-names = "main_clk", "clk_cfg", "ext_clk",
 					      "int_clk", "pci_clk";
 				operating-points-v2 = <&dsp_opp_table>;
@@ -1953,56 +1772,6 @@
 			};
 		};
 
-		lsperiph1_pll0: lsperiph1_pll0@17E0000 {
-			#clock-cells = <0>;
-			compatible = "elvees,mcom03-clk-pll";
-			reg = <0 0x17E0000 0 0x8>;
-			clocks = <&xti_clk>;
-			assigned-clocks = <&lsperiph1_pll0>;
-			assigned-clock-rates = <614250000>;
-		};
-
-		lsperiph1_ucg0: ucg@17c0000 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x17C0000 0 0x100>;
-			clocks = <&lsperiph1_pll0>;
-			clock-output-names = "lsp1_sys_clk", "i2c1_clk",
-					     "i2c2_clk", "i2c3_clk",
-					     "gpio1_dbclk", "ssi1_clk",
-					     "uart0_clk", "timers0_clk",
-					     "pwm0_clk", "wdt1_clk";
-
-			assigned-clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_SYS>,
-					  <&lsperiph1_ucg0 CLK_LSP1_UCG0_I2C1>,
-					  <&lsperiph1_ucg0 CLK_LSP1_UCG0_I2C2>,
-					  <&lsperiph1_ucg0 CLK_LSP1_UCG0_I2C3>,
-					  <&lsperiph1_ucg0 CLK_LSP1_UCG0_GPIO1_DB>,
-					  <&lsperiph1_ucg0 CLK_LSP1_UCG0_SSI1>,
-					  <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>,
-					  <&lsperiph1_ucg0 CLK_LSP1_UCG0_PWM0>,
-					  <&lsperiph1_ucg0 CLK_LSP1_UCG0_WDT1>;
-			assigned-clock-rates = <87750000
-						102375000
-						102375000
-						102375000
-						87750000
-						153562500
-						87750000
-						87750000
-						87750000>;
-			enabled-clocks = <CLK_LSP1_UCG0_SYS>;
-			#clock-cells = <1>;
-			/* When driver UART requests to change clock and clock
-			 * driver sets it lower than the requested one, baud
-			 * rate divisor for the UART becomes less than one.
-			 * With integer divisor set to zero, the baud clock
-			 * is disabled and no serial communications will occur.
-			 * Round up requested frequency for UART0.
-			 */
-			elvees,round-up-mask = <0x40>;
-
-		};
-
 		/* i2s0_sclk_in_clk is clock from external pin GPIO1_PORTB_5 */
 		i2s0_sclk_in_clk: i2s0_sclk_in_clk {
 			#clock-cells = <0>;
@@ -2010,21 +1779,36 @@
 			clock-frequency = <12288000>;
 		};
 
-		lsperiph1_refmux_i2s: lsperiph1_refmux_i2s {
-			compatible = "elvees,mcom03-clk-lsp1-refmux-i2s";
-			clocks = <&lsperiph1_pll0>, <&i2s0_sclk_in_clk>;
-			#clock-cells = <0>;
-		};
-
-		lsperiph1_ucg1: ucg@17d0000 {
-			compatible = "elvees,mcom03-clk-ucg";
-			reg = <0 0x17D0000 0 0x100>;
-			clocks = <&lsperiph1_refmux_i2s>;
-			clock-output-names = "lsp1_i2s_clk";
-
-			assigned-clocks = <&lsperiph1_ucg1 CLK_LSP1_UCG_I2S_I2S0>;
-			assigned-clock-rates = <12285000>;
+		lsperiph1_clocks: clock-controller@17C0000 {
+			compatible = "elvees,mcom03-clk-pm";
 			#clock-cells = <1>;
+			elvees,subsystem = <MCOM03_SUBSYSTEM_LSPERIPH1>;
+			clocks = <&xti_clk>, <&i2s0_sclk_in_clk>;
+			elvees,urb = <&lsperiph1_urb>;
+			reg = <0 0x17C0000 0 0x80>, <0 0x17D0000 0 0x80>;
+			assigned-clocks = <&lsperiph1_clocks CLK_LSP1_PLL0>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_SYS>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_I2C1>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_I2C2>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_I2C3>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_GPIO1_DB>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_SSI1>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_PWM0>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG0_WDT1>,
+					  <&lsperiph1_clocks CLK_LSP1_UCG_I2S_I2S0>;
+			assigned-clock-rates = <614250000
+						87750000
+						102375000
+						102375000
+						102375000
+						87750000
+						153562500
+						87750000
+						87750000
+						87750000
+						12285000>;
+			enabled-clocks = <CLK_LSP1_UCG0_SYS>;
 		};
 
 		i2c1: i2c@1710000 {
@@ -2032,7 +1816,7 @@
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1710000 0 0x10000>;
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_I2C1>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_I2C1>;
 			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
@@ -2046,7 +1830,7 @@
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1720000 0 0x10000>;
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_I2C2>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_I2C2>;
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
@@ -2060,7 +1844,7 @@
 			#size-cells = <0>;
 			compatible = "snps,designware-i2c";
 			reg = <0 0x1730000 0 0x10000>;
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_I2C3>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_I2C3>;
 			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
@@ -2072,7 +1856,7 @@
 		i2s0: i2s@1740000 {
 			compatible = "snps,designware-i2s";
 			reg = <0 0x1740000 0 0x10000>;
-			clocks = <&lsperiph1_ucg1 CLK_LSP1_UCG_I2S_I2S0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG_I2S_I2S0>;
 			clock-names = "i2sclk";
 			interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
 			#sound-dai-cells = <0>;
@@ -2086,8 +1870,8 @@
 		uart0: serial0@1750000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1750000 0 0x1000>;
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_UART0
-				  &lsperiph1_ucg0 CLK_LSP1_UCG0_SYS>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_UART0
+				  &lsperiph1_clocks CLK_LSP1_UCG0_SYS>;
 			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -2103,7 +1887,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0 0x1760000 0 0x10000>;
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_SSI1>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_SSI1>;
 			num-cs = <4>;
 			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
 
@@ -2119,7 +1903,7 @@
 			reg = <0 0x1790000 0 0x14>;
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
 			status = "disabled";
 		};
 
@@ -2128,7 +1912,7 @@
 			reg = <0 0x1790014 0 0x14>;
 			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
 			status = "disabled";
 		};
 
@@ -2137,7 +1921,7 @@
 			reg = <0 0x1790028 0 0x14>;
 			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
 			status = "disabled";
 		};
 
@@ -2146,7 +1930,7 @@
 			reg = <0 0x179003C 0 0x14>;
 			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
 			status = "disabled";
 		};
 
@@ -2155,7 +1939,7 @@
 			reg = <0 0x1790050 0 0x14>;
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
 			status = "disabled";
 		};
 
@@ -2164,7 +1948,7 @@
 			reg = <0 0x1790064 0 0x14>;
 			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
 			status = "disabled";
 		};
 
@@ -2173,7 +1957,7 @@
 			reg = <0 0x1790078 0 0x14>;
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
 			status = "disabled";
 		};
 
@@ -2182,7 +1966,7 @@
 			reg = <0 0x179008C 0 0x14>;
 			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "timer";
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_TIMERS0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
 			status = "disabled";
 		};
 
@@ -2193,7 +1977,7 @@
 			 * GPIO driver controls clock named "bus" which we can
 			 * use to handle the debounce filter clock
 			 */
-			clocks = <&lsperiph0_ucg0 CLK_LSP1_UCG0_GPIO1_DB>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_GPIO1_DB>;
 			clock-names = "bus";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -2424,15 +2208,9 @@
 			compatible = "elvees,elvees-pwm";
 			reg = <0 0x1770000 0 0x1000>;
 			#pwm-cells = <2>;
-			clocks = <&lsperiph1_ucg0 CLK_LSP1_UCG0_PWM0>;
+			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_PWM0>;
 			status = "disabled";
 		};
-	};
-
-	cpu_clk: cpu_clk {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <1400000000>;
 	};
 
 	xti_clk: xti_clk {

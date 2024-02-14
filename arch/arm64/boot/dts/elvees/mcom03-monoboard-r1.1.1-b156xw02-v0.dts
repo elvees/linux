@@ -102,6 +102,10 @@
 
 &dp {
 	status = "okay";
+
+	// For fine pixel clocks
+	assigned-clocks = <&media_clocks CLK_MEDIA_PLL1>;
+	assigned-clock-rates = <2376000000>;
 };
 
 &de_dpi {
@@ -116,9 +120,4 @@
 			};
 		};
 	};
-};
-
-// For fine pixel clocks
-&media_pll1 {
-	assigned-clock-rates = <2376000000>;
 };
