@@ -960,16 +960,11 @@ static int rt5616_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_component *component = dai->component;
 	struct rt5616_priv *rt5616 = snd_soc_component_get_drvdata(component);
 	unsigned int val_len = 0, val_clk, mask_clk;
-	int pre_div, bclk_ms, frame_size;
+	int pre_div = 0, bclk_ms, frame_size;
+	int ret;
 
 	rt5616->lrck[dai->id] = params_rate(params);
 
-	pre_div = rl6231_get_clk_info(rt5616->sysclk, rt5616->lrck[dai->id]);
-
-	if (pre_div < 0) {
-		dev_err(component->dev, "Unsupported clock setting\n");
-		return -EINVAL;
-	}
 	frame_size = snd_soc_params_to_frame_size(params);
 	if (frame_size < 0) {
 		dev_err(component->dev, "Unsupported frame size: %d\n", frame_size);
@@ -977,6 +972,26 @@ static int rt5616_hw_params(struct snd_pcm_substream *substream,
 	}
 	bclk_ms = frame_size > 32 ? 1 : 0;
 	rt5616->bclk[dai->id] = rt5616->lrck[dai->id] * (32 << bclk_ms);
+
+	if (rt5616->pll_src == RT5616_PLL1_S_BCLK1) {
+		ret = snd_soc_dai_set_sysclk(dai, RT5616_SCLK_S_PLL1,
+					     rt5616->bclk[dai->id], 0);
+		if (ret < 0) {
+			dev_err(component->dev,
+				"Failed to set RT5616 codec SYSCLK.");
+			return ret;
+		}
+	}
+
+	if (rt5616->sysclk_src == RT5616_SCLK_S_MCLK) {
+		pre_div = rl6231_get_clk_info(rt5616->sysclk,
+					      rt5616->lrck[dai->id]);
+
+		if (pre_div < 0) {
+			dev_err(component->dev, "Unsupported clock setting\n");
+			return -EINVAL;
+		}
+	}
 
 	dev_dbg(dai->dev, "bclk is %dHz and lrck is %dHz\n",
 		rt5616->bclk[dai->id], rt5616->lrck[dai->id]);
@@ -997,6 +1012,28 @@ static int rt5616_hw_params(struct snd_pcm_substream *substream,
 		break;
 	default:
 		return -EINVAL;
+	}
+
+	if (rt5616->sysclk_src == RT5616_SCLK_S_PLL1) {
+		unsigned int freq_in, freq_out;
+
+		switch (rt5616->pll_src) {
+		case RT5616_PLL1_S_BCLK1:
+			freq_in = rt5616->bclk[dai->id];
+			break;
+		default:
+			dev_err(component->dev, "Not supported PLL source\n");
+			return -EINVAL;
+		}
+		freq_out = rt5616->lrck[dai->id] << 8;
+
+		ret = snd_soc_dai_set_pll(dai, 0, rt5616->pll_src,
+					  freq_in, freq_out);
+		if (ret < 0) {
+			dev_err(component->dev,
+				"Failed to set RT5616 codec PLL.");
+			return ret;
+		}
 	}
 
 	mask_clk = RT5616_I2S_PD1_MASK;
@@ -1375,6 +1412,14 @@ static int rt5616_i2c_probe(struct i2c_client *i2c,
 			val);
 		return -ENODEV;
 	}
+
+	if (i2c->dev.of_node) {
+		if (of_property_read_bool(i2c->dev.of_node, "rt,pll-src-bclk")) {
+			rt5616->sysclk_src = RT5616_SCLK_S_PLL1;
+			rt5616->pll_src = RT5616_PLL1_S_BCLK1;
+		}
+	}
+
 	regmap_write(rt5616->regmap, RT5616_RESET, 0);
 	regmap_update_bits(rt5616->regmap, RT5616_PWR_ANLG1,
 			   RT5616_PWR_VREF1 | RT5616_PWR_MB |
