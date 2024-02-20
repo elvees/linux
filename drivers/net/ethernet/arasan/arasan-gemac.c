@@ -186,8 +186,10 @@ static void arasan_gemac_setup_frame_limits(struct arasan_gemac_pdata *pd,
 
 static void arasan_gemac_setup_fifo_thresholds(struct arasan_gemac_pdata *pd)
 {
+	const int tx_fifo_almost_full_thr_words_num =
+		pd->hwfifo_size / TX_FIFO_ALMOST_FULL_THRESHOLD_WORD_SIZE_BYTES;
 	/* limitation required by vendor */
-	const int max = pd->hwfifo_size - 8;
+	const int max = tx_fifo_almost_full_thr_words_num - 8;
 
 	/* FIXME: It can damp difference between DMA and GEMAC speed.
 	 * DMA has been stopped if it crosses full threshold.
@@ -1549,9 +1551,9 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	res = device_property_read_u32(&pdev->dev, "arasan,hwfifo-size",
 				       &pd->hwfifo_size);
 	if (res)
-		pd->hwfifo_size = 2048;
+		pd->hwfifo_size = FIFO_SIZE_BYTES;
 
-	netdev_dbg(dev, "Arasan GEMAC hardware FIFO size: %d\n",
+	netdev_dbg(dev, "Arasan GEMAC hardware FIFO size: %d B\n",
 		   pd->hwfifo_size);
 
 	if (IS_REACHABLE(CONFIG_PTP_1588_CLOCK)) {

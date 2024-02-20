@@ -36,6 +36,9 @@
 #define RX_RING_SIZE (128)
 #define NAPI_WEIGHT (64)
 
+#define TX_FIFO_ALMOST_FULL_THRESHOLD_WORD_SIZE_BYTES 4
+#define FIFO_SIZE_BYTES 8192
+
 /* Arasan GEMAC register offsets */
 
 #define DMA_CONFIGURATION                         0x0000
