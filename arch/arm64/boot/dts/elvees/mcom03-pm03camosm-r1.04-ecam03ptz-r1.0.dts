@@ -47,8 +47,8 @@
 
 &gpio0b {
 	gpio-line-names = "IR_LASER_UART_RX", "IR_LASER_UART_TX",
-		"RS-485 UART RE/DE", "",
-		"V_DIAG", "RS485_UART_RX",
+		"RS-485 UART RE/DE", "V_DIAG",
+		"", "RS485_UART_RX",
 		"RS485_UART_TX", "";
 };
 
