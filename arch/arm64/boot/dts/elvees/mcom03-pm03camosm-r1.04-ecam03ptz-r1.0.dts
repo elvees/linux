@@ -126,6 +126,10 @@
 	snps,rs485-disable-hw-support;
 };
 
+&uart3 {
+	status = "okay";
+};
+
 &pwm {
 		status = "okay";
 		elvees,output-channel = <0 0 0 0>;
