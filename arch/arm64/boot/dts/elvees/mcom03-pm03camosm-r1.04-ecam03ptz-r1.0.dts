@@ -91,6 +91,16 @@
 		"", "", "", "";
 };
 
+&lsperiph1_pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&alarm_in2_cfg>;
+
+	alarm_in2_cfg: alarm-in2-cfg {
+		pins = "GPIOA_6";
+		input-enable;
+	};
+};
+
 &uart0 {
 	status = "okay";
 };
