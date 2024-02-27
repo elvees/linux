@@ -14,6 +14,8 @@ Optional properties:
 
 - clock-names: Should be "mclk".
 
+- rt,pll-src-bclk: boolean; PLL clock source is BCLK
+
 Pins on the device (for linking into audio routes) for RT5616:
 
   * IN1P
