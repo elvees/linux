@@ -63,7 +63,7 @@
 	gpio-line-names = "H_V_MOTOR_UART_TX", "H_V_MOTOR_UART_RX",
 		"V_DIR", "ZOOM1_ZOOM2_VD_SYNC",
 		"ALARM_OUT", "CSI_IMX_RST",
-		"CTRL", "";
+		"PWR_RES_EN", "";
 };
 
 &gpio1a {
