@@ -227,6 +227,14 @@
 		compatible = "rohm,bh1750";
 		reg = <0x5c>;
 	};
+
+	vcnl36821s: proximity-sensor@60 {
+		compatible = "vishay,vcnl36821s";
+		reg = <0x60>;
+		interrupts-extended = <&gpio0a 6 IRQ_TYPE_LEVEL_LOW>;
+		vishay,led-current = <156>;
+		vishay,sunlight-cancellation;
+	};
 };
 
 &i2c3 {
