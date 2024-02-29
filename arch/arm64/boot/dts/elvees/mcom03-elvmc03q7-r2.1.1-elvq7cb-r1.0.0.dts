@@ -44,6 +44,7 @@
 		hl10 {
 			gpios = <&pca9675_1 8 GPIO_ACTIVE_LOW>;
 			default-state = "off";
+			linux,default-trigger = "heartbeat";
 		};
 
 		hl11 {
