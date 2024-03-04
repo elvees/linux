@@ -1637,7 +1637,7 @@
 			/* Clock rate must match to one of the values
 			 * described in dsp-opp-table.
 			 */
-			assigned-clock-rates = <432000000>;
+			assigned-clock-rates = <405000000>;
 		};
 
 		sdr_ucg0: ucg@1900000 {
@@ -1875,9 +1875,6 @@
 			};
 			opp-405000000 {
 				opp-hz = /bits/ 64 <405000000>;
-			};
-			opp-432000000 {
-				opp-hz = /bits/ 64 <432000000>;
 			};
 		};
 	};
