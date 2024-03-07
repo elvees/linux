@@ -122,7 +122,7 @@ static int dwc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	return 0;
 }
 
-static int dwc_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
+static void dwc_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 			     struct pwm_state *state)
 {
 	struct dwc_pwm *dwc = to_dwc_pwm(chip);
@@ -162,13 +162,12 @@ static int dwc_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 	state->polarity = PWM_POLARITY_INVERSED;
 
 	pm_runtime_put_sync(chip->dev);
-
-	return 0;
 }
 
 static const struct pwm_ops dwc_pwm_ops = {
 	.apply = dwc_pwm_apply,
 	.get_state = dwc_pwm_get_state,
+	.owner = THIS_MODULE,
 };
 
 struct dwc_pwm *dwc_pwm_alloc(struct device *dev)

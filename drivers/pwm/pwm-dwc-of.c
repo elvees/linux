@@ -39,6 +39,13 @@ static int dwc_pwm_plat_probe(struct platform_device *pdev)
 			dwc->chip.npwm = nr_pwm;
 	}
 
+	/* TODO: remove after v5.14
+	 * Here we set cell size to 3 because only inversed polarity is supported?
+	 */
+	dwc->chip.of_xlate = of_pwm_xlate_with_flags;
+	dwc->chip.of_pwm_n_cells = 3;
+	dwc->chip.base = -1; // TODO: remove after v5.13
+
 	dwc->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(dwc->base))
 		return PTR_ERR(dwc->base);
@@ -59,14 +66,25 @@ static int dwc_pwm_plat_probe(struct platform_device *pdev)
 				     "clk_rate_exclusive_get() failed\n");
 
 	dwc->clk_rate = clk_get_rate(dwc->clk);
-	return devm_pwmchip_add(dev, &dwc->chip);
+
+	ret = pwmchip_add(&dwc->chip);
+	if (ret)
+		clk_rate_exclusive_put(dwc->clk);
+
+	return ret;
 }
 
 static int dwc_pwm_plat_remove(struct platform_device *pdev)
 {
 	struct dwc_pwm *dwc = dev_get_drvdata(&pdev->dev);
+	int ret;
+
+	ret = pwmchip_remove(&dwc->chip);
+	if (ret < 0)
+		return ret;
 
 	clk_rate_exclusive_put(dwc->clk);
+
 	return 0;
 }
 
