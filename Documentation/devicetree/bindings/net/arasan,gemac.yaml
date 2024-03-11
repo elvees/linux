@@ -1,0 +1,137 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/arasan,gemac.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Arasan GEMAC Ethernet controller
+
+maintainers:
+  - Dmitriy Zagrebin <dzagrebin@elvees.com>
+
+description: Bindings for the Arasan GEMAC Ethernet controller.
+
+properties:
+  compatible:
+    const: arasan,gemac
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  reg:
+    items:
+      - description: Register set
+
+  clocks:
+    description:
+      Must reference the clocks supplied on AXI clock and RGMII TXC.
+      Optionally could refererence the PTP timer clock. PTP timer clock must be set to 125 MHz.
+    minItems: 2
+    maxItems: 3
+
+  clock-names:
+    description:
+      Must contains at least two strings. 'busclk' for the clock supplied on AXI clock
+      and 'txc' for the RGMII TXC. Optionally could contain 'clk_1588' string for the
+      PTP timer clock.
+    oneOf:
+      - items:
+          - const: busclk
+          - const: txc
+      - items:
+          - const: busclk
+          - const: txc
+          - const: clk_1588
+
+  interrupts:
+    items:
+      - description: interrupt line on the AHB/AXI Interface
+
+  resets:
+    maxItems: 1
+
+  arasan,desc-pool:
+    description: |
+      Phandle to the device SRAM. It is required for the Arasan GEMAC controllers rel2.20
+      to workaround a hardware bug.
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+
+  arasan,axi-bus-width64:
+    description:
+      Set this property if you want to use 64-bit data transfers to increase DMAC perfomance.
+    type: boolean
+
+  arasan,hwfifo_size:
+    description:
+      Size of hardware FIFOs for Rx and Tx frames in bytes.
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  arasan,max-mdc-freq:
+    description: |
+      Maximum value of MDC frequency. It is used to adjust the ratio between the MDC clock and
+      the Host clock (AHB or AXI clock).
+      Default value set by driver to 2.5 MHz.
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  arasan,tx-start-threshold:
+    description: |
+      Threshold size of packet in bytes before the packet is sent.
+      Default value depends on Ethernet speed according to User's Manual.
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  phy-mode: true
+
+  phy-handle: true
+
+required:
+  - compatible
+  - '#address-cells'
+  - '#size-cells'
+  - reg
+  - clocks
+  - clock-names
+  - interrupts
+  - phy-mode
+  - phy-handle
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/soc/elvees,mcom03.h>
+    #include <dt-bindings/clock/mcom03-clock.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    spram: spram@0 {
+      compatible = "mmio-sram";
+      #address-cells = <2>;
+      #size-cells = <2>;
+      reg = <0 0 0 0x10000>;
+      clocks = <&hsperiph_clocks CLK_HSP_UCG0_SPRAM>;
+
+      emac_desc_pool: sram-pool@0 {
+        reg = <0 0 0 0x2000>;
+        pool;
+      };
+    };
+
+    ethernet@10200000 {
+      compatible = "arasan,gemac";
+      #address-cells = <1>;
+      #size-cells = <0>;
+      reg = <0 0x10200000 0 0x1000>;
+      clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_EMAC0>,
+               <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_RGMII_TXC>,
+               <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_1588>;
+      clock-names = "busclk", "txc", "clk_1588";
+      interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+      resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
+      arasan,desc-pool = <&emac_desc_pool>;
+      arasan,axi-bus-width64;
+      phy-mode = "rgmii-id";
+      phy-handle = <&ethernet_phy0>;
+    };
