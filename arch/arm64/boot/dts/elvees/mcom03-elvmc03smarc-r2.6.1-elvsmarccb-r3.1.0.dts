@@ -210,7 +210,7 @@
 	flash1: w25q128jw@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "winbond,w25q16dw", "jedec,spi-nor";
+		compatible = "winbond,w25q128fw", "jedec,spi-nor";
 		spi-max-frequency = <20000000>;
 		reg = <0x0>;
 	};
