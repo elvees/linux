@@ -4,6 +4,7 @@
  */
 
 #include "mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1.dts"
+#include <dt-bindings/pwm/pwm.h>
 
 / {
 	vdd_lcd: regulator_lcd@0 {
@@ -14,10 +15,23 @@
 		regulator-always-on;
 	};
 
+	vdd_backlight: regulator_backlight@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd-panel-supply";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+		regulator-always-on;
+	};
+
 	backlight: backlight {
-		compatible = "gpio-backlight";
-		gpios = <&gpio1d 6 GPIO_ACTIVE_HIGH>; // LCD0_BLKT_EN
-		default-on;
+		compatible = "pwm-backlight";
+
+		pwms = <&timers_pwm 1 2000000 PWM_POLARITY_INVERTED>;
+		power-supply = <&vdd_backlight>;
+		enable-gpios = <&gpio1d 6 GPIO_ACTIVE_HIGH>;
+
+		brightness-levels = <100 90 80 70 60 50 40 30 20 10 1 0>;
+		default-brightness-level = <10>;
 	};
 
 	lvds_panel0: panel {
@@ -25,7 +39,7 @@
 
 		power-supply = <&vdd_lcd>;
 
-		enable-gpios = <&gpio1d 7 GPIO_ACTIVE_HIGH>; // LCD0_VDD_EN
+		enable-gpios = <&gpio1d 7 GPIO_ACTIVE_HIGH>;
 		backlight = <&backlight>;
 
 		width-mm = <294>;
@@ -89,13 +103,6 @@
 	status = "okay";
 };
 
-/* No PWM for now so ...
- * LCD0_BLKT_PWM may break power-up sequence for some panels, use with caution
- * remove after switch to pwm-backlight driver */
-&gpio1d {
-	lcd0-blkt-pwm {
-		gpio-hog;
-		gpios = <1 GPIO_ACTIVE_HIGH>;
-		output-high;
-	};
+&timers_pwm {
+	status = "okay";
 };

@@ -405,3 +405,8 @@ i2c_pm: &i2c0 { };
 &pcie1 {
 	reset-gpio = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
 };
+
+&timers_pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&timer1_toggle_mux>;
+};
