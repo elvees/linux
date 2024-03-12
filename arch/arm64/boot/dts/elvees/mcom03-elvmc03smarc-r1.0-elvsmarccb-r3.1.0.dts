@@ -21,3 +21,7 @@
 &sdhci1 {
 	/delete-property/ disable-wp;
 };
+
+&flash1 {
+	compatible = "winbond,w25q128fw", "jedec,spi-nor";
+};
