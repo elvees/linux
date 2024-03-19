@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2024 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "Pico-ITX r2";
+	compatible = "macro-ems,pico-itx-r2",
+		     "macro-ems,pico-itx",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	picoitx-leds {
+		compatible = "gpio-leds";
+
+		HL3 {
+			gpios = <&gpio1c 1 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
+
+		HL4 {
+			gpios = <&gpio1c 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			thermal-sensors = <&pvt 0>;
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			trips {
+				cpu_alert0: cpu-alert-0 {
+					temperature = <50000>;
+					hysteresis = <1000>;
+					type = "active";
+				};
+			};
+		};
+	};
+};
+
+&gpio1d {
+	pci0-perstn {
+		gpio-hog;
+		gpios = <6 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	pci1-perstn {
+		gpio-hog;
+		gpios = <4 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/* Connected to eMMC */
+&sdhci0 {
+	status = "okay";
+
+	non-removable;
+	bus-width = <8>;
+
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+/* Connected to MicroSD card */
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable High Speed support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4200000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+&emac0 {
+	status = "okay";
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0d 1 GPIO_ACTIVE_HIGH>;
+	reset-post-delay-us = <200>;
+
+	ethernet_phy0: ethernet-phy@1 {
+		reg = <0x1>;
+	};
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: fm25w128@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <33000000>;
+		m25p,fast-read;
+	};
+};
+
+&usb0 {
+	status = "okay";
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&pcie0 {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+};
+
+&i2c0 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c1 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c2 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&i2c3 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+	pwdn_gpio = <&gpio0c 1 GPIO_ACTIVE_HIGH>;
+};
