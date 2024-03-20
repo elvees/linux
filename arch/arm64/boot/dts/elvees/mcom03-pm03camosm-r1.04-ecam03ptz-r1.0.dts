@@ -138,6 +138,7 @@
 
 &uart3 {
 	status = "okay";
+	label = "ir-laser";
 };
 
 &pwm {
