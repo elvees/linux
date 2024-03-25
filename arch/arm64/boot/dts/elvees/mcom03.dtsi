@@ -1286,7 +1286,6 @@
 				clock-names = "busclk", "txc", "clk_1588";
 				interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 				resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
-				elvees,ctrl-id = <0>;
 				arasan,desc-pool = <&emac_desc_pool>;
 				phy-mode = "rgmii-id";
 				arasan,axi-bus-width64;
@@ -1307,7 +1306,6 @@
 				clock-names = "busclk", "txc", "clk_1588";
 				interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 				resets = <&hsperiph_reset HSPERIPH_RST_EMAC1>;
-				elvees,ctrl-id = <1>;
 				arasan,desc-pool = <&emac_desc_pool>;
 				phy-mode = "rgmii-id";
 				arasan,axi-bus-width64;
