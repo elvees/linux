@@ -74,12 +74,65 @@
 #define MR75202_TS_SDIF_WRN   BIT(27)
 #define MR75202_TS_SDIF_PROG  BIT(31)
 
+#define MR75202_VM_CLK_SYNTH          MR75202_VM_REG(0x0)
+#define MR75202_VM_SDIF_DISABLE       MR75202_VM_REG(0x4)
+#define MR75202_VM_SDIF_STATUS        MR75202_VM_REG(0x8)
+#define MR75202_VM_SDIF_CTRL          MR75202_VM_REG(0xc)
+#define MR75202_VM_SDIF               MR75202_VM_REG(0x10)
+#define MR75202_VM_SDIF_RDATA(n)      MR75202_VM_REG(0x14 + (n) * 0x4)
+#define MR75202_VM_DATA(n)            MR75202_VM_REG(0x34 + (n) * 0x40)
+#define MR75202_VM_SMPL_CTRL          MR75202_VM_REG(0x234)
+#define MR75202_VM_SMPL_HI_CLR(n)     MR75202_VM_REG(0x238 + (n) * 0x4)
+#define MR75202_VM_SMPL_LO_SET(n)     MR75202_VM_REG(0x258 + (n) * 0x4)
+#define MR75202_VM_SMPL_STATUS        MR75202_VM_REG(0x278)
+#define MR75202_VM_SMPL_CTR           MR75202_VM_REG(0x27c)
+#define MR75202_VM_SMPL_HILO(n)       MR75202_VM_REG(0x280 + (n) * 0x40)
+#define MR75202_VM_IRQ_STATUS         MR75202_VM_REG(0x480)
+#define MR75202_VM_ALARMA_IRQ_STATUS  MR75202_VM_REG(0x484)
+#define MR75202_VM_ALARMB_IRQ_STATUS  MR75202_VM_REG(0x488)
+#define MR75202_VM_DONE_IRQ           MR75202_VM_REG(0x48c)
+#define MR75202_VM_FAULT_IRQ          MR75202_VM_REG(0x490)
+#define MR75202_VM_ALARM_IRQ(n)       MR75202_VM_REG(0x494 + (n) * 0x4)
+#define MR75202_VM_DONE_IRQ_ENA       MR75202_VM_REG(0x4b4)
+#define MR75202_VM_FAULT_IRQ_ENA      MR75202_VM_REG(0x4b8)
+#define MR75202_VM_ALARM_IRQ_ENA(n)   MR75202_VM_REG(0x4bc + (n) * 0x4)
+#define MR75202_VM_DONE_IRQ_SRC       MR75202_VM_REG(0x4dc)
+#define MR75202_VM_FAULT_IRQ_SRC      MR75202_VM_REG(0x4e0)
+#define MR75202_VM_ALARM_IRQ_SRC(n)   MR75202_VM_REG(0x4e4 + (n) * 0x4)
+#define MR75202_VM_DONE_IRQ_TEST      MR75202_VM_REG(0x504)
+#define MR75202_VM_FAULT_IRQ_TEST     MR75202_VM_REG(0x508)
+#define MR75202_VM_ALARM_IRQ_TEST(n)  MR75202_VM_REG(0x50c + (n) * 0x4)
+#define MR75202_VM_ALARMA_CFG(n)      MR75202_VM_REG(0x52c + (n) * 0x40)
+#define MR75202_VM_ALARMB_CFG(n)      MR75202_VM_REG(0x72c + (n) * 0x40)
+
+#define MR75202_VM_CLK_SYNTH_LO     GENMASK(7, 0)
+#define MR75202_VM_CLK_SYNTH_HI     GENMASK(15, 8)
+#define MR75202_VM_CLK_SYNTH_STROBE GENMASK(19, 16)
+#define MR75202_VM_CLK_SYNTH_ENA    BIT(24)
+
+#define MR75202_VM_SDIF_STATUS_BUSY BIT(0)
+#define MR75202_VM_SDIF_STATUS_LOCK BIT(1)
+
+#define MR75202_VM_SDIF_WDATA GENMASK(23, 0)
+#define MR75202_VM_SDIF_ADDR  GENMASK(26, 24)
+#define MR75202_VM_SDIF_WRN   BIT(27)
+#define MR75202_VM_SDIF_PROG  BIT(31)
+
 #define MR75202_SDA_IP_CTRL 0x0
-#define MR75202_SDA_IP_CTRL_PD       BIT(0)
-#define MR75202_SDA_IP_CTRL_RESET    BIT(1)
-#define MR75202_SDA_IP_CTRL_RUN_ONCE BIT(2)
-#define MR75202_SDA_IP_CTRL_AUTO     BIT(8)
+#define MR75202_SDA_IP_CFG 0x1
+#define MR75202_SDA_IP_CFGA 0x2
+#define MR75202_SDA_IP_DATA 0x3
+#define MR75202_SDA_IP_POLLING 0x4
 #define MR75202_SDA_IP_TMR 0x5
+
+#define MR75202_SDA_IP_CTRL_PD       BIT(0)
+#define MR75202_SDA_IP_CTRL_RESETN   BIT(1)
+#define MR75202_SDA_IP_CTRL_RUN_ONCE BIT(2)
+#define MR75202_SDA_IP_CTRL_RUN_CONT BIT(3)
+#define MR75202_SDA_IP_CTRL_CLOAD    BIT(4)
+#define MR75202_SDA_IP_CTRL_AUTO     BIT(8)
+#define MR75202_SDA_IP_CTRL_STOP     BIT(9)
+#define MR75202_SDA_IP_CTRL_VM_MODE  BIT(10)
 
 #define MR75202_SDA_IP_DATA_DAT   GENMASK(15, 0)
 #define MR75202_SDA_IP_DATA_TYPE  BIT(16)
@@ -94,9 +147,11 @@ struct mr75202_priv {
 	void __iomem *base;
 	struct clk *clk;
 	struct reset_control *rst;
-	const char *labels[8];
+	const char *temp_labels[8];
+	const char *in_labels[8];
 	struct mutex mutex;
 	size_t nts;
+	size_t nvm;
 };
 
 static umode_t mr75202_is_visible(const void *data,
@@ -111,7 +166,17 @@ static umode_t mr75202_is_visible(const void *data,
 		case hwmon_temp_input:
 			return 0444;
 		case hwmon_temp_label:
-			if (priv->labels[channel])
+			if (priv->temp_labels[channel])
+				return 0444;
+		}
+		break;
+
+	case hwmon_in:
+		switch (attr) {
+		case hwmon_in_input:
+			return 0444;
+		case hwmon_in_label:
+			if (priv->in_labels[channel])
 				return 0444;
 		}
 		break;
@@ -139,6 +204,47 @@ static int mr75202_write_ts(struct mr75202_priv *priv, u32 address, u32 data)
 	writel(data, priv->base + MR75202_TS_SDIF);
 
 	return 0;
+}
+
+static int mr75202_write_vm(struct mr75202_priv *priv, u32 address, u32 data)
+{
+	u32 val;
+	int ret;
+
+	ret = readl_poll_timeout(priv->base + MR75202_VM_SDIF_STATUS, val,
+				 !(val & MR75202_VM_SDIF_STATUS_BUSY),
+				 MR75202_DELAY_US, MR75202_TIMEOUT_US);
+	if (ret)
+		return ret;
+
+	data = FIELD_PREP(MR75202_VM_SDIF_WDATA, data) |
+	       FIELD_PREP(MR75202_VM_SDIF_ADDR, address) |
+	       MR75202_VM_SDIF_WRN | MR75202_VM_SDIF_PROG;
+	writel(data, priv->base + MR75202_VM_SDIF);
+
+	return 0;
+}
+
+static int mr75202_read_vm(struct mr75202_priv *priv, u32 address, u32 channel)
+{
+	u32 val;
+	int ret;
+
+	ret = readl_poll_timeout(priv->base + MR75202_VM_SDIF_STATUS, val,
+				 !(val & MR75202_VM_SDIF_STATUS_BUSY),
+				 MR75202_DELAY_US, MR75202_TIMEOUT_US);
+	if (ret)
+		return ret;
+
+	val = FIELD_PREP(MR75202_VM_SDIF_ADDR, address) | MR75202_VM_SDIF_PROG;
+	writel(val, priv->base + MR75202_VM_SDIF);
+	ret = readl_poll_timeout(priv->base + MR75202_VM_SDIF_STATUS, val,
+				 !(val & MR75202_VM_SDIF_STATUS_BUSY),
+				 MR75202_DELAY_US, MR75202_TIMEOUT_US);
+	if (ret)
+		return ret;
+
+	return readl(priv->base + MR75202_VM_SDIF_RDATA(channel));
 }
 
 static int mr75202_read_temp(struct device *dev, u32 attr, int channel,
@@ -185,12 +291,66 @@ static int mr75202_read_temp(struct device *dev, u32 attr, int channel,
 	return ret;
 }
 
+static int mr75202_read_in(struct device *dev, u32 attr, int channel, long *val)
+{
+	struct mr75202_priv *priv = dev_get_drvdata(dev);
+	u32 regval;
+	int ret;
+
+	mutex_lock(&priv->mutex);
+
+	switch (attr) {
+	case hwmon_in_input:
+		/* By unknown reason single run and auto mode are not working.
+		 * Here we start continuous run without auto mode and stop it
+		 * after first data received. */
+		mr75202_write_vm(priv, MR75202_SDA_IP_CTRL,
+				 MR75202_SDA_IP_CTRL_RESETN |
+				 MR75202_SDA_IP_CTRL_RUN_CONT);
+
+		ret = read_poll_timeout(mr75202_read_vm, regval,
+					regval & MR75202_SDA_IP_DATA_DONE,
+					MR75202_DELAY_US, MR75202_TIMEOUT_US, 0,
+					priv, MR75202_SDA_IP_DATA, channel);
+
+		mr75202_write_vm(priv, MR75202_SDA_IP_CTRL,
+				 MR75202_SDA_IP_CTRL_RESETN |
+				 MR75202_SDA_IP_CTRL_STOP);
+
+		if (ret)
+			break;
+
+		if (regval & (MR75202_SDA_IP_DATA_TYPE |
+			      MR75202_SDA_IP_DATA_FAULT)) {
+			ret = -EAGAIN;
+			break;
+		}
+
+		regval &= MR75202_SDA_IP_DATA_DAT;
+
+		/* From VM datasheet and MR74140 (electrical specification for
+		 * TSMC 28HPC+). */
+		*val = (regval + 1) * 1224 / 256;
+
+		break;
+	default:
+		ret = -EOPNOTSUPP;
+		break;
+	}
+
+	mutex_unlock(&priv->mutex);
+
+	return ret;
+}
+
 static int mr75202_read(struct device *dev, enum hwmon_sensor_types type,
 			u32 attr, int channel, long *val)
 {
 	switch (type) {
 	case hwmon_temp:
 		return mr75202_read_temp(dev, attr, channel, val);
+	case hwmon_in:
+		return mr75202_read_in(dev, attr, channel, val);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -203,7 +363,10 @@ static int mr75202_read_string(struct device *dev, enum hwmon_sensor_types type,
 
 	switch (attr) {
 	case hwmon_temp_label:
-		*str = priv->labels[channel];
+		*str = priv->temp_labels[channel];
+		return 0;
+	case hwmon_in_label:
+		*str = priv->in_labels[channel];
 		return 0;
 	default:
 		return -EOPNOTSUPP;
@@ -263,10 +426,55 @@ static int mr75202_init_temp(struct device *dev, struct mr75202_priv *priv)
 	/* TODO: Disable interrupts */
 }
 
+static int mr75202_init_in(struct device *dev, struct mr75202_priv *priv)
+{
+	/* TODO: skip if no voltage sensors */
+	/* TODO: split-out VMx-specific code into separate function */
+
+	const u32 freq = 1000000;
+
+	unsigned long rate = clk_get_rate(priv->clk);
+	unsigned int div = rate / (2 * freq);
+
+	if (div < 1 || div > 256) {
+		dev_err(dev,
+			"Failed to setup clock rate for voltage sensor\n");
+		return -EINVAL;
+	}
+
+	/* MR75202 doesn't have a register with device configuration, but we
+	 * can probe it with a trick. */
+	do {
+		writel(BIT(priv->nvm), priv->base + MR75202_VM_SDIF_DISABLE);
+	} while (readl(priv->base + MR75202_VM_SDIF_DISABLE) == BIT(priv->nvm++));
+	priv->nvm -= 1;
+
+	writel(0, priv->base + MR75202_VM_SDIF_CTRL);
+
+	dev_info(dev, "Configure VM SDA clock: %lu Hz, div = %u\n",
+		 rate / (2 * div), div);
+	writel(FIELD_PREP(MR75202_VM_CLK_SYNTH_LO, div - 1) |
+	       FIELD_PREP(MR75202_VM_CLK_SYNTH_HI, div - 1) |
+	       FIELD_PREP(MR75202_VM_CLK_SYNTH_STROBE, 1) |
+	       MR75202_VM_CLK_SYNTH_ENA, priv->base + MR75202_VM_CLK_SYNTH);
+
+	/* No need to deassert sensor PD and RESET, this will be done
+	 * automatically by Serial Data Adapter/PVT slave (MR75005) as we use
+	 * data readout in auto-mode. */
+
+	/* VM sensor power-up time should be <= 10 us*/
+	return mr75202_write_vm(priv, MR75202_SDA_IP_TMR,
+				DIV_ROUND_UP(5 * rate, 1000000));
+
+	/* TODO: Reset samples counter */
+	/* TODO: Disable interrupts */
+}
+
 
 static int mr75202_init(struct device *dev, struct mr75202_priv *priv)
 {
 	mr75202_init_temp(dev, priv);
+	mr75202_init_in(dev, priv);
 
 	return 0;
 }
@@ -292,9 +500,14 @@ static struct hwmon_channel_info mr75202_channel_temp_info = {
 	/* .config is initialized in mr75202_init_chip_info() */
 };
 
+static struct hwmon_channel_info mr75202_channel_in_info = {
+	.type = hwmon_in
+};
+
 static const struct hwmon_channel_info *mr75202_channel_info[] = {
 	&mr75202_channel_chip_info,
 	&mr75202_channel_temp_info,
+	&mr75202_channel_in_info,
 	NULL
 };
 
@@ -309,17 +522,25 @@ static const struct hwmon_chip_info *mr75202_init_chip_info(struct device *dev,
 						const struct mr75202_priv *priv)
 {
 	size_t i;
-	u32 *config = devm_kcalloc(dev, priv->nts + 1, sizeof(u32), GFP_KERNEL);
+	u32 *config_temp = devm_kcalloc(dev, priv->nts + 1, sizeof(u32), GFP_KERNEL);
+	u32 *config_in = devm_kcalloc(dev, priv->nvm + 1, sizeof(u32), GFP_KERNEL);
 
-	if (!config)
+	if (!config_temp || !config_in)
 		return NULL;
 
-	memset32(config, HWMON_T_INPUT, priv->nts);
-	for (i = 0; i < min(priv->nts, ARRAY_SIZE(priv->labels)); i++)
-		if (priv->labels[i])
-			config[i] |= HWMON_T_LABEL;
+	memset32(config_temp, HWMON_T_INPUT, priv->nts);
+	for (i = 0; i < min(priv->nts, ARRAY_SIZE(priv->temp_labels)); i++)
+		if (priv->temp_labels[i])
+			config_temp[i] |= HWMON_T_LABEL;
 
-	mr75202_channel_temp_info.config = config;
+	mr75202_channel_temp_info.config = config_temp;
+
+	memset32(config_in, HWMON_I_INPUT, priv->nvm);
+	for (i = 0; i < min(priv->nvm, ARRAY_SIZE(priv->in_labels)); i++)
+		if (priv->in_labels[i])
+			config_in[i] |= HWMON_I_LABEL;
+
+	mr75202_channel_in_info.config = config_in;
 
 	return &mr75202_chip_info;
 }
@@ -371,8 +592,12 @@ static int mr75202_probe(struct platform_device *pdev)
 
 	/* Optional properies with chip name and channel labels */
 	of_property_read_string(pdev->dev.of_node, "moortec,name", &name);
-	of_property_read_string_array(pdev->dev.of_node, "moortec,labels",
-				      priv->labels, ARRAY_SIZE(priv->labels));
+	of_property_read_string_array(pdev->dev.of_node, "moortec,temp-labels",
+				      priv->temp_labels,
+				      ARRAY_SIZE(priv->temp_labels));
+	of_property_read_string_array(pdev->dev.of_node, "moortec,volt-labels",
+				      priv->in_labels,
+				      ARRAY_SIZE(priv->in_labels));
 
 	mutex_init(&priv->mutex);
 	ret = mr75202_init(&pdev->dev, priv);
@@ -398,6 +623,7 @@ static int mr75202_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, hdev);
 	dev_info(&pdev->dev, "%zu temperature sensors\n", priv->nts);
+	dev_info(&pdev->dev, "%zu voltage sensors\n", priv->nvm);
 
 	return 0;
 
