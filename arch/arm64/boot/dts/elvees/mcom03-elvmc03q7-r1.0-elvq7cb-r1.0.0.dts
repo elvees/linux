@@ -371,7 +371,7 @@
 &emac0 {
 	status = "okay";
 };
-	
+
 &lsperiph1_pinctrl {
 	sleep_lid_cfg_default: gpioa1-sleep-lid-cfg {
 		pins = "GPIOA_5", "GPIOA_6", "GPIOA_7";
