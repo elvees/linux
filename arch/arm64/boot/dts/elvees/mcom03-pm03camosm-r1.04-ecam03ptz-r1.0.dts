@@ -129,6 +129,17 @@
 	};
 };
 
+&emac0_default {
+	tx_data {
+		groups = "emac0_tx";
+		drive-strength = <8>;
+	};
+	txc {
+		pins = "EMAC0_RGMII_TXC";
+		drive-strength = <8>;
+	};
+};
+
 &uart1 {
 	status = "okay";
 	rts-gpios = <&gpio0b 2 GPIO_ACTIVE_HIGH>;
