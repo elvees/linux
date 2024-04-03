@@ -1313,7 +1313,7 @@ static const struct net_device_ops arasan_gemac_netdev_ops = {
 
 #if defined(CONFIG_OF)
 static const struct of_device_id arasan_gemac_dt_ids[] = {
-	{ .compatible = "elvees,arasan-gemac" },
+	{ .compatible = "arasan,gemac" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, arasan_gemac_dt_ids);
