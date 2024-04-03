@@ -72,11 +72,10 @@ examples:
         };
 
         emac0: ethernet@10200000 {
-            compatible = "elvees,arasan-gemac";
+            compatible = "arasan,gemac";
             reg = <0 0x10200000 0 0x1000>;
             interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
             resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
-            elvees,ctrl-id = <0>;
             status = "disabled";
         };
       };
