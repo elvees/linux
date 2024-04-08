@@ -1291,19 +1291,37 @@ static const struct of_device_id arasan_gemac_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, arasan_gemac_dt_ids);
 #endif
 
+static int arasan_gemac_check_required_clocks(struct arasan_gemac_pdata *pd)
+{
+	if (!pd->clks[CLOCK_BUS].clk) {
+		dev_err(&pd->pdev->dev, "Failed to get CLOCK_BUS\n");
+		return -ENOENT;
+	}
+	if (!pd->clks[CLOCK_TXC].clk) {
+		dev_err(&pd->pdev->dev, "Failed to get CLOCK_TXC\n");
+		return -ENOENT;
+	}
+	return 0;
+}
+
 static int arasan_gemac_probe_clocks(struct arasan_gemac_pdata *pd)
 {
 	int res;
 
 	pd->clks[CLOCK_BUS].id = "busclk";
 	pd->clks[CLOCK_TXC].id = "txc";
+	pd->clks[CLOCK_1588].id = "clk_1588";
 
-	res = devm_clk_bulk_get(&pd->pdev->dev, ARRAY_SIZE(pd->clks),
-				pd->clks);
+	res = devm_clk_bulk_get_optional(&pd->pdev->dev, ARRAY_SIZE(pd->clks),
+					 pd->clks);
 	if (res) {
 		dev_err(&pd->pdev->dev, "Failed to get clocks (%d)\n", res);
 		return res;
 	}
+
+	res = arasan_gemac_check_required_clocks(pd);
+	if (res)
+		return res;
 
 	res = clk_bulk_prepare_enable(ARRAY_SIZE(pd->clks), pd->clks);
 	if (res) {

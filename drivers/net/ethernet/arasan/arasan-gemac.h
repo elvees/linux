@@ -165,8 +165,11 @@
 #define arasan_gemac_writel(port, reg, value) \
 	writel((value), (port)->regs + (reg))
 
+#define CLOCKS_NUM 3
+
 #define CLOCK_BUS 0
 #define CLOCK_TXC 1
+#define CLOCK_1588 2
 
 struct arasan_gemac_dma_desc {
 	u32 status;
@@ -189,7 +192,7 @@ struct arasan_gemac_pdata {
 	/* driver lock */
 	spinlock_t lock;
 
-	struct clk_bulk_data clks[2];
+	struct clk_bulk_data clks[CLOCKS_NUM];
 	struct reset_control *rst;
 
 	struct arasan_gemac_dma_desc  *rx_ring;
