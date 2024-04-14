@@ -21,6 +21,7 @@ static u64 arasan_gemac_ptp_timer_read(struct arasan_gemac_pdata *pd,
 	int timer_up_reg = 0;
 	u64 cycle = 0;
 	unsigned long flags;
+	u64 cntr_first = 0, cntr_second = 0;
 
 	if (timer_lo_reg == SYS_TIME_VAL_LO) {
 		timer_up_reg = SYS_TIME_VAL_UP;
@@ -35,8 +36,28 @@ static u64 arasan_gemac_ptp_timer_read(struct arasan_gemac_pdata *pd,
 	}
 
 	spin_lock_irqsave(&pd->ptp.ts_lock, flags);
-	cycle = arasan_gemac_readl(pd, timer_lo_reg);
-	cycle |= ((u64)arasan_gemac_readl(pd, timer_up_reg)) << 32;
+
+	if (timer_lo_reg == SYS_TIME_VAL_LO) {
+		/* There might be overflow of SYS_TIME_VAL_LO between reading Low and Up
+		* timer values, e.g. we read Sys_Time_Val_Low = 0xFFFFFFFF,
+		* but actually timer value was 0x00000070FFFFFFFF, then happened overflow and
+		* the final read value become 0x00000071FFFFFFFF, instead of 0x00000070FFFFFFFF.
+		* To prevent it, read Low and Up timer values twice and return the lowest one.
+		*/
+		cntr_first |= arasan_gemac_readl(pd, timer_lo_reg);
+		cntr_first |= ((u64)arasan_gemac_readl(pd, timer_up_reg))
+			      << 32;
+
+		cntr_second |= arasan_gemac_readl(pd, timer_lo_reg);
+		cntr_second |= ((u64)arasan_gemac_readl(pd, timer_up_reg))
+			       << 32;
+
+		cycle = min(cntr_first, cntr_second);
+	} else {
+		cycle = arasan_gemac_readl(pd, timer_lo_reg);
+		cycle |= ((u64)arasan_gemac_readl(pd, timer_up_reg)) << 32;
+	}
+
 	spin_unlock_irqrestore(&pd->ptp.ts_lock, flags);
 
 	return cycle;
