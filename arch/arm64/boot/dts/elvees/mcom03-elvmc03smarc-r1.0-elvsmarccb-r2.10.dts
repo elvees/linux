@@ -231,9 +231,6 @@
 		interrupt-parent = <&gpio0a>;
 		interrupts = <6 IRQ_TYPE_EDGE_RISING>;
 
-		pinctrl-0 = <&audio_int_default>;
-		pinctrl-names = "default";
-
 		clocks = <&audio_mclk>;
 		clock-names = "mclk";
 		#sound-dai-cells = <0>;
@@ -291,13 +288,6 @@
 &lsperiph1_pinctrl {
 	sleep_button_default: sleep-button-cfg {
 		pins = "GPIOC_7";
-		input-enable;
-	};
-};
-
-&lsperiph0_pinctrl {
-	audio_int_default: gpioa0-audio-int-cfg {
-		pins = "GPIOA_6";
 		input-enable;
 	};
 };
