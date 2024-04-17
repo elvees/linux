@@ -30,6 +30,7 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1-b133xw
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1-b156xw02-v0.dts
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1-b156xw02-v0r.dts
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1-m238hca-l3b.dts
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.7.1-thincb4-r1.0.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-iqcam-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-monoboard-r1.1.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-monoboard-r1.1.1-b156xw02-v0.dtb
