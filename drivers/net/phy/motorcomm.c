@@ -236,6 +236,9 @@
  */
 #define YTPHY_WCR_TYPE_PULSE			BIT(0)
 
+#define YT8521_LED_CONFIG_REG			0xA00B
+#define YT8521_LCR_FORCE_MODE_MASK		GENMASK(8, 0)
+
 #define YTPHY_SYNCE_CFG_REG			0xA012
 #define YT8521_SCR_SYNCE_ENABLE			BIT(5)
 /* 1b0 output 25m clock
@@ -847,7 +850,7 @@ static int yt8521_probe(struct phy_device *phydev)
 	struct yt8521_priv *priv;
 	int chip_config;
 	u16 mask, val;
-	u32 freq;
+	u32 freq, modes;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -894,6 +897,13 @@ static int yt8521_probe(struct phy_device *phydev)
 
 	if (of_property_read_u32(node, "motorcomm,clk-out-frequency-hz", &freq))
 		freq = YTPHY_DTS_OUTPUT_CLK_DIS;
+
+	if (!of_property_read_u32(node, "motorcomm,led-modes-override",
+				  &modes)) {
+		mask = YT8521_LCR_FORCE_MODE_MASK;
+		ytphy_modify_ext_with_lock(phydev, YT8521_LED_CONFIG_REG,
+					   mask, modes);
+	}
 
 	if (phydev->drv->phy_id == PHY_ID_YT8521) {
 		switch (freq) {
