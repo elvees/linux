@@ -76,6 +76,12 @@ properties:
       Transmit PHY Clock delay train configuration when speed is 1000Mbps.
     type: boolean
 
+  motorcomm,led-modes-override:
+    description: |
+      Set this property to the values from
+      "include/dt-bindings/net/motorcomm-yt85xx.h" to override LED modes.
+    $ref: /schemas/types.yaml#/definitions/uint32
+
 unevaluatedProperties: false
 
 examples:
