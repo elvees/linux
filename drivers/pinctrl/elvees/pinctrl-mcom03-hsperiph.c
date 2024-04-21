@@ -18,6 +18,9 @@
 
 /*
  * MCom-03 custom pinconf parameters
+ *
+ * For pads enabling and disabling, we decided to use the same pin config
+ * parameter
  */
 #define PIN_CONFIG_MCOM03_PAD_ENABLE (PIN_CONFIG_END + 1)
 
@@ -27,9 +30,14 @@ const struct pinconf_generic_params mcom03_hsperiph_custom_params[] = {
 };
 
 #ifdef CONFIG_DEBUG_FS
+/*
+ * The size of this array must be equal to mcom03_hsperiph_custom_params.
+ * 'elvees,pad-disable' isn't displayed.
+ */
 static const struct
 pin_config_item mcom03_hsperiph_conf_items[] = {
-	PCONFDUMP(PIN_CONFIG_MCOM03_PAD_ENABLE, "enabled", NULL, false)
+	PCONFDUMP(PIN_CONFIG_MCOM03_PAD_ENABLE, "enabled", NULL, false),
+	{ 0 },
 };
 #endif
 
