@@ -1,0 +1,20 @@
+/*
+ * Copyright 2017 RnD Center "ELVEES", JSC
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "mcom02-salute-el24pm-common.dtsi"
+
+/ {
+	ft313h: usb@00000000 {
+		compatible = "ftdi,usb-ft313h";
+		reg = <0x00000000 0x0200>;
+		clocks = <&nor_sclk>;
+		interrupt-parent = <&gpioa>;
+		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+		status = "disabled";
+	};
+};

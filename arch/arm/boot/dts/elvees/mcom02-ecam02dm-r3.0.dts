@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom02-ecam02dm-common.dtsi"
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "ECAM02DM r3.0";
+	compatible = "elvees,ecam02dm-r3.0",
+		     "elvees,ecam02dm",
+		     "elvees,mcom02";
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		factory-reset {
+			label = "Factory reset";
+			interrupt-parent = <&gpioa>;
+			interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
+			linux,code = <KEY_RESTART>;
+		};
+	};
+
+	sound: sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ecam02dm";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "okay";
+
+		simple-audio-card,cpu {
+			sound-dai = <&mfbsp0>;
+		};
+
+		dailink0_master: simple-audio-card,codec {
+			sound-dai = <&sgtl5000>;
+		};
+	};
+
+	audio_codec_reg: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "audio-codec";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		audio_codec_clk: audio_codec_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <12288000>;
+		};
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sgtl5000: audio-codec@0a {
+		#sound-dai-cells = <0>;
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		clocks = <&audio_codec_clk>;
+		VDDA-supply = <&audio_codec_reg>;
+		VDDIO-supply = <&audio_codec_reg>;
+	};
+};
+
+&ethernet {
+	phy-reset-duration = <10>;
+};
+
+&gpioa {
+	/* Pin to PHY interrupt. */
+	skip-gpio-list = <2>;
+};
+
+&vinc_reserved {
+	size = <0xC00000>;
+};
+
+&vpu_reserved {
+	status = "disabled";
+};

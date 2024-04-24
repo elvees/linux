@@ -1,0 +1,222 @@
+/*
+ * Copyright 2018 RnD Center "ELVEES", JSC
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "mcom02.dtsi"
+
+/ {
+	model = "MCom-02-UKF r0";
+	compatible = "elvees,mcom02-ukf-r0",
+		     "elvees,mcom02-ukf",
+		     "elvees,mcom02";
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	aliases {
+		spi0 = &spi0;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x40000000 0x40000000
+		       0xa0000000 0x40000000>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <1>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	 * because it is ignored by the SPI driver. */
+	cs-gpios = <&gpiod 18 0>;
+
+	flash: flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0>;
+		spi-max-frequency = <36000000>;
+		m25p,fast-read;
+		u-boot,dm-pre-reloc;
+	};
+};
+
+&vinc {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			vinc_endpoint0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&tc358762_endpoint>;
+				elvees,ifacenum = /bits/ 8 <0>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			vinc_endpoint1: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&tc358748_endpoint>;
+				elvees,ifacenum = /bits/ 8 <2>;
+			};
+		};
+	};
+};
+
+&i2c0 {
+	status = "okay";
+
+	tc358748@0e {
+		compatible = "toshiba,tc358748";
+		reg = <0x0e>;
+		clock-frequency = <40000000>;
+		pixel-frequency = <126000000>;
+		vvalid-invert;
+		port {
+			tc358748_endpoint: endpoint {
+				remote = <&vinc_endpoint1>;
+			};
+		};
+	};
+
+	fram@51 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,24c128", "i2c-eeprom";
+		reg = <0x51>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	fram@51 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,24c128", "i2c-eeprom";
+		reg = <0x51>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+
+	tc358762@0b {
+		compatible = "toshiba,tc358762";
+		reg = <0x0b>;
+		clock-frequency = <40000000>;
+		pixel-frequency = <16000000>;
+		port {
+			tc358762_endpoint: endpoint {
+				remote = <&vinc_endpoint0>;
+			};
+		};
+	};
+
+	fram@51 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,24c128", "i2c-eeprom";
+		reg = <0x51>;
+	};
+};
+
+&ethernet {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	phy-mode = "gmii";
+	phy-handle = <&ethernet_phy>;
+	phy-reset-gpios = <&gpiob 15 GPIO_ACTIVE_LOW>;
+	txclk-125en-gpios = <&gpiob 14 GPIO_ACTIVE_HIGH>;
+
+	ethernet_phy: ethernet-phy@0 {
+		reg = <0x0>;
+	};
+};
+
+&framebuffer {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+};
+
+&sd0 {
+	status = "okay";
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	sd-uhs-ddr50;
+};
+
+&sd1 {
+	status = "okay";
+	non-removable;
+};
+
+&usb {
+	status = "okay";
+};
+
+&nfc {
+	status = "okay";
+};
+
+&gpiod {
+	skip-gpio-list = <13>;
+};
+
+&cpu0 {
+	operating-points = <840000 1100000>;
+};
+
+&cpllclk {
+	clock-mult = <14>;
+};
+
+&dpllclk {
+	clk-mult-initial = <29>;
+};
+
+&spllclk {
+	clk-mult-initial = <12>;
+};
+
+&upllclk {
+	clk-mult-initial = <16>;
+};
+
+&l3_pclk {
+	clock-div = <2>;
+};

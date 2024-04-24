@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom02-ecam02dm-common.dtsi"
+
+/ {
+	model = "ECAM02DM r1.1";
+	compatible = "elvees,ecam02dm",
+		     "elvees,mcom02";
+
+	sound: sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ecam02dm";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "disabled";
+
+		simple-audio-card,cpu {
+			sound-dai = <&mfbsp0>;
+		};
+
+		dailink0_master: simple-audio-card,codec {
+			sound-dai = <&ak4637>;
+		};
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	ak4637: audio-codec@12 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak4637";
+		reg = <0x12>;
+		reset-gpios = <&gpioa 9 GPIO_ACTIVE_LOW>;
+	};
+};

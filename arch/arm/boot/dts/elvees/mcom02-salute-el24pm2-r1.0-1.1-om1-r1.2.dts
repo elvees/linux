@@ -1,0 +1,29 @@
+/*
+ * Copyright 2017 RnD Center "ELVEES", JSC
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "mcom02-salute-el24pm2-r1.0-1.1.dtsi"
+#include "mcom02-salute-el24om1-r1.1-1.2.dtsi"
+
+/ {
+	model = "Salute-EL24PM2 r1.0-1.1, Salute-EL24OM1 r1.2";
+	compatible = "elvees,salute-el24pm2-r1.1-om1-r1.2",
+		     "elvees,salute-el24pm2-r1.0-om1-r1.2",
+		     "elvees,salute-el24pm2-om1",
+		     "elvees,salute-el24om1-r1.2",
+		     "elvees,salute-el24om1",
+		     "elvees,salute-el24pm2-r1.1",
+		     "elvees,salute-el24pm2-r1.0",
+		     "elvees,salute-el24pm2",
+		     "elvees,mcom02";
+};
+
+&usb {
+	status = "okay";
+};

@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom02.dtsi"
+
+/ {
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	aliases {
+		spi0 = &spi0;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		dbgled@0 {
+			label = "ecam02dm:red:dbgled0";
+			gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	vmmc: vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmc";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpioa 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+&sd0 {
+	status = "okay";
+	bus-width = <4>;
+	vmmc-supply = <&vmmc>;
+};
+
+&usb {
+	status = "okay";
+};
+
+&mfbsp0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <1>;
+	/* Third argument of "cs-gpios" property is set to 0,
+	 * because it is ignored by the SPI driver. */
+	cs-gpios = <&gpiod 18 0>;
+
+	flash: flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0>;
+		/* TODO: SPI flash can work at higher frequency (133MHz). */
+		spi-max-frequency = <54000000>;
+		m25p,fast-read;
+		u-boot,dm-pre-reloc;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	camera@36 {
+		compatible = "ovti,ov2718";
+		reg = <0x36>;
+		reset-gpios = <&gpioc 30 GPIO_ACTIVE_LOW>;
+		pwdn-gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;
+		port {
+			ov2718_endpoint: endpoint {
+				remote = <&vinc_endpoint0>;
+			};
+		};
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	pcf85063tp: rtc@51 {
+		compatible = "nxp,pcf85063";
+		reg = <0x51>;
+		interrupt-parent = <&gpioa>;
+		interrupts = <12 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&ethernet {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	phy-mode = "gmii";
+	phy-handle = <&ethernet_phy>;
+	phy-reset-gpios = <&gpioc 20 GPIO_ACTIVE_LOW>;
+	txclk-125en-gpios = <&gpioa 3 GPIO_ACTIVE_HIGH>;
+
+	ethernet_phy: ethernet-phy@1 {
+		reg = <0x1>;
+		interrupt-parent = <&gpioa>;
+		interrupts = <2 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&vinc {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+
+			vinc_endpoint0: endpoint@0 {
+				reg = <0x0>;
+				remote-endpoint = <&ov2718_endpoint>;
+				elvees,ifacenum = /bits/ 8 <2>;
+			};
+		};
+	};
+};
+
+&gpioc {
+	/* Pins to control DDR power enable. */
+	skip-gpio-list = <24 25>;
+};
+
+&nfc {
+	status = "okay";
+};
+
+&sdma {
+	memcpy-max-burst-length = <1>;
+};
+
+&linux_cma {
+	status = "disabled";
+};
