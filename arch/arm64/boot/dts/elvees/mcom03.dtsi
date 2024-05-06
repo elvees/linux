@@ -1237,6 +1237,8 @@
 					  <&hsperiph_clocks CLK_HSP_UCG1_SDMMC0_XIN>,
 					  <&hsperiph_clocks CLK_HSP_UCG1_SDMMC1_XIN>,
 					  <&hsperiph_clocks CLK_HSP_UCG1_NFC_FLASH>,
+					  <&hsperiph_clocks CLK_HSP_UCG2_EMAC0_1588>,
+					  <&hsperiph_clocks CLK_HSP_UCG2_EMAC1_1588>,
 					  <&hsperiph_clocks CLK_HSP_UCG3_USB0_SUSPEND>,
 					  <&hsperiph_clocks CLK_HSP_UCG3_USB1_SUSPEND>;
 			assigned-clock-rates = <1125000000
@@ -1256,6 +1258,8 @@
 						125000000
 						93750000
 						93750000
+						125000000
+						125000000
 						25000000
 						25000000>;
 			enabled-clocks = <CLK_HSP_UCG0_SYS
