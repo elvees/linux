@@ -1267,26 +1267,6 @@ static int arasan_gemac_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
-static int arasan_gemac_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
-{
-	struct arasan_gemac_pdata *pd = netdev_priv(dev);
-
-	if (!netif_running(dev) || !pd->phy_dev)
-		return -EINVAL;
-
-	switch (cmd) {
-	case SIOCGMIIPHY:
-	case SIOCGMIIREG:
-	case SIOCSMIIREG:
-	case SIOCSHWTSTAMP:
-		return phy_mii_ioctl(pd->phy_dev, rq, cmd);
-	default:
-		break;
-	}
-
-	return -EOPNOTSUPP;
-}
-
 #ifdef CONFIG_NET_POLL_CONTROLLER
 static void arasan_gemac_poll_controller(struct net_device *dev)
 {
@@ -1305,7 +1285,7 @@ static const struct net_device_ops arasan_gemac_netdev_ops = {
 	.ndo_set_rx_mode = arasan_gemac_set_rx_mode,
 	.ndo_set_mac_address = arasan_gemac_set_mac_address,
 	.ndo_change_mtu = arasan_gemac_change_mtu,
-	.ndo_do_ioctl	= arasan_gemac_do_ioctl, // FIXME: revisit after v5.15.
+	.ndo_do_ioctl	= phy_do_ioctl, // FIXME: revisit after v5.15.
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = arasan_gemac_poll_controller,
 #endif
