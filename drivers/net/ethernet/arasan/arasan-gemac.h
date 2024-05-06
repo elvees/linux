@@ -11,6 +11,16 @@
 #ifndef _ARASAN_GEMAC_H
 #define _ARASAN_GEMAC_H
 
+#include <linux/clk.h>
+#include <linux/genalloc.h>
+#include <linux/if_vlan.h>
+#include <linux/netdevice.h>
+#include <linux/platform_device.h>
+#include <linux/phy.h>
+#include <linux/reset.h>
+#include <linux/skbuff.h>
+#include <linux/spinlock.h>
+
 /* GEMAC TX descriptor can describe 4K buffer.
  * But currently some unexplored bugs are observed if we set Jumbo frame
  * more than 3500 bytes. This bugs lead to lack of transmission. */
