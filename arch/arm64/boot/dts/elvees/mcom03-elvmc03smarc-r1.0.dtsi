@@ -82,7 +82,7 @@
 
 	hdmi_sound: hdmi-sound {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "ELV-MC03-SMARC HDMI Audio";
+		simple-audio-card,name = "hdmi-audio";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&dailink0_master>;
 		simple-audio-card,frame-master = <&dailink0_master>;

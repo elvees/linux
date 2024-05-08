@@ -74,7 +74,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "ELV-MC03-CB-Audio";
+		simple-audio-card,name = "analog-audio";
 		status = "okay";
 		simple-audio-card,aux-devs = <&sound_select>;
 		simple-audio-card,routing =

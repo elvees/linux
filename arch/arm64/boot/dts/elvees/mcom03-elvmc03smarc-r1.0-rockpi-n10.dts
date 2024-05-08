@@ -35,7 +35,7 @@
 	 */
 	aux_sound {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "mfbsp-i2s";
+		simple-audio-card,name = "analog-audio";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&dailink1_master>;
 		simple-audio-card,frame-master = <&dailink1_master>;
