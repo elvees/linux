@@ -410,6 +410,8 @@ patternProperties:
     description: Elimo Engineering Ltd.
   "^elpida,.*":
     description: Elpida Memory, Inc.
+  "^elvees,.*":
+    description: RnD Center "ELVEES", JSC
   "^embedfire,.*":
     description: Dongguan EmbedFire Electronic Technology Co., Ltd.
   "^embest,.*":
