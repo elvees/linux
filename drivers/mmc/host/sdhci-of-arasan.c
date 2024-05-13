@@ -15,6 +15,7 @@
  *	    Anton Vorontsov <avorontsov@ru.mvista.com>
  */
 
+#include <linux/bitfield.h>
 #include <linux/clk-provider.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
@@ -194,6 +195,7 @@ struct sdhci_arasan_data {
 	struct sdhci_arasan_clk_data clk_data;
 	const struct sdhci_arasan_clk_ops *clk_ops;
 
+	int		ctrl_id;
 	struct regmap	*soc_ctl_base;
 	const struct sdhci_arasan_soc_ctl_map *soc_ctl_map;
 	unsigned int	quirks;
@@ -243,6 +245,29 @@ static const struct sdhci_arasan_soc_ctl_map intel_keembay_soc_ctl_map = {
 	.clockmultiplier = { .reg = 0x4, .width = 8, .shift = 14 },
 	.support64b = { .reg = 0x4, .width = 1, .shift = 24 },
 	.hiword_update = false,
+};
+
+#define MCOM03_SDMMC_CORECFG7(x) (0x58 + (x) * 0x3c)
+#define MCOM03_SDMMC_CORECFG7_ASYNCWKUPENA BIT(19)
+#define MCOM03_SDMMC_CORECFG7_TUNINGCOUNT  GENMASK(18, 13)
+#define MCOM03_SDMMC_CORECFG7_OTAPDLYENA   BIT(12)
+#define MCOM03_SDMMC_CORECFG7_OTAPDLYSEL   GENMASK(11, 8)
+#define MCOM03_SDMMC_CORECFG7_ITAPCHGWIN   BIT(6)
+#define MCOM03_SDMMC_CORECFG7_ITAPDLYENA   BIT(5)
+#define MCOM03_SDMMC_CORECFG7_ITAPDLYSEL   GENMASK(4, 0)
+
+static const struct sdhci_arasan_soc_ctl_map mcom03_soc_ctl_map[] = {
+	{
+		.baseclkfreq = { .reg = 0x40, .width = 8, .shift = 8 },
+		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1 },
+		.hiword_update = false,
+	},
+	{
+		.baseclkfreq = { .reg = 0x7c, .width = 8, .shift = 8 },
+		.clockmultiplier = { .reg = 0, .width = -1, .shift = -1 },
+		.hiword_update = false,
+	},
+	{ /* sentinel */ }
 };
 
 static void sdhci_arasan_phy_set_delaychain(struct sdhci_host *host, bool enable)
@@ -1254,6 +1279,91 @@ static void sdhci_arasan_set_clk_delays(struct sdhci_host *host)
 		      clk_data->clk_phase_out[host->timing]);
 }
 
+/* TODO: Despite Arasan documentation states that OTAPSELENA should not be
+ *       asserted when operating in DS mode it seems it doesn't harm. But still
+ *       consider disabling it in DS mode. Driver for MCom-02 SDMMC disables
+ *       them. */
+static void sdhci_arasan_mcom03_set_otapdly(struct device *dev,
+					    struct regmap *regmap,
+					    int ctrl_id, int val)
+{
+	u32 reg;
+	int ret;
+
+	ret = regmap_read(regmap, MCOM03_SDMMC_CORECFG7(ctrl_id), &reg);
+	if (ret)
+		goto err;
+
+	reg |= MCOM03_SDMMC_CORECFG7_OTAPDLYENA;
+	reg &= ~MCOM03_SDMMC_CORECFG7_OTAPDLYSEL;
+	reg |= FIELD_PREP(MCOM03_SDMMC_CORECFG7_OTAPDLYSEL, val);
+
+	ret = regmap_write(regmap, MCOM03_SDMMC_CORECFG7(ctrl_id), reg);
+	if (ret)
+		goto err;
+
+	return;
+
+err:
+	dev_err(dev, "Failed to set output tap delays\n");
+}
+
+static void sdhci_arasan_mcom03_set_itapdly(struct device *dev,
+					    struct regmap *regmap,
+					    int ctrl_id, int val)
+{
+	u32 reg;
+	int ret;
+
+	ret = regmap_read(regmap, MCOM03_SDMMC_CORECFG7(ctrl_id), &reg);
+	if (ret)
+		goto err;
+
+	reg |= MCOM03_SDMMC_CORECFG7_ITAPCHGWIN;
+
+	ret = regmap_write(regmap, MCOM03_SDMMC_CORECFG7(ctrl_id), reg);
+	if (ret)
+		goto err;
+
+	reg |= MCOM03_SDMMC_CORECFG7_ITAPDLYENA;
+	reg &= ~MCOM03_SDMMC_CORECFG7_ITAPDLYSEL;
+	reg |= FIELD_PREP(MCOM03_SDMMC_CORECFG7_ITAPDLYSEL, val);
+
+	ret = regmap_write(regmap, MCOM03_SDMMC_CORECFG7(ctrl_id), reg);
+	if (ret)
+		goto err;
+
+	reg &= ~MCOM03_SDMMC_CORECFG7_ITAPCHGWIN;
+
+	ret = regmap_write(regmap, MCOM03_SDMMC_CORECFG7(ctrl_id), reg);
+	if (ret)
+		goto err;
+
+	return;
+
+err:
+	dev_err(dev, "Failed to set input tap delays\n");
+}
+
+static void sdhci_arasan_mcom03_set_clk_delays(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_arasan_data *sdhci_arasan = sdhci_pltfm_priv(pltfm_host);
+	struct sdhci_arasan_clk_data *clk_data = &sdhci_arasan->clk_data;
+
+	dev_dbg(host->mmc->parent, "Set clock delays for mode %d\n",
+		host->timing);
+
+	sdhci_arasan_mcom03_set_otapdly(host->mmc->parent,
+					sdhci_arasan->soc_ctl_base,
+					sdhci_arasan->ctrl_id,
+					clk_data->clk_phase_out[host->timing]);
+	sdhci_arasan_mcom03_set_itapdly(host->mmc->parent,
+					sdhci_arasan->soc_ctl_base,
+					sdhci_arasan->ctrl_id,
+					clk_data->clk_phase_in[host->timing]);
+}
+
 static void arasan_dt_read_clk_phase(struct device *dev,
 				     struct sdhci_arasan_clk_data *clk_data,
 				     unsigned int timing, const char *prop)
@@ -1300,7 +1410,10 @@ static void arasan_dt_parse_clk_phases(struct device *dev,
 	 * So that different controller variants can assign their own handling
 	 * function.
 	 */
-	clk_data->set_clk_delays = sdhci_arasan_set_clk_delays;
+	if (of_device_is_compatible(dev->of_node, "elvees,mcom03-sdhci-8.9a"))
+		clk_data->set_clk_delays = sdhci_arasan_mcom03_set_clk_delays;
+	else
+		clk_data->set_clk_delays = sdhci_arasan_set_clk_delays;
 
 	if (of_device_is_compatible(dev->of_node, "xlnx,zynqmp-8.9a")) {
 		u32 zynqmp_iclk_phase[MMC_TIMING_MMC_HS400 + 1] =
@@ -1537,6 +1650,10 @@ static const struct of_device_id sdhci_arasan_of_match[] = {
 	{
 		.compatible = "intel,keembay-sdhci-5.1-sdio",
 		.data = &intel_keembay_sdio_data,
+	},
+	{
+		.compatible = "elvees,mcom03-sdhci-8.9a",
+		.data = &sdhci_arasan_generic_data,
 	},
 	/* Generic compatible below here */
 	{
@@ -1962,7 +2079,16 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(np, "rockchip,rk3399-sdhci-5.1"))
 		sdhci_arasan_update_clockmultiplier(host, 0x0);
 
-	sdhci_arasan->quirks |= data->quirks;
+	/* Set proper soc_ctl_map for MCom-03 */
+	if (of_device_is_compatible(np, "elvees,mcom03-sdhci-8.9a")) {
+		ret = device_property_read_u32(&pdev->dev, "elvees,ctrl-id",
+					       &sdhci_arasan->ctrl_id);
+		if (ret)
+			goto clk_disable_all;
+
+		sdhci_arasan->soc_ctl_map =
+			&mcom03_soc_ctl_map[sdhci_arasan->ctrl_id];
+	}
 
 	if (of_device_is_compatible(np, "intel,keembay-sdhci-5.1-emmc") ||
 	    of_device_is_compatible(np, "intel,keembay-sdhci-5.1-sd") ||
@@ -1972,6 +2098,8 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 
 		host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
 	}
+
+	sdhci_arasan->quirks |= data->quirks;
 
 	sdhci_arasan_update_baseclkfreq(host);
 
