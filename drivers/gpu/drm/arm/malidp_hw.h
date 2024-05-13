@@ -239,6 +239,8 @@ struct malidp_hw_device {
 	/* pixel clock for display core */
 	struct clk *pxlclk;
 
+	struct reset_control *reset;
+
 	u8 min_line_size;
 	u16 max_line_size;
 	u32 output_color_depth;

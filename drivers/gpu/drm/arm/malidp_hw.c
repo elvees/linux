@@ -502,8 +502,8 @@ static long malidp500_se_calc_mclk(struct malidp_hw_device *hwdev,
 	mclk = a * pxlclk / 10;
 	ret = clk_get_rate(hwdev->mclk);
 	if (ret < mclk) {
-		DRM_DEBUG_DRIVER("mclk requirement of %lu kHz can't be met.\n",
-				 mclk / 1000);
+		DRM_ERROR("mclk requirement of %lu kHz can't be met.\n",
+			  mclk / 1000);
 		return -EINVAL;
 	}
 	return ret;
@@ -1211,6 +1211,13 @@ static irqreturn_t malidp_de_irq(int irq, void *arg)
 	status &= (mask | de->err_mask);
 	if ((status & de->vsync_irq) && malidp->crtc.enabled)
 		drm_crtc_handle_vblank(&malidp->crtc);
+
+	if (status & MALIDP_DE_IRQ_UNDERRUN)
+		drm_err_ratelimited(drm, "mali-dp: Display underrun error\n");
+	if (status & MALIDP550_DE_IRQ_SATURATION)
+		drm_err_ratelimited(drm, "mali-dp: Saturation error\n");
+	if (status & MALIDP550_DE_IRQ_AXI_ERR)
+		drm_err_ratelimited(drm, "mali-dp: AXI bus error\n");
 
 #ifdef CONFIG_DEBUG_FS
 	if (status & de->err_mask) {
