@@ -176,6 +176,18 @@ config PINCTRL_DIGICOLOR
 	select PINMUX
 	select GENERIC_PINCONF
 
+config PINCTRL_DWAPB
+	tristate "Synopsys DesignWare APB GPIO driver"
+	depends on HAS_IOMEM
+	select GPIOLIB
+	select GPIO_GENERIC
+	select GENERIC_IRQ_CHIP
+	select GENERIC_PINCONF
+	select GENERIC_PINMUX_FUNCTIONS
+	help
+	  Say Y or M here to build support for the Synopsys DesignWare APB
+	  GPIO block.
+
 config PINCTRL_EQUILIBRIUM
 	tristate "Generic pinctrl and GPIO driver for Intel Lightning Mountain SoC"
 	depends on OF && HAS_IOMEM
