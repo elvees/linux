@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, ELV-SMARC-CB r1.0";
+	compatible = "elvees,elvmc03smarc-r1.0-elvsmarccb-r1.0",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r1.0",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	aliases {
+		i2c5 = &i2c_cam0;
+		i2c6 = &i2c_cam1;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+
+	vdda_codec: vdda-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vdda-codec";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	vddio_codec: vddio-codec {
+		compatible = "regulator-fixed";
+		regulator-name = "vddio-codec";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	/* TRS (3.5mm jack) connected to SGTL5000 codec.
+	   SGTL5000 connected to MCom-03 MFBSP0 as I2S master.
+	   */
+	aux_sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "mfbsp-sgtl5000";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+
+		simple-audio-card,cpu {
+			sound-dai = <&mfbsp0_i2s>;
+		};
+
+		dailink1_master: simple-audio-card,codec {
+			sound-dai = <&sgtl5000>;
+		};
+	};
+};
+
+/* Connected to USB Type-C Debug UART */
+&ser1 {
+	status = "okay";
+};
+
+/* Connected to USB Type-C Debug UART */
+&ser3 {
+	status = "okay";
+};
+
+/* Connected to Raspberry Pi header */
+&ser2 {
+	status = "okay";
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&sdhci1_default {
+	/* The default clock pad drive strength of 6 mA is insufficient
+	 * for ELV-SMARC-CB resulting in unstable SDMMC performance
+	 * (possibly due to a PCB bug).
+	 */
+	clk {
+		pins = "SDMMC1_CLK";
+		drive-strength = <8>;
+	};
+};
+
+/* Connected to USB 3.0 hub */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 2.0 hub */
+&usb1 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 */
+&emac0 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 */
+&emac1 {
+	status = "okay";
+};
+
+/* The board has a video output interface */
+&dp {
+	status = "okay";
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+/* Connected to HDMI plug */
+&adv7513 {
+	status = "okay";
+};
+
+&de_dpi {
+	status = "okay";
+};
+
+/* Connected to SATA plug */
+&sata {
+	status = "okay";
+};
+
+/* Connected to PCIe bridge */
+&pcie1 {
+	status = "okay";
+};
+
+&i2c_pm {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	ina260@40 {
+		compatible = "ti,ina260";
+		reg = <0x40>;
+	};
+
+	fancontrol: emc2303@4d {
+		compatible = "microchip,emc2305";
+		reg = <0x4d>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		microchip,pwm-separate;
+		#cooling-cells = <2>;
+
+		channel@0 {
+			reg = <0>;
+			microchip,pwm-push-pull;
+		};
+
+		channel@1 {
+			reg = <1>;
+			microchip,pwm-push-pull;
+		};
+
+		channel@2 {
+			reg = <2>;
+			microchip,pwm-push-pull;
+		};
+	};
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+/*
+ * The fans are enabled on boot (a hardware feature).
+ * The fan controller driver disables them if the CPU temperature is
+ * lower than the trip point.
+ * Upon reaching the trip point the thermal subsystem driver enables the fans.
+ *
+ * Thermal zones can be enabled/disabled via sysfs by writing said state into
+ * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
+ */
+&cpu_thermal {
+	cooling_maps: cooling-maps {
+		map0 {
+			trip = <&cpu_alert0>;
+			cooling-device = <&fancontrol
+					  THERMAL_NO_LIMIT
+					  THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&audio_mclk {
+	status = "okay";
+};
+
+/* SMARC S38-42 (I2S0*) pins connected to mfbsp0 */
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+/* Connected to XP16 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+/* Connected to XP16 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
+/* mfbsp interrupt controller */
+&qlic0 {
+	status = "okay";
+};
+
+/*
+ * SMARC pins S48-49 (I2C_GP*) connected to SGTL5000.
+ *
+ * ELV-SMARC-CB has 2.2 kOhm mic bias resistor (which differs from 2 kOhm
+ * recommended in chip datasheet).
+ *
+ * It's not a universally applicable standard for mic jack voltage bias,
+ * but Android publishes specifications [1] for headset plug and jack
+ * with 1.8-2.9 V range and Reference Headset Test Circuit to 2.2V mic bias
+ * applied through 2.2 kOhm resistor.
+ *
+ * [1] https://source.android.com/docs/core/interaction/accessories/headset/jack-headset-spec#general
+ */
+&i2c_gp {
+	status = "okay";
+
+	sgtl5000: codec@a {
+		status = "okay";
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		#sound-dai-cells = <0>;
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		micbias-resistor-k-ohms = <2>;
+		micbias-voltage-m-volts = <2250>;
+		VDDA-supply = <&vdda_codec>;
+		VDDIO-supply = <&vddio_codec>;
+		VDDD-supply = <&vddio_codec>;
+	};
+};
+
+&isp {
+	status = "okay";
+};
+&csi0 {
+	status = "okay";
+};
+&csi1 {
+	status = "okay";
+};

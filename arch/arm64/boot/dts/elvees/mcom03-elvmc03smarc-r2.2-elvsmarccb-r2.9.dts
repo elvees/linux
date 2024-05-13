@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r2.2.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r2.2, ELV-SMARC-CB r2.9";
+	compatible = "elvees,elvmc03smarc-r2.2-elvsmarccb-r2.9",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r2.9",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r2.2",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+
+	elvmc03smarc-leds {
+		/*
+		 * VD12, VD13 LEDs is controlled by GPIO11, GPIO12.
+		 * GPIO expander which provided these pins is broken due to bug - MCOM03HW-1318.
+		 */
+		wdt-led {
+			gpios = <&gpio0b 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	hdmi_connector: hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+/*
+ * RS-485 not supported in this revision due to bug: MCOM03HW-1288
+ * 4 wire RS-232
+ */
+&ser0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
+};
+
+/* Connects to debug USB-c port */
+&ser1 {
+	status = "okay";
+};
+
+/* Connects to "RPi" header */
+&ser2 {
+	status = "okay";
+};
+
+/* Connects to "SER3" header */
+&ser3 {
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+};
+
+&emac1 {
+	status = "okay";
+};
+
+/* USB3 SS */
+&usb0 {
+	status = "okay";
+};
+
+/*
+* 2 hubs: 1 on ELV-MC03-SMARC and 1 on ELV-SMARC-CB
+*/
+&usb1 {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+};
+
+&i2c_gp {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	lm75b0: sensor@48 {
+		compatible = "national,lm75b";
+		reg = <0x48>;
+	};
+
+	lm75b1: sensor@49 {
+		compatible = "national,lm75b";
+		reg = <0x49>;
+	};
+};
+
+&i2c_pm {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+/* Connected to XP7 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+
+/* Connected to XP7 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
+&qlic0 {
+	status = "okay";
+};
+
+&dp {
+	status = "okay";
+};
+
+&de_dsi {
+	status = "okay";
+};
+
+&lt9611uxc {
+	status = "okay";
+
+	ports {
+		port@2 {
+			reg = <2>;
+			lt9611_out: endpoint {
+				remote-endpoint = <&hdmi_connector_in>;
+			};
+		};
+	};
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+&i2s0 {
+	status = "okay";
+};

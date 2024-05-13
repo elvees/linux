@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03 r2.2";
+	compatible = "elvees,elvmc03-r2.2",
+		     "elvees,elvmc03",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			thermal-sensors = <&pvt 0>;
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			trips {
+				cpu_alert0: cpu-alert-0 {
+					temperature = <50000>;
+					hysteresis = <1000>;
+					type = "active";
+				};
+			};
+		};
+	};
+
+	adv7513_cec_clk: adv7513_cec_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12000000>;
+	};
+};
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio1c 5 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <100>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		reg = <0x0>;
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
+		interrupt-parent = <&gpio0a>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
+
+&i2c0 {
+	/* Not all devices are checked to 400kHz support */
+	/* MCP79410T doesn't support 400 kHz when used VCC 1.8V */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	i2c-switch@74 {
+		compatible = "nxp,pca9546";
+		reg = <0x74>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* i2c01 is used for ELV-MC03-CB */
+		i2c01: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		/* i2c02 doesn't connect to ELV-MC03-CB and is used for
+		 * HDMI transmitter on ELV-MC03 */
+		i2c02: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			adv7513: hdmi@39 {
+				#sound-dai-cells = <0>;
+				status = "disabled";
+				compatible = "adi,adv7513";
+				reg = <0x39>, <0x3f>;
+				reg-names = "main", "edid";
+				interrupt-parent = <&gpio0a>;
+				interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+				clocks = <&adv7513_cec_clk>;
+				clock-names = "cec";
+				adi,input-depth = <8>;
+				adi,input-colorspace = "rgb";
+				adi,input-clock = "1x";
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+
+		i2c03: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+	};
+};
+
+&qlic0 {
+	status = "okay";
+};
+
+&i2c4 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	pi4ioe5v6408: gpio-expander@43 {
+		reg = <0x43>;
+		compatible = "pericom,pi4ioe5v6408";
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-line-names = "EXGP0", "EXGP1", "EXGP2", "EXGP3", "I2S_mode",
+			"EXGP5" /* EN +3V3_ETH */, "EXGP6" /* EN +3V3_MEMIC */,
+			"EXGP7" /* EN +3V3_USB */;
+	};
+};

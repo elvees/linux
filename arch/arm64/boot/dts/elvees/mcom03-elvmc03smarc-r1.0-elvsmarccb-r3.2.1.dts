@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2024 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-elvmc03smarc-r1.0-elvsmarccb-r3.1.0.dts"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, ELV-SMARC-CB r3.2.1";
+	compatible = "elvees,elvmc03smarc-r1.0-elvsmarccb-r3.2.1",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r3.2.1",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+};

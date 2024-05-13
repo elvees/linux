@@ -1,0 +1,342 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/thermal/thermal.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0";
+	compatible = "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	elvmc03smarc-leds {
+		compatible = "gpio-leds";
+
+		red {
+			gpios = <&gpio0c 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		green {
+			gpios = <&gpio0b 1 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		blue {
+			gpios = <&gpio0d 7 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		orange {
+			gpios = <&gpio0d 2 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	recovery: recovery-gpio-key {
+		compatible = "gpio-keys-polled";
+		poll-interval = <1000>;
+		status = "disabled";
+
+		force-recovery {
+			label = "Force recovery";
+			gpios = <&gpio1c 6 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VENDOR>;
+		};
+	};
+
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			thermal-sensors = <&pvt 0>;
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			trips {
+				cpu_alert0: cpu-alert-0 {
+					temperature = <50000>;
+					hysteresis = <1000>;
+					type = "active";
+				};
+			};
+		};
+	};
+
+	hdmi_sound: hdmi-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-MC03-SMARC HDMI Audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "disable";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&adv7513>;
+		};
+	};
+
+	/* this is "G2" oscillator connected to SMARC "S38" pin*/
+	audio_mclk: audio_mclk {
+		status = "disabled";
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12000000>;
+	};
+};
+
+/* TODO: How to distinguish internal lines from external? How to distinguish
+ *       hardware function from GPIO? */
+&gpio0a {
+	gpio-line-names = "GBE0_PD_INT", "GBE1_PD_INT", "PINTn", "GPIO9",
+		"GPIO8", "GPIO7", "GPIO10", "PEWARN";
+};
+
+&gpio0b {
+	gpio-line-names = "GPIO12", "LED_GREEN", "PCIE_A_RST#", "SATA_PERST#",
+		"GPIO11", "SER3_RX", "SER3_TX", "SER2_RX";
+
+	sata-perstn {
+		gpio-hog;
+		gpios = <3 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&gpio0c {
+	gpio-line-names = "SPI0_CK", "SPI0_DO", "SPI0_DIN", "LED_RED",
+		"SPI0_CS0#", "SPI0_CS1#", "GPIO13", "RGMII_1_RST#";
+};
+
+&gpio0d {
+	gpio-line-names = "SER2_TX", "USB_HUB_RST", "LED_ORANGE", "I2C0_SCL",
+		"I2C0_SDA", "I2C0_SMBALERT", "RGMII_0_RST#", "LED_BLUE";
+
+	reset-usb2517-hub-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
+&lsperiph1_pinctrl {
+	hdmi_int: hdmi-int {
+		pins = "GPIOA_6";
+		input-enable;
+	};
+};
+
+&gpio1a {
+	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "I2C2_SCL", "I2C2_SDA",
+		"I2C3_SCL", "I2C3_SDA", "HDMI_INT", "RTC_INT";
+};
+
+&gpio1b {
+	gpio-line-names = "HDMI_SCLK", "HDMI_LRCLK", "HDMI_I2S0", "TEST#",
+		"HDMI_PD", "PFSOB", "SER1_TX", "SER1_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "CAM0_PWR#", "GPIO4", "CAM0_RST#", "CAM1_RST#",
+		"CAM1_PWR#", "CARRIER_PWR_ON", "FORCE_RECOV#", "SLEEP#";
+};
+
+&gpio1d {
+	gpio-line-names = "CARRIER_STBY#", "", "PWM_OUT", "LCD0_BKLT_PWM",
+		"LCD0_BKLT_EN", "PSTANDBY", "GPIO6", "RESET_OUT#";
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+/* Connected to USB 2.0 hub */
+&usb1 {
+	status = "okay";
+};
+
+/* Connected to eMMC */
+&sdhci0 {
+	status = "okay";
+
+	non-removable;
+	bus-width = <8>;
+
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+i2c_pm: &i2c0 { };
+
+&i2c1 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	rtc@32 {
+		compatible = "microcrystal,rv8803";
+		reg = <0x32>;
+	};
+
+	adv7513: hdmi@39 {
+		#sound-dai-cells = <0>;
+		compatible = "adi,adv7513";
+		status = "disabled";
+		reg = <0x39>, <0x3f>;
+		reg-names = "main", "edid";
+		interrupt-parent = <&gpio1a>;
+		interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+		adi,input-depth = <8>;
+		adi,input-colorspace = "rgb";
+		adi,input-clock = "1x";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_int>;
+
+		port@0 {
+			reg = <0>;
+			adv7513_in: endpoint {
+				remote-endpoint = <&rgb_out>;
+			};
+		};
+	};
+};
+
+&i2s0 {
+	status = "okay";
+};
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0d 6 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <200>;
+
+	ethernet_phy0: ethernet-phy@4 {
+		reg = <0x4>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
+};
+
+&emac1 {
+	phy-handle = <&ethernet_phy1>;
+	reset-gpios = <&gpio0c 7 GPIO_ACTIVE_LOW>;
+	reset-post-delay-us = <200>;
+
+	ethernet_phy1: ethernet-phy@5 {
+		reg = <0x5>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_50_NS>;
+		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_50_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
+};
+
+&de_dpi {
+	ports {
+		port@1 {
+			reg = <1>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
+	};
+};
+
+i2c_gp: &i2c2 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&i2c3 {
+	status = "okay";
+
+	/* On MCom-03 video sensors are handled by userspace drivers and are
+	 * not described in DeviceTree. Limit clock-frequency to 100 kHz because
+	 * this is maximum frequency for many sensors (for example OV5647). */
+	clock-frequency = <100000>;
+
+	i2c-switch@70 {
+		compatible = "ti,tca9546", "nxp,pca9546";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		/* Sub-buses in a mux doesn't respect status property, so they
+		 * are always enabled. */
+
+		i2c_cam0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c_cam1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c_lcd: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+	};
+};
+
+/* PCIe0 is connected to SATA controller. Should be enabled in carrier DTS. */
+sata: &pcie0 { };
+
+&pcie1 {
+	reset-gpio = <&gpio0b 2 GPIO_ACTIVE_HIGH>;
+};
+
+/* Serial port definitions for SMARC */
+ser1: &uart0 { };
+ser2: &uart2 { };
+ser3: &uart1 { };
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};

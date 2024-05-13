@@ -12,6 +12,7 @@ subdir-y += bitmain
 subdir-y += broadcom
 subdir-y += cavium
 subdir-y += exynos
+subdir-y += elvees
 subdir-y += freescale
 subdir-y += hisilicon
 subdir-y += intel

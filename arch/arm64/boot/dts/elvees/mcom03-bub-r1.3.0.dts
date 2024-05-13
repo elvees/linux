@@ -1,0 +1,357 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "MCom-03 Bring-Up Board r1.3.0";
+	compatible = "elvees,mcom03-bub-r1.3.0",
+		     "elvees,mcom03-bub",
+		     "elvees,mcom03";
+
+	aliases {
+		mmc0 = &sdhci1;
+		mmc1 = &sdhci0;
+	};
+
+	adv7513_cec_clk: adv7513_cec_clk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12000000>;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+
+	sdhci1_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci1-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	can_transceiver0: can-phy0 {
+		compatible = "microchip,ata6561";
+		#phy-cells = <0>;
+		standby-gpios = <&gpio1c 2 GPIO_ACTIVE_HIGH>;
+	};
+
+	can_transceiver1: can-phy1 {
+		compatible = "microchip,ata6561";
+		#phy-cells = <0>;
+		standby-gpios = <&gpio1c 3 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/* Wired to PBD connector */
+&uart1 {
+	status = "okay";
+};
+
+/* Wired to PBD connector */
+&uart2 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
+};
+
+&sdhci0 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* Adjust SDMMC XIN clock frequencies to get better performance
+	 * of SD and eMMC.
+	 */
+	assigned-clocks = <&hsperiph_clocks CLK_HSP_UCG1_SDMMC0_XIN>;
+	assigned-clock-rates = <93750000>;
+};
+
+&sdhci1 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+	vqmmc-supply = <&sdhci1_supply>;
+
+	/* Adjust SDMMC XIN clock frequencies to get better performance
+	 * of eMMC.
+	 */
+	assigned-clocks = <&hsperiph_clocks CLK_HSP_UCG1_SDMMC1_XIN>;
+	assigned-clock-rates = <125000000>;
+};
+
+&emac0_default {
+	tx_data {
+		groups = "emac0_tx";
+		drive-strength = <12>;
+	};
+
+	txc {
+		pins = "EMAC0_RGMII_TXC";
+		drive-strength = <8>;
+	};
+};
+
+
+&lsperiph1_pinctrl {
+	emac0_int_cfg: emac0-int-cfg {
+		phy {
+			pins = "GPIOA_6";
+			input-enable;
+		};
+	};
+
+	emac1_int_cfg: emac1-int-cfg {
+		phy {
+			pins = "GPIOA_7";
+			input-enable;
+		};
+	};
+};
+
+&emac0 {
+	status = "okay";
+	pinctrl-0 = <&emac0_default &emac0_int_cfg>;
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0c 6 GPIO_ACTIVE_LOW>;
+
+	/* Use large delays because 10 uF capacitor is connected to reset pin.
+	 */
+	reset-delay-us = <1000>;
+	reset-post-delay-us = <200000>;
+
+	ethernet_phy0: ethernet-phy@1 {
+		reg = <0x1>;
+
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&emac1_default {
+	tx_data {
+		groups = "emac1_tx";
+		drive-strength = <12>;
+	};
+
+	txc {
+		pins = "EMAC1_RGMII_TXC";
+		drive-strength = <8>;
+	};
+};
+
+&emac1 {
+	status = "okay";
+	pinctrl-0 = <&emac1_default &emac1_int_cfg>;
+	phy-handle = <&ethernet_phy1>;
+	reset-gpios = <&gpio0c 7 GPIO_ACTIVE_LOW>;
+
+	/* Use large delays because 10 uF capacitor is connected to reset pin.
+	 */
+	reset-delay-us = <1000>;
+	reset-post-delay-us = <200000>;
+
+	ethernet_phy1: ethernet-phy@5 {
+		reg = <0x5>;
+
+		/* This is max GTX_CLK skew (0b11111 * 60ps/step)
+		 * for KSZ9031 Ethernet PHY
+		 */
+		txc-skew-ps = <1860>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&usb0 {
+	status = "okay";
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&nand {
+	status = "okay";
+	assigned-clocks = <&hsperiph_clocks CLK_HSP_UCG1_NFC_FLASH>;
+	assigned-clock-rates = <93750000>;
+
+	nand@0 {
+		reg = <0>;
+		nand-rb = <0>;
+		label = "arasan_nand.0";
+		nand-ecc-mode="hw";
+	};
+
+	/*
+	 * chip@1 is not supported due to MCOM03HW-667
+	 */
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* The data transfer is not stable at a higher frequency on
+		 * MCom-03 BuB with SPI flash connected via PLS. */
+		spi-max-frequency = <14000000>;
+	};
+};
+
+&qspi1 {
+	status = "okay";
+
+	flash1: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* The data transfer is not stable at a higher frequency on
+		 * MCom-03 BuB with SPI flash connected via PLS. */
+		spi-max-frequency = <14000000>;
+	};
+};
+
+&i2c0 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	pinctrl-0 = <&i2c0_mux_data &i2c0_mux_smbalert &i2c0_mux_smbus>;
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	adv7513: hdmi@3d {
+		compatible = "adi,adv7513";
+		reg = <0x3d>, <0x3f>;
+		reg-names = "main", "edid";
+		interrupt-parent = <&gpio0a>;
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
+		clocks = <&adv7513_cec_clk>;
+		clock-names = "cec";
+		adi,input-depth = <8>;
+		adi,input-colorspace = "rgb";
+		adi,input-clock = "1x";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			adv7513_in: endpoint {
+				remote-endpoint = <&rgb_out>;
+			};
+		};
+	};
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&dp {
+	status = "okay";
+};
+
+&de_dpi {
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
+	};
+};
+
+&pcie0 {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+/* Connected to XP7 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+	phys = <&can_transceiver0>;
+};
+/* Connected to XP9 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+	phys = <&can_transceiver1>;
+};
+
+/* mfbsp interrupt controller */
+&qlic0 {
+	status = "okay";
+};
+
+/* For MCom-03 BuB r1.5 */
+&gpio1d {
+	pci0-perstn {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+	pci1-perstn {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&csi0 {
+	status = "okay";
+	reset_gpio = <&gpio0a 4 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio0a 5 GPIO_ACTIVE_HIGH>;
+};
+
+&csi1 {
+	status = "okay";
+	reset_gpio = <&gpio0a 4 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio0a 5 GPIO_ACTIVE_HIGH>;
+};

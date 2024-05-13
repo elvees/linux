@@ -1,0 +1,399 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83869.h>
+
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, NGFW-CB r1.0";
+	compatible = "elvees,elvmc03smarc-r1.0-ngfwcb-r1.0",
+		     "elvees,elvmc03smarc-ngfwcb",
+		     "elvees,ngfwcb-r1.0",
+		     "elvees,ngfwcb",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+
+	elvmc03smarc-leds {
+		/* red led uses GPIO0_PORTC3 that required for SPI0 */
+		/delete-node/ red;
+	};
+};
+
+/* Connected to USB Type-C plug through CP2102N */
+&uart0 {
+	status = "okay";
+};
+
+/* Connected to mPCIe */
+&uart1 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 through RS-485 transceiver */
+&uart2 {
+	status = "okay";
+	rts-gpios = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
+};
+
+/* Connected to MicroSD card */
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+&sdhci1_default {
+	/* The default clock pad drive strength of 6 mA is insufficient
+	 * for some NGFW-CBs resulting in unstable SDMMC performance,
+	 * especially at higher CPU temperatures.
+	 */
+	clk {
+		pins = "SDMMC1_CLK";
+		drive-strength = <8>;
+	};
+};
+
+/* Connected to USB 3.0 hub */
+&usb0 {
+	status = "okay";
+};
+
+&i2c_pm {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	ds2482: 1wire@18 {
+		compatible = "maxim,ds2482";
+		reg = <0x18>;
+	};
+
+	hwmon@49 {
+		compatible = "ti,lm73";
+		reg = <0x49>;
+	};
+
+	hwmon@4a {
+		compatible = "ti,lm73";
+		reg = <0x4a>;
+	};
+
+	fancontrol: emc2303@4d {
+		compatible = "microchip,emc2305";
+		reg = <0x4d>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		microchip,pwm-separate;
+		#cooling-cells = <2>;
+
+		channel@0 {
+			reg = <0>;
+			microchip,pwm-push-pull;
+		};
+
+		channel@1 {
+			reg = <1>;
+			microchip,pwm-push-pull;
+		};
+
+		channel@2 {
+			reg = <2>;
+			microchip,pwm-push-pull;
+		};
+	};
+};
+
+&i2c2 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+
+	gpio_exp_ext: gpio-expander@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		reset-gpios = <&gpio1c 4 GPIO_ACTIVE_LOW>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupts-extended = <&gpio0a 6 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	gpio_exp: gpio-expander@22 {
+		compatible = "ti,tca6424";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupts-extended = <&gpio0a 3 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		gpio-line-names =
+			"WAN_nRST", "LAN_nRST", "WAN_nPERST", "LAN_nPERST",
+			"USB_HUB_nRST", "PEX_THRM_ALERT", "PE_X4_nRST",
+			"PE_X4_nPRSNT", "WIFI_nPERST", "WIFI_nDISABLE_1",
+			"WIFI_nDISABLE_2", "mPCIE_PERST", "mPCIE_WDISABLE",
+			"5G_RESET", "5G_nPOWER_OFF", "5G_nPERSTR",
+			"5G_nW_DISABLE1", "5G_nW_DISABLE1", "EN_3V3_WIFI",
+			"EN_3V3_mPCIe", "EN_3V8_5G", "EN_3V3_SATA", "EN_5V_USB",
+			"USER_LED";
+		usb-hub-hog {
+			gpio-hog;
+			gpios = <22 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		wan-hog {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_HIGH>, <2 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		lan-hog {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_HIGH>, <3 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		pe-x4-hog {
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		wifi-hog {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_HIGH>, <9 GPIO_ACTIVE_HIGH>,
+				<10 GPIO_ACTIVE_HIGH>, <18 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		mpcie-hog {
+			gpio-hog;
+			gpios = <11 GPIO_ACTIVE_HIGH>, <12 GPIO_ACTIVE_HIGH>,
+				<19 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		5g-hog {
+			gpio-hog;
+			gpios = <13 GPIO_ACTIVE_LOW>, <14 GPIO_ACTIVE_HIGH>,
+				<15 GPIO_ACTIVE_HIGH>, <16 GPIO_ACTIVE_HIGH>,
+				<17 GPIO_ACTIVE_HIGH>, <20 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+		sata-hog {
+			gpio-hog;
+			gpios = <21 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+	};
+};
+
+&i2c3 {
+	/* Not all devices are checked to 400kHz support */
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>;
+
+	display: ssd1322@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		spi-max-frequency = <10000000>;
+		reg = <0>;
+		compatible = "linux,spidev";
+	};
+
+	mcp23s08: gpio-expander@1 {
+		compatible = "microchip,mcp23s08";
+		reg = <1>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		interrupt-parent = <&gpio0a>;
+		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		spi-max-frequency = <5000000>;
+		microchip,spi-present-mask = <0x1>;
+		gpio-line-names = "BUTTON_RIGHT", "BUTTON_UP", "BUTTON_OK",
+				  "BUTTON_DOWN", "BUTTON_LEFT", "BUZZER",
+				  "", "";
+	};
+};
+
+/* Connected to RJ-45 (Crypto #0) */
+&emac0 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 (Crypto #1) */
+&emac1 {
+	status = "okay";
+};
+
+/* Board have video output interface */
+&dp {
+	status = "okay";
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+/* Connected to HDMI plug */
+&adv7513 {
+	status = "okay";
+};
+
+&de_dpi {
+	status = "okay";
+};
+
+/* Connected to SATA plug */
+&sata {
+	status = "okay";
+};
+
+/* Connected to PCIe bridge */
+&pcie1 {
+	status = "okay";
+
+	// Note: legacy interrupts must be described in every PCIe bridge DTS node
+	dwc-pcie@0,0 {
+		reg = <0 0 0 0 0>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+
+		plx-pex@1,0 {
+			reg = <0 0 0 0 0>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+
+			// Legacy interrupts support
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0000 0 0 1 &pcie1_intc 2>,
+					<0000 0 0 2 &pcie1_intc 3>,
+					<0000 0 0 3 &pcie1_intc 4>,
+					<0000 0 0 4 &pcie1_intc 1>;
+
+			plx-pex@2,2 {
+				reg = <0x1000 0 0 0 0>;
+
+				// Legacy interrupts support
+				#interrupt-cells = <1>;
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0000 0 0 1 &pcie1_intc 3>,
+						<0000 0 0 2 &pcie1_intc 4>,
+						<0000 0 0 3 &pcie1_intc 1>,
+						<0000 0 0 4 &pcie1_intc 2>;
+			};
+
+			plx-pex@2,3 {
+				reg = <0x1800 0 0 0 0>;
+
+				// Legacy interrupts support
+				#interrupt-cells = <1>;
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0000 0 0 1 &pcie1_intc 4>,
+						<0000 0 0 2 &pcie1_intc 1>,
+						<0000 0 0 3 &pcie1_intc 2>,
+						<0000 0 0 4 &pcie1_intc 3>;
+			};
+
+			plx-pex@2,4 {
+				reg = <0x2000 0 0 0 0>;
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				// Legacy interrupts support
+				#interrupt-cells = <1>;
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0000 0 0 1 &pcie1_intc 1>,
+						<0000 0 0 2 &pcie1_intc 2>,
+						<0000 0 0 3 &pcie1_intc 3>,
+						<0000 0 0 4 &pcie1_intc 4>;
+
+				lan7430@6,0 {
+					reg = <0 0 0 0 0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					microchip,dma-round-robin;
+					phy-handle = <&ethernet_phy_lan7430>;
+
+					ethernet_phy_lan7430: ethernet-phy@1 {
+						reg = <1>;
+					};
+				};
+			};
+
+			plx-pex@2,5 {
+				reg = <0x2800 0 0 0 0>;
+				#address-cells = <3>;
+				#size-cells = <2>;
+
+				// Legacy interrupts support
+				#interrupt-cells = <1>;
+				interrupt-map-mask = <0 0 0 7>;
+				interrupt-map = <0000 0 0 1 &pcie1_intc 2>,
+						<0000 0 0 2 &pcie1_intc 3>,
+						<0000 0 0 3 &pcie1_intc 4>,
+						<0000 0 0 4 &pcie1_intc 1>;
+
+				lan7431@7,0 {
+					reg = <0 0 0 0 0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					microchip,dma-round-robin;
+					phy-connection-type = "rgmii-rxid";
+					phy-handle = <&ethernet_phy_lan7431>;
+
+					ethernet_phy_lan7431: ethernet-phy@0 {
+						reg = <0>;
+						ti,op-mode = <DP83869_RGMII_COPPER_ETHERNET>;
+						ti,clk-output-sel = <DP83869_CLK_O_SEL_125MHZ>;
+						rx-fifo-depth = <DP83869_PHYCR_FIFO_DEPTH_8_B_NIB>;
+						tx-fifo-depth = <DP83869_PHYCR_FIFO_DEPTH_8_B_NIB>;
+						enet-phy-lane-swap;
+					};
+				};
+			};
+		};
+	};
+};
+
+/*
+ * The fans are enabled on boot (a hardware feature).
+ * The fan controller driver disables them if the CPU temperature is
+ * lower than the trip point.
+ * Upon reaching the trip point the thermal subsystem driver enables the fans.
+ *
+ * Thermal zones can be enabled/disabled via sysfs by writing said state into
+ * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
+ */
+&cpu_thermal {
+	cooling_maps: cooling-maps {
+		map0 {
+			trip = <&cpu_alert0>;
+			cooling-device = <&fancontrol
+					  THERMAL_NO_LIMIT
+					  THERMAL_NO_LIMIT>;
+		};
+	};
+};

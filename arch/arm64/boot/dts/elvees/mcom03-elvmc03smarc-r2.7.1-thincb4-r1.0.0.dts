@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2024 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1.dts"
+
+/ {
+	model = "ELV-MC03-SMARC r2.7.1, THIN-CB4 r1.0.0";
+	compatible = "elvees,elvmc03smarc-r2.7.1-thincb4-r1.0.0",
+		     "elvees,elvmc03smarc-thincb4",
+		     "elvees,thincb4-r1.0.0",
+		     "elvees,thincb4",
+		     "elvees,elvmc03smarc-r2.7.1",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+};
+
+&pcie1 {
+	status = "disable";
+};
+
+&qspi1 {
+	status = "disable";
+};
+
+&sata {
+	status = "disable";
+};
+
+&isp {
+	status = "disable";
+};
+
+&csi0 {
+	status = "disable";
+};
+
+&csi1 {
+	status = "disable";
+};
+
+&mfbsp0_can {
+	status = "disable";
+};
+
+&mfbsp1_can {
+	status = "disable";
+};
+
+&ser0 {
+	status = "disable";
+};
+
+&ser2 {
+	status = "disable";
+};

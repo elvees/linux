@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, Rock Pi N10";
+	compatible = "elvees,elvmc03smarc-r1.0-rockpi-n10",
+		     "elvees,elvmc03smarc-rockpi-n10",
+		     "radxa,rockpi-n10",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	/* Camera on Rock Pi N10 connected to i2c_lcd pins. Linux ISP driver
+	 * expects the camera to be connected to I2C6. Set alias according
+	 * to it.
+	 */
+	aliases {
+		i2c6 = &i2c_lcd;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/* TRS (3.5mm jack) connected to ES8316 codec.
+	   ES8316 connected to MCom-03 MFBSP0.
+	 */
+	aux_sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "mfbsp-i2s";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,continuous-clock;
+		simple-audio-card,routing =
+			"MIC2", "Mic Bias";
+
+		dailink1_master: simple-audio-card,cpu {
+			sound-dai = <&mfbsp0_i2s>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&es8316>;
+		};
+	};
+};
+
+/* Connected to Raspberry Pi header */
+&uart0 {
+	status = "okay";
+};
+
+/* Connected to MicroSD card */
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* SDIO_WP is not connected on Rock Pi N10 */
+	disable-wp;
+};
+
+/* Connected to USB 3.0 Type-C */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 */
+&emac0 {
+	status = "okay";
+};
+
+/* Board have video output interface */
+&dp {
+	status = "okay";
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+/* Connected to HDMI plug */
+&adv7513 {
+	status = "okay";
+};
+
+&de_dpi {
+	status = "okay";
+};
+
+/* Connected to M.2 slot */
+&pcie1 {
+	status = "okay";
+};
+
+&audio_mclk {
+	status = "okay";
+};
+
+/* SMARC S38-42 (I2S0*) pins connected to mfbsp0 */
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+/* mfbsp0 interrupt controller */
+&qlic0 {
+	status = "okay";
+};
+
+/* SMARC pins B139-B140 (I2C_LCD*) connected to ES8316 */
+&i2c_lcd {
+	status = "okay";
+
+	es8316: audio-codec@11 {
+		status = "okay";
+		#sound-dai-cells = <0>;
+		compatible = "everest,es8316";
+		reg = <0x11>;
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+	};
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+	reset_gpio = <&gpio1c 2 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio1c 0 GPIO_ACTIVE_HIGH>;
+};

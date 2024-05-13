@@ -1,0 +1,329 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, ELV-SMARC-CB r2.10";
+	compatible = "elvees,elvmc03smarc-r1.0-elvsmarccb-r2.10",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r2.10",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	aliases {
+		i2c5 = &i2c_cam0;
+		i2c6 = &i2c_cam1;
+	};
+
+	elvsmarccb-leds {
+		compatible = "gpio-leds";
+
+		gpio11-led {
+			gpios = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		gpio12-led {
+			gpios = <&gpio0b 0 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+
+	elvmc03smarc-leds {
+		/* red led uses GPIO0_PORTC3 that required for SPI0 */
+		/delete-node/ red;
+	};
+
+	/*
+	 * One 4-pin PWM controlled fan can be used, but tachometer signal is GPIO6
+	 * (connects to GPIO1_D6 on MCom-03), which does not support interrupts.
+	 * No RPM info from tachometer for now.
+	*/
+	fancontrol: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwm 0 40000 0>;
+		#cooling-cells = <2>;
+		cooling-levels = <0 102 180 230>;
+	};
+
+	elvsmarccb-keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+		autorepeat;
+
+		pinctrl-0 = <&sleep_button_default>;
+		pinctrl-names = "default";
+
+		sleep {
+			gpios = <&gpio1c 7 GPIO_ACTIVE_LOW>;
+			label = "SLEEP";
+			linux,code = <KEY_SLEEP>;
+		};
+	};
+
+	elvsmarccb_asound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ELV-SMARC-CB analog audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,continuous-clock;
+
+		dailink1_master: simple-audio-card,cpu {
+				sound-dai = <&mfbsp0_i2s>;
+		};
+
+		simple-audio-card,codec {
+				sound-dai = <&es8327>;
+		};
+	};
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* SDIO_WP is not connected to SMARC connector XS1 */
+	disable-wp;
+};
+
+&sdhci1_default {
+	/* The default clock pad drive strength of 6 mA is insufficient
+	 * for some ELV-SMARC-CBs resulting in unstable SDMMC performance
+	 */
+	clk {
+		pins = "SDMMC1_CLK";
+		drive-strength = <8>;
+	};
+};
+
+/* Connects to debug USB Type-C port */
+&ser1 {
+	status = "okay";
+};
+
+/* Connects to XP6 RPi header */
+&ser2 {
+	status = "okay";
+};
+
+/* Connects to XP15 */
+&ser3 {
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+};
+
+&emac1 {
+	status = "okay";
+};
+
+/* The board has a video output interface */
+&dp {
+	status = "okay";
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+/* Connected to HDMI plug */
+&adv7513 {
+	status = "okay";
+};
+
+&de_dpi {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 2.0 hub */
+&usb1 {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+};
+
+&i2c_pm {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <2>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>, <&gpio0c 5 GPIO_ACTIVE_LOW>;
+
+	flash1: w25q128jw@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "winbond,w25q16dw", "jedec,spi-nor";
+			spi-max-frequency = <20000000>;
+			reg = <0x0>;
+	};
+};
+
+/* Connected to SATA plug */
+&sata {
+	status = "okay";
+};
+
+/* Connected to XP5 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+
+/* Connected to XP5 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
+
+&qlic0 {
+	status = "okay";
+};
+
+&i2c_gp {
+	status = "okay";
+	// not tested to work on 400k
+	clock-frequency = <100000>;
+
+	tmp112: sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+
+	es8327: codec@18 {
+		compatible = "everest,es8326";
+		reg = <0x18>;
+
+		interrupt-parent = <&gpio0a>;
+		interrupts = <6 IRQ_TYPE_EDGE_RISING>;
+
+		pinctrl-0 = <&audio_int_default>;
+		pinctrl-names = "default";
+
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		#sound-dai-cells = <0>;
+		everest,mic1-src = [22];
+		everest,mic2-src = [44];
+		everest,jack-pol = [0e];
+		everest,interrupt-src = [08];
+		everest,interrupt-clk = [45];
+	};
+};
+
+/* SMARC S38-42 (I2S0*) pins connected to mfbsp0 */
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
+
+&csi1 {
+	status = "okay";
+};
+
+&pwm {
+		status = "okay";
+		elvees,output-channel = <0 0 0 0>;
+		elvees,state-on-disable = <1 0 0 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_oena0_mux>;
+};
+
+/*
+ * Upon reaching the trip point the thermal subsystem driver enables the fans.
+ *
+ * Thermal zones can be enabled/disabled via sysfs by writing said state into
+ * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
+ */
+&cpu_thermal {
+	cooling_maps: cooling-maps {
+		map0 {
+			trip = <&cpu_alert0>;
+			cooling-device = <&fancontrol
+					  THERMAL_NO_LIMIT
+					  THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&lsperiph1_pinctrl {
+	sleep_button_default: sleep-button-cfg {
+		pins = "GPIOC_7";
+		input-enable;
+	};
+};
+
+&lsperiph0_pinctrl {
+	audio_int_default: gpioa0-audio-int-cfg {
+		pins = "GPIOA_6";
+		input-enable;
+	};
+};
+
+&audio_mclk {
+	status = "okay";
+};
+
+&qspi1 {
+	status = "okay";
+
+	qspi_flash: spi-nor@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* Highest frequency for IC installed into socket */
+		spi-max-frequency = <3000000>;
+		m25p,fast-read;
+	};
+};
+
+&qspi1_default {
+	/* Max clock frequency is 1 MHz with default pad drive strength.
+	 * This value increases max clock frequency to 3 MHz */
+	clk {
+		drive-strength = <10>;
+	};
+};

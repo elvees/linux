@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-bub-r1.3.0-b101uan01.dts"
+
+&i2c0 {
+	eeprom0: eeprom0@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+&i2c1 {
+	eeprom1: eeprom1@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+&i2c2 {
+	eeprom2: eeprom2@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+&i2c3 {
+	eeprom3: eeprom3@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};

@@ -1,0 +1,207 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+
+#include "mcom03-pm03camosm-r1.04.dtsi"
+
+/ {
+	model = "PM03CAM-OSM r1.04, ECAM03PTZ r1.0";
+	compatible = "elvees,pm03camosm-r1.04-ecam03ptz-r1.0",
+		     "elvees,pm03camosm-ecam03ptz",
+		     "elvees,ecam03ptz-r1.0",
+		     "elvees,ecam03ptz",
+		     "elvees,pm03camosm-r1.04",
+		     "elvees,pm03camosm",
+		     "elvees,mcom03";
+
+	fancontrol: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwm 0 10000000 0>;
+
+		#cooling-cells = <2>;
+		cooling-levels = <0 102 180 230>;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		factory-reset {
+			label = "Factory reset";
+			gpios = <&gpio0a 0 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RESTART>;
+		};
+	};
+};
+
+&gpio0a {
+	gpio-line-names = "ProgGPIO_SW", "IRIS_ZERO_POS",
+		"ZOOM1_ZERO_POS", "ZOOM2_ZERO_POS",
+		"H_ZERO_POS", "V_ZERO_POZ",
+		"CASE_OPEN_INT", "ALARM_IN1";
+};
+
+&gpio0b {
+	gpio-line-names = "IR_LASER_UART_RX", "IR_LASER_UART_TX",
+		"RS-485 UART RE/DE", "",
+		"V_DIAG", "RS485_UART_RX",
+		"RS485_UART_TX", "";
+};
+
+&gpio0c {
+	gpio-line-names = "H_ENN", "H_V_MOTOR_SEL",
+		"H_INDX", "H_STEP",
+		"H_DIR", "V_ENN",
+		"V_STEP", "V_INDX";
+};
+
+&gpio0d {
+	gpio-line-names = "H_V_MOTOR_UART_TX", "H_V_MOTOR_UART_RX",
+		"V_DIR", "ZOOM1_ZOOM2_VD_SYNC",
+		"ALARM_OUT", "CSI_IMX_RST",
+		"PWR_RES_EN", "";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_ALC_SCL", "I2C_ALC_SDA",
+		"I2C_AMBLIGH_SCL", "I2C_AMBLIGH_SDA",
+		"I2C_IMX_SCL", "I2C_IMX_SDA",
+		"ALARM_IN2", "INT/PMEB";
+};
+
+&gpio1b {
+	gpio-line-names = " ", " ", " ", " ",
+		"", "RST_ZOOM_FOCUS_IRIS_IR",
+		"DBG_UART_TX", "DBG_UART_RX";
+};
+
+&gpio1c {
+	gpio-line-names = "SPI_ZOOM_IRIS_FOCUS_IR", " ",
+		" ", "CS_ZOOM1_ZOOM2_IR1",
+		"CS_IRIS_FOCUS_IR2", "", "", "";
+};
+
+&gpio1d {
+	gpio-line-names = "IRIS_FOCUS_VD_SYNC", "H_DIAG",
+		"FAN_CTRL", "IR_LED_PWM",
+		"", "", "", "";
+};
+
+&lsperiph1_pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&alarm_in2_cfg>;
+
+	alarm_in2_cfg: alarm-in2-cfg {
+		pins = "GPIOA_6";
+		input-enable;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* SDIO WP is not routed */
+	disable-wp;
+};
+
+&emac0 {
+	status = "okay";
+
+	phy-handle = <&ethernet_phy0>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-id001c.c916", "ethernet-phy-ieee802.3-c22";
+		reg = <0x4>;
+	};
+};
+
+&emac0_default {
+	tx_data {
+		groups = "emac0_tx";
+		drive-strength = <8>;
+	};
+	txc {
+		pins = "EMAC0_RGMII_TXC";
+		drive-strength = <8>;
+	};
+};
+
+&uart1 {
+	status = "okay";
+	rts-gpios = <&gpio0b 2 GPIO_ACTIVE_HIGH>;
+	linux,rs485-enabled-at-boot-time;
+	snps,rs485-disable-hw-support;
+};
+
+&uart3 {
+	status = "okay";
+	label = "ir-laser";
+};
+
+&pwm {
+		status = "okay";
+		elvees,output-channel = <0 0 0 0>;
+		elvees,state-on-disable = <1 0 0 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_oena0_mux>;
+};
+
+/*
+ * Upon reaching the trip point the thermal subsystem driver enables the fans.
+ *
+ * Thermal zones can be enabled/disabled via sysfs by writing said state into
+ * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
+ */
+&cpu_thermal {
+	cooling_maps: cooling-maps {
+		map0 {
+			trip = <&cpu_alert0>;
+			cooling-device = <&fancontrol
+					  THERMAL_NO_LIMIT
+					  THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&i2c2 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	max31875r2: temperature-sensor@4a {
+		compatible = "ti,tmp103";
+		reg = <0x4a>;
+	};
+
+	bh1750fvi: light-sensor@5c {
+		compatible = "rohm,bh1750";
+		reg = <0x5c>;
+	};
+};
+
+&i2c3 {
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};

@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "mcom03-ecam03-common.dtsi"
+
+/ {
+	model = "ECAM03BL r1.0";
+	compatible = "elvees,ecam03bl-r1.0",
+		     "elvees,ecam03bl",
+		     "elvees,mcom03";
+};
+
+/* IR_LED is named GPIO_S_PWR in schematics */
+&gpio1c {
+	gpio-line-names = "", "", "", "IR_LED", "", "", "", "";
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	adc@4f {
+		compatible = "ti,ads1110";
+		reg = <0x4f>;
+		label = "light-sensor";
+	};
+};

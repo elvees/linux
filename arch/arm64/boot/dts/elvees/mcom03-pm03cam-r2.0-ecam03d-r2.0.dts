@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-pm03cam-r2.0-ecam03common-r2.0.dts"
+
+/ {
+	model = "ECAM03D r2.0";
+	compatible = "elvees,pm03cam-r2.0-ecam03d-r2.0",
+		     "elvees,pm03cam-r2.0-ecam03common-r2.0",
+		     "elvees,pm03cam-r2.0",
+		     "elvees,mcom03";
+
+	vdd_3v3: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+};
+
+&gpio0a {
+	gpio-line-names = "", "", "ALARM_IN1", "ALARM_IN2",
+		"", "", "", "";
+};
+
+&gpio0c {
+	gpio-line-names = "P_Iris_A", "P_Iris_B", "P_Iris_nA", "CMOS_nRST",
+		"P_Iris_nB", "", "", "CdS_INPUT";
+};
+
+&gpio0d {
+	gpio-line-names = "IR_nA", "IR_A", "", "", "", "", "", "";
+};
+
+&gpio1a {
+	gpio-line-names = "", "", "", "",
+		"", "", "", "ALARM_OUT";
+};
+
+&gpio1c {
+	gpio-line-names = "Zoom_nB", "Zoom_B", "Zoom_A", "Zoom_nA",
+		"Focus_B", "Focus_nB", "Focus_nA", "Focus_A";
+};
+
+&gpio1d {
+	gpio-line-names = "", "", "IR_LED", "", "", "", "", "";
+};
+
+&adc {
+	vdd-supply = <&vdd_3v3>;
+};
+
+&qmi8658c {
+	mount-matrix = "1", "0", "0",
+		       "0", "-1", "0",
+		       "0", "0", "1";
+};
