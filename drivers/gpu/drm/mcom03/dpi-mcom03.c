@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2022 RnD Center "ELVEES", JSC
+ * Copyright 2022-2024 RnD Center "ELVEES", JSC
  *
  * This is DPI DRM encoder driver for mcom03.
  */
@@ -12,6 +12,7 @@
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 
 enum MCOM03_DPI_CLK {

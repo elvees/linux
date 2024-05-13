@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2022 RnD Center "ELVEES", JSC
+ * Copyright 2022-2024 RnD Center "ELVEES", JSC
  *
  * This is driver to configure DSI on DesignWare MIPI IP-block in mcom03 SoC.
  */
@@ -13,7 +13,9 @@
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 
 #include <drm/bridge/dw_mipi_dsi.h>
 
@@ -527,7 +529,8 @@ static const struct dw_mipi_dsi_phy_ops mcom03_dsi_phy_ops = {
 };
 
 static enum drm_mode_status mcom03_dsi_mode_valid(void *de_data,
-		const struct drm_display_mode *mode)
+						  const struct drm_display_mode *mode,
+						  unsigned long mode_flags, u32 lanes, u32 format)
 {
 	struct mcom03_dsi_device *de = de_data;
 	struct clk *pxl_clk = mcom03_get_clk(de, MCOM03_DSI_CLK_PXL);
@@ -535,43 +538,6 @@ static enum drm_mode_status mcom03_dsi_mode_valid(void *de_data,
 	long real_rate = clk_round_rate(pxl_clk, requested_rate);
 
 	return (requested_rate == real_rate) ? MODE_OK : MODE_NOCLOCK;
-}
-
-static int mcom03_dsi_setup(struct platform_device *pdev)
-{
-	struct mcom03_dsi_device *de =
-		(struct mcom03_dsi_device *)dev_get_drvdata(&pdev->dev);
-	struct resource *res;
-	int ret;
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dsi");
-	if (!res)
-		return -ENODEV;
-
-	de->dsi_plat_data.max_data_lanes = 4;
-	de->dsi_plat_data.mode_valid = &mcom03_dsi_mode_valid;
-	de->dsi_plat_data.phy_ops = &mcom03_dsi_phy_ops;
-	de->dsi_plat_data.base = devm_ioremap_resource(&pdev->dev, res);
-	de->dsi_plat_data.priv_data = de;
-	if (IS_ERR(de->dsi_plat_data.base))
-		return -ENODEV;
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mipi-tx");
-	if (!res)
-		return -ENODEV;
-
-	de->mipi_tx_base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(de->mipi_tx_base))
-		return -ENODEV;
-
-	de->dsi = dw_mipi_dsi_probe(pdev, &de->dsi_plat_data);
-	if (IS_ERR(de->dsi)) {
-		ret = PTR_ERR(de->dsi);
-		dev_err(de->dev, "failed to probe DSI (%d)\n", ret);
-		return ret;
-	}
-
-	return 0;
 }
 
 static int mcom03_dsi_bind(struct device *dev, struct device *master,
@@ -582,8 +548,7 @@ static int mcom03_dsi_bind(struct device *dev, struct device *master,
 	struct drm_device *drm = data;
 	int ret = 0;
 
-	encoder->possible_crtcs = drm_of_find_possible_crtcs(drm,
-							dev->of_node);
+	encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, dev->of_node);
 	if (encoder->possible_crtcs == 0)
 		return -EPROBE_DEFER;
 
@@ -620,6 +585,64 @@ static const struct component_ops mcom03_dsi_ops = {
 	.bind	= mcom03_dsi_bind,
 	.unbind	= mcom03_dsi_unbind,
 };
+
+static int mcom03_dsi_host_attach(void *priv_data, struct mipi_dsi_device *device)
+{
+	struct mcom03_dsi_device *dsi = priv_data;
+
+	return component_add(dsi->dev, &mcom03_dsi_ops);
+}
+
+static int mcom03_dsi_host_detach(void *priv_data, struct mipi_dsi_device *device)
+{
+	struct mcom03_dsi_device *dsi = priv_data;
+
+	component_del(dsi->dev, &mcom03_dsi_ops);
+
+	return 0;
+}
+
+static const struct dw_mipi_dsi_host_ops mcom03_dsi_host_ops = {
+	.attach = mcom03_dsi_host_attach,
+	.detach = mcom03_dsi_host_detach,
+};
+
+static int mcom03_dsi_setup(struct platform_device *pdev)
+{
+	struct mcom03_dsi_device *de = dev_get_drvdata(&pdev->dev);
+	struct resource *res;
+	int ret;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dsi");
+	if (!res)
+		return -ENODEV;
+
+	de->dsi_plat_data.max_data_lanes = 4;
+	de->dsi_plat_data.mode_valid = &mcom03_dsi_mode_valid;
+	de->dsi_plat_data.phy_ops = &mcom03_dsi_phy_ops;
+	de->dsi_plat_data.base = devm_ioremap_resource(&pdev->dev, res);
+	de->dsi_plat_data.host_ops = &mcom03_dsi_host_ops;
+	de->dsi_plat_data.priv_data = de;
+	if (IS_ERR(de->dsi_plat_data.base))
+		return -ENODEV;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mipi-tx");
+	if (!res)
+		return -ENODEV;
+
+	de->mipi_tx_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(de->mipi_tx_base))
+		return -ENODEV;
+
+	de->dsi = dw_mipi_dsi_probe(pdev, &de->dsi_plat_data);
+	if (IS_ERR(de->dsi)) {
+		ret = PTR_ERR(de->dsi);
+		dev_err(de->dev, "failed to probe DSI (%d)\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
 
 static int mcom03_dsi_clocks_init(struct mcom03_dsi_device *de)
 {
@@ -703,31 +726,26 @@ static int mcom03_dsi_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, de);
 
 	ret = mcom03_dsi_setup(pdev);
-	if (ret) {
-		DRM_DEV_INFO(dev, "dsi setup failed %d", ret);
-		return ret;
-	}
+	if (ret)
+		goto ret_err;
 
 	ret = mcom03_dsi_clocks_init(de);
 	if (ret)
 		goto dw_cleanup;
 
-	ret = component_add(&pdev->dev, &mcom03_dsi_ops);
+	return 0;
 
 dw_cleanup:
-	if (ret) {
-		DRM_DEV_ERROR(dev, "failed to probe mcom03 dsi (%d)", ret);
-		dw_mipi_dsi_remove(de->dsi);
-	}
-	return ret;
+	dw_mipi_dsi_remove(de->dsi);
+
+ret_err:
+	return dev_err_probe(dev, ret, "Failed to probe MCom-03 DSI (%d)\n", ret);
 }
 
 static int mcom03_dsi_remove(struct platform_device *pdev)
 {
-	struct mcom03_dsi_device *de =
-		(struct mcom03_dsi_device *)dev_get_drvdata(&pdev->dev);
+	struct mcom03_dsi_device *de = dev_get_drvdata(&pdev->dev);
 
-	component_del(&pdev->dev, &mcom03_dsi_ops);
 	dw_mipi_dsi_remove(de->dsi);
 	return 0;
 }
