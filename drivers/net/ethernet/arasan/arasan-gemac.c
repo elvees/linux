@@ -1,7 +1,7 @@
 /*
  * Copyright 2007, 2008 SMSC
  * Copyright 2015 ELVEES NeoTek CJSC
- * Copyright 2017-2020 RnD Center "ELVEES", JSC
+ * Copyright 2017-2024 RnD Center "ELVEES", JSC
  *
  * Based on the driver for smsc9420
  *
@@ -101,8 +101,7 @@ static const struct ethtool_ops arasan_gemac_ethtool_ops = {
 static void arasan_gemac_set_hwaddr(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
-
-	u8 *dev_addr = dev->dev_addr;
+	const u8 *dev_addr = dev->dev_addr;
 
 	arasan_gemac_writel(pd, MAC_ADDRESS1_LOW,
 			    MAC_ADDRESS1_LOW_SIXTH_BYTE(dev_addr[5]) |
@@ -1245,7 +1244,7 @@ static int arasan_gemac_set_mac_address(struct net_device *dev, void *addr)
 		return -EBUSY;
 
 	/* sa_family is validated by calling code */
-	ether_addr_copy(dev->dev_addr, ((struct sockaddr *)addr)->sa_data);
+	dev_addr_mod(dev, 0, ((struct sockaddr *)addr)->sa_data, ETH_ALEN);
 	arasan_gemac_set_hwaddr(dev);
 
 	return 0;
@@ -1348,7 +1347,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	struct net_device *dev;
 	struct arasan_gemac_pdata *pd;
 	int res;
-	const char *mac;
+	char mac[ETH_ALEN];
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!regs)
@@ -1422,7 +1421,7 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
-	netif_napi_add(dev, &pd->napi, arasan_gemac_rx_poll, NAPI_WEIGHT);
+	netif_napi_add(dev, &pd->napi, arasan_gemac_rx_poll);
 
 	res = of_get_phy_mode(pdev->dev.of_node, &pd->phy_interface);
 	if (res < 0)
@@ -1443,11 +1442,11 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 		goto err_reset_assert;
 	}
 
-	mac = of_get_mac_address(pdev->dev.of_node);
-	if (IS_ERR(mac))
+	res = of_get_mac_address(pdev->dev.of_node, mac);
+	if (res)
 		arasan_gemac_get_hwaddr(pd);
 	else
-		ether_addr_copy(pd->dev->dev_addr, mac);
+		dev_addr_mod(pd->dev, 0, mac, ETH_ALEN);
 
 	res = device_property_read_u32(&pdev->dev, "arasan,hwfifo-size",
 				       &pd->hwfifo_size);
