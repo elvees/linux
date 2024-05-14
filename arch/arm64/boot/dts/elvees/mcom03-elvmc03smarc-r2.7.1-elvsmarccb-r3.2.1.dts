@@ -25,6 +25,12 @@
 			linux,code = <SW_LID>;
 		};
 	};
+
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio0d 2 GPIO_ACTIVE_LOW>;
+		timeout-ms = <1000>;
+	};
 };
 
 &gpio0a {
