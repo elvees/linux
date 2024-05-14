@@ -415,4 +415,12 @@ config PCIE_VISCONTI_HOST
 	  Say Y here if you want PCIe controller support on Toshiba Visconti SoC.
 	  This driver supports TMPV7708 SoC.
 
+config PCIE_MCOM03
+	tristate "ELVEES MCom-03 SoC PCIe controller"
+	depends on OF && (ARCH_MCOM03 || COMPILE_TEST)
+	depends on PCI_MSI
+	select PCIE_DW_HOST
+	help
+          Say Y here if you want PCIe controller support on ELVEES MCom-03 SoC
+
 endmenu
