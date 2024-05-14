@@ -2,7 +2,7 @@
 /*
  * PCIe RC driver for MCom-03
  *
- * Copyright 2021-2023 RnD Center "ELVEES", JSC
+ * Copyright 2021-2024 RnD Center "ELVEES", JSC
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -80,7 +80,7 @@ static void mcom03_pcie_ltssm_toggle(struct mcom03_pcie *pcie, u32 val)
 	mcom03_pcie_writel(pcie, SYS_CTRL_OFF, reg);
 }
 
-static int mcom03_pcie_host_init(struct pcie_port *pp)
+static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
@@ -100,7 +100,7 @@ static int mcom03_pcie_host_init(struct pcie_port *pp)
 	return 0;
 }
 
-static int mcom03_pcie_msi_host_init(struct pcie_port *pp)
+static int mcom03_pcie_msi_host_init(struct dw_pcie_rp *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct device *dev = pci->dev;
@@ -123,15 +123,9 @@ static int mcom03_pcie_msi_host_init(struct pcie_port *pp)
 	return 0;
 }
 
-static void dw_plat_set_num_vectors(struct pcie_port *pp)
-{
-	pp->num_vectors = MAX_MSI_IRQS;
-}
-
 static const struct dw_pcie_host_ops mcom03_pcie_host_ops = {
 	.host_init = mcom03_pcie_host_init,
 	.msi_host_init = mcom03_pcie_msi_host_init,
-	.set_num_vectors = dw_plat_set_num_vectors,
 };
 
 static void mcom03_pcie_set_dev_type(struct mcom03_pcie *pcie,
@@ -218,7 +212,7 @@ static const struct irq_domain_ops intx_domain_ops = {
 	.xlate = pci_irqd_intx_xlate,
 };
 
-static int mcom03_pcie_config_legacy_irq(struct pcie_port *pp)
+static int mcom03_pcie_config_legacy_irq(struct dw_pcie_rp *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct device *dev = pci->dev;
@@ -245,11 +239,11 @@ static int mcom03_pcie_config_legacy_irq(struct pcie_port *pp)
 	return 0;
 }
 
-static int mcom03_add_pcie_port(struct mcom03_pcie *pcie,
+static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 				struct platform_device *pdev)
 {
 	struct dw_pcie *pci = pcie->pci;
-	struct pcie_port *pp = &pci->pp;
+	struct dw_pcie_rp *pp = &pci->pp;
 	struct device *dev = &pdev->dev;
 	int ret;
 
@@ -368,7 +362,7 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pcie);
 
-	ret = mcom03_add_pcie_port(pcie, pdev);
+	ret = mcom03_add_dw_pcie_rp(pcie, pdev);
 	if (ret)
 		reset_control_assert(pcie->reset);
 
@@ -404,4 +398,4 @@ module_platform_driver(mcom03_pcie_driver);
 
 MODULE_AUTHOR("RnD Center ELVEES, JSC <support@elvees.com>");
 MODULE_DESCRIPTION("MCom-03 PCIe host controller driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
