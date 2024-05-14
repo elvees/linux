@@ -20,7 +20,7 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	sdhci0_supply: regulator@00 {
+	sdhci0_supply: regulator@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "sdhci0-supply";
 		regulator-min-microvolt = <1800000>;
@@ -28,7 +28,7 @@
 		regulator-always-on;
 	};
 
-	lt9211_1v8: regulator@01 {
+	lt9211_1v8: regulator@1 {
 		compatible = "regulator-fixed";
 		regulator-name = "rgb-lvds-vcc-1.8v";
 		regulator-min-microvolt = <1800000>;

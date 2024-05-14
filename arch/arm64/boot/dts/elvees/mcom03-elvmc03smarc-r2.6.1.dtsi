@@ -63,7 +63,7 @@
 		regulator-always-on;
 	};
 
-	hdmi_1v2_vdd_supply: regulator@01 {
+	hdmi_1v2_vdd_supply: regulator@1 {
 		compatible = "regulator-fixed";
 		regulator-name = "hdmi-vdd-1.2v";
 		regulator-min-microvolt = <1200000>;
@@ -71,7 +71,7 @@
 		regulator-always-on;
 	};
 
-	hdmi_3v3_vcc_supply: regulator@02 {
+	hdmi_3v3_vcc_supply: regulator@2 {
 		compatible = "regulator-fixed";
 		regulator-name = "hdmi-vcc-3.3v";
 		regulator-min-microvolt = <3300000>;
@@ -87,7 +87,7 @@
 		clock-frequency = <12000000>;
 	};
 
-	lt9211_1v8: regulator@03 {
+	lt9211_1v8: regulator@3 {
 		compatible = "regulator-fixed";
 		regulator-name = "rgb-lvds-vcc-1.8v";
 		regulator-min-microvolt = <1800000>;
