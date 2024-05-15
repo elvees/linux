@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "mcom03-pm03cam-r2.0-ecam03common-r2.0.dts"
+#include <dt-bindings/net/motorcomm-yt85xx.h>
 
 / {
 	model = "ECAM03D r2.0";
@@ -59,4 +60,11 @@
 	mount-matrix = "1", "0", "0",
 		       "0", "-1", "0",
 		       "0", "0", "1";
+};
+
+&ethernet_phy0 {
+	motorcomm,led-modes-override = <(YT85XX_LED_2_FORCE_EN |
+					 YT85XX_LED_2_ON |
+					 YT85XX_LED_0_FORCE_EN |
+					 YT85XX_LED_0_OFF)>;
 };
