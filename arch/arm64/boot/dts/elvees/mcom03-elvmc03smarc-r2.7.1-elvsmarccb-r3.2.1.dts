@@ -24,6 +24,14 @@
 			linux,input-type = <EV_SW>;
 			linux,code = <SW_LID>;
 		};
+
+		/* Workaround made by MCOM03HW-1587(cut off POWER_BTN# from module)
+		 * breaks this funtionality */
+		power {
+			gpios = <&xl9555 1 GPIO_ACTIVE_LOW>;
+			label = "POWER";
+			linux,code = <KEY_POWER>;
+		};
 	};
 
 	gpio-poweroff {
