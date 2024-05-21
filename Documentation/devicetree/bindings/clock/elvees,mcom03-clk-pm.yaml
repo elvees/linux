@@ -14,9 +14,7 @@ properties:
     enum:
       - elvees,mcom03-clk-pm
 
-  clocks:
-    maxItems: 1
-    description: Input clock from XTI.
+  clocks: true
 
   '#clock-cells':
     const: 1
@@ -58,6 +56,34 @@ properties:
   enabled-clocks:
     description: |
       List of clocks that must be enabled by clock and power management driver.
+
+allOf:
+  - if:
+      properties:
+        elvees,subsystem:
+          const: 3  # MCOM03_SUBSYSTEM_HSPERIPH
+    then:
+      properties:
+        clocks:
+          items:
+            - description: input clock from XTI
+            - description: CLK125 input clock
+    else:
+      if:
+        properties:
+          elvees,subsystem:
+            const: 5  # MCOM03_SUBSYSTEM_LSPERIPH1
+      then:
+        properties:
+          clocks:
+            items:
+              - description: input clock from XTI
+              - description: I2S0_SCLK_IN input clock
+      else:
+        properties:
+          clocks:
+            maxItems: 1
+            description: input clock from XTI
 
 required:
   - compatible
