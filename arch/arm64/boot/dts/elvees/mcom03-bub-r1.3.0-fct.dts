@@ -42,3 +42,10 @@
 		reg = <0x50>;
 	};
 };
+
+/* Disable DPI (with connected HDMI transmitter) because HDMI transmitter is
+ * disconnected when used EEPROMs (#MCOM03SW-2909).
+ */
+&de_dpi {
+	status = "disabled";
+};
