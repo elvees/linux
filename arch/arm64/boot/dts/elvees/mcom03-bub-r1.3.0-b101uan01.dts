@@ -17,6 +17,7 @@
 
 &de_dsi {
 	status = "okay";
+	dsi-min-clock-frequency = <500000000>;
 
 	dsi-panel@0 {
 		#address-cells = <1>;
