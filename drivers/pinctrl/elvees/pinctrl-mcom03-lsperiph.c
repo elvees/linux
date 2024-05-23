@@ -134,7 +134,7 @@ static int mcom03_lsperiph0_pconf_get(struct pinctrl_dev *pctldev,
 
 	if (param != PIN_CONFIG_BIAS_PULL_UP &&
 	    param != PIN_CONFIG_BIAS_DISABLE)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	regmap_read(pctrl->urb, LSPERIPH0_PULL_OFFSET, &val);
 
@@ -209,7 +209,7 @@ static int mcom03_lsperiph1_pconf_get(struct pinctrl_dev *pctldev,
 			return -EINVAL;
 		break;
 	default:
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	*config = pinconf_to_config_packed(param, arg);
@@ -227,14 +227,14 @@ static int mcom03_lsperiph0_pconf_set(struct pinctrl_dev *pctldev,
 
 	if (num_configs > 1) {
 		dev_warn(pctldev->dev, "LSPERIPH0 supports only one config at a time\n");
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	param = pinconf_to_config_param(configs[0]);
 	if (param != PIN_CONFIG_BIAS_PULL_UP &&
 	    param != PIN_CONFIG_BIAS_DISABLE) {
 		dev_err(pctldev->dev, "LSPERIPH0 subsystem pins supports only bias-pull-up and bias-disable params\n");
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	regmap_update_bits(pctrl->urb, LSPERIPH0_PULL_OFFSET,
@@ -324,7 +324,7 @@ static int mcom03_lsperiph1_pconf_set(struct pinctrl_dev *pctldev,
 			dev_dbg(pctrl->dev, "Configuration for pin %s is not applied\n",
 				mcom03_lsperiph_pins[pin].name);
 
-			return -ENOTSUPP;
+			return -EOPNOTSUPP;
 		}
 
 		dev_dbg(pctrl->dev, "Try to set %d config to pin %s with argumet %d\n",
@@ -348,7 +348,7 @@ static int mcom03_lsperiph1_pin_config_group_get(struct pinctrl_dev *pctldev,
 	enum pin_config_param param = pinconf_to_config_param(*config);
 
 	if (param != PIN_CONFIG_POWER_SOURCE)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	regmap_read(pctrl->urb, LSPERIPH1_GROUP_REG, &val);
 	arg = val & LSPERIPH1_1P8V ? 1800 : 3300;
@@ -372,7 +372,7 @@ static int mcom03_lsperiph1_pin_config_group_set(struct pinctrl_dev *pctldev,
 	arg = pinconf_to_config_argument(configs[0]);
 
 	if (param != PIN_CONFIG_POWER_SOURCE || num_configs != 1)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	if (arg != 1800 && arg != 3300)
 		return -EINVAL;

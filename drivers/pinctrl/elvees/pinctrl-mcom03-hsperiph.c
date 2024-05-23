@@ -512,7 +512,7 @@ mcom03_hsperiph_pinconf_get_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 	unsigned int pull_mask = pinconf->pull_mask;
 
 	if (!mcom03_hsperiph_pinconf_param_supported(pinconf, param))
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	regmap_read(pctrl->hs_syscon, pinconf->offset, &val);
 	switch ((u32)param) {
@@ -620,7 +620,7 @@ static int mcom03_hsperiph_pinconf_get(struct pinctrl_dev *pctldev,
 	struct mcom03_hsperiph_pin *sp = mcom03_hsperiph_get_special_pin(pin);
 
 	if (!sp)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	return mcom03_hsperiph_pinconf_get_internal(pctrl, config,
 						    &sp->pinconf);
@@ -653,7 +653,7 @@ mcom03_hsperiph_pinconf_set_internal(struct mcom03_hsperiph_pinctrl *pctrl,
 	param = pinconf_to_config_param(config);
 	arg = pinconf_to_config_argument(config);
 	if (!mcom03_hsperiph_pinconf_param_supported(pinconf, param))
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	switch ((u32)param) {
 	case PIN_CONFIG_MCOM03_PAD_ENABLE:
@@ -790,13 +790,13 @@ static int mcom03_hsperiph_pinconf_set(struct pinctrl_dev *pctldev,
 		dev_err(pctrl->dev, "Pin access is prohibited for pin [%s].\n",
 			mcom03_hsperiph_pins[pin].name);
 
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	for (i = 0; i < num_configs; i++) {
 		ret = mcom03_hsperiph_pinconf_set_internal(pctrl, configs[i],
 							   &sp->pinconf);
-		if (ret == -ENOTSUPP) {
+		if (ret == -EOPNOTSUPP) {
 			dev_err(pctrl->dev, "%s pin doesn't support property %u\n",
 				mcom03_hsperiph_pins[sp->pin].name,
 				pinconf_to_config_param(configs[i]));
@@ -829,7 +829,7 @@ static int mcom03_hsperiph_pinconf_group_set(struct pinctrl_dev *pctldev,
 	for (i = 0; i < num_configs; i++) {
 		ret = mcom03_hsperiph_pinconf_set_internal(pctrl, configs[i],
 				&mcom03_hsperiph_groups[selector].pinconf);
-		if (ret == -ENOTSUPP) {
+		if (ret == -EOPNOTSUPP) {
 			dev_err(pctrl->dev, "[%s] group doesn't support property %u\n",
 				mcom03_hsperiph_groups[selector].name,
 				pinconf_to_config_param(configs[i]));
