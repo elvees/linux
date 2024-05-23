@@ -104,7 +104,7 @@ static int mcom03_reset_sdr_deassert(struct reset_controller_dev *rcdev,
 		}
 	}
 	if (!desc)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	switch (desc->type) {
 	case RST_PP:
@@ -136,7 +136,7 @@ static int mcom03_reset_sdr_status(struct reset_controller_dev *rcdev,
 		}
 	}
 	if (!desc)
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 
 	switch (desc->type) {
@@ -313,7 +313,7 @@ static int mcom03_reset_probe(struct platform_device *pdev)
 		priv->rcdev.ops = &mcom03_reset_hsperiph_ops;
 		break;
 	default:
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	return devm_reset_controller_register(&pdev->dev, &priv->rcdev);
