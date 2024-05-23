@@ -255,5 +255,5 @@ static struct platform_driver dwc3_mcom03_driver = {
 
 module_platform_driver(dwc3_mcom03_driver);
 
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("DesignWare USB3 MCom-03 Glue Layer");
