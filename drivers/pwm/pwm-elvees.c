@@ -109,12 +109,12 @@ static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	elvees_pwm_writel(pwm_chip, pwm_chip->out_channel[pwm->hwpwm] ?
 			PWM_EMCTLB : PWM_EMCTLA,
-			PWM_EMCTLA_ECMPAI(PWM_EMCTL_ACTION_SET) |
+			PWM_EMCTLA_ECMPAD(PWM_EMCTL_ACTION_SET) |
 			PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_CLEAR),
 			pwm->hwpwm);
 
 	elvees_pwm_writel(pwm_chip, PWM_CLKCTL,
-			PWM_CLKCTL_CNTMODE(PWM_CNTMODE_UP) |
+			PWM_CLKCTL_CNTMODE(PWM_CNTMODE_DOWN) |
 			PWM_CLKCTL_LOADPRD(PWM_LOADPRD_DISABLE) |
 			PWM_CLKCTL_SYNCOSEL(PWM_SYNCOSEL_DISABLE),
 			pwm->hwpwm);
@@ -138,9 +138,7 @@ static int elvees_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	div = clk_rate * period_ns;
 	period = DIV_ROUND_CLOSEST_ULL(div, NSEC_PER_SEC);
 
-	/* Change polarity logic here, if we change logic in request() and
-	 * set_polarity() that will lead to loss of first pulse on start of pwm. */
-	div = clk_rate * (period_ns - duty_ns);
+	div = clk_rate * duty_ns;
 	duty = DIV_ROUND_CLOSEST_ULL(div, NSEC_PER_SEC);
 
 	elvees_pwm_writel(pwm_chip, PWM_CTRPRD, period, pwm->hwpwm);
@@ -156,10 +154,10 @@ static int elvees_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm
 	u32 val;
 
 	if (polarity == PWM_POLARITY_NORMAL) {
-		val = PWM_EMCTLA_ECMPAI(PWM_EMCTL_ACTION_SET) |
+		val = PWM_EMCTLA_ECMPAD(PWM_EMCTL_ACTION_SET) |
 		      PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_CLEAR);
 	} else {
-		val = PWM_EMCTLA_ECMPAI(PWM_EMCTL_ACTION_CLEAR) |
+		val = PWM_EMCTLA_ECMPAD(PWM_EMCTL_ACTION_CLEAR) |
 		      PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_SET);
 	}
 
