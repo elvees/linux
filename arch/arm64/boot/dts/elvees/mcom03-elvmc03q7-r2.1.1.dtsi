@@ -264,7 +264,13 @@
 };
 
 /* PCIe0 is connected to SATA controller. */
-sata: &pcie0 { };
+sata: &pcie0 {
+	reset-gpio = <&gpio1c 7 GPIO_ACTIVE_HIGH>;
+};
+
+&pcie1 {
+	reset-gpio = <&gpio1c 5 GPIO_ACTIVE_HIGH>;
+};
 
 &isp {
 	status = "okay";
