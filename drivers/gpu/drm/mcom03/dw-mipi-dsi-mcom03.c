@@ -603,10 +603,7 @@ static int mcom03_dsi_bind(struct device *dev, struct device *master,
 		drm_encoder_cleanup(encoder);
 	}
 
-	/* If this function returns an error, the upstream DRM driver (e.g. mali-dp) will also fail
-	 * to start after the call to component_bind_all(), despite other components (e.g. HDMI)
-	 * may be available */
-	return 0;
+	return ret;
 }
 
 static void mcom03_dsi_unbind(struct device *dev, struct device *master,
