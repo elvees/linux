@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright 2021 RnD Center "ELVEES", JSC
+/* Copyright 2021-2024 RnD Center "ELVEES", JSC
  *
  * This driver is based on Bosch M_CAN driver.
  */
@@ -22,9 +22,6 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/phy/phy.h>
-
-/* napi related */
-#define MFBSP_CAN_NAPI_WEIGHT	64
 
 /* message ram configuration data length */
 #define MRAM_CFG_LEN	7
@@ -396,9 +393,9 @@ static void mfbsp_can_read_fifo(struct net_device *dev, u32 rxfs)
 	}
 
 	if (dlc & RX_BUF_FDF)
-		cf->len = can_dlc2len((dlc >> 16) & 0x0F);
+		cf->len = can_fd_dlc2len((dlc >> 16) & 0x0F);
 	else
-		cf->len = get_can_dlc((dlc >> 16) & 0x0F);
+		cf->len = can_cc_dlc2len((dlc >> 16) & 0x0F);
 
 	id = mfbsp_can_fifo_read(priv, fgi, MFBSP_CAN_FIFO_ID);
 	if (id & RX_BUF_XTD)
@@ -725,7 +722,7 @@ static void mfbsp_can_echo_tx_event(struct net_device *dev)
 				TX_EVENT_MM_MASK) >> TX_EVENT_MM_SHIFT;
 
 		/* update stats */
-		stats->tx_bytes += can_get_echo_skb(dev, msg_mark);
+		stats->tx_bytes += can_get_echo_skb(dev, msg_mark, NULL);
 		stats->tx_packets++;
 	}
 }
@@ -757,7 +754,7 @@ static irqreturn_t mfbsp_can_isr(int irq, void *dev_id)
 
 	if (ir & IR_TC) {
 		/* Transmission Complete Interrupt*/
-		stats->tx_bytes += can_get_echo_skb(dev, 0);
+		stats->tx_bytes += can_get_echo_skb(dev, 0, NULL);
 		stats->tx_packets++;
 		netif_wake_queue(dev);
 	} else if (ir & IR_TEFN) {
@@ -897,7 +894,7 @@ static struct net_device *mfbsp_can_alloc_dev(struct platform_device *pdev,
 		return dev;
 	}
 	priv = netdev_priv(dev);
-	netif_napi_add(dev, &priv->napi, mfbsp_can_poll, MFBSP_CAN_NAPI_WEIGHT);
+	netif_napi_add(dev, &priv->napi, mfbsp_can_poll);
 
 	/* Shared properties of all CAN */
 	priv->dev = dev;
@@ -912,7 +909,6 @@ static struct net_device *mfbsp_can_alloc_dev(struct platform_device *pdev,
 					CAN_CTRLMODE_BERR_REPORTING;
 
 	/* Set properties depending on CAN */
-	can_set_static_ctrlmode(dev, 0);
 	priv->can.bittiming_const = &mfbsp_can_bittiming_const;
 	priv->can.data_bittiming_const = &mfbsp_can_bittiming_const;
 
@@ -1018,7 +1014,7 @@ static netdev_tx_t mfbsp_can_start_xmit(struct sk_buff *skb,
 	/* message ram configuration */
 	mfbsp_can_fifo_write(priv, putidx, MFBSP_CAN_FIFO_ID, id);
 	mfbsp_can_fifo_write(priv, putidx, MFBSP_CAN_FIFO_DLC,
-			     can_len2dlc(cf->len) << 16);
+			     can_fd_len2dlc(cf->len) << 16);
 	for (i = 0; i < cf->len; i += 4)
 		mfbsp_can_fifo_write(priv, putidx,
 				     MFBSP_CAN_FIFO_DATA(i / 4),
@@ -1028,7 +1024,7 @@ static netdev_tx_t mfbsp_can_start_xmit(struct sk_buff *skb,
 	mfbsp_can_fifo_write(priv, putidx, MFBSP_CAN_FIFO_TS64H, 0xffffffff);
 	mfbsp_can_fifo_write(priv, putidx, MFBSP_CAN_FIFO_TS64L, 0xffffffff);
 
-	can_put_echo_skb(skb, dev, 0);
+	can_put_echo_skb(skb, dev, 0, 0);
 
 	mfbsp_can_write(priv, MFBSP_CAN_TXBTIE, 0x1 << putidx);
 	mfbsp_can_write(priv, MFBSP_CAN_TXBAR, 0x1 << putidx);
@@ -1323,5 +1319,5 @@ static struct platform_driver mfbsp_can_plat_driver = {
 module_platform_driver(mfbsp_can_plat_driver);
 
 MODULE_AUTHOR("Viktor Podusenko <vpodusenko@elvees.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("CAN bus driver for ELVEES MFBSP CAN Controller");
