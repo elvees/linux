@@ -35,13 +35,13 @@
 	 */
 	aux_sound {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "analog-audio";
+		simple-audio-card,name = "mfbsp-i2s";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&dailink1_master>;
 		simple-audio-card,frame-master = <&dailink1_master>;
 		simple-audio-card,continuous-clock;
 		simple-audio-card,routing =
-			"MIC2", "Mic Bias";
+			"MIC2", "micbias";
 
 		dailink1_master: simple-audio-card,cpu {
 			sound-dai = <&mfbsp0_i2s>;
