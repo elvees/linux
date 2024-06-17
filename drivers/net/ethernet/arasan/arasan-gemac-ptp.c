@@ -272,6 +272,7 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(arasan_gemac_ptp_hwstamp_set);
 
 static int arasan_gemac_ptp_tx_hwtstamp(struct arasan_gemac_pdata *pd,
 					u64 *tx_real_time_ns)
@@ -307,6 +308,7 @@ void arasan_gemac_ptp_do_txstamp(struct arasan_gemac_pdata *pd,
 	shhwtstamps.hwtstamp = ns_to_ktime(tx_real_time_ns);
 	skb_tstamp_tx(skb, &shhwtstamps);
 }
+EXPORT_SYMBOL(arasan_gemac_ptp_do_txstamp);
 
 static int arasan_gemac_ptp_rx_hwtstamp(struct arasan_gemac_pdata *pd,
 					u64 *rx_real_time_ns)
@@ -339,6 +341,7 @@ void arasan_gemac_ptp_do_rxstamp(struct arasan_gemac_pdata *pd, struct sk_buff *
 	memset(shhwtstamps, 0, sizeof(struct skb_shared_hwtstamps));
 	shhwtstamps->hwtstamp = ns_to_ktime(rx_real_time_ns);
 }
+EXPORT_SYMBOL(arasan_gemac_ptp_do_rxstamp);
 
 int arasan_gemac_ptp_init(struct arasan_gemac_pdata *pd)
 {
@@ -396,6 +399,7 @@ int arasan_gemac_ptp_init(struct arasan_gemac_pdata *pd)
 
 	return 0;
 }
+EXPORT_SYMBOL(arasan_gemac_ptp_init);
 
 int arasan_gemac_ptp_deinit(struct arasan_gemac_pdata *pd)
 {
