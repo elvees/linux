@@ -51,6 +51,15 @@ examples:
       #size-cells = <2>;
       interrupt-parent = <&gic>;
 
+      gic: interrupt-controller@1100000 {
+        compatible = "arm,gic-v3";
+        #interrupt-cells = <3>;
+        interrupt-controller;
+        reg = <0 0x1100000 0 0x10000>, /* GICD */
+              <0 0x1180000 0 0x80000>; /* GICR */
+        interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+      };
+
       hsperiph-bus {
         compatible = "simple-bus";
         #address-cells = <2>;
