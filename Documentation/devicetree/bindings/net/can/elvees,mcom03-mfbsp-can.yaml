@@ -86,10 +86,30 @@ additionalProperties: false
 examples:
   - |
     #include <dt-bindings/clock/mcom03-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    gic: interrupt-controller@1100000 {
+      compatible = "arm,gic-v3";
+      #interrupt-cells = <3>;
+      interrupt-controller;
+      reg = <0x1100000 0x10000>, /* GICD */
+            <0x1180000 0x80000>; /* GICR */
+      interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+    };
 
     service-bus {
       #address-cells = <2>;
       #size-cells = <2>;
+
+      qlic0: interrupt-controller@1fe00000 {
+        compatible = "elvees,qlic";
+        interrupt-controller;
+        targets = <4>;
+        #interrupt-cells = <1>;
+        interrupt-parent = <&gic>;
+        interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+        reg = <0 0x1fe00000 0 0x40000>;
+      };
 
       mfbsp0_can: mfbsp@1f0a0000 {
         compatible = "elvees,mfbsp-can";

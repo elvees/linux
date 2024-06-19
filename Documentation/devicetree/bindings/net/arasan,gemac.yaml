@@ -108,13 +108,13 @@ examples:
 
     spram: spram@0 {
       compatible = "mmio-sram";
-      #address-cells = <2>;
-      #size-cells = <2>;
-      reg = <0 0 0 0x10000>;
+      #address-cells = <1>;
+      #size-cells = <1>;
+      reg = <0 0x10000>;
       clocks = <&hsperiph_clocks CLK_HSP_UCG0_SPRAM>;
 
       emac_desc_pool: sram-pool@0 {
-        reg = <0 0 0 0x2000>;
+        reg = <0 0x2000>;
         pool;
       };
     };
@@ -123,7 +123,7 @@ examples:
       compatible = "arasan,gemac";
       #address-cells = <1>;
       #size-cells = <0>;
-      reg = <0 0x10200000 0 0x1000>;
+      reg = <0x10200000 0x1000>;
       clocks = <&hsperiph_ucg0 CLK_HSP_UCG0_EMAC0>,
                <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_RGMII_TXC>,
                <&hsperiph_ucg2 CLK_HSP_UCG2_EMAC0_1588>;
