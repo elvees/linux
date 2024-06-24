@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2021 RnD Center "ELVEES", JSC
+ * Copyright 2021-2024 RnD Center "ELVEES", JSC
  *
  * This is a hardware monitoring driver for Moortec MR75202 PVT controller
  * which is used to configure & control Moortec embedded analog IPs like
@@ -11,6 +11,7 @@
 #include <linux/hwmon.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
 #include <linux/reset.h>
@@ -94,6 +95,7 @@ struct mr75202_priv {
 	struct clk *clk;
 	struct reset_control *rst;
 	const char *labels[8];
+	struct mutex mutex;
 	size_t nts;
 };
 
@@ -146,6 +148,8 @@ static int mr75202_read_temp(struct device *dev, u32 attr, int channel,
 	u32 nbs;
 	int ret;
 
+	mutex_lock(&priv->mutex);
+
 	switch (attr) {
 	case hwmon_temp_input:
 		/* Deassert sample done bit in TS_SMPL_STATUS by reading old
@@ -160,7 +164,7 @@ static int mr75202_read_temp(struct device *dev, u32 attr, int channel,
 					 nbs, nbs & BIT(channel),
 					 MR75202_DELAY_US, MR75202_TIMEOUT_US);
 		if (ret)
-			return ret;
+			break;
 
 		nbs = readl(priv->base + MR75202_TS_DATA(channel));
 		nbs &= MR75202_SDA_IP_DATA_DAT;
@@ -170,10 +174,15 @@ static int mr75202_read_temp(struct device *dev, u32 attr, int channel,
 		 * hwmon requires temperature to be in millidegrees. */
 		*val = (long)nbs * 237500 / 4094 - 81100;
 
-		return 0;
+		break;
 	default:
-		return -EOPNOTSUPP;
+		ret = -EOPNOTSUPP;
+		break;
 	}
+
+	mutex_unlock(&priv->mutex);
+
+	return ret;
 }
 
 static int mr75202_read(struct device *dev, enum hwmon_sensor_types type,
@@ -365,6 +374,7 @@ static int mr75202_probe(struct platform_device *pdev)
 	of_property_read_string_array(pdev->dev.of_node, "moortec,labels",
 				      priv->labels, ARRAY_SIZE(priv->labels));
 
+	mutex_init(&priv->mutex);
 	ret = mr75202_init(&pdev->dev, priv);
 	if (ret) {
 		dev_err(&pdev->dev,
@@ -392,6 +402,7 @@ static int mr75202_probe(struct platform_device *pdev)
 	return 0;
 
 err_reset_assert:
+	mutex_destroy(&priv->mutex);
 	reset_control_assert(priv->rst);
 err_clk_disable:
 	clk_disable_unprepare(priv->clk);
@@ -404,6 +415,7 @@ static int mr75202_remove(struct platform_device *pdev)
 	struct device *hdev = dev_get_drvdata(&pdev->dev);
 	struct mr75202_priv *priv = dev_get_drvdata(hdev);
 
+	mutex_destroy(&priv->mutex);
 	reset_control_assert(priv->rst);
 	clk_disable_unprepare(priv->clk);
 
