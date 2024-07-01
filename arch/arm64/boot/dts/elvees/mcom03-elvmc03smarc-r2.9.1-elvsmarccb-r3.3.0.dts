@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2024 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1.dts"
+
+/ {
+	model = "ELV-MC03-SMARC r2.9.1, ELV-SMARC-CB r3.3.0";
+	compatible = "elvees,elvmc03smarc-r2.9.1-elvsmarccb-r3.3.0",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r3.3.0",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r2.9.1",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+};
+
+&ethernet_phy0 {
+	compatible = "ethernet-phy-id4f51.e91a", "ethernet-phy-ieee802.3-c22";
+};
+
+&ethernet_phy1 {
+	compatible = "ethernet-phy-id4f51.e91a", "ethernet-phy-ieee802.3-c22";
+};
+
+// Increase pad current for higer speed - from 400-600 to 900+ Mbit/s.
+&emac1_default {
+	tx_data {
+		groups = "emac1_tx";
+		drive-strength = <6>;
+	};
+
+	txc {
+		pins = "EMAC1_RGMII_TXC";
+		drive-strength = <6>;
+	};
+};
+
+
+/* SATA_PERST signal is suppressing system reset when high - hardware bug
+ * MCOM03HW-1634. */
+&sata {
+	/delete-property/ reset-gpio;
+};

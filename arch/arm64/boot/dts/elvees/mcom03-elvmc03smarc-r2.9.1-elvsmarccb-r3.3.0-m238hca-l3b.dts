@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2024 RnD Center "ELVEES", JSC
+
+#include "mcom03-elvmc03smarc-r2.9.1-elvsmarccb-r3.3.0.dts"
+
+/ {
+	vdd_lcd: regulator_lcd@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd-panel-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	// Panel maybe has no control with PWM signal
+	backlight: backlight {
+		compatible = "gpio-backlight";
+		gpios = <&gpio1d 6 GPIO_ACTIVE_HIGH>; // LCD0_BLKT_EN
+		default-on;
+	};
+
+	lvds_panel0: panel {
+		compatible = "innolux,m238hca-l3b", "panel-lvds";
+
+		power-supply = <&vdd_lcd>;
+		enable-gpios = <&gpio1d 7 GPIO_ACTIVE_HIGH>; // LCD0_VDD_EN
+		backlight = <&backlight>;
+
+		width-mm = <527>;
+		height-mm = <296>;
+
+		data-mapping = "vesa-24";
+
+		panel-timing {
+			clock-frequency = <148500000>;
+			hactive = <1920>;
+			vactive = <1080>;
+			// VESA Display Monitor Timing Standard
+			hfront-porch = <88>;
+			hback-porch = <148>;
+			hsync-len = <44>;
+			vsync-len = <5>;
+			vfront-porch = <4>;
+			vback-porch = <36>;
+
+			de-active = <0>;
+			vsync-active = <0>;
+			hsync-active = <0>;
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				dual-lvds-odd-pixels;
+
+				panel_input_0: endpoint {
+					remote-endpoint = <&lt9211_lvds_out_0>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				dual-lvds-even-pixels;
+
+				panel_input_1: endpoint {
+					remote-endpoint = <&lt9211_lvds_out_1>;
+				};
+			};
+		};
+	};
+};
+
+&lt9211 {
+	status = "okay";
+
+	ports {
+		// lvds-out
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			lt9211_lvds_out_0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel_input_0>;
+			};
+		};
+
+		port@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+			lt9211_lvds_out_1: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel_input_1>;
+			};
+		};
+	};
+};
+
+&de_dpi {
+	status = "okay";
+};
+
+// LCD0_BKLT_PWM may break power-up sequence for some panels, use with caution
+&gpio1d {
+	lcd0-blkt-pwm {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
