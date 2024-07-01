@@ -1631,7 +1631,7 @@
 		};
 
 		elcores {
-			compatible = "simple-bus", "elvees,elcore50-bus";
+			compatible = "elvees,elcore50-bus", "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
