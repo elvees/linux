@@ -24,6 +24,7 @@
 #include <linux/mtd/rawnand.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/reset.h>
 #include <linux/slab.h>
 
 #define PKT_REG				0x00
@@ -211,6 +212,7 @@ struct arasan_nfc {
 	void __iomem *base;
 	struct clk *controller_clk;
 	struct clk *bus_clk;
+	struct reset_control *rst;
 	struct nand_controller controller;
 	struct list_head chips;
 	unsigned int cur_clk;
@@ -244,7 +246,7 @@ static int anfc_wait_for_event(struct arasan_nfc *nfc, unsigned int event)
 		return -ETIMEDOUT;
 	}
 
-	writel_relaxed(event, nfc->base + INTR_STS_REG);
+	writel(event, nfc->base + INTR_STS_REG);
 
 	return 0;
 }
@@ -271,11 +273,11 @@ static int anfc_wait_for_rb(struct arasan_nfc *nfc, struct nand_chip *chip,
 
 static void anfc_trigger_op(struct arasan_nfc *nfc, struct anfc_op *nfc_op)
 {
-	writel_relaxed(nfc_op->pkt_reg, nfc->base + PKT_REG);
-	writel_relaxed(nfc_op->addr1_reg, nfc->base + MEM_ADDR1_REG);
-	writel_relaxed(nfc_op->addr2_reg, nfc->base + MEM_ADDR2_REG);
-	writel_relaxed(nfc_op->cmd_reg, nfc->base + CMD_REG);
-	writel_relaxed(nfc_op->prog_reg, nfc->base + PROG_REG);
+	writel(nfc_op->pkt_reg, nfc->base + PKT_REG);
+	writel(nfc_op->addr1_reg, nfc->base + MEM_ADDR1_REG);
+	writel(nfc_op->addr2_reg, nfc->base + MEM_ADDR2_REG);
+	writel(nfc_op->cmd_reg, nfc->base + CMD_REG);
+	writel(nfc_op->prog_reg, nfc->base + PROG_REG);
 }
 
 static int anfc_pkt_len_config(unsigned int len, unsigned int *steps,
@@ -342,8 +344,8 @@ static int anfc_select_target(struct nand_chip *chip, int target)
 	anfc_assert_cs(nfc, nfc_cs_idx);
 
 	/* Update the controller timings and the potential ECC configuration */
-	writel_relaxed(anand->data_iface, nfc->base + DATA_INTERFACE_REG);
-	writel_relaxed(anand->timings, nfc->base + TIMING_REG);
+	writel(anand->data_iface, nfc->base + DATA_INTERFACE_REG);
+	writel(anand->timings, nfc->base + TIMING_REG);
 
 	/* Update clock frequency */
 	if (nfc->cur_clk != anand->clk) {
@@ -426,8 +428,8 @@ static int anfc_read_page_hw_ecc(struct nand_chip *chip, u8 *buf,
 		return -EIO;
 	}
 
-	writel_relaxed(lower_32_bits(dma_addr), nfc->base + DMA_ADDR0_REG);
-	writel_relaxed(upper_32_bits(dma_addr), nfc->base + DMA_ADDR1_REG);
+	writel(lower_32_bits(dma_addr), nfc->base + DMA_ADDR0_REG);
+	writel(upper_32_bits(dma_addr), nfc->base + DMA_ADDR1_REG);
 
 	anfc_trigger_op(nfc, &nfc_op);
 
@@ -539,8 +541,8 @@ static int anfc_write_page_hw_ecc(struct nand_chip *chip, const u8 *buf,
 		.prog_reg = PROG_PGPROG,
 	};
 
-	writel_relaxed(anand->ecc_conf, nfc->base + ECC_CONF_REG);
-	writel_relaxed(ECC_SP_CMD1(NAND_CMD_RNDIN) |
+	writel(anand->ecc_conf, nfc->base + ECC_CONF_REG);
+	writel(ECC_SP_CMD1(NAND_CMD_RNDIN) |
 		       ECC_SP_ADDRS(anand->caddr_cycles),
 		       nfc->base + ECC_SP_REG);
 
@@ -550,8 +552,8 @@ static int anfc_write_page_hw_ecc(struct nand_chip *chip, const u8 *buf,
 		return -EIO;
 	}
 
-	writel_relaxed(lower_32_bits(dma_addr), nfc->base + DMA_ADDR0_REG);
-	writel_relaxed(upper_32_bits(dma_addr), nfc->base + DMA_ADDR1_REG);
+	writel(lower_32_bits(dma_addr), nfc->base + DMA_ADDR0_REG);
+	writel(upper_32_bits(dma_addr), nfc->base + DMA_ADDR1_REG);
 
 	anfc_trigger_op(nfc, &nfc_op);
 	ret = anfc_wait_for_event(nfc, XFER_COMPLETE);
@@ -698,9 +700,11 @@ static int anfc_rw_pio_op(struct arasan_nfc *nfc, struct anfc_op *nfc_op)
 		if (nfc_op->read)
 			ioread32_rep(nfc->base + DATA_PORT_REG, &buf[offset],
 				     dwords);
-		else
+		else {
+			udelay(1000);
 			iowrite32_rep(nfc->base + DATA_PORT_REG, &buf[offset],
 				      dwords);
+		}
 	}
 
 	if (last_len) {
@@ -713,7 +717,7 @@ static int anfc_rw_pio_op(struct arasan_nfc *nfc, struct anfc_op *nfc_op)
 			memcpy(&buf[offset], &remainder, last_len);
 		} else {
 			memcpy(&remainder, &buf[offset], last_len);
-			writel_relaxed(remainder, nfc->base + DATA_PORT_REG);
+			writel(remainder, nfc->base + DATA_PORT_REG);
 		}
 	}
 
@@ -1385,10 +1389,10 @@ static int anfc_chips_init(struct arasan_nfc *nfc)
 static void anfc_reset(struct arasan_nfc *nfc)
 {
 	/* Disable interrupt signals */
-	writel_relaxed(0, nfc->base + INTR_SIG_EN_REG);
+	writel(0, nfc->base + INTR_SIG_EN_REG);
 
 	/* Enable interrupt status */
-	writel_relaxed(EVENT_MASK, nfc->base + INTR_STS_EN_REG);
+	writel(EVENT_MASK, nfc->base + INTR_STS_EN_REG);
 
 	nfc->cur_cs = -1;
 }
@@ -1450,8 +1454,6 @@ static int anfc_probe(struct platform_device *pdev)
 	if (IS_ERR(nfc->base))
 		return PTR_ERR(nfc->base);
 
-	anfc_reset(nfc);
-
 	nfc->controller_clk = devm_clk_get_enabled(&pdev->dev, "controller");
 	if (IS_ERR(nfc->controller_clk))
 		return PTR_ERR(nfc->controller_clk);
@@ -1460,21 +1462,34 @@ static int anfc_probe(struct platform_device *pdev)
 	if (IS_ERR(nfc->bus_clk))
 		return PTR_ERR(nfc->bus_clk);
 
+	nfc->rst = devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
+	if (IS_ERR(nfc->rst))
+		return PTR_ERR(nfc->rst);
+
+	reset_control_deassert(nfc->rst);
+
+	anfc_reset(nfc);
+
 	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret)
-		return ret;
+		goto assert_reset;
 
 	ret = anfc_parse_cs(nfc);
 	if (ret)
-		return ret;
+		goto assert_reset;
 
 	ret = anfc_chips_init(nfc);
 	if (ret)
-		return ret;
+		goto assert_reset;
 
 	platform_set_drvdata(pdev, nfc);
 
 	return 0;
+
+assert_reset:
+	reset_control_assert(nfc->rst);
+
+	return ret;
 }
 
 static void anfc_remove(struct platform_device *pdev)
@@ -1482,6 +1497,7 @@ static void anfc_remove(struct platform_device *pdev)
 	struct arasan_nfc *nfc = platform_get_drvdata(pdev);
 
 	anfc_chips_cleanup(nfc);
+	reset_control_assert(nfc->rst);
 }
 
 static const struct of_device_id anfc_ids[] = {
@@ -1490,6 +1506,9 @@ static const struct of_device_id anfc_ids[] = {
 	},
 	{
 		.compatible = "arasan,nfc-v3p10",
+	},
+	{
+		.compatible = "arasan,nfc-v3p16"
 	},
 	{}
 };
