@@ -330,6 +330,7 @@ static struct snd_soc_dai_driver mfbsp_i2s_dai_driver = {
 
 static const struct snd_soc_component_driver mfbsp_i2s_component_driver = {
 	.name = "mfbsp-i2s",
+	.legacy_dai_naming = 1,
 };
 
 static int mfbsp_i2s_probe(struct platform_device *pdev)
