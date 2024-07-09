@@ -595,7 +595,6 @@ static const struct irq_chip dwapb_irq_chip = {
 	.irq_request_resources	= dwapb_irq_reqres,
 	.irq_release_resources	= dwapb_irq_relres,
 	.flags			= IRQCHIP_IMMUTABLE,
-	GPIOCHIP_IRQ_RESOURCE_HELPERS,
 };
 
 static void dwapb_configure_irqs(struct dwapb_gpio *gpio,
