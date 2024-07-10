@@ -129,6 +129,10 @@
 	};
 };
 
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
 &emac0 {
 	status = "okay";
 	pinctrl-0 = <&emac0_default &emac0_int_cfg>;
