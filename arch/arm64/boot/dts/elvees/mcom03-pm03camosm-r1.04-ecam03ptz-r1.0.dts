@@ -65,7 +65,7 @@
 &gpio0a {
 	gpio-line-names = "ProgGPIO_SW", "IRIS_ZERO_POS",
 		"ZOOM1_ZERO_POS", "ZOOM2_ZERO_POS",
-		"H_ZERO_POS", "V_ZERO_POZ",
+		"H_ZERO_POS", "V_ZERO_POS",
 		"CASE_OPEN_INT", "ALARM_IN1";
 };
 
