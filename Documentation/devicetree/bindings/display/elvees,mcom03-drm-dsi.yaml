@@ -113,8 +113,8 @@ examples:
 
     de_dsi: display-encoder@12c0000 {
         compatible = "elvees,mcom03-drm-dsi";
-        reg = <0 0x12c0000 0 0x10000>,
-              <0 0x1324000 0 0x1000>;
+        reg = <0x12c0000 0x10000>,
+              <0x1324000 0x1000>;
         reg-names = "dsi", "mipi-tx";
         clocks = <&media_ucg1 CLK_MEDIA_UCG1_DISP_PXL>,
             <&media_ucg0 CLK_MEDIA_UCG0_SYSA>,

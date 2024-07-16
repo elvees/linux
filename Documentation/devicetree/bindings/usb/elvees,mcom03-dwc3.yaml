@@ -65,11 +65,8 @@ properties:
 # Required child node:
 
 patternProperties:
-  "^dwc3@[0-9a-f]+$":
-    type: object
-    description:
-      A child node must exist to represent the core DWC3 IP block.
-      The content of the node is defined in dwc3.txt.
+  "^usb@[0-9a-f]+$":
+    $ref: snps,dwc3.yaml#
 
 required:
   - compatible
@@ -112,7 +109,7 @@ examples:
         elvees,urb = <&hsperiph_urb>;
         elvees,ctrl-id = <0>;
 
-        dwc3@10000000 {
+        usb@10000000 {
             compatible = "snps,dwc3";
             reg = <0 0x10000000 0 0x100000>;
             interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
@@ -148,7 +145,7 @@ examples:
           elvees,clk-ref-alt;
           elvees,ctrl-id = <0>;
 
-          dwc3@10000000 {
+          usb@10000000 {
               compatible = "snps,dwc3";
               reg = <0 0x10000000 0 0x100000>;
               interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
