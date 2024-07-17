@@ -5,6 +5,7 @@
 
 menu "Character devices"
 
+source "drivers/char/delcore30m/Kconfig"
 source "drivers/tty/Kconfig"
 
 config DEVMEM
