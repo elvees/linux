@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2021 RnD Center "ELVEES", JSC
+ * Copyright 2021-2024 RnD Center "ELVEES", JSC
  *
  * This is a hardware monitoring driver for Moortec MR75202 PVT controller
  * which is used to configure & control Moortec embedded analog IPs like
@@ -381,7 +381,7 @@ static int mr75202_probe(struct platform_device *pdev)
 	hdev = devm_hwmon_device_register_with_info(&pdev->dev, name,
 						    priv, info, NULL);
 	if (IS_ERR(hdev)) {
-		dev_err(&pdev->dev, "Failed to registed hwmon device\n");
+		dev_err(&pdev->dev, "Failed to register hwmon device\n");
 		ret = PTR_ERR(hdev);
 		goto err_reset_assert;
 	}
@@ -427,4 +427,4 @@ static struct platform_driver mr75202_driver = {
 	.remove = mr75202_remove
 };
 module_platform_driver(mr75202_driver);
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
