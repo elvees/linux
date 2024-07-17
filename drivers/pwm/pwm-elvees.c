@@ -204,12 +204,43 @@ static void elvees_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	}
 }
 
+static int elvees_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
+			    const struct pwm_state *state)
+{
+	int err;
+	bool enabled = pwm->state.enabled;
+
+	if (state->polarity != pwm->state.polarity) {
+		if (enabled) {
+			elvees_pwm_disable(chip, pwm);
+			enabled = false;
+		}
+
+		err = elvees_pwm_set_polarity(chip, pwm, state->polarity);
+		if (err)
+			return err;
+	}
+
+	if (!state->enabled) {
+		if (enabled)
+			elvees_pwm_disable(chip, pwm);
+
+		return 0;
+	}
+
+	err = elvees_pwm_config(pwm->chip, pwm, state->duty_cycle, state->period);
+	if (err)
+		return err;
+
+	if (!enabled)
+		err = elvees_pwm_enable(chip, pwm);
+
+	return err;
+}
+
 static const struct pwm_ops elvees_pwm_ops = {
 	.request	= elvees_pwm_request,
-	.config		= elvees_pwm_config,
-	.set_polarity	= elvees_pwm_set_polarity,
-	.enable		= elvees_pwm_enable,
-	.disable	= elvees_pwm_disable,
+	.apply		= elvees_pwm_apply,
 	.owner		= THIS_MODULE,
 };
 
@@ -283,12 +314,8 @@ static int elvees_pwm_probe(struct platform_device *pdev)
 static int elvees_pwm_remove(struct platform_device *pdev)
 {
 	struct elvees_pwm_chip *pwm_chip = platform_get_drvdata(pdev);
-	int ret;
 
-	ret = pwmchip_remove(&pwm_chip->chip);
-	if (ret < 0)
-		return ret;
-
+	pwmchip_remove(&pwm_chip->chip);
 	clk_disable_unprepare(pwm_chip->clk);
 
 	return 0;
