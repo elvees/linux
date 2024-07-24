@@ -625,21 +625,17 @@ static void dwapb_configure_irqs(struct dwapb_gpio *gpio,
 
 	port->pirq = pirq;
 
-	if (!pp->irq_shared) {
-		girq->num_parents = pirq->nr_irqs;
-		girq->parents = pirq->irq;
-		girq->parent_handler_data = gpio;
-		girq->parent_handler = dwapb_irq_handler;
-	} else {
-		/* This will let us handle the parent IRQ in the driver */
+	/*
+	 * Intel ACPI-based platforms mostly have the DesignWare APB GPIO
+	 * IRQ lane shared between several devices. In that case the parental
+	 * IRQ has to be handled in the shared way so to be properly delivered
+	 * to all the connected devices.
+	 */
+	if (has_acpi_companion(gpio->dev)) {
 		girq->num_parents = 0;
 		girq->parents = NULL;
 		girq->parent_handler = NULL;
 
-		/*
-		 * Request a shared IRQ since where MFD would have devices
-		 * using the same irq pin
-		 */
 		err = devm_request_irq(gpio->dev, pp->irq[0],
 				       dwapb_irq_handler_mfd,
 				       IRQF_SHARED, DWAPB_DRIVER_NAME, gpio);
@@ -647,6 +643,11 @@ static void dwapb_configure_irqs(struct dwapb_gpio *gpio,
 			dev_err(gpio->dev, "error requesting IRQ\n");
 			goto err_kfree_pirq;
 		}
+	} else {
+		girq->num_parents = pirq->nr_irqs;
+		girq->parents = pirq->irq;
+		girq->parent_handler_data = gpio;
+		girq->parent_handler = dwapb_irq_handler;
 	}
 
 	gpio_irq_chip_set_chip(girq, &dwapb_irq_chip);
@@ -777,7 +778,6 @@ static struct dwapb_platform_data *dwapb_gpio_get_pdata(struct device *dev)
 			pp->ngpio = DWAPB_MAX_GPIOS;
 		}
 
-		pp->irq_shared	= false;
 		pp->gpio_base	= -1;
 
 		pp->has_pinctrl = fwnode_property_read_bool(fwnode,
