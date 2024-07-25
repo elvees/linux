@@ -769,11 +769,11 @@ static irqreturn_t mfbsp_can_isr(int irq, void *dev_id)
 
 static const struct can_bittiming_const mfbsp_can_bittiming_const = {
 	.name = KBUILD_MODNAME,
-	.tseg1_min = 4,		/* Time segment 1 = prop_seg + phase_seg1 */
-	.tseg1_max = 40,
-	.tseg2_min = 3,		/* Time segment 2 = phase_seg2 */
-	.tseg2_max = 37,
-	.sjw_max = 3,
+	.tseg1_min = 1,		/* Time segment 1 = prop_seg + phase_seg1 */
+	.tseg1_max = 64,
+	.tseg2_min = 1,		/* Time segment 2 = phase_seg2 */
+	.tseg2_max = 16,
+	.sjw_max = 16,
 	.brp_min = 1,
 	.brp_max = 1024,
 	.brp_inc = 1,
