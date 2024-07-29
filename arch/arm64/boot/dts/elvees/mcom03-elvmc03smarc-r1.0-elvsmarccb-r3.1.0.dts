@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include "mcom03-elvmc03smarc-r1.0-elvsmarccb-r2.10.dts"
+#include "mcom03-elvmc03smarc-r1.0-elvsmarccb-r2.10.3.dts"
 
 / {
 	model = "ELV-MC03-SMARC r1.0, ELV-SMARC-CB r3.1.0";

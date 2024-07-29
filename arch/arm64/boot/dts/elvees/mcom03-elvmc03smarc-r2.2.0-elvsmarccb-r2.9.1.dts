@@ -7,15 +7,15 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-#include "mcom03-elvmc03smarc-r2.2.dtsi"
+#include "mcom03-elvmc03smarc-r2.2.0.dtsi"
 
 / {
-	model = "ELV-MC03-SMARC r2.2, ELV-SMARC-CB r2.9";
-	compatible = "elvees,elvmc03smarc-r2.2-elvsmarccb-r2.9",
+	model = "ELV-MC03-SMARC r2.2.0, ELV-SMARC-CB r2.9.1";
+	compatible = "elvees,elvmc03smarc-r2.2.0-elvsmarccb-r2.9.1",
 		     "elvees,elvmc03smarc-elvsmarccb",
-		     "elvees,elvsmarccb-r2.9",
+		     "elvees,elvsmarccb-r2.9.1",
 		     "elvees,elvsmarccb",
-		     "elvees,elvmc03smarc-r2.2",
+		     "elvees,elvmc03smarc-r2.2.0",
 		     "elvees,elvmc03smarc",
 		     "elvees,mcom03";
 

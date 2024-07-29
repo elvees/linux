@@ -10,10 +10,10 @@
 #include "mcom03-elvmc03smarc-r1.0.dtsi"
 
 / {
-	model = "ELV-MC03-SMARC r1.0, ELV-SMARC-CB r2.10";
-	compatible = "elvees,elvmc03smarc-r1.0-elvsmarccb-r2.10",
+	model = "ELV-MC03-SMARC r1.0, ELV-SMARC-CB r2.10.3";
+	compatible = "elvees,elvmc03smarc-r1.0-elvsmarccb-r2.10.3",
 		     "elvees,elvmc03smarc-elvsmarccb",
-		     "elvees,elvsmarccb-r2.10",
+		     "elvees,elvsmarccb-r2.10.3",
 		     "elvees,elvsmarccb",
 		     "elvees,elvmc03smarc-r1.0",
 		     "elvees,elvmc03smarc",
