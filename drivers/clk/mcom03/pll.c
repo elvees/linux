@@ -27,6 +27,9 @@
 #define PLL_NR GENMASK(30, 27)
 #define PLL_LOCK BIT(31)
 
+#define PLL_RFSLIP BIT(3)
+#define PLL_FBSLIP BIT(4)
+
 #define REG_PLLCFG 0
 #define REG_PLLDIAG 0x4
 
@@ -267,6 +270,49 @@ static int pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	return ret;
 }
 
+static ssize_t _pll_slip_read(struct file *f, char *buffer, size_t len, loff_t *offset,
+			       u32 field)
+{
+	struct mcom03_pll *pll;
+	u32 reg;
+	char slip[2] = "0\n";
+	ssize_t retval;
+
+	pll = f->private_data;
+	if (pll == NULL) {
+		pr_err("Failed to get f->private_data structure\n");
+		return 0;
+	}
+	regmap_read(pll->regmap, pll->offset + REG_PLLDIAG, &reg);
+	slip[0] = (reg & field) ? '1' : '0';
+
+	retval = simple_read_from_buffer(buffer, len, offset, slip,
+					 strlen(slip));
+	return retval;
+}
+
+static ssize_t pll_fbslip_read(struct file *f, char *buffer, size_t len, loff_t *offset)
+{
+	return _pll_slip_read(f, buffer, len, offset, PLL_FBSLIP);
+}
+
+static const struct file_operations pll_fbslip_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = pll_fbslip_read,
+};
+
+static ssize_t pll_rfslip_read(struct file *f, char *buffer, size_t len, loff_t *offset)
+{
+	return _pll_slip_read(f, buffer, len, offset, PLL_RFSLIP);
+}
+
+static const struct file_operations pll_rfslip_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = pll_rfslip_read,
+};
+
 static void pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
 {
 	struct mcom03_pll *pll = container_of(hw, struct mcom03_pll, hw);
@@ -275,6 +321,8 @@ static void pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
 	debugfs_create_u8("nr", 0400, dentry, &pll->nr);
 	debugfs_create_u16("nf", 0400, dentry, &pll->nf);
 	debugfs_create_u8("od", 0400, dentry, &pll->od);
+	debugfs_create_file("fbslip", 0400, dentry, pll, &pll_fbslip_fops);
+	debugfs_create_file("rfslip", 0400, dentry, pll, &pll_rfslip_fops);
 	/* pll->regmap is also present in /sys/kernel/debug/regmap/ */
 }
 
