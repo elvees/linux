@@ -282,7 +282,6 @@ static int qlic_runtime_suspend(struct device *dev)
 {
 	struct qlic_priv *priv = dev_get_drvdata(dev);
 
-	dev_dbg(dev, "%s", __func__);
 	qlic_irq_handler_unset(priv);
 
 	return 0;
@@ -292,7 +291,6 @@ static int qlic_runtime_resume(struct device *dev)
 {
 	struct qlic_priv *priv = dev_get_drvdata(dev);
 
-	dev_dbg(dev, "%s", __func__);
 	if (priv->reset_targets_mask)
 		qlic_hwreset(priv);
 
