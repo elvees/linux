@@ -226,6 +226,7 @@
 	bh1750fvi: light-sensor@5c {
 		compatible = "rohm,bh1750";
 		reg = <0x5c>;
+		label = "light-sensor";
 	};
 
 	vcnl36821s: proximity-sensor@60 {
