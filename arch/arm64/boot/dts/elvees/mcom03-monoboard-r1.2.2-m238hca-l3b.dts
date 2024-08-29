@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2024 RnD Center "ELVEES", JSC
+ */
+
+#include "mcom03-monoboard-r1.2.2.dts"
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	vdd_lvds: regulator_lvds@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lvds-panel-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	vdd_backlight: regulator_backlight@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd-backlight-supply";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+		regulator-always-on;
+	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+
+		pwms = <&timers_pwm 1 2000000 PWM_POLARITY_INVERTED>;
+		power-supply = <&vdd_backlight>;
+		enable-gpios = <&gpio1b 4 GPIO_ACTIVE_HIGH>;
+
+		brightness-levels = <100 90 80 70 60 50 40 30 20 10 1 0>;
+		default-brightness-level = <10>;
+	};
+
+	lvds_panel0: panel {
+		compatible = "innolux,m238hca-l3b", "panel-lvds";
+
+		power-supply = <&vdd_lvds>;
+		backlight = <&backlight>;
+
+		width-mm = <527>;
+		height-mm = <296>;
+
+		data-mapping = "vesa-24";
+
+		panel-timing {
+			clock-frequency = <148500000>;
+			hactive = <1920>;
+			vactive = <1080>;
+			// VESA Display Monitor Timing Standard
+			hfront-porch = <88>;
+			hback-porch = <148>;
+			hsync-len = <44>;
+			vsync-len = <5>;
+			vfront-porch = <4>;
+			vback-porch = <36>;
+
+			de-active = <0>;
+			vsync-active = <0>;
+			hsync-active = <0>;
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				dual-lvds-odd-pixels;
+
+				panel_input_0: endpoint {
+						remote-endpoint = <&lt9211_lvds_out_0>;
+				};
+			};
+			port@1 {
+				reg = <1>;
+				dual-lvds-even-pixels;
+
+				panel_input_1: endpoint {
+						remote-endpoint = <&lt9211_lvds_out_1>;
+				};
+			};
+		};
+	};
+};
+
+&lt9211 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		// rgb
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			lt9211_in: endpoint@2 {
+				reg = <2>;
+				remote-endpoint = <&rgb_out>;
+			};
+		};
+
+		// lvds-out
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			lt9211_lvds_out_0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel_input_0>;
+			};
+		};
+
+		port@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+			lt9211_lvds_out_1: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel_input_1>;
+			};
+		};
+	};
+};
+
+&de_dpi {
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&lt9211_in>;
+			};
+		};
+	};
+};
+
+&timers_pwm {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&timer1_toggle_mux>;
+};

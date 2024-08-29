@@ -1,0 +1,200 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2024 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03-monoboard-r1.1.1.dts"
+
+/ {
+	model = "MCom-03 MONO-BOARD r1.2.2";
+	compatible = "elvees,monoboard-r1.2.2",
+		     "elvees,monoboard",
+		     "elvees,mcom03";
+
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio0d 2 GPIO_ACTIVE_LOW>;
+		timeout-ms = <1000>;
+	};
+
+	beeper {
+		compatible = "pwm-beeper";
+		pwms = <&pwm 1 1000000 0>;
+	};
+
+	hdmi_1v2_vdd_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vdd-1.2v";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	hdmi_3v3_vcc_supply: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vcc-3.3v";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	hdmi_connector: hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
+
+	hdmi_sound: hdmi-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "hdmi-audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "ok";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&lt9611uxc>;
+		};
+	};
+};
+
+&pwm {
+	elvees,output-channel = <0 1 0 0>;
+	elvees,state-on-disable = <1 1 0 0>;
+	pinctrl-0 = <&pwm_oena0_mux &pwm_oenb1_mux>;
+};
+
+&gpio0b {
+	gpio-line-names = "SER1_RX", "SER1_TX", "UART_WAKE#", "nRST_MIPI_LVDS",
+		"EMMc_nRST", "SER3_RX", "SER3_TX", "";
+};
+
+&gpio0c {
+	gpio-line-names = "nRST_ETH0", "nRST_ETH1", "LVDS_nDETECT", "SPIO_SS_IN",
+		"LVDS_ENBKL", "PCIeSATA_nRST", "PCIE_A_nRST", "SDR_h1v8-l1v5";
+};
+
+&gpio0d {
+	gpio-line-names = "GPIO1", "GPIO2", "nBOARD_SHDWN", "GPIO7", "GPIO3",
+		"GPIO4", "GPIO5", "GPIO6";
+};
+
+&gpio1c {
+	gpio-line-names = "DP_CONV_nRST", "OE_MUX", "HDMI_SPLIT_nRST",
+		"SD_BRIDGE_RST", "SDIO_RESET#", "TYPEC_ID", "TYPEC_INT", "nRST_HDMI";
+};
+
+&gpio1d {
+	gpio-line-names = "", "LVDS_BL_PWM", "FAN_PWM", "GPIO10",
+		"", "PC_SPEAKER", "", "GPIO8";
+};
+
+sata: &pcie0 {
+	status = "okay";
+};
+
+&i2c2 {
+	lt9611uxc: hdmi-bridge@2b {
+		status = "okay";
+
+		lontium,dsi-mode-video-burst;
+		lontium,dsi-clock-non-continuous;
+
+		compatible = "lontium,lt9611uxc";
+		reg = <0x2b>;
+
+		vdd-supply = <&hdmi_1v2_vdd_supply>;
+		vcc-supply = <&hdmi_3v3_vcc_supply>;
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&gpio1c 7 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio1a 7 IRQ_TYPE_EDGE_FALLING>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&lt9611uxc_int>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				lt9611_in_p0: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+			port@2 {
+				reg = <2>;
+				lt9611_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
+};
+
+&dp {
+	status = "okay";
+
+	// For fine pixel clocks
+	assigned-clocks = <&media_clocks CLK_MEDIA_PLL1>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_M>;
+	assigned-clock-rates = <2376000000 594000000 297000000>;
+};
+
+&de_dsi {
+	status = "okay";
+
+	dsi-min-clock-frequency = <275000000>;
+
+	ports {
+		port@1 {
+			reg = <1>;
+			dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in_p0>;
+			};
+		};
+	};
+};
+
+&lsperiph1_pinctrl {
+	lt9611uxc_int: lt9611uxc-int {
+		pins = "GPIOA_7";
+		input-enable;
+	};
+};
+
+&i2s0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	// GPIO1_B4(I2S0_SDIO) is used by LVDS_BL_nEN
+	pinctrl-0 = <&i2s0_default_cfg &i2s0_mux_sdo0>;
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+
+	reset-gpio = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
+};
+
+&i2c3 {
+	status = "okay";
+
+	// must be safe for unknown devices
+	clock-frequency = <100000>;
+};
