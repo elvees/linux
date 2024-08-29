@@ -22,6 +22,7 @@
 	aliases {
 		i2c5 = &i2c_cam0;
 		i2c6 = &i2c_cam1;
+		i2c7 = &i2c_lcd;
 	};
 
 	elvsmarccb-leds {
