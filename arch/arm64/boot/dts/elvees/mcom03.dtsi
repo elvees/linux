@@ -228,7 +228,10 @@
 			reg = <0 0x1f050000 0 0x1000>;
 			clocks = <&service_clocks CLK_SERVICE_UCG0_PVTCTR>;
 			moortec,name = "mcom03";
-			moortec,labels = "cpu", "sdr", "media", "service";
+			moortec,temp-labels = "cpu-temp", "sdr-temp",
+					      "media-temp", "service-temp";
+			moortec,volt-labels = "cpu-volt", "sdr-volt",
+					      "media-volt", "service-volt";
 			#thermal-sensor-cells = <1>;
 		};
 
