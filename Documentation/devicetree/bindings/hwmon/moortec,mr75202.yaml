@@ -35,10 +35,15 @@ properties:
     description: Name of hardware monitoring device. If omitted, "mr75202" is
       used.
 
-  moortec,labels:
+  moortec,temp-labels:
     $ref: /schemas/types.yaml#/definitions/string-array
-    description: Channel labels proposed by driver. If omitted default labels
-      are used by hwmon subsystem.
+    description: Channel labels for temperature sensors proposed by driver. If omitted default
+      labels are used by hwmon subsystem.
+
+  moortec,volt-labels:
+    $ref: /schemas/types.yaml#/definitions/string-array
+    description: Channel labels for voltage monitors proposed by driver. If omitted default
+      labels are used by hwmon subsystem.
 
 required:
   - compatible
@@ -55,7 +60,8 @@ examples:
         reg = <0x1f050000 0x1000>;
         clocks = <&ucg0 1>;
         moortec,name = "internal";
-        moortec,labels = "north", "east", "south", "west";
+        moortec,temp-labels = "north", "east", "south", "west";
+        moortec,volt-labels = "vcc", "vcca";
         resets = <&urg0 1>;
         #thermal-sensor-cells = <1>;
     };
