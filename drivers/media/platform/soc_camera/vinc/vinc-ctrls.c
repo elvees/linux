@@ -1825,11 +1825,25 @@ int vinc_create_controls(struct v4l2_ctrl_handler *hdl,
 
 	if (v4l2_ctrl_find(sd->ctrl_handler, V4L2_CID_EXPOSURE_AUTO) == NULL)
 		stream->cluster.exp.sensor_ae->flags |= V4L2_CTRL_FLAG_DISABLED;
+	else {
+		stream->cluster.exp.ae->cur.val = V4L2_EXPOSURE_MANUAL;
+		stream->cluster.exp.sensor_ae->cur.val = 1;
+	}
+
 	if (v4l2_ctrl_find(sd->ctrl_handler, V4L2_CID_AUTOGAIN) == NULL)
 		stream->cluster.exp.sensor_ag->flags |= V4L2_CTRL_FLAG_DISABLED;
+	else {
+		stream->cluster.exp.ae->cur.val = V4L2_EXPOSURE_MANUAL;
+		stream->cluster.exp.sensor_ag->cur.val = 1;
+	}
+
 	if (v4l2_ctrl_find(sd->ctrl_handler,
 			   V4L2_CID_AUTO_WHITE_BALANCE) == NULL)
 		stream->sensor_awb->flags |= V4L2_CTRL_FLAG_DISABLED;
+	else {
+		stream->cluster.cc.awb->cur.val = 0;
+		stream->sensor_awb->cur.val = 1;
+	}
 
 	stream->sensor_name = v4l2_ctrl_find(hdl, V4L2_CID_SENSOR_NAME);
 	strcpy(stream->sensor_name->p_cur.p_char, sd->name);

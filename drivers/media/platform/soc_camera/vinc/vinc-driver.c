@@ -784,6 +784,11 @@ static int vinc_set_fmt(struct soc_camera_device *icd, struct v4l2_format *f)
 		return -EINVAL;
 	}
 
+	if (stream->input_format == YCbCr) {
+		stream->cluster.exp.ae->flags |= V4L2_CTRL_FLAG_DISABLED;
+		stream->cluster.cc.awb->flags |= V4L2_CTRL_FLAG_DISABLED;
+	}
+
 	offset_x = (mbus_fmt->width - pix->width) / 2;
 	offset_y = (mbus_fmt->height - pix->height) / 2;
 
