@@ -114,3 +114,14 @@
 		output-high;
 	};
 };
+
+/*
+ * This EEPROM is connected to I2C_LCD(XP5) connector for testing purposes and
+ * is not part of this board.
+ */
+&i2c_lcd {
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
