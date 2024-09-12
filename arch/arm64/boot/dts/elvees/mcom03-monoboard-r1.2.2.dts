@@ -65,6 +65,51 @@
 		};
 	};
 
+	/* this is "G2" oscillator */
+	audio_mclk: audio_mclk {
+		status = "okay";
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+	};
+
+	monoboard_asound {
+		status = "okay";
+
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "analog-audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,widgets =
+			"Microphone", "Mic Jack",
+			"Line", "Line In Jack",
+			"Speaker", "Speaker",
+			"Headphone", "Headphone Jack";
+		simple-audio-card,routing =
+			"Speaker", "SPK_LP",
+			"Speaker", "SPK_LN",
+			"Speaker", "SPK_RP",
+			"Speaker", "SPK_RN",
+			"Headphone Jack", "HP_L",
+			"Headphone Jack", "HP_R",
+			"LINPUT3", "Line In Jack",
+			"RINPUT3", "Line In Jack",
+			"LINPUT1", "Mic Jack",
+			"RINPUT1", "Mic Jack",
+			// Mic bias routing
+			"Mic Jack", "MICB",
+			"Mic Jack", "MICB";
+
+		simple-audio-card,cpu {
+			sound-dai = <&mfbsp0_i2s>;
+		};
+
+		dailink1_master: simple-audio-card,codec {
+			sound-dai = <&wm8960>;
+		};
+	};
+
 	hdmi_sound: hdmi-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "hdmi-audio";
@@ -118,6 +163,19 @@ sata: &pcie0 {
 	status = "okay";
 };
 
+&i2c_gp {
+	wm8960: codec@1a {
+		status = "okay";
+
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		#sound-dai-cells = <0>;
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		wlf,shared-lrclk;
+	};
+};
+
 &i2c2 {
 	lt9611uxc: hdmi-bridge@2b {
 		status = "okay";
@@ -155,6 +213,10 @@ sata: &pcie0 {
 			};
 		};
 	};
+};
+
+&mfbsp0_i2s {
+	status = "okay";
 };
 
 &dp {
