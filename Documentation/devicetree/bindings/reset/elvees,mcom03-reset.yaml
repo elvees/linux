@@ -27,6 +27,7 @@ properties:
   elvees,subsystem:
     description: Subsystem enum
     $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [ 0, 1, 2, 3, 4, 5, 6, 7 ]
 
   "#reset-cells":
     const: 1
