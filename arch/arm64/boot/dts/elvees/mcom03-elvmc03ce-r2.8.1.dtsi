@@ -1,0 +1,323 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2024 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/leds/common.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "ELV-MC03-CE r2.8.1";
+	compatible = "elvees,elvmc03ce-r2.8.1",
+		     "elvees,elvmc03ce",
+		     "elvees,mcom03";
+
+	elvmc03ce-leds {
+		compatible = "gpio-leds";
+
+		rgb-red {
+			gpios = <&gpio1d 0 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_RED>;
+			default-state = "off";
+		};
+
+		rgb-green {
+			gpios = <&gpio1d 1 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_GREEN>;
+			default-state = "off";
+		};
+
+		rgb-blue {
+			gpios = <&gpio1d 5 GPIO_ACTIVE_LOW>;
+			color = <LED_COLOR_ID_BLUE>;
+			default-state = "off";
+		};
+
+		user-led1 {
+			gpios = <&gpio1c 3 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
+
+		user-led2 {
+			gpios = <&gpio1c 4 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	hdmi_1v2_vdd_supply: regulator@01 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vdd-1.2v";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	hdmi_3v3_vcc_supply: regulator@02 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vcc-3.3v";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	lt9211_1v8: regulator@03 {
+		compatible = "regulator-fixed";
+		regulator-name = "rgb-lvds-vcc-1.8v";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	hdmi_sound: hdmi-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "hdmi-audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		simple-audio-card,continuous-clock;
+		status = "disabled";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&lt9611uxc>;
+		};
+	};
+};
+
+&gpio0a {
+	gpio-line-names = "I2C0_SMBALERT", "nPCIE_WAKE", "UART3_CTS", "INT_HDMI",
+		"INT_ETH", "RTC_INT", "INT_LVDS", "UART3_RTS";
+};
+
+&gpio0b {
+	gpio-line-names = "UART3_RX", "UART3_TX", "SLEEP#", "nPWRBTN",
+		"GPIO1", "TPM_PP", "LVDS_BLEN", "SDR_h1v8-l1v5";
+};
+
+&gpio0c {
+	gpio-line-names = "GPI0", "GPI3", "LVDS_VDD_EN", "GPO1",
+		"HDMI_nRST", "LID#", "LVDS_nRST", "RST_ETH#";
+};
+
+&gpio0d {
+	gpio-line-names = "SUS_STAT#", "BATLOW#", "SUS_S4#", "I2C0_SCL",
+		"I2C0_SDA", "GPI2", "SUS_S3#", "SUS_S5#";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C_CK", "I2C_DAT", "I2C2_SCL", "I2C2_SDA",
+		"I2C3_SCL", "I2C3_SDA", "WAKE1#", "FAN_TACHINp";
+};
+
+&gpio1b {
+	gpio-line-names = "I2S_CLK", "I2S_WS", "I2S_SDO", "HDA_RST#",
+		"", "USB_HUB_RST#", "GPIO2", "GPIO0";
+
+	reset-usb-vl817-hub-hog {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&gpio1c {
+	gpio-line-names = "SPI_SCK", "SPI_MOSI", "SPI_MISO", "nUSER_LED1",
+		"nUSER_LED2", "SPI_CS#", "GPI1", "SATA_PERST";
+};
+
+&gpio1d {
+	gpio-line-names = "nLED-R", "nLED-G", "LVDS_BLT_CTRL", "SPKR",
+		"FAN_PWMOUTp", "nLED-B", "THRM#", "THRMTRIP#";
+};
+
+/* Connected to eMMC */
+&sdhci0 {
+	status = "okay";
+
+	non-removable;
+	bus-width = <8>;
+
+	vqmmc-supply = <&sdhci0_supply>;
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: w25q128@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	bl5372: rtc@32 {
+		compatible = "ricoh,rs5c372a";
+		reg = <0x32>;
+	};
+
+	tmp112_0: temperature-sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+
+	bl24c32a: eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+
+	lt9611uxc: hdmi-bridge@2b {
+		status = "disabled";
+
+		lontium,dsi-mode-video-burst;
+		lontium,dsi-clock-non-continuous;
+
+		compatible = "lontium,lt9611uxc";
+		reg = <0x2b>;
+
+		vdd-supply = <&hdmi_1v2_vdd_supply>;
+		vcc-supply = <&hdmi_3v3_vcc_supply>;
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&gpio0c 4 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio0a 3 IRQ_TYPE_EDGE_FALLING>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in_p0: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
+
+	lt9211: rgb-lvds-bridge@2d {
+		compatible = "lontium,lt9211";
+		reg = <0x2d>;
+		status = "disabled";
+
+		reset-gpios = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio0a 6 IRQ_TYPE_EDGE_FALLING>;
+
+		vccio-supply = <&lt9211_1v8>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			// rgb
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+
+				lt9211_in: endpoint@2 {
+					reg = <2>;
+					remote-endpoint = <&rgb_out>;
+				};
+			};
+		};
+	};
+};
+
+&i2c3 {
+	status = "disabled";
+	/* On MCom-03 video sensors are handled by userspace drivers and are
+	 * not described in DeviceTree. Limit clock-frequency to 100 kHz because
+	 * this is maximum frequency for many sensors (for example OV5647). */
+	clock-frequency = <100000>;
+
+	i2c-switch@70 {
+		compatible = "nxp,pca9546";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		i2c_cam0: i2c3@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		lvds_did: i2c3@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+	};
+};
+
+&de_dsi {
+	dsi-min-clock-frequency = <275000000>;
+	status = "disabled";
+
+	ports {
+		port@1 {
+			reg = <1>;
+			dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in_p0>;
+			};
+		};
+	};
+};
+
+&dp {
+	assigned-clocks = <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_M>;
+	assigned-clock-rates = <594000000 297000000>;
+};
+
+&de_dpi {
+	ports {
+		port@1 {
+			reg = <1>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&lt9211_in>;
+			};
+		};
+	};
+};
+
+/* PCIe0 is connected to SATA controller. */
+sata: &pcie0 { };
+
+&emac0 {
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0c 7 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		compatible = "ethernet-phy-ieee802.3-c22";
+		reg = <0x0>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1950>;
+		tx-internal-delay-ps = <1350>;
+	};
+};
