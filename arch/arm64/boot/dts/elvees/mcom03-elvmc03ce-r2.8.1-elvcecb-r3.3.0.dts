@@ -1,0 +1,310 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2024 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
+#include <dt-bindings/thermal/thermal.h>
+
+#include "mcom03-elvmc03ce-r2.8.1.dtsi"
+
+/ {
+	model = "ELV-MC03-CE r2.8.1, ELV-CE-CB r3.3.0";
+	compatible = "elvees,elvmc03ce-r2.8.1-elvcecb-r3.3.0",
+		     "elvees,elvmc03ce-elvcecb",
+		     "elvees,elvcecb-r3.3.0",
+		     "elvees,elvcecb",
+		     "elvees,elvmc03ce-r2.8.1",
+		     "elvees,elvmc03ce",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	elvcecb-leds {
+		compatible = "gpio-leds";
+
+		vd51 {
+			gpios = <&gpio0d 6 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		vd52 {
+			gpios = <&gpio1d 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		vd53 {
+			gpios = <&gpio0d 2 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		vd57 {
+			gpios = <&gpio0d 0 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	elvcecb-keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+		autorepeat;
+
+		power {
+			gpios = <&gpio0b 3 GPIO_ACTIVE_LOW>;
+			label = "POWER";
+			linux,code = <KEY_POWER>;
+		};
+
+		sleep {
+			gpios = <&gpio0b 2 GPIO_ACTIVE_LOW>;
+			label = "SLEEP";
+			linux,code = <KEY_SLEEP>;
+		};
+
+		lid {
+			gpios = <&gpio0c 5 GPIO_ACTIVE_LOW>;
+			label = "LID";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+		};
+	};
+
+	/* "G1" oscillator */
+	audio_mclk: audio_mclk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+	};
+
+	/* TRS (3.5mm jack) connected to ES8327 codec.
+	   ES8327 connected to MCom-03 MFBSP0 I2S as I2S slave.
+	   */
+	analog-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "analog-audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,continuous-clock;
+
+		dailink1_master: simple-audio-card,cpu {
+			sound-dai = <&mfbsp0_i2s>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&es8327>;
+		};
+	};
+
+	hdmi_connector: hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
+
+	fancontrol: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&pwm 1 40000 0>;
+		#cooling-cells = <2>;
+		cooling-levels = <0 102 180 230>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			thermal-sensors = <&pvt 0>;
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			trips {
+				cpu_alert0: cpu-alert-0 {
+					temperature = <50000>;
+					hysteresis = <1000>;
+					type = "active";
+				};
+			};
+			cooling_maps: cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device = <&fancontrol
+							  THERMAL_NO_LIMIT
+							  THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+};
+
+/* Connected to PCIe bridge */
+&pcie1 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+
+	tmp112_1: temperature-sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	i2c-mux@70 {
+		compatible = "nxp,pca9546";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		i2c_pm: i2c@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			eeprom@57 {
+				compatible = "microchip,24c32", "atmel,24c32";
+				reg = <0x57>;
+			};
+		};
+
+		i2c@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		i2c@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			es8327: codec@18 {
+				compatible = "everest,es8326";
+				reg = <0x18>;
+
+				interrupt-parent = <&gpio0a>;
+				interrupts = <7 IRQ_TYPE_EDGE_RISING>;
+
+				clocks = <&audio_mclk>;
+				clock-names = "mclk";
+				#sound-dai-cells = <0>;
+				everest,mic1-src = [22];
+				everest,mic2-src = [44];
+				everest,jack-pol = [0e];
+				everest,interrupt-src = [08];
+				everest,interrupt-clk = [45];
+			};
+		};
+	};
+};
+
+&qspi1 {
+	status = "okay";
+
+	qspi1_flash0: spi-nor@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* Highest frequency for IC installed into socket */
+		spi-max-frequency = <50000000>;
+		m25p,fast-read;
+	};
+
+	qspi1_flash1: spi-nor@1 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x1>;
+		/* Highest frequency for IC installed into socket */
+		spi-max-frequency = <50000000>;
+		m25p,fast-read;
+	};
+};
+
+&i2s0 {
+	status = "okay";
+};
+
+/* Connected to USB 3.0 on-board connector */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 2.0 on-board connectors and USB 3.0 hub */
+&usb1 {
+	status = "okay";
+};
+
+&lt9611uxc {
+	status = "okay";
+
+	ports {
+		port@2 {
+			reg = <2>;
+			lt9611_out: endpoint {
+				remote-endpoint = <&hdmi_connector_in>;
+			};
+		};
+	};
+};
+
+&dp {
+	status = "okay";
+};
+
+&de_dsi {
+	status = "okay";
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+&qlic0 {
+	status = "okay";
+};
+
+&emac0 {
+	status = "okay";
+};
+
+&pwm {
+	status = "okay";
+	elvees,output-channel = <0 0 0 0>;
+	elvees,state-on-disable = <0 1 0 0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_oena1_mux>;
+};
