@@ -183,7 +183,7 @@
 		/* This is the highest frequency at which all commands are
 		 * supported by the flash device.
 		 */
-		spi-max-frequency = <133000000>;
+		spi-max-frequency = <66000000>;
 		m25p,fast-read;
 	};
 };
