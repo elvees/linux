@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2024 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/input/linux-event-codes.h>
+
+#include "mcom03-elvmc03q7-r2.8.1-elvq7cb-r1.0.0.dts"
+
+/ {
+	model = "ELV-MC03-Q7 r2.8.1, ELV-Q7-CB r3.3.0";
+	compatible = "elvees,elvmc03q7-r2.8.1-elvq7cb-r3.3.0",
+		     "elvees,elvmc03q7-elvq7cb",
+		     "elvees,elvq7cb-r3.3.0",
+		     "elvees,elvq7cb",
+		     "elvees,elvmc03q7-r2.8.1",
+		     "elvees,elvmc03q7",
+		     "elvees,mcom03";
+
+	/delete-node/ elvq7cb-leds;
+
+	elvq7cb-leds {
+		compatible = "gpio-leds";
+
+		vd20 {
+			gpios = <&gpio0d 6 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		vd23 {
+			gpios = <&gpio0c 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	elvq7cb-keys {
+		/delete-node/ btn0;
+		/delete-node/ btn1;
+		/delete-node/ btn2;
+		/delete-node/ btn3;
+
+		power {
+			gpios = <&gpio0d 0 GPIO_ACTIVE_LOW>;
+			label = "POWER";
+			linux,code = <KEY_POWER>;
+		};
+	};
+
+	/delete-node/ vdda-codec;
+
+};
+
+/* TRS (3.5mm jack) connected to ES8327 codec.
+   ES8327 connected to MCom-03 MFBSP0-I2S as I2S slave.
+ */
+&elvq7cb_i2s_asound {
+	/delete-property/ simple-audio-card,routing;
+
+	simple-audio-card,codec {
+		sound-dai = <&es8327>;
+	};
+};
+
+&i2c0 {
+	/delete-node/ hwmon@49;
+	/delete-node/ hwmon@4a;
+	/delete-node/ gpio-expander@20;
+
+	tmp112_1: temperature-sensor@48 {
+		compatible = "ti,tmp112";
+		reg = <0x48>;
+	};
+};
+
+&i2c1 {
+	/delete-node/ codec@a;
+	/delete-node/ gpio-expander@20;
+
+	es8327: codec@18 {
+		compatible = "everest,es8326";
+		reg = <0x18>;
+
+		interrupt-parent = <&gpio0a>;
+		interrupts = <4 IRQ_TYPE_EDGE_RISING>;
+
+		clocks = <&audio_mclk>;
+		clock-names = "mclk";
+		#sound-dai-cells = <0>;
+		everest,mic1-src = [22];
+		everest,mic2-src = [44];
+		everest,jack-pol = [0e];
+		everest,interrupt-src = [08];
+		everest,interrupt-clk = [45];
+	};
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+&qspi1 {
+	/delete-node/ m25p32@0;
+	/delete-node/ m25p32@1;
+
+	flash1: w25q128@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <33000000>;
+		m25p,fast-read;
+	};
+
+	flash2: w25q128@1 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x1>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
