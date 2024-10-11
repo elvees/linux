@@ -159,7 +159,7 @@
 	/* TRS (3.5mm jack) connected to SGTL5000 codec.
 	   SGTL5000 connected to MCom-03 I2S0 as I2S slave.
 	   */
-	elvq7cb_i2s_asound {
+	elvq7cb_i2s_asound: sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "analog-audio";
 		simple-audio-card,format = "i2s";
