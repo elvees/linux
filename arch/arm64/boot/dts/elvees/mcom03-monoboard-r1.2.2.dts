@@ -4,6 +4,7 @@
 /dts-v1/;
 
 #include "mcom03-monoboard-r1.1.1.dts"
+#include <dt-bindings/input/input.h>
 
 / {
 	model = "MCom-03 MONO-BOARD r1.2.2";
@@ -20,6 +21,20 @@
 	beeper {
 		compatible = "pwm-beeper";
 		pwms = <&pwm 1 1000000 0>;
+	};
+
+	monoboard-keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+
+		pinctrl-0 = <&mirr_sens_gpio>;
+		pinctrl-names = "default";
+
+		mirr-sense {
+			gpios = <&gpio1b 3 GPIO_ACTIVE_HIGH>;
+			label = "MIRR_SENSE";
+			linux,code = <BTN_TRIGGER_HAPPY>;
+		};
 	};
 
 	hdmi_1v2_vdd_supply: regulator-hdmi-1v2 {
@@ -170,6 +185,11 @@ sata: &pcie0 {
 &lsperiph1_pinctrl {
 	lt9611uxc_int: lt9611uxc-int {
 		pins = "GPIOA_7";
+		input-enable;
+	};
+
+	mirr_sens_gpio: mirr-sens-gpio {
+		pins = "GPIOB_3";
 		input-enable;
 	};
 };
