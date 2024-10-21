@@ -78,7 +78,7 @@
 
 	sound: sound {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "Salute-EL24PM";
+		simple-audio-card,name = "analog-audio";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&dailink0_master>;
 		simple-audio-card,frame-master = <&dailink0_master>;

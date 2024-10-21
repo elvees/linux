@@ -71,7 +71,7 @@
 
 	sound_hdmi: sound-hdmi {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "Salute-EL24OM1-HDMI";
+		simple-audio-card,name = "hdmi-audio";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&dailink1_master>;
 		simple-audio-card,frame-master = <&dailink1_master>;
