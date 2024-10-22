@@ -1222,7 +1222,28 @@
 			elvees,urb = <&hsperiph_urb>;
 			reg = <0 0x10410000 0 0x80>, <0 0x10420000 0 0x80>,
 			      <0 0x10430000 0 0x80>, <0 0x10440000 0 0x80>;
-			assigned-clocks = <&hsperiph_clocks CLK_HSP_PLL0>,
+
+			/* After SoC reset REFMUX2 and REFMUX3 uses CLK125 as parent
+			 * clock. But most boards do not have a signal on CLK125 pad.
+			 * To switch REFMUX source to PLL we need to specify
+			 * assigned-clocks/assigned-clock-parents properties. Because
+			 * assigned-clocks is already exists to setup rates, we also add
+			 * REFMUXes records to assigned-clocks and assigned-clock-rates.
+			 * In assigned-clock-rates for REFMUXes set zero to ignore
+			 * this record for setting rate.
+			 * To switch parent back to CLK125 assigned-clocks and
+			 * assigned-clock-parents properties can be used in another
+			 * nodes.
+			 * For example, if Ethernet controllers require 125 MHz on
+			 * UCG2 from CLK125 pad then add to emac0 and emac1 nodes:
+			 *   assigned-clocks = <&clock CLK_HSP_REFMUX2>;
+			 *   assigned-clock-parents = <&hsperiph_clk125>;
+			 */
+			assigned-clocks = <&hsperiph_clocks CLK_HSP_REFMUX0>,
+					  <&hsperiph_clocks CLK_HSP_REFMUX1>,
+					  <&hsperiph_clocks CLK_HSP_REFMUX2>,
+					  <&hsperiph_clocks CLK_HSP_REFMUX3>,
+					  <&hsperiph_clocks CLK_HSP_PLL0>,
 					  <&hsperiph_clocks CLK_HSP_UCG0_SYS>,
 					  <&hsperiph_clocks CLK_HSP_UCG0_DMA>,
 					  <&hsperiph_clocks CLK_HSP_UCG0_CTR>,
@@ -1241,7 +1262,15 @@
 					  <&hsperiph_clocks CLK_HSP_UCG1_NFC_FLASH>,
 					  <&hsperiph_clocks CLK_HSP_UCG3_USB0_SUSPEND>,
 					  <&hsperiph_clocks CLK_HSP_UCG3_USB1_SUSPEND>;
-			assigned-clock-rates = <1125000000
+			assigned-clock-parents = <&hsperiph_clocks CLK_HSP_PLL0>,
+						 <&hsperiph_clocks CLK_HSP_PLL0>,
+						 <&hsperiph_clocks CLK_HSP_PLL0>,
+						 <&hsperiph_clocks CLK_HSP_PLL0>;
+			assigned-clock-rates = <0
+						0
+						0
+						0
+						1125000000
 						225000000
 						225000000
 						93750000
