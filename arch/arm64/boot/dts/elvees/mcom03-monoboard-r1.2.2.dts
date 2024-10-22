@@ -53,6 +53,15 @@
 		regulator-always-on;
 	};
 
+	usb_type_c_supply: regulator-usb-c-vbus {
+		compatible = "regulator-fixed";
+		regulator-name = "usb-type-c-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpios = <&gpio1c 5 GPIO_ACTIVE_HIGH>; // Use TYPEC_ID
+		enable-active-high;
+	};
+
 	hdmi_connector: hdmi-connector {
 		compatible = "hdmi-connector";
 		label = "hdmi";
@@ -116,6 +125,26 @@
 
 sata: &pcie0 {
 	status = "okay";
+};
+
+&i2c_gp {
+	tcpc@60 {
+		compatible = "willsemi,wusb3801";
+		reg = <0x60>;
+
+		interrupt-parent = <&gpio0a>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			vbus-supply = <&usb_type_c_supply>;
+			power-role = "source";
+			data-role = "host";
+			typec-power-opmode = "default";
+			pd-disable;
+		};
+	};
 };
 
 &i2c2 {
@@ -217,4 +246,9 @@ sata: &pcie0 {
 
 	// must be safe for unknown devices
 	clock-frequency = <100000>;
+};
+
+/* Interrupt line now in use by WUSB3801, LT9211 was not using it anyways */
+&lt9211 {
+	/delete-property/ interrupts-extended;
 };
