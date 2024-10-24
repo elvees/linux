@@ -67,6 +67,14 @@
 		regulator-always-on;
 	};
 
+	lt9211_1v8: regulator@03 {
+		compatible = "regulator-fixed";
+		regulator-name = "rgb-lvds-vcc-1.8v";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
 	hdmi_sound: hdmi-sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "hdmi-audio";
@@ -237,6 +245,34 @@
 		};
 	};
 
+	lt9211: rgb-lvds-bridge@2d {
+		compatible = "lontium,lt9211";
+		reg = <0x2d>;
+		status = "disabled";
+
+		reset-gpios = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio0a 6 IRQ_TYPE_EDGE_FALLING>;
+
+		vccio-supply = <&lt9211_1v8>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+
+				lt9211_in: endpoint@2 {
+					reg = <2>;
+					remote-endpoint = <&rgb_out>;
+				};
+			};
+		};
+	};
+
+
 	i2c-switch@70 {
 		compatible = "ti,tca9546", "nxp,pca9546";
 		#address-cells = <1>;
@@ -286,4 +322,23 @@ sata: &pcie0 {
 
 &pcie1 {
 	reset-gpio = <&gpio1c 5 GPIO_ACTIVE_HIGH>;
+};
+
+&dp {
+	assigned-clocks = <&media_clocks CLK_MEDIA_PLL1>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_M>;
+	assigned-clock-rates = <2376000000 594000000 297000000>;
+};
+
+&de_dpi {
+	ports {
+		port@1 {
+			reg = <1>;
+
+			rgb_out: endpoint {
+				remote-endpoint = <&lt9211_in>;
+			};
+		};
+	};
 };
