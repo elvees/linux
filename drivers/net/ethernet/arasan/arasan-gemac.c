@@ -656,6 +656,14 @@ static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd,
 	struct sk_buff *skb;
 	u16 packet_length = (status & 0x3fff);
 
+	/* Packet length can not be less than 4 bytes, because all packets
+	 * contain 4 byte of CRC at end. If somehow length of packet will be
+	 * less than 4 bytes then after decrement CRC, length will overflow and
+	 * skb_put() will cause a kernel panic.
+	 */
+	if (WARN_ON(packet_length < 4))
+		packet_length = 4;
+
 	/* remove crc from packet length */
 	packet_length -= 4;
 
