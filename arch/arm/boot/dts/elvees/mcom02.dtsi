@@ -40,6 +40,8 @@
 
 	aliases {
 		ethernet0 = &ethernet;
+		mmc0 = &sd0;
+		mmc1 = &sd1;
 	};
 
 	cpus {
