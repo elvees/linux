@@ -127,3 +127,16 @@
 		m25p,fast-read;
 	};
 };
+
+/* Connected to XP14 socket through CAN transceiver */
+&mfbsp0_can {
+	status = "okay";
+};
+
+/* Connects to XP15(RS-232) or XP16(RS-485) chosen by SA7 switch */
+ser0: &uart3 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
+};
