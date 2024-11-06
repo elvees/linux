@@ -342,3 +342,12 @@ sata: &pcie0 {
 		};
 	};
 };
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
+
