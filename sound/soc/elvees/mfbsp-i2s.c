@@ -82,11 +82,11 @@ static int mfbsp_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	}
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBM_CFM:
+	case SND_SOC_DAIFMT_BC_FC:
 		mfbsp->bclk_provider = false;
 		mfbsp->frame_provider = false;
 		break;
-	case SND_SOC_DAIFMT_CBS_CFS:
+	case SND_SOC_DAIFMT_BP_FP:
 		dir_reg |= MFBSP_I2S_DIR_TCLK | MFBSP_I2S_DIR_TCS;
 		mfbsp->bclk_provider = true;
 		mfbsp->frame_provider = true;
