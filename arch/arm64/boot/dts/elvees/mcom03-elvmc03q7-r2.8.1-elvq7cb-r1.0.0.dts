@@ -90,6 +90,9 @@
 		poll-interval = <100>;
 		autorepeat;
 
+		pinctrl-0 = <&wake_button_default>;
+		pinctrl-names = "default";
+
 		btn0 {
 			gpios = <&pca9675_1 0 GPIO_ACTIVE_LOW>;
 			label = "BTN0";
@@ -114,17 +117,29 @@
 			linux,code = <BTN_TRIGGER_HAPPY4>;
 		};
 
+		lid {
+			gpios = <&gpio0a 1 GPIO_ACTIVE_LOW>;
+			label = "LID";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+		};
+
 		sleep {
-			gpios = <&gpio0c 3 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0a 3 GPIO_ACTIVE_LOW>;
 			label = "SLEEP";
 			linux,code = <KEY_SLEEP>;
 		};
 
-		lid {
-			gpios = <&gpio0c 5 GPIO_ACTIVE_LOW>;
-			label = "LID";
-			linux,input-type = <EV_SW>;
-			linux,code = <SW_LID>;
+		power {
+			gpios = <&gpio0d 0 GPIO_ACTIVE_LOW>;
+			label = "POWER";
+			linux,code = <KEY_POWER>;
+		};
+
+		wake {
+			gpios = <&gpio1a 6 GPIO_ACTIVE_LOW>;
+			label = "WAKE";
+			linux,code = <KEY_WAKEUP>;
 		};
 	};
 
@@ -185,6 +200,13 @@
 		cooling-levels = <0 102 180 230>;
 		interrupt-parent = <&gpio0a>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
+&lsperiph1_pinctrl {
+	wake_button_default: wake-button-cfg {
+		pins = "GPIOA_6";
+		input-enable;
 	};
 };
 
