@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2024 RnD Center "ELVEES", JSC
+
+#include "mcom03-elvmc03ce-r2.8.1-elvcecb-r3.3.0.dts"
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	vdd_lcd: regulator_lcd@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd-panel-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	vdd_backlight: regulator_backlight@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd-backlight-supply";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <12000000>;
+		regulator-always-on;
+	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+
+		pwms = <&pwm 0 2000000 0>; // LVDS_BLT_CTRL
+		power-supply = <&vdd_backlight>;
+		enable-gpios = <&gpio0b 6 GPIO_ACTIVE_HIGH>; // LVDS_BLEN signal
+
+		brightness-levels = <0 10 20 30 40 50 60 70 80 90 99 100>;
+		default-brightness-level = <10>;
+	};
+
+	lvds_panel0: panel {
+		compatible = "b156xw02-v0", "panel-lvds";
+
+		power-supply = <&vdd_lcd>;
+
+		enable-gpios = <&gpio0c 2 GPIO_ACTIVE_HIGH>; // LVDS_VDD_EN
+		backlight = <&backlight>;
+
+		width-mm = <344>;
+		height-mm = <194>;
+
+		data-mapping = "jeida-18";
+
+		panel-timing {
+			clock-frequency = <72000000>;
+
+			// From b156xw02-v0 EDID
+			hactive = <1366>;
+			vactive = <768>;
+			// TODO: Reacalc to 1500 x 800 total resolution for 60 Hz refresh rate
+			hfront-porch = <36>;
+			hback-porch = <42>;
+			hsync-len = <48>;
+			vsync-len = <5>;
+			vfront-porch = <3>;
+			vback-porch = <6>;
+
+			de-active = <0>;
+			vsync-active = <0>;
+			hsync-active = <0>;
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				panel_input_0: endpoint {
+					remote-endpoint = <&lt9211_lvds_out_0>;
+				};
+			};
+		};
+	};
+};
+
+&lt9211 {
+	status = "okay";
+
+	ports {
+		// lvds-out
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			lt9211_lvds_out_0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel_input_0>;
+			};
+		};
+	};
+};
+
+&de_dpi {
+	status = "okay";
+};
+
+&pwm {
+	elvees,state-on-disable = <1 1 0 0>;
+	pinctrl-0 = <&pwm_oena0_mux &pwm_oena1_mux>;
+};
