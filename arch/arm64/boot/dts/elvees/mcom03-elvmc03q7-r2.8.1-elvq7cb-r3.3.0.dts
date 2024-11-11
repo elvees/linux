@@ -38,12 +38,6 @@
 		/delete-node/ btn1;
 		/delete-node/ btn2;
 		/delete-node/ btn3;
-
-		power {
-			gpios = <&gpio0d 0 GPIO_ACTIVE_LOW>;
-			label = "POWER";
-			linux,code = <KEY_POWER>;
-		};
 	};
 
 	/delete-node/ vdda-codec;
