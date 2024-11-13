@@ -110,6 +110,18 @@ properties:
       Transmit PHY Clock delay train configuration when speed is 1000Mbps.
     type: boolean
 
+  motorcomm,leds-cfg-override:
+    description: |
+      Values in this array are tranlsated to LEDx_CFG registers.
+      Please refer to device datasheet for bits meaning.
+      Default values is:
+      LED0_CFG = 0x610 - Blinking at 10 Mbit/s
+      LED1_CFG = 0x620 - Blinking at 100 Mbit/s
+      LED2_CFG = 0x640 - Blinking at 1000 Mbit/s
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 3
+    maxItems: 3
+
 unevaluatedProperties: false
 
 examples:
