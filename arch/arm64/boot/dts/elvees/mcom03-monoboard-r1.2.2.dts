@@ -280,3 +280,14 @@ sata: &pcie0 {
 	// must be safe for unknown devices
 	clock-frequency = <100000>;
 };
+
+/* LED0 blink yellow - TX/RX actility 10/100/1000.
+ * LED1 green on - link active at 10/100/1000.
+ * LED2 is not active. */
+&ethernet_phy0 {
+	motorcomm,leds-cfg-override = <0x670 0x70 0x0>;
+};
+
+&ethernet_phy1 {
+	motorcomm,leds-cfg-override = <0x670 0x70 0x0>;
+};
