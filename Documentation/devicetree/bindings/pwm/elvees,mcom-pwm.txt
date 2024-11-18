@@ -1,0 +1,17 @@
+ELVEES MCom-02 PWM controller
+
+Required properties:
+- compatible: should be "elvees,mcom-pwm".
+- reg: physical base address and length of the controller's registers
+- #pwm-cells: Should be 2. See pwm.txt in this directory for a
+  description of the cells format.
+- clocks: phandle to the PWM source clocks
+
+Example:
+
+	pwm: pwm@0x38090000 {
+		compatible = "elvees,mcom-pwm";
+		reg = <0x38090000 0x1000>;
+		#pwm-cells = <2>;
+		clocks = <&pwm_pclk>;
+	};
