@@ -72,6 +72,26 @@
 		};
 	};
 
+	elvcecb-keys-with-irq {
+		compatible = "gpio-keys";
+
+		pinctrl-0 = <&wake_button_default>;
+		pinctrl-names = "default";
+
+		wake {
+			gpios = <&gpio1a 6 GPIO_ACTIVE_LOW>;
+			label = "WAKE";
+			linux,code = <KEY_WAKEUP>;
+			wakeup-source;
+		};
+	};
+
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio0d 7 GPIO_ACTIVE_LOW>; // Use SUS_S5 to poweroff
+		timeout-ms = <1000>;
+	};
+
 	/* "G1" oscillator */
 	audio_mclk: audio_mclk {
 		#clock-cells = <0>;
@@ -299,5 +319,12 @@
 		cooling-device = <&fancontrol
 				  THERMAL_NO_LIMIT
 				  THERMAL_NO_LIMIT>;
+	};
+};
+
+&lsperiph1_pinctrl {
+	wake_button_default: wake-button-cfg {
+		pins = "GPIOA_6";
+		input-enable;
 	};
 };
