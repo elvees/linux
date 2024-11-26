@@ -6,6 +6,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/elvees,mcom03.h>
 #include <dt-bindings/clock/mcom03-clock.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 	compatible = "elvees,mcom03";
@@ -2232,5 +2233,37 @@
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
 		clock-frequency = <100000000>;
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			thermal-sensors = <&pvt 0>;
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+
+			/* TODO: set temperature values based on
+			 * maximum chip temperature researched
+			 */
+			trips: trips {
+				cpu_alert1: cpu-alert-1 {
+					temperature = <90000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				cpu_alert2: cpu-alert-2 {
+					temperature = <100000>;
+					hysteresis = <1000>;
+					type = "critical";
+				};
+			};
+			cooling_maps: cooling-maps {
+				map1 {
+					trip = <&cpu_alert1>;
+					cooling-device = <&cpu0
+							THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+				};
+			};
+		};
 	};
 };

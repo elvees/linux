@@ -197,14 +197,20 @@
  * Thermal zones can be enabled/disabled via sysfs by writing said state into
  * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
  */
-&cpu_thermal {
-	cooling_maps: cooling-maps {
-		map0 {
-			trip = <&cpu_alert0>;
-			cooling-device = <&fancontrol
-					  THERMAL_NO_LIMIT
-					  THERMAL_NO_LIMIT>;
-		};
+&trips {
+	cpu_alert0: cpu-alert-0 {
+		temperature = <50000>;
+		hysteresis = <1000>;
+		type = "active";
+	};
+};
+
+&cooling_maps {
+	map0 {
+		trip = <&cpu_alert0>;
+		cooling-device = <&fancontrol
+				  THERMAL_NO_LIMIT
+				  THERMAL_NO_LIMIT>;
 	};
 };
 

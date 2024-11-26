@@ -6,7 +6,6 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/thermal/thermal.h>
 #include <dt-bindings/net/ti-dp83867.h>
 
 #include "mcom03.dtsi"
@@ -23,22 +22,6 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
-	};
-
-	thermal-zones {
-		cpu_thermal: cpu0-thermal {
-			thermal-sensors = <&pvt 0>;
-			polling-delay-passive = <250>;
-			polling-delay = <1000>;
-
-			trips {
-				cpu_alert0: cpu-alert-0 {
-					temperature = <50000>;
-					hysteresis = <1000>;
-					type = "active";
-				};
-			};
-		};
 	};
 
 	/* "G2" oscillator */
@@ -155,6 +138,7 @@
 	fancontrol: emc2301@2f {
 		compatible = "microchip,emc2305";
 		reg = <0x2f>;
+		status = "disabled";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		microchip,pwm-separate;
@@ -202,23 +186,6 @@
 	hwmon@49 {
 		compatible = "ti,lm73";
 		reg = <0x49>;
-	};
-};
-
-/*
- * Upon reaching the trip point the thermal subsystem driver enables the fans.
- *
- * Thermal zones can be enabled/disabled via sysfs by writing said state into
- * the corresponding /sys/class/thermal/thermal_zoneX/mode file.
- */
-&cpu_thermal {
-	cooling_maps: cooling-maps {
-		map0 {
-			trip = <&cpu_alert0>;
-			cooling-device = <&fancontrol
-					  THERMAL_NO_LIMIT
-					  THERMAL_NO_LIMIT>;
-		};
 	};
 };
 
