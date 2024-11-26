@@ -120,30 +120,6 @@
 		interrupt-parent = <&gpio1a>;
 		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
 	};
-
-	thermal-zones {
-		cpu_thermal: cpu0-thermal {
-			thermal-sensors = <&pvt 0>;
-			polling-delay-passive = <250>;
-			polling-delay = <1000>;
-
-			trips {
-				cpu_alert0: cpu-alert-0 {
-					temperature = <50000>;
-					hysteresis = <1000>;
-					type = "active";
-				};
-			};
-			cooling_maps: cooling-maps {
-				map0 {
-					trip = <&cpu_alert0>;
-					cooling-device = <&fancontrol
-							  THERMAL_NO_LIMIT
-							  THERMAL_NO_LIMIT>;
-				};
-			};
-		};
-	};
 };
 
 &uart0 {
@@ -307,4 +283,21 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pwm_oena1_mux>;
+};
+
+&trips {
+	cpu_alert0: cpu-alert-0 {
+		temperature = <50000>;
+		hysteresis = <1000>;
+		type = "active";
+	};
+};
+
+&cooling_maps {
+	map0 {
+		trip = <&cpu_alert0>;
+		cooling-device = <&fancontrol
+				  THERMAL_NO_LIMIT
+				  THERMAL_NO_LIMIT>;
+	};
 };
