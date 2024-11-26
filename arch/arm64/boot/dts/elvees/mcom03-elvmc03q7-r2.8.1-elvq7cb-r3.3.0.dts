@@ -42,6 +42,11 @@
 
 	/delete-node/ vdda-codec;
 
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio0d 7 GPIO_ACTIVE_LOW>; // Use SUS_S5 to poweroff
+		timeout-ms = <1000>;
+	};
 };
 
 /* TRS (3.5mm jack) connected to ES8327 codec.
