@@ -90,9 +90,6 @@
 		poll-interval = <100>;
 		autorepeat;
 
-		pinctrl-0 = <&wake_button_default>;
-		pinctrl-names = "default";
-
 		btn0 {
 			gpios = <&pca9675_1 0 GPIO_ACTIVE_LOW>;
 			label = "BTN0";
@@ -117,29 +114,39 @@
 			linux,code = <BTN_TRIGGER_HAPPY4>;
 		};
 
+		power {
+			gpios = <&gpio0d 0 GPIO_ACTIVE_LOW>;
+			label = "POWER";
+			linux,code = <KEY_POWER>;
+		};
+	};
+
+	elvq7cb-keys-with-irq {
+		compatible = "gpio-keys";
+
+		pinctrl-0 = <&wake_button_default>;
+		pinctrl-names = "default";
+
 		lid {
 			gpios = <&gpio0a 1 GPIO_ACTIVE_LOW>;
 			label = "LID";
 			linux,input-type = <EV_SW>;
 			linux,code = <SW_LID>;
+			wakeup-source;
 		};
 
 		sleep {
 			gpios = <&gpio0a 3 GPIO_ACTIVE_LOW>;
 			label = "SLEEP";
 			linux,code = <KEY_SLEEP>;
-		};
-
-		power {
-			gpios = <&gpio0d 0 GPIO_ACTIVE_LOW>;
-			label = "POWER";
-			linux,code = <KEY_POWER>;
+			wakeup-source;
 		};
 
 		wake {
 			gpios = <&gpio1a 6 GPIO_ACTIVE_LOW>;
 			label = "WAKE";
 			linux,code = <KEY_WAKEUP>;
+			wakeup-source;
 		};
 	};
 
