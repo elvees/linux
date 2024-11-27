@@ -733,7 +733,7 @@
 						94500000
 						94500000
 						1000000>;
-			enabled-clocks = <CLK_LSP0_UCG0_SYS>;
+			enabled-clocks = <CLK_LSP0_UCG0_SYS>, <CLK_LSP0_UCG0_GPIO0_DB>;
 		};
 
 		i2c0: i2c@1630000 {
@@ -799,12 +799,6 @@
 		gpio0: gpio@1610000 {
 			compatible = "snps,dw-apb-gpio";
 			reg = <0 0x1610000 0 0x10000>;
-			/*
-			 * GPIO driver controls clock named "bus" which we can
-			 * use to handle the debounce filter clock
-			 */
-			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_GPIO0_DB>;
-			clock-names = "bus";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -1809,7 +1803,7 @@
 						87750000
 						87750000
 						12285000>;
-			enabled-clocks = <CLK_LSP1_UCG0_SYS>;
+			enabled-clocks = <CLK_LSP1_UCG0_SYS>, <CLK_LSP1_UCG0_GPIO1_DB>;
 		};
 
 		i2c1: i2c@1710000 {
@@ -1985,12 +1979,6 @@
 		gpio1: gpio@1780000 {
 			compatible = "snps,dw-apb-gpio";
 			reg = <0 0x1780000 0 0x10000>;
-			/*
-			 * GPIO driver controls clock named "bus" which we can
-			 * use to handle the debounce filter clock
-			 */
-			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_GPIO1_DB>;
-			clock-names = "bus";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
