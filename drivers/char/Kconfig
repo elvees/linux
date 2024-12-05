@@ -524,6 +524,8 @@ source "drivers/s390/char/Kconfig"
 
 source "drivers/char/xillybus/Kconfig"
 
+source "drivers/char/elvees-swic/Kconfig"
+
 config ADI
 	tristate "SPARC Privileged ADI driver"
 	depends on SPARC64
