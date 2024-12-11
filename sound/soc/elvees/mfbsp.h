@@ -136,7 +136,7 @@ struct mfbsp_dma_desc {
 	u64 ir;
 	u64 cp;
 	u64 csr;
-} __attribute__ ((__packed__));
+} __packed;
 
 struct mfbsp_dma_data {
 	int irq;
