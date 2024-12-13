@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2024 RnD Center "ELVEES", JSC
+ */
+
+/dts-v1/;
+
+#include "mcom03-elvmc03smarc-r2.7.1-elvsmarccb-r3.2.1.dts"
+
+/ {
+	model = "ELV-MC03-SMARC r2.7.1, ELV-APK-SKIF-II r1.1.1";
+	compatible = "elvees,elvmc03smarc-r2.7.1-elvapkskifii-r1.1.1",
+		     "elvees,elvmc03smarc-elvapkskifii",
+		     "elvees,elvapkskifii-r1.1.1",
+		     "elvees,elvapkskifii",
+		     "elvees,elvmc03smarc-r2.7.1",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
+	thermal-zones {
+		cpu_thermal: cpu0-thermal {
+			trips {
+				cpu_alert0: cpu-alert-0 {
+					temperature = <40000>;
+				};
+			};
+		};
+	};
+
+};
+
+&emac1 {
+	ethernet_phy1: ethernet-phy@2 {
+		rx-internal-delay-ps = <1950>;
+		tx-internal-delay-ps = <1350>;
+	};
+};
+
+
+&pcie1 {
+	status = "disable";
+};
+
+&qspi1 {
+	status = "disable";
+};
+
+&sata {
+	status = "disable";
+};
+
+&isp {
+	status = "disable";
+};
+
+&csi0 {
+	status = "disable";
+};
+
+&csi1 {
+	status = "disable";
+};
+
+&mfbsp0_can {
+	status = "disable";
+};
+
+&mfbsp1_can {
+	status = "disable";
+};
+
+&ser0 {
+	status = "disable";
+};
+
+&ser2 {
+	status = "disable";
+};
