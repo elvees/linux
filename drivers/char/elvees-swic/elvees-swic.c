@@ -1104,6 +1104,8 @@ static int elvees_swic_probe(struct platform_device *pdev)
 	if (!pdata)
 		return -ENOMEM;
 
+	pdata->dev = &pdev->dev;
+
 	pdata->desc_pool = dma_pool_create("swic-desc-pool", &pdev->dev,
 					sizeof(struct elvees_swic_packet_desc),
 					64, 0);
@@ -1132,8 +1134,6 @@ static int elvees_swic_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto tx_desc_free;
 	}
-
-	pdata->dev = &pdev->dev;
 
 	pdata->txclk = devm_clk_get(&pdev->dev, "txclk");
 	if (IS_ERR(pdata->txclk)) {
