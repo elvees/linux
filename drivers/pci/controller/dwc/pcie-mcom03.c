@@ -254,13 +254,13 @@ static int mcom03_add_pcie_port(struct mcom03_pcie *pcie,
 	int ret;
 
 	// TODO: Add Hotplug, LEQ, and other IRQ support
-	pp->msi_irq = platform_get_irq(pdev, 0);
+	pp->msi_irq = platform_get_irq_byname(pdev, "msi");
 	if (pp->msi_irq < 0) {
 		dev_err(dev, "Failed to get MSI IRQ\n");
 		return pp->msi_irq;
 	}
 
-	pp->irq = platform_get_irq(pdev, 1);
+	pp->irq = platform_get_irq_byname(pdev, "legacy");
 	if (pp->irq < 0) {
 		dev_info(dev, "Legacy IRQ not found: only MSI will work\n");
 	} else {
