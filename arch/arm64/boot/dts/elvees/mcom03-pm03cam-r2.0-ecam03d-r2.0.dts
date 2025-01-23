@@ -63,8 +63,8 @@
 };
 
 &ethernet_phy0 {
-	motorcomm,led-modes-override = <(YT85XX_LED_2_FORCE_EN |
-					 YT85XX_LED_2_ON |
-					 YT85XX_LED_0_FORCE_EN |
-					 YT85XX_LED_0_OFF)>;
+	motorcomm,leds-general-cfg-override = <(YT85XX_LED_2_FORCE_EN |
+						YT85XX_LED_2_ON |
+						YT85XX_LED_0_FORCE_EN |
+						YT85XX_LED_0_OFF)>;
 };
