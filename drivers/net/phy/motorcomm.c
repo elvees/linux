@@ -853,7 +853,7 @@ static int yt8521_probe(struct phy_device *phydev)
 	struct yt8521_priv *priv;
 	int chip_config;
 	u16 mask, val;
-	u32 freq, modes;
+	u32 freq;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -900,13 +900,6 @@ static int yt8521_probe(struct phy_device *phydev)
 
 	if (of_property_read_u32(node, "motorcomm,clk-out-frequency-hz", &freq))
 		freq = YTPHY_DTS_OUTPUT_CLK_DIS;
-
-	if (!of_property_read_u32(node, "motorcomm,led-modes-override",
-				  &modes)) {
-		mask = YT8521_LCR_FORCE_MODE_MASK;
-		ytphy_modify_ext_with_lock(phydev, YT8521_LED_CONFIG_REG,
-					   mask, modes);
-	}
 
 	if (phydev->drv->phy_id == PHY_ID_YT8521) {
 		switch (freq) {
@@ -1474,7 +1467,8 @@ static int yt8521_config_init(struct phy_device *phydev)
 	int old_page;
 	int ret = 0;
 	int i;
-	u32 leds_cfg[3];
+	u16 mask;
+	u32 led_cfg, leds_cfg[3];
 
 	old_page = phy_select_page(phydev, YT8521_RSSR_UTP_SPACE);
 	if (old_page < 0)
@@ -1485,6 +1479,13 @@ static int yt8521_config_init(struct phy_device *phydev)
 		ret = ytphy_rgmii_clk_delay_config(phydev);
 		if (ret < 0)
 			goto err_restore_page;
+	}
+
+	if (!of_property_read_u32(node, "motorcomm,leds-general-cfg-override",
+				  &led_cfg)) {
+		mask = YT8521_LCR_FORCE_MODE_MASK;
+		ytphy_modify_ext_with_lock(phydev, YT8521_LED_CONFIG_REG,
+					   mask, led_cfg);
 	}
 
 	if (!of_property_read_u32_array(node, "motorcomm,leds-cfg-override",
