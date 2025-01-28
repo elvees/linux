@@ -50,6 +50,9 @@
 		#phy-cells = <0>;
 		standby-gpios = <&gpio1c 3 GPIO_ACTIVE_HIGH>;
 	};
+
+	// Delete thermal-zone due to #MCOM03SW-2960
+	/delete-node/ thermal-zones;
 };
 
 &sdr_clocks {
