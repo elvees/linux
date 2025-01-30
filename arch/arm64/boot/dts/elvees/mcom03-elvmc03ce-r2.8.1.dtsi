@@ -306,7 +306,9 @@
 };
 
 /* PCIe0 is connected to SATA controller. */
-sata: &pcie0 { };
+sata: &pcie0 {
+	status = "okay";
+};
 
 &emac0 {
 	phy-handle = <&ethernet_phy0>;
