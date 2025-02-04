@@ -1484,8 +1484,10 @@ static int yt8521_config_init(struct phy_device *phydev)
 	if (!of_property_read_u32(node, "motorcomm,leds-general-cfg-override",
 				  &led_cfg)) {
 		mask = YT8521_LCR_FORCE_MODE_MASK;
-		ytphy_modify_ext_with_lock(phydev, YT8521_LED_CONFIG_REG,
-					   mask, led_cfg);
+		ret = ytphy_modify_ext(phydev, YT8521_LED_CONFIG_REG,
+				       mask, led_cfg);
+		if (ret < 0)
+			goto err_restore_page;
 	}
 
 	if (!of_property_read_u32_array(node, "motorcomm,leds-cfg-override",
