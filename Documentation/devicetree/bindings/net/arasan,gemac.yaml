@@ -61,7 +61,7 @@ properties:
 
   arasan,axi-bus-width64:
     description:
-      Set this property if you want to use 64-bit data transfers to increase DMAC perfomance.
+      Set this property if you want to use 64-bit data transfers to increase DMAC performance.
     type: boolean
 
   arasan,hwfifo_size:
@@ -106,14 +106,15 @@ examples:
     #include <dt-bindings/clock/mcom03-clock.h>
     #include <dt-bindings/gpio/gpio.h>
 
-    spram: spram@0 {
+    spram: sram@0 {
       compatible = "mmio-sram";
       #address-cells = <1>;
       #size-cells = <1>;
+      ranges;
       reg = <0 0x10000>;
       clocks = <&hsperiph_clocks CLK_HSP_UCG0_SPRAM>;
 
-      emac_desc_pool: sram-pool@0 {
+      emac_desc_pool: pool-sram@0 {
         reg = <0 0x2000>;
         pool;
       };
