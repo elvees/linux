@@ -1601,7 +1601,6 @@
 					 <&sdr_reset SDR_RST_PCI_ICT>;
 				elvees,urb = <&sdr_urb>;
 				elvees,ctrl-id = <0>;
-				msi-parent = <&its>;
 				status = "disabled";
 				power-domains = <&sdr_clocks>;
 
@@ -1651,7 +1650,6 @@
 					 <&sdr_reset SDR_RST_PCI_ICT>;
 				elvees,urb = <&sdr_urb>;
 				elvees,ctrl-id = <1>;
-				msi-parent = <&its>;
 				status = "disabled";
 				power-domains = <&sdr_clocks>;
 
