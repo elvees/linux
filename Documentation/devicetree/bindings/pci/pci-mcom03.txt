@@ -13,9 +13,8 @@ dma-ranges: Ranges for the inbound memory regions. The property describes how
 	    the physical address space of device maps to system memory.
 elvees,ctrl-id: PCIe controller ID number (0 or 1)
 elvees,urb: A phandle of the SDR subsystem URB
-interrupts: Should contain MSI interrupt number as the first entry. The second
-	    entry may contain legacy interrupt number and is optional.
-msi-parent: A phandle of the GIC ITS node
+interrupts: Should contain MSI and legacy interrupt numbers.
+interrupt-names: List of interrupts names: "msi" and "legacy".
 reg: Three register ranges as listed in the reg-names property
 reg-names: Should contain 3 names: "dbi" for the DesignWare PCIe registers,
 	   "apb" for the ELVEES specific application registers, "config" for
@@ -30,10 +29,17 @@ interrupt-cells: should be set to 1
 interrupt-map-mask and interrupt-map:
 	standard PCI properties to define the mapping of the
 	PCIe interface to interrupt
+msi-parent: A phandle of the GIC ITS node for simple devices.
+msi-map: Preffered for use with GIC ITS. For details read pci-msi.txt.
+msi-map-mask: Mask 0xfff0 must be applied for actual functionality because of
+	hardware bug(rf#14059/MCOM03-1622) - lose of 4 LSB in Requester ID.
+bus-range: For cases when more than 1 controller are using GIC ITS
+	"bus numbers" should be separeted for these controllers.
 
 
-Example configuration:
+Example configurations:
 
+// Use GIC ITS as MSI controller.
 pcie0: pcie@2000000 {
 	compatible = "elvees,mcom03-pcie";
 	reg = <0x0 0x2000000 0x0 0x400000>,
@@ -53,14 +59,17 @@ pcie0: pcie@2000000 {
 	num-viewport = <32>;
 	num-lanes = <4>;
 
-	interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>, // MSI
-		     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>; // Legacy
+	interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "msi", "legacy";
 	resets = <&sdr_reset SDR_RST_EXT_ICT>,
 		 <&sdr_reset SDR_RST_BBD_ICT>,
 		 <&sdr_reset SDR_RST_PCI_ICT>;
 	elvees,urb = <&sdr_urb>;
 	elvees,ctrl-id = <0>;
-	msi-parent = <&its>;
+	bus-range = <0x00 0x7f>;
+	msi-map = <0x0000 &its 0x0 0x8000>;
+	msi-map-mask = <0xfff0>;
 
 	// Legacy interrupts support
 	#interrupt-cells = <1>;
@@ -71,6 +80,53 @@ pcie0: pcie@2000000 {
 			<0000 0 0 4 &pcie0_intc 4>;
 
 	pcie0_intc: legacy-interrupt-controller {
+		interrupt-controller;
+		#address-cells = <0>;
+		#interrupt-cells = <1>;
+	};
+};
+
+// Use embedded MSI controller.
+pcie1: pcie@2400000 {
+	compatible = "elvees,mcom03-pcie";
+	reg = <0x0 0x2400000 0x0 0x400000>,
+	      <0x0 0x1d00000 0x0 0x800>,
+	      <0x0 0x70000000 0x0 0x10000000>;
+	reg-names = "dbi", "apb", "config";
+	#address-cells = <3>;
+	#size-cells = <2>;
+	device_type = "pci";
+	ranges = <0x83000000 0x0 0x00000000
+		  0x6 0x00000000
+		  0x1 0x00000000>;
+	dma-ranges = <0x42000000 0x0 0x40000000
+		      0x8 0x40000000 0x2 0x80000000>,
+		     <0x42000000 0x4 0x0
+		      0xc 0x0 0x1 0x80000000>;
+	num-viewport = <32>;
+	num-lanes = <4>;
+	linux,pci-domain = <1>;
+	interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "msi", "legacy", "pme", "aer", "dma";
+	resets = <&sdr_reset SDR_RST_EXT_ICT>,
+		 <&sdr_reset SDR_RST_BBD_ICT>,
+		 <&sdr_reset SDR_RST_PCI_ICT>;
+	elvees,urb = <&sdr_urb>;
+	elvees,ctrl-id = <1>;
+
+	// Legacy interrupts support
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0 0 0 7>;
+	interrupt-map = <0000 0 0 1 &pcie1_intc 1>,
+			<0000 0 0 2 &pcie1_intc 2>,
+			<0000 0 0 3 &pcie1_intc 3>,
+			<0000 0 0 4 &pcie1_intc 4>;
+
+	pcie1_intc: legacy-interrupt-controller {
 		interrupt-controller;
 		#address-cells = <0>;
 		#interrupt-cells = <1>;
