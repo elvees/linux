@@ -58,6 +58,7 @@ struct mcom03_pcie {
 	struct reset_control		*reset;
 	struct irq_domain		*irq_domain;
 	struct gpio_desc		*reset_gpio;
+	bool				embed_msi:1;
 };
 
 static void mcom03_pcie_writel(struct mcom03_pcie *pcie, u32 reg, u32 val)
@@ -248,6 +249,7 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 		pp->ops = &mcom03_pcie_host_ops;
 		dev_info(dev, "Using external MSI interrupt-controller\n");
 	} else {
+		pcie->embed_msi = true;
 		pp->ops = &mcom03_pcie_host_ops_embed;
 		dev_info(dev, "Using embedded MSI interrupt-controller\n");
 	}
@@ -263,6 +265,21 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 	if (ret) {
 		dev_err(dev, "Failed to initialize PCIe host\n");
 		return ret;
+	}
+
+	/* MCom-03 does not have available memory for DMA allocation below 4 Gbytes
+	 * so 32-bit MSI devices will not work with current embedded MSI controller
+	 * implementation. As mentioned in PCI Express DM Controller Databook v5.30
+	 * $3.8.2.2 inbound MWr request detected as MSI interrupt "is dropped and
+	 * never appears on the AXI bus." we can actually use almost any address
+	 * for MSI interrupt messages. So as a workaround we do the following -
+	 * redefine address for MSI interrupts from reserved address space below 4GB
+	 * after embedded MSI controller is initialized in dw_pcie_host_init(). */
+	if (pcie->embed_msi) {
+		pp->msi_data = 0x20000000;
+		dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_LO, lower_32_bits(pp->msi_data));
+		dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_HI, upper_32_bits(pp->msi_data));
+		dev_info(dev, "Redirecting MSI to %#llx\n", pp->msi_data);
 	}
 
 	return 0;
