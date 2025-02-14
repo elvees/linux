@@ -171,6 +171,7 @@ ser3: &uart1 { };
 
 sata: &pcie0 {
 	reset-gpio = <&gpio1c 7 GPIO_ACTIVE_HIGH>;
+	msi-parent = <&its>;
 };
 
 &i2c2 {
