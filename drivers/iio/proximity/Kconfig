@@ -210,6 +210,8 @@ config VCNL3020
 
 config VCNL36821S
 	tristate "VCNL36821S proximity sensor"
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
 	select REGMAP_I2C
 	depends on I2C
 	help

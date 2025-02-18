@@ -138,7 +138,7 @@ static irqreturn_t vcnl36821s_drdy_irq_thread(int irq, void *dev_id)
 						    IIO_EV_TYPE_THRESH,
 						    IIO_EV_DIR_EITHER),
 				iio_get_time_ns(indio_dev));
-		iio_trigger_poll_chained(data->drdy_trigger0);
+		iio_trigger_poll_nested(data->drdy_trigger0);
 		return IRQ_HANDLED;
 	}
 
@@ -625,7 +625,7 @@ static int vcnl36821s_probe_trigger(struct iio_dev *indio_dev)
 
 	data->drdy_trigger0 = devm_iio_trigger_alloc(
 			indio_dev->dev.parent,
-			"%s-dev%d", indio_dev->name, indio_dev->id);
+			"%s-dev%d", indio_dev->name, iio_device_id(indio_dev));
 	if (!data->drdy_trigger0)
 		return -ENOMEM;
 
@@ -717,7 +717,7 @@ static struct i2c_driver vcnl36821s_driver = {
 		.name   = "vcnl36821s",
 		.of_match_table = vcnl36821s_of_match,
 	},
-	.probe_new  = vcnl36821s_probe,
+	.probe  = vcnl36821s_probe,
 };
 module_i2c_driver(vcnl36821s_driver);
 
