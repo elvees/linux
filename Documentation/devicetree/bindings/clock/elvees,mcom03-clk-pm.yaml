@@ -23,6 +23,8 @@ properties:
 
   assigned-clock-rates: true
 
+  assigned-clock-parents: true
+
   elvees,power-domain:
     type: boolean
     description: |
@@ -98,14 +100,105 @@ additionalProperties: false
 examples:
   - |
     #include <dt-bindings/clock/mcom03-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/soc/elvees,mcom03.h>
+
+    hsperiph_clk125: hsperiph_clk125 {
+        #clock-cells = <0>;
+        compatible = "fixed-clock";
+        clock-frequency = <125000000>;
+    };
+
+    hsperiph_clocks: clock-controller@10410000 {
+        compatible = "elvees,mcom03-clk-pm";
+        #clock-cells = <1>;
+        elvees,subsystem = <MCOM03_SUBSYSTEM_HSPERIPH>;
+        clocks = <&xti_clk>, <&hsperiph_clk125>;
+        elvees,urb = <&hsperiph_urb>;
+        reg = <0 0x10410000 0 0x80>, <0 0x10420000 0 0x80>, // UCG0, UCG1
+              <0 0x10430000 0 0x80>, <0 0x10440000 0 0x80>; // UCG2, UCG3
+
+        /* After SoC reset REFMUX2 and REFMUX3 uses CLK125 as parent
+         * clock. But most boards do not have a signal on CLK125 pad.
+         * To switch REFMUX source to PLL we need to specify
+         * assigned-clocks/assigned-clock-parents properties. Because
+         * assigned-clocks is already exists to setup rates, we also add
+         * REFMUXes records to assigned-clocks and assigned-clock-rates.
+         * In assigned-clock-rates for REFMUXes set zero to ignore
+         * this record for setting rate.
+         * To switch parent back to CLK125 assigned-clocks and
+         * assigned-clock-parents properties can be used in another
+         * nodes.
+         * For example, if Ethernet controllers require 125 MHz on
+         * UCG2 from CLK125 pad then add to emac0 and emac1 nodes:
+         *   assigned-clocks = <&clock CLK_HSP_REFMUX2>;
+         *   assigned-clock-parents = <&hsperiph_clk125>;
+         */
+        assigned-clocks = <&hsperiph_clocks CLK_HSP_REFMUX0>,
+                          <&hsperiph_clocks CLK_HSP_REFMUX1>,
+                          <&hsperiph_clocks CLK_HSP_REFMUX2>,
+                          <&hsperiph_clocks CLK_HSP_REFMUX3>,
+                          <&hsperiph_clocks CLK_HSP_PLL0>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_SYS>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_DMA>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_CTR>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_SPRAM>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_EMAC0>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_EMAC1>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_USB0>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_USB1>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_NFC>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_PDMA2>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_SDMMC0>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_SDMMC1>,
+                          <&hsperiph_clocks CLK_HSP_UCG0_QSPI>,
+                          <&hsperiph_clocks CLK_HSP_UCG1_SDMMC0_XIN>,
+                          <&hsperiph_clocks CLK_HSP_UCG1_SDMMC1_XIN>,
+                          <&hsperiph_clocks CLK_HSP_UCG1_NFC_FLASH>,
+                          <&hsperiph_clocks CLK_HSP_UCG2_EMAC0_1588>,
+                          <&hsperiph_clocks CLK_HSP_UCG2_EMAC1_1588>,
+                          <&hsperiph_clocks CLK_HSP_UCG3_USB0_SUSPEND>,
+                          <&hsperiph_clocks CLK_HSP_UCG3_USB1_SUSPEND>;
+        assigned-clock-parents = <&hsperiph_clocks CLK_HSP_PLL0>,
+                                 <&hsperiph_clocks CLK_HSP_PLL0>,
+                                 <&hsperiph_clocks CLK_HSP_PLL0>,
+                                 <&hsperiph_clocks CLK_HSP_PLL0>;
+        assigned-clock-rates = <0
+                                0
+                                0
+                                0
+                                1125000000
+                                225000000
+                                225000000
+                                93750000
+                                225000000
+                                125000000
+                                125000000
+                                125000000
+                                125000000
+                                125000000
+                                225000000
+                                93750000
+                                93750000
+                                93750000
+                                125000000
+                                93750000
+                                93750000
+                                125000000
+                                125000000
+                                25000000
+                                25000000>;
+        enabled-clocks = <CLK_HSP_UCG0_SYS
+                          CLK_HSP_UCG0_DMA
+                          CLK_HSP_UCG0_CTR>;
+    };
+
     sdr_clocks: sdr_clocks@1900000 {
         compatible = "elvees,mcom03-clk-pm";
         elvees,subsystem = <MCOM03_SUBSYSTEM_SDR>;
         clocks = <&xti_clk>;
         elvees,urb = <&sdr_urb>;
-        reg = <0 0x1900000 0 0x80>, // UCG0
-              <0 0x1900100 0 0x80>; // UCG1
+        reg = <0 0x1900000 0 0x80>;
         #clock-cells = <1>;
         assigned-clocks = <&sdr_clocks CLK_SDR_PLL0>,
                           <&sdr_clocks CLK_SDR_PLL1>,
@@ -122,6 +215,30 @@ examples:
         #power-domain-cells = <0>;
         elvees,power-domain;
         elvees,service-urb = <&service_urb>;
+    };
+
+    /* If Ethernet requires external CLK125 clock then specify parrent for
+     * REFMUX2 in EMAC node
+     */
+    emac0: ethernet@10200000 {
+        compatible = "arasan,gemac";
+        #address-cells = <1>;
+        #size-cells = <0>;
+        reg = <0x10200000 0x1000>;
+        clocks = <&hsperiph_clocks CLK_HSP_UCG0_EMAC0>,
+                 <&hsperiph_clocks CLK_HSP_UCG2_EMAC0_RGMII_TXC>,
+                 <&hsperiph_clocks CLK_HSP_UCG2_EMAC0_1588>;
+        clock-names = "busclk", "txc", "clk_1588";
+        interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+        resets = <&hsperiph_reset HSPERIPH_RST_EMAC0>;
+        arasan,desc-pool = <&emac_desc_pool>;
+        phy-mode = "rgmii-id";
+        phy-handle = <&ethernet_phy0>;
+        arasan,axi-bus-width64;
+        pinctrl-names = "default";
+        pinctrl-0 = <&emac0_default>;
+        assigned-clocks = <&hsperiph_clocks CLK_HSP_REFMUX2>;
+        assigned-clock-parents = <&hsperiph_clk125>;
     };
 
 ...
