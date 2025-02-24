@@ -821,7 +821,7 @@ int qmi8658c_probe_trigger(struct iio_dev *indio_dev, int irq, u32 irq_type)
 	int ret;
 
 	data->trig = devm_iio_trigger_alloc(&indio_dev->dev, "%s-dev%d",
-					    indio_dev->name, indio_dev->id);
+					    indio_dev->name, iio_device_id(indio_dev));
 
 	if (data->trig == NULL)
 		return -ENOMEM;
@@ -942,8 +942,7 @@ static int qmi8658c_i2c_probe(struct i2c_client *client)
 	data->client = client;
 	data->regmap = regmap;
 
-	ret = iio_read_mount_matrix(&client->dev, "mount-matrix",
-				    &data->orientation);
+	ret = iio_read_mount_matrix(&client->dev, &data->orientation);
 	if (ret)
 		return ret;
 
@@ -1007,11 +1006,11 @@ static struct i2c_driver qmi8658c_i2c_driver = {
 		.name = "qmi8658c_i2c",
 		.of_match_table = of_match_ptr(qmi8658c_of_match),
 	},
-	.probe_new = qmi8658c_i2c_probe,
+	.probe = qmi8658c_i2c_probe,
 	.id_table = qmi8658c_i2c_id,
 };
 
 module_i2c_driver(qmi8658c_i2c_driver);
 
 MODULE_DESCRIPTION("QMI8658C I2C driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
