@@ -44,16 +44,16 @@
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&dailink0_master>;
 		simple-audio-card,frame-master = <&dailink0_master>;
-		simple-audio-card,aux-devs = <&linein_mic_selector>;
+		simple-audio-card,aux-devs = <&linein_mic_mux>;
 		simple-audio-card,widgets =
 			"Microphone", "Microphone Jack",
 			"Line", "Line In Jack",
 			"Line", "Line Out Jack";
 		simple-audio-card,routing =
-			"Microphone Jack", "Channel1 IN",
+			"Microphone Jack", "Mic Mux IN1",
 			"MIC1", "Microphone Jack",
 			"Microphone Jack", "micbias1",
-			"Line In Jack", "Channel2 IN",
+			"Line In Jack", "Mic Mux IN2",
 			"MIC2", "Line In Jack",
 			"Line Out Jack", "LOUTL",
 			"Line Out Jack", "LOUTR";
@@ -68,9 +68,10 @@
 		};
 	};
 
-	linein_mic_selector: audio-selector {
-		compatible = "simple-audio-selector";
-		select-gpios = <&gpio0d 2 GPIO_ACTIVE_LOW>;
+	linein_mic_mux: mic-mux {
+		compatible = "simple-audio-mux";
+		mux-gpios = <&gpio0d 2 GPIO_ACTIVE_LOW>;
+		sound-name-prefix = "Mic Mux";
 	};
 };
 
