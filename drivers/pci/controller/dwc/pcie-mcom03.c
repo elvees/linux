@@ -91,7 +91,6 @@ static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 	// Disable DBI_RO_WR_EN, since setup_rc() expects it to be off
 	dw_pcie_dbi_ro_wr_dis(pci);
 
-	dw_pcie_setup_rc(pp);
 	// If we need to program PHY, registers are programmed and
 	// app_hold_phy_rst is unset here
 	mcom03_pcie_ltssm_toggle(pcie, 1);
