@@ -1394,55 +1394,22 @@ static int arasan_gemac_change_mtu(struct net_device *dev, int new_mtu)
 }
 
 #if IS_REACHABLE(CONFIG_PTP_1588_CLOCK)
-int arasan_gemac_hwstamp_get(struct arasan_gemac_ptp *ptp, struct ifreq *rq)
-{
-	int res;
-
-	res = copy_to_user(rq->ifr_data, &ptp->tstamp_config,
-			   sizeof(ptp->tstamp_config));
-
-	return (res > 0) ? -EFAULT : 0;
-}
-
-int arasan_gemac_hwstamp_set(struct arasan_gemac_ptp *ptp, struct ifreq *rq)
-{
-	int res;
-	struct arasan_gemac_pdata *pd =
-		container_of(ptp, struct arasan_gemac_pdata, ptp);
-
-	if (copy_from_user(&ptp->tstamp_config, rq->ifr_data,
-			   sizeof(ptp->tstamp_config)))
-		return -EFAULT;
-
-	res = arasan_gemac_ptp_hwstamp_set(pd);
-	if (res != 0)
-		return res;
-
-	res = copy_to_user(rq->ifr_data, &ptp->tstamp_config,
-			   sizeof(ptp->tstamp_config));
-
-	return (res > 0) ? -EFAULT : 0;
-}
-
-static int arasan_gemac_do_ioctl(struct net_device *dev, struct ifreq *rq,
-				 int cmd)
+int arasan_gemac_hwstamp_get(struct net_device *dev,
+			     struct kernel_hwtstamp_config *cfg)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 
-	switch (cmd) {
-	case SIOCSHWTSTAMP:
-		return arasan_gemac_hwstamp_set(&pd->ptp, rq);
-	case SIOCGHWTSTAMP:
-		return arasan_gemac_hwstamp_get(&pd->ptp, rq);
-	}
-
-	return phy_do_ioctl(dev, rq, cmd);
+	*cfg = pd->ptp.tstamp_config;
+	return 0;
 }
-#else
-static int arasan_gemac_do_ioctl(struct net_device *dev, struct ifreq *rq,
-				 int cmd)
+
+int arasan_gemac_hwstamp_set(struct net_device *dev,
+			     struct kernel_hwtstamp_config *cfg,
+			     struct netlink_ext_ack *extack)
 {
-	return phy_do_ioctl(dev, rq, cmd);
+	struct arasan_gemac_pdata *pd = netdev_priv(dev);
+
+	return arasan_gemac_ptp_hwstamp_set(pd, cfg, extack);
 }
 #endif
 
@@ -1464,9 +1431,13 @@ static const struct net_device_ops arasan_gemac_netdev_ops = {
 	.ndo_set_rx_mode = arasan_gemac_set_rx_mode,
 	.ndo_set_mac_address = arasan_gemac_set_mac_address,
 	.ndo_change_mtu = arasan_gemac_change_mtu,
-	.ndo_do_ioctl	= arasan_gemac_do_ioctl, // FIXME: revisit after v5.15.
+	.ndo_eth_ioctl	= phy_do_ioctl,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = arasan_gemac_poll_controller,
+#endif
+#if IS_REACHABLE(CONFIG_PTP_1588_CLOCK)
+	.ndo_hwtstamp_get = arasan_gemac_hwstamp_get,
+	.ndo_hwtstamp_set = arasan_gemac_hwstamp_set,
 #endif
 };
 

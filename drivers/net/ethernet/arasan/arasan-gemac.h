@@ -356,7 +356,7 @@ struct arasan_gemac_ring_info {
 struct arasan_gemac_ptp {
 	struct ptp_clock *clock;
 	struct ptp_clock_info clock_info;
-	struct hwtstamp_config tstamp_config;
+	struct kernel_hwtstamp_config tstamp_config;
 
 	u32 clk_1588_freq;
 	/* ts_lock used to prevent concurrent access to clk_1588 registers */
@@ -414,7 +414,9 @@ struct arasan_gemac_pdata {
 	struct arasan_gemac_ptp ptp;
 };
 
-int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd);
+int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd,
+				 struct kernel_hwtstamp_config *cfg,
+				 struct netlink_ext_ack *extack);
 void arasan_gemac_ptp_do_txstamp(struct arasan_gemac_pdata *pd, struct sk_buff *skb);
 void arasan_gemac_ptp_do_rxstamp(struct arasan_gemac_pdata *pd, struct sk_buff *skb);
 int arasan_gemac_ptp_init(struct arasan_gemac_pdata *pd);

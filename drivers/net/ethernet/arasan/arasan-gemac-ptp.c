@@ -178,11 +178,13 @@ static const struct ptp_clock_info arasan_gemac_ptp_info = {
 	.settime64 = arasan_gemac_ptp_settime64,
 };
 
-int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd)
+int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd,
+				 struct kernel_hwtstamp_config *cfg,
+				 struct netlink_ext_ack *extack)
 {
 	u32 regval;
 
-	switch (pd->ptp.tstamp_config.rx_filter) {
+	switch (cfg->rx_filter) {
 	case HWTSTAMP_FILTER_NONE:
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
 		regval &= ~MODULE_1588_CR_RX_TSTAMP_EN;
@@ -250,11 +252,11 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd)
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
 		regval &= ~MODULE_1588_CR_RX_TSTAMP_EN;
 		arasan_gemac_writel(pd, MODULE_1588_CR, regval);
-		pd->ptp.tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
+		cfg->rx_filter = HWTSTAMP_FILTER_NONE;
 		return -ERANGE;
 	}
 
-	switch (pd->ptp.tstamp_config.tx_type) {
+	switch (cfg->tx_type) {
 	case HWTSTAMP_TX_OFF:
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
 		regval &= ~MODULE_1588_CR_TX_TSTAMP_EN;
@@ -270,6 +272,9 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd)
 	default:
 		return -ERANGE;
 	}
+
+	pd->ptp.tstamp_config = *cfg;
+
 	return 0;
 }
 
