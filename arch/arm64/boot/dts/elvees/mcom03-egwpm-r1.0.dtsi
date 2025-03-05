@@ -71,6 +71,58 @@
 	/delete-property/ elvees,power-domain;
 };
 
+&pcie0 {
+	/delete-property/ power-domains;
+};
+
+&pcie1 {
+	/delete-property/ power-domains;
+};
+
+&qlic1 {
+	/delete-property/ power-domains;
+};
+
+&elcore0 {
+	/delete-property/ power-domains;
+};
+
+&elcore1 {
+	/delete-property/ power-domains;
+};
+
+&gpu {
+	/delete-property/ power-domains;
+};
+
+&vpu {
+	/delete-property/ power-domains;
+};
+
+&isp {
+	/delete-property/ power-domains;
+};
+
+&dp {
+	/delete-property/ power-domains;
+};
+
+&de_dpi {
+	/delete-property/ power-domains;
+};
+
+&de_dsi {
+	/delete-property/ power-domains;
+};
+
+&csi0 {
+	/delete-property/ power-domains;
+};
+
+&csi1 {
+	/delete-property/ power-domains;
+};
+
 /* TODO: How to distinguish internal lines from external? How to distinguish
  *       hardware function from GPIO? */
 &gpio0a {
