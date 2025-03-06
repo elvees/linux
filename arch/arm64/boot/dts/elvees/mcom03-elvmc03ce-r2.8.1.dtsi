@@ -308,7 +308,6 @@
 /* PCIe0 is connected to SATA controller. */
 sata: &pcie0 {
 	status = "okay";
-	msi-parent = <&its>;
 };
 
 &emac0 {

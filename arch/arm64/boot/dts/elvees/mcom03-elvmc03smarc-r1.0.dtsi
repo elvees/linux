@@ -297,9 +297,7 @@ i2c_gp: &i2c2 {
 };
 
 /* PCIe0 is connected to SATA controller. Should be enabled in carrier DTS. */
-sata: &pcie0 {
-	msi-parent = <&its>;
-};
+sata: &pcie0 { };
 
 &pcie1 {
 	reset-gpio = <&gpio0b 2 GPIO_ACTIVE_HIGH>;

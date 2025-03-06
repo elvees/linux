@@ -161,7 +161,6 @@
 
 sata: &pcie0 {
 	status = "okay";
-	msi-parent = <&its>;
 };
 
 &i2c_gp {

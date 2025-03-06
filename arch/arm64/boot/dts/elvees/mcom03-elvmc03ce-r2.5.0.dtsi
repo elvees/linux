@@ -233,9 +233,7 @@
 };
 
 /* PCIe0 is connected to SATA controller. */
-sata: &pcie0 {
-	msi-parent = <&its>;
-};
+sata: &pcie0 { };
 
 &emac0 {
 	phy-handle = <&ethernet_phy0>;

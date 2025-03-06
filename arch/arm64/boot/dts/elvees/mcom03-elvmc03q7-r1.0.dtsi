@@ -190,6 +190,4 @@
 };
 
 /* PCIe0 is connected to SATA controller. */
-sata: &pcie0 {
-	msi-parent = <&its>;
-};
+sata: &pcie0 { };

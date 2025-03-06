@@ -301,7 +301,6 @@
 /* PCIe0 is connected to SATA controller. */
 sata: &pcie0 {
 	reset-gpio = <&gpio1c 7 GPIO_ACTIVE_HIGH>;
-	msi-parent = <&its>;
 };
 
 &pcie1 {
