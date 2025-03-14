@@ -1,7 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0
-dtb-$(CONFIG_ARCH_MCOM03) += mcom03-mcom03bub-r1.3.0.dtb
-dtb-$(CONFIG_ARCH_MCOM03) += mcom03-mcom03bub-r1.3.0-b101uan01.dtb
-dtb-$(CONFIG_ARCH_MCOM03) += mcom03-mcom03bub-r1.3.0-fct.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-ecam03bl-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-ecam03dm-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-ecam03ptz-r1.0.dtb
@@ -51,6 +48,10 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.11.0-elvsmarccb-r3.3.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.11.0-elvsmarccb-r3.3.0-b156xw02-v0r.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-elvmc03smarc-r2.11.0-elvsmarccb-r3.3.0-m238hca-l3b.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-iqcam-r1.0.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-mcom03bub-r1.3.0.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-mcom03bub-r1.3.0-b101uan01.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-mcom03bub-r1.3.0-fct.dtb
+dtb-$(CONFIG_ARCH_MCOM03) += mcom03-mcom03bub-r1.3.0-pm.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-monoboard-r1.1.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-monoboard-r1.1.1-b156xw02-v0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-monoboard-r1.1.1-m238hca-l3b.dtb
