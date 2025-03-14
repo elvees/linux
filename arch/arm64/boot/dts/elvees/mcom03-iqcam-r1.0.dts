@@ -10,6 +10,9 @@
 
 #include "mcom03.dtsi"
 
+// Power management is not tested on this board
+#include "mcom03-pm-media-disable.dtsi"
+
 / {
 	model = "QVC-MiR501Z1-S";
 	compatible = "elvees,iqcam-r1.0",
@@ -72,43 +75,6 @@
 		compatible = "simple-audio-selector";
 		select-gpios = <&gpio0d 2 GPIO_ACTIVE_LOW>;
 	};
-};
-
-&media_clocks {
-	// Not tested on this board
-	/delete-property/ elvees,power-domain;
-};
-
-&gpu {
-	/delete-property/ power-domains;
-};
-
-&vpu {
-	/delete-property/ power-domains;
-};
-
-&isp {
-	/delete-property/ power-domains;
-};
-
-&dp {
-	/delete-property/ power-domains;
-};
-
-&de_dpi {
-	/delete-property/ power-domains;
-};
-
-&de_dsi {
-	/delete-property/ power-domains;
-};
-
-&csi0 {
-	/delete-property/ power-domains;
-};
-
-&csi1 {
-	/delete-property/ power-domains;
 };
 
 &gpio0a {

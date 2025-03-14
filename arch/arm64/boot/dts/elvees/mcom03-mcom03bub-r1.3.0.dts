@@ -9,6 +9,10 @@
 
 #include "mcom03.dtsi"
 
+// Disable power management due to board hardware issue #MCOM03SW-3389
+#include "mcom03-pm-media-disable.dtsi"
+#include "mcom03-pm-sdr-disable.dtsi"
+
 / {
 	model = "MCom-03 Bring-Up Board r1.3.0";
 	compatible = "elvees,mcom03bub-r1.3.0",
@@ -53,68 +57,6 @@
 
 	// Delete thermal-zone due to #MCOM03SW-2960
 	/delete-node/ thermal-zones;
-};
-
-&sdr_clocks {
-	// Disable power domain control due to #MCOM03SW-3389
-	/delete-property/ elvees,power-domain;
-};
-
-&media_clocks {
-	// Disable power domain control due to #MCOM03SW-3389
-	/delete-property/ elvees,power-domain;
-};
-
-&pcie0 {
-	/delete-property/ power-domains;
-};
-
-&pcie1 {
-	/delete-property/ power-domains;
-};
-
-&qlic1 {
-	/delete-property/ power-domains;
-};
-
-&elcore0 {
-	/delete-property/ power-domains;
-};
-
-&elcore1 {
-	/delete-property/ power-domains;
-};
-
-&gpu {
-	/delete-property/ power-domains;
-};
-
-&vpu {
-	/delete-property/ power-domains;
-};
-
-&isp {
-	/delete-property/ power-domains;
-};
-
-&dp {
-	/delete-property/ power-domains;
-};
-
-&de_dpi {
-	/delete-property/ power-domains;
-};
-
-&de_dsi {
-	/delete-property/ power-domains;
-};
-
-&csi0 {
-	/delete-property/ power-domains;
-};
-
-&csi1 {
-	/delete-property/ power-domains;
 };
 
 &uart0 {

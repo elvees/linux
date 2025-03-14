@@ -9,6 +9,10 @@
 
 #include "mcom03.dtsi"
 
+// Power management is not tested on this board
+#include "mcom03-pm-media-disable.dtsi"
+#include "mcom03-pm-sdr-disable.dtsi"
+
 / {
 	chosen {
 		stdout-path = "serial0:115200n8";
@@ -21,68 +25,6 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
-};
-
-&sdr_clocks {
-	// Not tested on this board
-	/delete-property/ elvees,power-domain;
-};
-
-&media_clocks {
-	// Not tested on this board
-	/delete-property/ elvees,power-domain;
-};
-
-&pcie0 {
-	/delete-property/ power-domains;
-};
-
-&pcie1 {
-	/delete-property/ power-domains;
-};
-
-&qlic1 {
-	/delete-property/ power-domains;
-};
-
-&elcore0 {
-	/delete-property/ power-domains;
-};
-
-&elcore1 {
-	/delete-property/ power-domains;
-};
-
-&gpu {
-	/delete-property/ power-domains;
-};
-
-&vpu {
-	/delete-property/ power-domains;
-};
-
-&isp {
-	/delete-property/ power-domains;
-};
-
-&dp {
-	/delete-property/ power-domains;
-};
-
-&de_dpi {
-	/delete-property/ power-domains;
-};
-
-&de_dsi {
-	/delete-property/ power-domains;
-};
-
-&csi0 {
-	/delete-property/ power-domains;
-};
-
-&csi1 {
-	/delete-property/ power-domains;
 };
 
 &hsperiph_pinctrl {

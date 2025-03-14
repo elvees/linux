@@ -10,6 +10,9 @@
 
 #include "mcom03.dtsi"
 
+// Power management is not tested on this board
+#include "mcom03-pm-media-disable.dtsi"
+
 / {
 	model = "ECAM03PTZ r1.0";
 	compatible = "elvees,ecam03ptz-r1.0",
@@ -37,43 +40,6 @@
 	};
 
 	/delete-node/ sdr-bus;
-};
-
-&media_clocks {
-	// Not tested on this board
-	/delete-property/ elvees,power-domain;
-};
-
-&gpu {
-	/delete-property/ power-domains;
-};
-
-&vpu {
-	/delete-property/ power-domains;
-};
-
-&isp {
-	/delete-property/ power-domains;
-};
-
-&dp {
-	/delete-property/ power-domains;
-};
-
-&de_dpi {
-	/delete-property/ power-domains;
-};
-
-&de_dsi {
-	/delete-property/ power-domains;
-};
-
-&csi0 {
-	/delete-property/ power-domains;
-};
-
-&csi1 {
-	/delete-property/ power-domains;
 };
 
 &gpio0a {

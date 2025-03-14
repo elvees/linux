@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+&sdr_clocks {
+	/delete-property/ elvees,power-domain;
+};
+
+&pcie0 {
+	/delete-property/ power-domains;
+};
+
+&pcie1 {
+	/delete-property/ power-domains;
+};
+
+&qlic1 {
+	/delete-property/ power-domains;
+};
+
+&elcore0 {
+	/delete-property/ power-domains;
+};
+
+&elcore1 {
+	/delete-property/ power-domains;
+};
