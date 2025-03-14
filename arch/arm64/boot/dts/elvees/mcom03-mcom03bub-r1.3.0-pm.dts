@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+// This DTS is used to test power management feature.
+
+/dts-v1/;
+
+#include "mcom03-mcom03bub-r1.3.0.dts"
+#include "mcom03-pm-media-enable.dtsi"
+#include "mcom03-pm-sdr-enable.dtsi"
+
+/* Disable PCIe because it doesn't support runtime PM and can not be unbound or
+ * unloaded.
+ */
+&pcie0 {
+	status = "disabled";
+};
+
+&pcie1 {
+	status = "disabled";
+};

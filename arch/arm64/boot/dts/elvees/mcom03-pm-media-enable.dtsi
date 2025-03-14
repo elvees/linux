@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+&media_clocks {
+	elvees,power-domain;
+};
+
+&gpu {
+	power-domains = <&media_clocks>;
+};
+
+&vpu {
+	power-domains = <&media_clocks>;
+};
+
+&isp {
+	power-domains = <&media_clocks>;
+};
+
+&dp {
+	power-domains = <&media_clocks>;
+};
+
+&de_dpi {
+	power-domains = <&media_clocks>;
+};
+
+&de_dsi {
+	power-domains = <&media_clocks>;
+};
+
+&csi0 {
+	power-domains = <&media_clocks>;
+};
+
+&csi1 {
+	power-domains = <&media_clocks>;
+};
