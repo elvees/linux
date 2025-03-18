@@ -32,6 +32,10 @@
 #define EDMA_INTx_INT_ASSERTED		GENMASK(3, 0)
 #define EDMA_INTx_INT_DEASSERTED	GENMASK(7, 4)
 
+#define DEBUG_ST_OFF			0x34
+#define DEBUG_ST_RDLH_LINK_UP		BIT(0)
+#define DEBUG_ST_SMLH_LINK_UP		BIT(31)
+
 #define SYS_JESD_EN_OFF			0x300
 
 #define DEVICE_TYPE_EP	0
@@ -160,18 +164,12 @@ static void mcom03_pcie_ltssm_toggle(struct mcom03_pcie *pcie, u32 val)
 static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
-	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
 
 	// Set BAR0/BAR1 to 4 KiB to preserve space in ranges
 	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_0, 0xFFF);
 	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_1, 0xFFF);
 	// Disable DBI_RO_WR_EN, since setup_rc() expects it to be off
 	dw_pcie_dbi_ro_wr_dis(pci);
-
-	// If we need to program PHY, registers are programmed and
-	// app_hold_phy_rst is unset here
-	mcom03_pcie_ltssm_toggle(pcie, 1);
-	dw_pcie_wait_for_link(pci);
 
 	return 0;
 }
@@ -365,7 +363,37 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 	return 0;
 }
 
+static int mcom03_pcie_start_link(struct dw_pcie *pci)
+{
+	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
+
+	mcom03_pcie_ltssm_toggle(pcie, 1);
+
+	return 0;
+};
+
+static void mcom03_pcie_stop_link(struct dw_pcie *pci)
+{
+	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
+
+	mcom03_pcie_ltssm_toggle(pcie, 0);
+};
+
+static int mcom03_pcie_link_up(struct dw_pcie *pci)
+{
+	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
+	u32 debug_st;
+
+	debug_st = mcom03_pcie_readl(pcie, DEBUG_ST_OFF);
+
+	return (debug_st & DEBUG_ST_SMLH_LINK_UP) &&
+		(debug_st & DEBUG_ST_RDLH_LINK_UP);
+}
+
 static const struct dw_pcie_ops dw_pcie_ops = {
+	.start_link = mcom03_pcie_start_link,
+	.stop_link = mcom03_pcie_stop_link,
+	.link_up = mcom03_pcie_link_up,
 };
 
 static int mcom03_pcie_probe(struct platform_device *pdev)
@@ -463,8 +491,9 @@ static int mcom03_pcie_remove(struct platform_device *pdev)
 {
 	struct mcom03_pcie *pcie = platform_get_drvdata(pdev);
 
-	mcom03_pcie_ltssm_toggle(pcie, 0);
+	dw_pcie_host_deinit(&pcie->pci->pp);
 	reset_control_assert(pcie->reset);
+
 	return 0;
 }
 
