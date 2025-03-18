@@ -1,0 +1,228 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pci/elvees,mcom03-pcie.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ELVEES MCom-03 PCIe host controller
+
+maintainers:
+  - Ilya Popov <ipopov@elvees.com>
+
+description: |+
+  ELVEES MCom-03 PCIe host controller is based on the Synopsys DesignWare PCIe
+  dual mode controller IP. This is the Root Port part and thus inherits common
+  properties defined in snps,dw-pcie.yaml.
+
+allOf:
+  - $ref: /schemas/pci/snps,dw-pcie.yaml#
+
+properties:
+  compatible:
+    const: elvees,mcom03-pcie
+
+  reg:
+    items:
+      - description: Data Bus Interface (DBI) registers.
+      - description: iATU memory IO region.
+      - description: ELVEES specific application registers.
+      - description: PCIe configuration space region.
+
+  reg-names:
+    items:
+      - const: dbi
+      - const: atu
+      - const: apb
+      - const: config
+
+  ranges: true
+
+  dma-ranges: true
+
+  elvees,urb:
+    description: A phandle of the SDR subsystem URB
+    $ref: /schemas/types.yaml#/definitions/phandle
+
+  elvees,ctrl-id:
+    description: PCIe controller ID number (0 or 1)
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+
+  interrupts:
+    items:
+      - description: builtin MSI controller.
+      - description: Legacy interrupt controller interrupts.
+      - description: PME interrupt.
+      - description: AER interrupt.
+      - description: eDMA interrupt.
+
+  interrupt-names:
+    items:
+      - const: msi
+      - const: legacy
+      - const: pme
+      - const: aer
+      - const: dma
+
+  resets:
+    description: Should contain platform-specific resets (see the example)
+
+  legacy-interrupt-controller:
+    type: object
+    description: Interrupt controller device node for the Legacy IRQ chip.
+
+  "#interrupt-cells":
+    const: 1
+
+  interrupt-map: true
+
+  interrupt-map-mask: true
+
+  msi-parent:
+    description: A phandle of the GIC ITS node for simple devices.
+
+  msi-map:
+    description: Preffered for use with GIC ITS. For details read pci-msi.txt.
+
+  msi-map-mask:
+    description: |
+      If GIC ITS is used, the mask must be applied for actual functionality because
+      of hardware bug(rf#14059/MCOM03-1622) - lose of 4 LSB in Requester ID.
+    const: 0xfff0
+
+  bus-range:
+    description: |
+      For cases when more than 1 controller are using GIC ITS
+      "bus numbers" should be separeted for these controllers.
+
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - "#address-cells"
+  - "#size-cells"
+  - bus-range
+  - ranges
+  - dma-ranges
+  - interrupts
+  - interrupt-names
+  - legacy-interrupt-controller
+  - "#interrupt-cells"
+  - interrupt-map-mask
+  - interrupt-map
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/soc/elvees,mcom03.h>
+
+    mcom03-pcie-bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      // Use GIC ITS as MSI controller.
+      pcie0: pcie@2000000 {
+        compatible = "elvees,mcom03-pcie";
+        reg = <0x0 0x2000000 0x0 0x300000>,
+              <0x0 0x2300000 0x0 0x80000>,
+              <0x0 0x1a00000 0x0 0x800>,
+              <0x0 0x60000000 0x0 0x10000000>;
+        reg-names = "dbi", "atu", "apb", "config";
+        #address-cells = <3>;
+        #size-cells = <2>;
+        device_type = "pci";
+        ranges = <0x83000000 0x0 0x00000000
+                  0x4 0x00000000
+                  0x1 0x00000000>;
+        dma-ranges = <0x42000000 0x0 0x40000000
+                      0x8 0x40000000 0x2 0x80000000>,
+                     <0x42000000 0x4 0x0
+                      0xc 0x0 0x1 0x80000000>;
+        num-viewport = <32>;
+        num-lanes = <4>;
+
+        interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "msi", "legacy", "pme", "aer", "dma";
+        resets = <&sdr_reset SDR_RST_EXT_ICT>,
+                 <&sdr_reset SDR_RST_BBD_ICT>,
+                 <&sdr_reset SDR_RST_PCI_ICT>;
+        elvees,urb = <&sdr_urb>;
+        elvees,ctrl-id = <0>;
+        bus-range = <0x00 0x7f>;
+        msi-map = <0x0000 &its 0x0 0x8000>;
+        msi-map-mask = <0xfff0>;
+
+        // Legacy interrupts support
+        #interrupt-cells = <1>;
+        interrupt-map-mask = <0 0 0 7>;
+        interrupt-map = <0000 0 0 1 &pcie0_intc 1>,
+                        <0000 0 0 2 &pcie0_intc 2>,
+                        <0000 0 0 3 &pcie0_intc 3>,
+                        <0000 0 0 4 &pcie0_intc 4>;
+
+        pcie0_intc: legacy-interrupt-controller {
+          interrupt-controller;
+          #address-cells = <0>;
+          #interrupt-cells = <1>;
+        };
+      };
+
+      // Use embedded MSI controller.
+      pcie1: pcie@2400000 {
+        compatible = "elvees,mcom03-pcie";
+        reg = <0x0 0x2400000 0x0 0x300000>,
+              <0x0 0x2700000 0x0 0x80000>,
+              <0x0 0x1d00000 0x0 0x800>,
+              <0x0 0x70000000 0x0 0x10000000>;
+        reg-names = "dbi", "atu", "apb", "config";
+        #address-cells = <3>;
+        #size-cells = <2>;
+        device_type = "pci";
+        ranges = <0x83000000 0x0 0x00000000
+                  0x6 0x00000000
+                  0x1 0x00000000>;
+        dma-ranges = <0x42000000 0x0 0x40000000
+                      0x8 0x40000000 0x2 0x80000000>,
+                     <0x42000000 0x4 0x0
+                      0xc 0x0 0x1 0x80000000>;
+        num-viewport = <32>;
+        num-lanes = <4>;
+        linux,pci-domain = <1>;
+
+        interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "msi", "legacy", "pme", "aer", "dma";
+        resets = <&sdr_reset SDR_RST_EXT_ICT>,
+                 <&sdr_reset SDR_RST_BBD_ICT>,
+                 <&sdr_reset SDR_RST_PCI_ICT>;
+        elvees,urb = <&sdr_urb>;
+        elvees,ctrl-id = <1>;
+        bus-range = <0x00 0xff>;
+
+        // Legacy interrupts support
+        #interrupt-cells = <1>;
+        interrupt-map-mask = <0 0 0 7>;
+        interrupt-map = <0000 0 0 1 &pcie1_intc 1>,
+                        <0000 0 0 2 &pcie1_intc 2>,
+                        <0000 0 0 3 &pcie1_intc 3>,
+                        <0000 0 0 4 &pcie1_intc 4>;
+
+        pcie1_intc: legacy-interrupt-controller {
+          interrupt-controller;
+          #address-cells = <0>;
+          #interrupt-cells = <1>;
+        };
+      };
+    };
+
+...
