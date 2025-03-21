@@ -423,4 +423,10 @@ config PCIE_MCOM03
 	help
           Say Y here if you want PCIe controller support on ELVEES MCom-03/MCom-03R SoC
 
+config PCIE_MCOM03_DEBUG
+	bool "MCom-03 PCIe PHY debug"
+	depends on PCIE_MCOM03
+	help
+	  Say Y here if you want PCIe PHY registers dump.
+
 endmenu

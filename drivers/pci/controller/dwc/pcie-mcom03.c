@@ -47,6 +47,16 @@
 #define SDR_PCI1_PERSTN_MODE	BIT(8)
 #define SDR_PCI1_PERSTN		BIT(9)
 
+// PHY viewport access
+#define PHY_VIEWPORT_CTLSTS_OFF	0xb70
+#define PHY_VIEWPORT_CTLSTS_ADDR	GENMASK(15, 0)
+#define PHY_VIEWPORT_CTLSTS_NUM		GENMASK(19, 16)
+#define PHY_VIEWPORT_CTLSTS_READ	BIT(20)
+#define PHY_VIEWPORT_CTLSTS_BCWR	BIT(21)
+#define PHY_VIEWPORT_CTLSTS_STATUS	BIT(30)
+#define PHY_VIEWPORT_CTLSTS_PENDING	BIT(31)
+#define PHY_VIEWPORT_DATA_OFF		0xb74
+
 #define to_mcom03_pcie(x)	dev_get_drvdata((x)->dev)
 
 struct mcom03_pcie {
@@ -60,6 +70,72 @@ struct mcom03_pcie {
 	struct gpio_desc		*reset_gpio;
 	bool				embed_msi:1;
 };
+
+#if defined(CONFIG_PCIE_MCOM03_DEBUG)
+#define MCOM03_PCIE_PHY_REG(name, addr) { \
+	.reg_name = name, \
+	.offset = addr, \
+}
+
+struct phy_reg {
+	const char reg_name[60];
+	u16 offset;
+	u16 val;
+};
+
+static const struct phy_reg phy_regs_dump[] = {
+	MCOM03_PCIE_PHY_REG("SUP_DIG_IDCODE_LO", 0x0),
+	MCOM03_PCIE_PHY_REG("SUP_DIG_IDCODE_HI", 0x1),
+	MCOM03_PCIE_PHY_REG("LANE0_DIG_ASIC_RX_ASIC_IN_1", 0x1012),
+	MCOM03_PCIE_PHY_REG("LANE1_DIG_ASIC_RX_ASIC_IN_1", 0x1112),
+	MCOM03_PCIE_PHY_REG("LANE2_DIG_ASIC_RX_ASIC_IN_1", 0x1212),
+	MCOM03_PCIE_PHY_REG("LANE3_DIG_ASIC_RX_ASIC_IN_1", 0x1312),
+};
+
+static int mcom03_pcie_phy_read(struct dw_pcie *pci, u16 reg, u16 *val)
+{
+	u32 tmp, retry = 0;
+
+	// Details in PCIe DM controller databook $3.5.6, $4.13
+	dw_pcie_writel_dbi(pci, PHY_VIEWPORT_CTLSTS_OFF,
+			   reg | PHY_VIEWPORT_CTLSTS_READ);
+
+	while (retry < 3) {
+		retry++;
+		tmp = dw_pcie_readl_dbi(pci, PHY_VIEWPORT_CTLSTS_OFF);
+
+		if (tmp & PHY_VIEWPORT_CTLSTS_PENDING)
+			usleep_range(1, 10);
+		else
+			break;
+	}
+
+	if ((tmp & PHY_VIEWPORT_CTLSTS_PENDING) ||
+	    (tmp & PHY_VIEWPORT_CTLSTS_STATUS))
+		return -ETIMEDOUT;
+
+	*val = dw_pcie_readw_dbi(pci, PHY_VIEWPORT_DATA_OFF);
+
+	return 0;
+};
+
+static void mcom03_pcie_dump_phy_regs(struct dw_pcie *pci)
+{
+	int i, ret;
+	u16 val;
+
+	dev_info(pci->dev, "PHY registers dump begin:\n");
+	for (i = 0; i < ARRAY_SIZE(phy_regs_dump); i++) {
+		ret = mcom03_pcie_phy_read(pci, phy_regs_dump[i].offset, &val);
+		if (!ret)
+			dev_info(pci->dev, "%s[%#x]:%#x\n",
+				 phy_regs_dump[i].reg_name, phy_regs_dump[i].offset, val);
+	}
+	dev_info(pci->dev, "PHY registers dump end\n");
+}
+#else
+static void mcom03_pcie_dump_phy_regs(struct dw_pcie *pci) { }
+#endif
 
 static void mcom03_pcie_writel(struct mcom03_pcie *pcie, u32 reg, u32 val)
 {
@@ -282,6 +358,8 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 		dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_HI, upper_32_bits(pp->msi_data));
 		dev_info(dev, "Redirecting MSI to %#llx\n", pp->msi_data);
 	}
+
+	mcom03_pcie_dump_phy_regs(pci);
 
 	return 0;
 }
