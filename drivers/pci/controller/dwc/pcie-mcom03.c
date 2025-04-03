@@ -287,12 +287,13 @@ static int mcom03_add_pcie_port(struct mcom03_pcie *pcie,
 	 * $3.8.2.2 inbound MWr request detected as MSI interrupt "is dropped and
 	 * never appears on the AXI bus." we can actually use almost any address
 	 * for MSI interrupt messages. So as a workaround we do the following -
-	 * redefine address for MSI interrupts from reserved address space below 4GB
-	 * after embedded MSI controller is initialized in dw_pcie_host_init(). */
+	 * redefine address for MSI interrupts with same address as GITS_TRANSLATER
+	 * register in GIC ITS after embedded MSI controller is initialized in
+	 * dw_pcie_host_init(). */
 	if (pcie->embed_msi) {
 		dma_unmap_single_attrs(pci->dev, pp->msi_data, sizeof(pp->msi_msg),
 				       DMA_FROM_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
-		pp->msi_data = 0x20000000;
+		pp->msi_data = 0x1130040;
 		dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_LO, lower_32_bits(pp->msi_data));
 		dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_HI, upper_32_bits(pp->msi_data));
 		dev_info(dev, "Redirecting MSI to %#llx\n", pp->msi_data);
