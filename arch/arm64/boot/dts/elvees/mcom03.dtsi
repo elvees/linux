@@ -462,6 +462,23 @@
 					  CLK_MEDIA_UCG3_CMOS1>;
 		};
 
+		media_pinctrl: media-pinctrl {
+			compatible = "elvees,mcom03-media-pinctrl";
+			#address-cells = <0>;
+			#size-cells = <0>;
+			elvees,urb = <&media_urb>;
+
+			display_processor_mux: display-processor-mux {
+				groups = "media_mux_grp";
+				function = "DP";
+			};
+
+			isp_mux: isp-mux {
+				groups = "media_mux_grp";
+				function = "ISP";
+			};
+		};
+
 		dma32-bus {
 			compatible = "elvees,mcom03-dma32-media", "simple-bus";
 			#address-cells = <2>;
@@ -644,6 +661,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			power-domains = <&media_clocks>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&display_processor_mux>;
 
 			ports {
 				#address-cells = <1>;
