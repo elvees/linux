@@ -17,11 +17,6 @@
 
 #define to_mcom03_pd(gpd) container_of(gpd, struct mcom03_pm_domain, genpd)
 
-enum mcom03_pd_state {
-	PP_ON = 0x10,
-	PP_OFF = 0x01,
-};
-
 static int _mcom03_power_domain_on(struct generic_pm_domain *domain,
 				   bool restore_clocks)
 {

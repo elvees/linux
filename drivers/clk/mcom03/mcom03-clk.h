@@ -24,6 +24,11 @@
 			mutex_unlock(&pd->lock); \
 	} while (0)
 
+enum mcom03_pd_state {
+	PP_ON = 0x10,
+	PP_OFF = 0x01,
+};
+
 struct mcom03_clk_provider;
 
 struct mcom03_subsystem_clk {

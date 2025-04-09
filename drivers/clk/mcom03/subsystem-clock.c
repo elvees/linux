@@ -22,6 +22,9 @@
 #define MEDIA_URB_SUBSYSTEM_CFG 0x2000
 #define MEDIA_URB_SUBSYSTEM_CFG_PARALLEL_PORT_EN BIT(0)
 
+#define LSP1_URB_I2S_UCG_RSTN_PPOLICY	0x8
+#define LSP1_URB_I2S_UCG_RSTN_PSTATUS	0xc
+
 struct mcom03_clk_provider {
 	struct clk_hw_onecell_data *clk_data;
 	struct regmap *urb;
@@ -256,6 +259,24 @@ void mcom03_media_clk_init(struct mcom03_clk_provider *prov)
 			   MEDIA_URB_SUBSYSTEM_CFG_PARALLEL_PORT_EN);
 }
 
+void mcom03_lsp1_clk_init(struct mcom03_clk_provider *prov)
+{
+	unsigned int val;
+
+	regmap_read(prov->urb, LSP1_URB_I2S_UCG_RSTN_PSTATUS, &val);
+	if ((val & 0x1f) == PP_ON)
+		return;
+
+	regmap_write(prov->urb, LSP1_URB_I2S_UCG_RSTN_PPOLICY, PP_ON);
+	if (regmap_read_poll_timeout(prov->urb,
+				     LSP1_URB_I2S_UCG_RSTN_PSTATUS,
+				     val,
+				     (val & 0x1f) == PP_ON,
+				     0,
+				     1000))
+		pr_err("Failed to deassert reset for I2S_UCG\n");
+}
+
 struct mcom03_subsystem_clk mcom03_subsystems[] = {
 	[MCOM03_SUBSYSTEM_SERVICE] = {
 		.plls = mcom03_service_plls,
@@ -349,6 +370,8 @@ struct mcom03_subsystem_clk mcom03_subsystems[] = {
 		.max_ucg_id = 1,
 
 		.nr_clocks = CLK_LSP1_NR_CLOCKS,
+
+		.init = mcom03_lsp1_clk_init,
 	},
 };
 
