@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, Multicluster r2.2 Unit";
+	compatible = "elvees,elvmc03smarc-r1.0-multicluster-r2.2-unit",
+			"elvees,elvmc03smarc-r1.0-multicluster-r2.2",
+			"elvees,elvmc03smarc-multicluster",
+			"elvees,multicluster-r2.2",
+			"elvees,multicluster",
+			"elvees,elvmc03smarc-r1.0",
+			"elvees,elvmc03smarc",
+			"elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/* Connected to USB 3.0 Type-C */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 */
+&emac0 {
+	status = "okay";
+};
+&emac1 {
+	status = "okay";
+};
+
+&i2c2 {
+	emc2301@2f {
+		compatible = "microchip,emc2305";
+		reg = <0x2f>;
+	};
+};
+
+&pcie1 {
+	status = "okay";
+};
+
+&sata {
+	status = "okay";
+};

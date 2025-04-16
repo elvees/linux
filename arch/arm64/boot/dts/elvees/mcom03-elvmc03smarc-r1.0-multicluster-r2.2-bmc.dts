@@ -1,0 +1,382 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-elvmc03smarc-r1.0.dtsi"
+
+/ {
+	model = "ELV-MC03-SMARC r1.0, Multicluster r2.2 BMC";
+	compatible = "elvees,elvmc03smarc-r1.0-multicluster-r2.2-bmc",
+			"elvees,elvmc03smarc-r1.0-multicluster-r2.2",
+			"elvees,elvmc03smarc-multicluster",
+			"elvees,multicluster-r2.2",
+			"elvees,multicluster",
+			"elvees,elvmc03smarc-r1.0",
+			"elvees,elvmc03smarc",
+			"elvees,mcom03";
+	aliases {
+		i2c11 = &i2c_fan1;
+		i2c12 = &i2c_fan2;
+		i2c13 = &i2c_fan3;
+		i2c14 = &i2c_fan4;
+		i2c15 = &i2c_fan5;
+		i2c16 = &i2c_fan6;
+		i2c17 = &i2c_fan7;
+		i2c18 = &i2c_fan8;
+		i2c10 = &i2c_lcd;
+	};
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
+		timeout-ms = <10000>;
+		active-delay-ms = <3000>;
+		input;
+		force;
+	};
+};
+
+/* Connected to MicroSD card */
+&sdhci1 {
+	status = "okay";
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+	/* "TODO: check if disable-wp required" */
+	disable-wp;
+};
+
+/* Connected to USB 3.0 Type-C */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to RJ-45 */
+&emac0 {
+	status = "okay";
+};
+&emac1 {
+	status = "okay";
+};
+
+/* Board have video output interface */
+&dp {
+	status = "okay";
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+/* Connected to HDMI plug */
+&adv7513 {
+	status = "okay";
+};
+
+&de_dpi {
+	status = "okay";
+};
+
+/* Connected to M.2 slot */
+&pcie1 {
+	status = "okay";
+};
+
+&i2c_pm {
+	status = "okay";
+	/* DD71 */
+	mcp22:mcp2301722@22 {
+		compatible = "microchip,mcp23017";
+		reg = <0x22>;
+		gpio-line-names = "S7_RESET",
+						"S6_RESET",
+						"S8_RESET",
+						"S3_RESET",
+						"S5_RESET",
+						"S1_RESET",
+						"S4_RESET",
+						"S2_RESET",
+						"EN_POWER_S7",
+						"EN_POWER_S6",
+						"EN_POWER_S8",
+						"EN_POWER_S3",
+						"EN_POWER_S5",
+						"EN_POWER_S1",
+						"EN_POWER_S4",
+						"EN_POWER_S2";
+	};
+	mcp23:mcp2301723@23 {
+		compatible = "microchip,mcp23017";
+		gpio-line-names = "S7_SEL0",
+						"S7_SEL1",
+						"S6_SEL0",
+						"S6_SEL1",
+						"S8_SEL0",
+						"S8_SEL1",
+						"S3_SEL0",
+						"S3_SEL1",
+						"S5_SEL0",
+						"S5_SEL1",
+						"S1_SEL0",
+						"S1_SEL1",
+						"S4_SEL0",
+						"S4_SEL1",
+						"S2_SEL0",
+						"S2_SEL1";
+		reg = <0x23>;
+	};
+	mcp24:mcp2301724@24 {
+		compatible = "microchip,mcp23017";
+		gpio-line-names = "HUB_DIS_8051",
+						"HUB_EN_FLASH",
+						"I2C_SWITCH_S1",
+						"I2C_SWITCH_S2",
+						"HUB_SMI_SEL0",
+						"HUB_SMI_SEL1",
+						"HUB_DIS_AUTOLOAD",
+						"",
+						"SMARC7_PG",
+						"SMARC6_PG",
+						"SMARC8_PG",
+						"SMARC3_PG",
+						"SMARC5_PG",
+						"SMARC1_PG",
+						"SMARC4_PG",
+						"SMARC2_PG";
+		reg = <0x24>;
+	};
+	mcp25:mcp2301724@25 {
+		compatible = "microchip,mcp23017";
+		gpio-line-names = "S7_CARRIER_PWR_ON",
+						"S6_CARRIER_PWR_ON",
+						"S8_CARRIER_PWR_ON",
+						"S3_CARRIER_PWR_ON",
+						"S5_CARRIER_PWR_ON",
+						"S1_CARRIER_PWR_ON",
+						"S4_CARRIER_PWR_ON",
+						"S2_CARRIER_PWR_ON",
+						"S7_PWR_OFF_REQ",
+						"S6_PWR_OFF_REQ",
+						"S8_PWR_OFF_REQ",
+						"S3_PWR_OFF_REQ",
+						"S5_PWR_OFF_REQ",
+						"S1_PWR_OFF_REQ",
+						"S4_PWR_OFF_REQ",
+						"S2_PWR_OFF_REQ";
+		reg = <0x25>;
+	};
+};
+
+&gpio0c {
+	gpio-line-names = "SPI0_CK", "SPI0_DO", "SPI0_DIN", "LED_RED",
+					"SPI0_CS0#", "SPI0_CS1#", "", "RGMII_1_RST#";
+};
+
+&lsperiph0_pinctrl {
+	mdiosw {
+		pins = "GPIOC_6 GPIOB_0 GPIOB_3" ;
+		input-enable;
+	};
+};
+
+&lsperiph1_pinctrl {
+	hdmi_int: hdmi-int {
+		pins = "GPIOA_3";
+		input-enable;
+	};
+};
+
+&gpio1a {
+	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "MDC", "MDIO",
+					"I2C3_SCL", "I2C3_SDA", "HDMI_INT", "RTC_INT";
+};
+
+&gpio1c {
+	gpio-line-names = "BMC_SELECT_MII", "GPIO4", "", "",
+					"BMC_ATX_PWR_OK", "CARRIER_PWR_ON",
+					"FORCE_RECOV#", "SLEEP#";
+};
+
+&gpio0a {
+	gpio-line-names = "UART3_RX", "UART3_TX", "RESERV2",
+					"INT_INTS1", "PWR_SW_PRESSED", "",
+					"INT_INTS2", "GPIO_RESET";
+};
+
+&gpio1d {
+	gpio-line-names = "CARRIER_STBY#", "", "PWM_OUT", "LCD0_BKLT_PWM",
+		"LCD0_BKLT_EN", "PSTANDBY", "BMC_GPIO6", "RESET_OUT#";
+};
+
+&gpio0b {
+	status = "okay";
+	gpio-line-names = "", "", "ATX_PRESENT", "EXT_ID_BTN", "BMC_PWR_SWITCH", "", "", "";
+	pci-perstn {
+		status = "disabled";
+	};
+	sata-perstn {
+		status = "disabled";
+	};
+};
+
+&i2c_lcd {
+	status = "okay";
+	i2c-switch@72 {
+		compatible = "ti,tca9548", "nxp,pca9548";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x72>;
+		i2c_fan1: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			emc2301@2f {
+				compatible = "microchip,emc2305";
+				reg = <0x2f>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				microchip,pwm-separate;
+				#cooling-cells = <2>;
+				channel@0 {
+					reg = <0>;
+					microchip,pwm-push-pull;
+				};
+			};
+		};
+		i2c_fan2: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			emc2301@2f {
+				compatible = "microchip,emc2305";
+				reg = <0x2f>;
+			};
+		};
+		i2c_fan3: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			emc2301@2f {
+				compatible = "microchip,emc2305";
+				reg = <0x2f>;
+			};
+		};
+		i2c_fan4: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+			emc2301@2f {
+				compatible = "microchip,emc2305";
+				reg = <0x2f>;
+			};
+		};
+		i2c_fan5: i2c@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+			emc2301@2f {
+				compatible = "microchip,emc2305";
+				reg = <0x2f>;
+			};
+		};
+		i2c_fan6: i2c@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+			emc2301@2f {
+				compatible = "microchip,emc2305";
+				reg = <0x2f>;
+			};
+		};
+		i2c_fan7: i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+			emc2301@2f {
+				compatible = "microchip,emc2305";
+				reg = <0x2f>;
+			};
+		};
+		i2c_fan8: i2c@7 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+			emc2301@2f {
+				compatible = "microchip,emc2305";
+				reg = <0x2f>;
+			};
+		};
+	};
+};
+
+
+&i2c3 {
+	status = "okay";
+	/* DD72 */
+	mcp24_2:mcp23017242@24 {
+		compatible = "microchip,mcp23017";
+		gpio-line-names = "FAN_ALERT1",
+						"FAN_ALERT2",
+						"FAN_ALERT3",
+						"FAN_ALERT4",
+						"FAN_ALERT5",
+						"FAN_ALERT6",
+						"FAN_ALERT7",
+						"FAN_ALERT8",
+						"FAN_SELECT1",
+						"FAN_SELECT2",
+						"FAN_SELECT3",
+						"FAN_SELECT4",
+						"FAN_SELECT5",
+						"FAN_SELECT6",
+						"FAN_SELECT7",
+						"FAN_SELECT8";
+		reg = <0x24>;
+	};
+};
+
+&i2c_cam0 {
+	status = "okay";
+	mcp23017:gpio-expander@25 {
+		compatible = "microchip,mcp23017";
+		reg = <0x25>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-line-names =
+						"HUB_INT_R",
+						"PHY1_INTB",
+						"PHY2_INTB",
+						"HUB_nRESET",
+						"PHY1_PHYRSTB_3V3",
+						"PHY2_PHYRSTB_3V3",
+						"1V1_ETH_SHITCH_PG",
+						"1V8_GLOBAL_PG",
+						"POWER_LED",
+						"ID_LED",
+						"HDD_LED",
+						"WARN_LED",
+						"",
+						"SMBUS_ALERT_3V3",
+						"INT_FANS_ALERT",
+						"RESET_i2c_SWITCH";
+	};
+	phy1_res {
+		gpio-hog;
+		gpios = <4 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "PHY1_PHYRSTB";
+	};
+	phy2_res {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "PHY2_PHYRSTB";
+	};
+};
