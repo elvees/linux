@@ -26,10 +26,10 @@ patternProperties:
     type: object
     properties:
       groups:
-        $ref: "/schemas/types.yaml#/definitions/string"
+        $ref: /schemas/types.yaml#/definitions/string
         enum: [media_mux_grp]
       function:
-        $ref: "/schemas/types.yaml#/definitions/string"
+        $ref: /schemas/types.yaml#/definitions/string
         enum: [ISP, DP]
 
 
