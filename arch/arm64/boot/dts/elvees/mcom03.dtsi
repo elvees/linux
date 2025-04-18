@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+
-/*
- * Copyright 2019 RnD Center "ELVEES", JSC
- */
+// Copyright 2019 RnD Center "ELVEES", JSC
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/elvees,mcom03.h>

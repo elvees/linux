@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+
-/*
- * Copyright 2024 RnD Center "ELVEES", JSC
- */
+// Copyright 2024 RnD Center "ELVEES", JSC
 
 #include "mcom03-monoboard-r1.2.2.dts"
 #include <dt-bindings/pwm/pwm.h>
