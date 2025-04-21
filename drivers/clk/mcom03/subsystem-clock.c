@@ -596,6 +596,7 @@ static int mcom03_of_parse(struct device_node *np,
 	int ret;
 	int nr_ucg_ids = 0;
 	int i = 0;
+	bool pd_enable = of_property_read_bool(np, "elvees,power-domain");
 
 	ret = of_property_read_u32(np, "elvees,subsystem", &subsystem);
 	if (ret || !is_valid_subsystem(subsystem)) {
@@ -609,8 +610,8 @@ static int mcom03_of_parse(struct device_node *np,
 	prov->subsystem = subsystem;
 	prov->sclk = &mcom03_subsystems[subsystem];
 
-	if (of_property_read_bool(np, "elvees,power-domain")) {
-		prov->genpd = mcom03_power_domain_init(np, subsystem);
+	prov->genpd = mcom03_power_domain_init(np, subsystem, pd_enable);
+	if (pd_enable) {
 		if (prov->genpd)
 			prov->genpd->clk_provider = prov;
 		else
