@@ -155,7 +155,7 @@ int mcom03_clk_refmux_register(struct mcom03_clk_refmux *refmux,
 int mcom03_ucg_chan_register(struct mcom03_ucg_chan *ucg_chan);
 
 struct mcom03_pm_domain *mcom03_power_domain_init(struct device_node *node,
-						  u32 id);
+						  u32 id, bool pd_enable);
 
 void mcom03_of_clks_enable(struct device_node *np,
 			   struct clk_hw_onecell_data *clk_data);

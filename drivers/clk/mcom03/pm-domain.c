@@ -12,16 +12,18 @@
 #define SERVICE_SUBS_PSTATUS_OFFSET 0x4
 #define SERVICE_SUBS_PSTATUS_MASK 0x1f
 
+#define SERVICE_SUBS_TOP_CLKGATE 0x1008
+
 #define mcom03_pm_sip(id, arg0) \
 	mcom03_sip_smccc_smc(MCOM03_SIP_POWER_DOMAIN, (id), (arg0), 0, 0, 0, 0, 0)
 
 #define to_mcom03_pd(gpd) container_of(gpd, struct mcom03_pm_domain, genpd)
 
-static int _mcom03_power_domain_on(struct generic_pm_domain *domain,
+static int _mcom03_power_domain_on(struct mcom03_pm_domain *pd,
+				   const char *name,
 				   bool restore_clocks)
 {
 	int ret;
-	struct mcom03_pm_domain *pd = to_mcom03_pd(domain);
 
 	if (!pd->is_supported) {
 		/* In current kernel version this code is unreachable because
@@ -33,13 +35,12 @@ static int _mcom03_power_domain_on(struct generic_pm_domain *domain,
 		return 0;
 	}
 
-	pr_info("Try to power on %s\n", domain->name);
+	pr_info("Try to power on %s\n", name);
 	mutex_lock(&pd->lock);
 	ret = mcom03_pm_sip(MCOM03_SIP_POWER_DOMAIN_ENABLE, pd->id);
 	if (ret) {
 		mutex_unlock(&pd->lock);
-		pr_err("Failed to enable %s, SIP call returns %d\n",
-		       domain->name, ret);
+		pr_err("Failed to enable %s, SIP call returns %d\n", name, ret);
 		return ret;
 	}
 
@@ -52,9 +53,43 @@ static int _mcom03_power_domain_on(struct generic_pm_domain *domain,
 	return 0;
 }
 
+static int mcom03_power_domain_on_direct(struct mcom03_pm_domain *pd,
+					 const char *name)
+{
+	u32 subsys_clkgates[] = {
+		[MCOM03_SUBSYSTEM_MEDIA] = BIT(1),
+		[MCOM03_SUBSYSTEM_CPU] = BIT(2),
+		[MCOM03_SUBSYSTEM_SDR] = BIT(3),
+		/* Other subsystems are not supported in
+		 * mcom03_power_domain_init() function.
+		 */
+	};
+	u32 mask = subsys_clkgates[pd->id];
+	u32 val;
+	int ret;
+
+	pr_info("Try to power on %s directly\n", name);
+	regmap_write(pd->service_subs_urb, pd->offset, PP_ON);
+	ret = regmap_read_poll_timeout(pd->service_subs_urb,
+				       pd->offset + SERVICE_SUBS_PSTATUS_OFFSET,
+				       val,
+				       (val & 0x1f) == PP_ON,
+				       0,
+				       2000000);
+	if (ret)
+		return ret;
+
+	ret = regmap_write_bits(pd->service_subs_urb, SERVICE_SUBS_TOP_CLKGATE,
+				mask, mask);
+
+	return ret;
+}
+
 static int mcom03_power_domain_on(struct generic_pm_domain *domain)
 {
-	return _mcom03_power_domain_on(domain, true);
+	struct mcom03_pm_domain *pd = to_mcom03_pd(domain);
+
+	return _mcom03_power_domain_on(pd, domain->name, true);
 }
 
 static int mcom03_power_domain_off(struct generic_pm_domain *domain)
@@ -89,7 +124,7 @@ static int mcom03_power_domain_is_enabled(struct mcom03_pm_domain *pd)
 }
 
 struct mcom03_pm_domain *mcom03_power_domain_init(struct device_node *node,
-						  u32 id)
+						  u32 id, bool pd_enable)
 {
 	struct mcom03_pm_domain *pd;
 	const char *name;
@@ -103,7 +138,9 @@ struct mcom03_pm_domain *mcom03_power_domain_init(struct device_node *node,
 		offset = 0x10;
 		name = "Media power domain";
 	} else {
-		pr_err("%pOFf: Invalid subsystem id (%#x)\n", node, id);
+		if (pd_enable)
+			pr_err("%pOFf: Invalid subsystem id (%#x)\n", node, id);
+
 		return NULL;
 	}
 
@@ -135,16 +172,24 @@ struct mcom03_pm_domain *mcom03_power_domain_init(struct device_node *node,
 	pd->is_enabled = mcom03_power_domain_is_enabled(pd);
 	if (!pd->is_enabled) {
 		if (likely(pd->is_supported)) {
-			_mcom03_power_domain_on(&pd->genpd, false);
+			_mcom03_power_domain_on(pd, name, false);
 		} else {
-			/* If domain is powered off, but control via SIP is not
-			 * supported then system will hang on accessing to
-			 * URG/UCG registers.
+			/* Domain is powered off, but control via SIP is not
+			 * supported. Try to enable domain directly without SIP.
+			 * This may be unstable.
 			 */
-			pr_err("%s: Subsystem is powered off but described in Devicetree\n",
-			       name);
-			BUG();
+			ret = mcom03_power_domain_on_direct(pd, name);
+			WARN(ret, "%s: Failed to enable domain (%d)",
+			     name, ret);
 		}
+	}
+
+	/* Power domain can be disabled on some boards. In this case genpd
+	 * must not be created.
+	 */
+	if (!pd_enable) {
+		kfree(pd);
+		return NULL;
 	}
 
 	ret = pm_genpd_init(&pd->genpd, NULL, !pd->is_enabled);
