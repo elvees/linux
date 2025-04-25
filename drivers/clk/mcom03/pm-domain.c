@@ -81,6 +81,7 @@ static int mcom03_power_domain_on_direct(struct mcom03_pm_domain *pd,
 
 	ret = regmap_write_bits(pd->service_subs_urb, SERVICE_SUBS_TOP_CLKGATE,
 				mask, mask);
+	pd->is_enabled = true;
 
 	return ret;
 }
