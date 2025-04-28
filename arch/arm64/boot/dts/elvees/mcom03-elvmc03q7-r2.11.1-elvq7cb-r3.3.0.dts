@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03-elvmc03q7-r2.8.1-elvq7cb-r3.3.0.dts"
+
+/ {
+	model = "ELV-MC03-Q7 r2.11.1, ELV-Q7-CB r3.3.0";
+	compatible = "elvees,elvmc03q7-r2.11.1-elvq7cb-r3.3.0",
+		     "elvees,elvmc03q7-elvq7cb",
+		     "elvees,elvq7cb-r3.3.0",
+		     "elvees,elvq7cb",
+		     "elvees,elvmc03q7-r2.11.1",
+		     "elvees,elvmc03q7",
+		     "elvees,mcom03";
+};
