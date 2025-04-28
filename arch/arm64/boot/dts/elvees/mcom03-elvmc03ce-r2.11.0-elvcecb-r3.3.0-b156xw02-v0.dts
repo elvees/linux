@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+#include "mcom03-elvmc03ce-r2.8.1-elvcecb-r3.3.0-b156xw02-v0.dts"
+
+/ {
+	model = "ELV-MC03-CE r2.11.0, ELV-CE-CB r3.3.0";
+	compatible = "elvees,elvmc03ce-r2.11.0-elvcecb-r3.3.0",
+		     "elvees,elvmc03ce-elvcecb",
+		     "elvees,elvcecb-r3.3.0",
+		     "elvees,elvcecb",
+		     "elvees,elvmc03ce-r2.11.0",
+		     "elvees,elvmc03ce",
+		     "elvees,mcom03";
+};
+
+&sata {
+	/delete-property/ reset-gpio;
+};
