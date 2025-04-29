@@ -47,3 +47,11 @@
 &de_dpi {
 	status = "disabled";
 };
+
+&csi0 {
+	clocks = <&media_clocks CLK_MEDIA_UCG3_MIPI_RX0_CFG>,
+		 <&media_clocks CLK_MEDIA_UCG3_CMOS0>;
+	clock-names = "mipi_rx0_cfg_clk", "cmos0_clk";
+	assigned-clocks = <&media_clocks CLK_MEDIA_UCG3_CMOS0>;
+	assigned-clock-rates = <27000000>;
+};
