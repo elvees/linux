@@ -96,7 +96,7 @@
 	audio_mclk: audio_mclk {
 		#clock-cells = <0>;
 		compatible = "fixed-clock";
-		clock-frequency = <12288000>;
+		clock-frequency = <12000000>;
 	};
 
 	/* TRS (3.5mm jack) connected to ES8327 codec.
