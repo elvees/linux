@@ -13,3 +13,21 @@
 		     "elvees,elvmc03q7",
 		     "elvees,mcom03";
 };
+
+/*
+ * This EEPROM is connected to I2C_DID(XP9) and I2C_BLC(XP10) connectors for
+ * testing purposes and is not part of this board.
+ */
+&i2c_lvds_did {
+	eeprom@51 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x51>;
+	};
+};
+
+&i2c_lvds_blc {
+	eeprom@51 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x51>;
+	};
+};
