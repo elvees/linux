@@ -1028,7 +1028,7 @@ static void delcore30m_spinlock_unlock(struct delcore30m_private_data *pdata)
 static int resource_release(struct delcore30m_resource_desc *res)
 {
 	struct delcore30m_private_data *pdata = res->pdata;
-	int i, j, rc;
+	int i, j, ret = 0;
 	u32 qmaskr0_val, dbg_status, chn_status;
 
 	spin_lock(&pdata->reslock);
@@ -1055,9 +1055,24 @@ static int resource_release(struct delcore30m_resource_desc *res)
 			if ((chn_status & 0xF) == 0)
 				continue;
 
-			rc = delcore30m_spinlock_try(pdata, 1000);
-			if (rc)
-				return rc;
+			ret = delcore30m_spinlock_try(pdata, 1000);
+			if (ret) {
+				/* We are doing a forced unlock of the spinlock
+				   to reset SDMA.
+				   We assume that only DSP kernel module and
+				   DSP programs use hardware spinlock#1. */
+				delcore30m_spinlock_unlock(pdata);
+				ret = delcore30m_spinlock_try(pdata, 1000);
+				if (ret) {
+					/* If we still can not to lock spinlock
+					   then exit with error.
+
+					   In this case SDMA channels are in
+					   unstable state!
+					*/
+					goto release_unlock;
+				}
+			}
 
 			do {
 				regmap_read(pdata->sdma, DBGSTATUS,
@@ -1073,12 +1088,13 @@ static int resource_release(struct delcore30m_resource_desc *res)
 		}
 		break;
 	default:
-		spin_unlock(&pdata->reslock);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto release_unlock;
 	}
 
+release_unlock:
 	spin_unlock(&pdata->reslock);
-	return 0;
+	return ret;
 }
 
 static int delcore30m_resource_release(struct inode *inode, struct file *file)
