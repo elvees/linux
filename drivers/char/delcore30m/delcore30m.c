@@ -1061,7 +1061,7 @@ static int resource_release(struct delcore30m_resource_desc *res)
 			do {
 				regmap_read(pdata->sdma, DBGSTATUS,
 					    &dbg_status);
-			} while (dbg_status & 1);
+			} while (dbg_status & DBGSTATUS_BUSY);
 
 			regmap_write(pdata->sdma, DBGINST0,
 				     (SDMA_DMAKILL << 16) | (i << 8) | 1);
@@ -1473,7 +1473,7 @@ static int delcore30m_dmachain_setup(struct delcore30m_private_data *pdata,
 
 	do {
 		regmap_read(pdata->sdma, DBGSTATUS, &dbg_status);
-	} while (dbg_status & 1);
+	} while (dbg_status & DBGSTATUS_BUSY);
 
 	regmap_write(pdata->sdma, DBGINST0,
 		     (0xA0 << 16) | (dmachain.channel.num << 8) |

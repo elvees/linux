@@ -65,6 +65,7 @@
 #define INTEN					0x020
 #define CHANNEL_STATUS(x)			(0x100 + (8 * (x)))
 #define DBGSTATUS				0xD00
+#define DBGSTATUS_BUSY				BIT(0)
 #define DBGCMD					0xD04
 #define DBGINST0				0xD08
 #define DBGINST1				0xD0C
