@@ -1,0 +1,433 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83869.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "MCom-03 IP-KU M1 r1.0";
+	compatible = "elvees,mcom03ipku-m1-r1.0",
+		     "elvees,mcom03ipku-m1",
+		     "elvees,mcom03";
+
+	aliases {
+		spi2 = &spi0;
+		spi3 = &spi1;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		bootargs = "earlycon console=ttyS0,115200";
+	};
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	dsi_backlight: dsi-backlight {
+		compatible = "gpio-backlight";
+		gpios = <&gpio1d 2 GPIO_ACTIVE_HIGH>;
+		default-on;
+	};
+};
+
+&gpio0a {
+	gpio-line-names = "UART3_SIN", "UART3_SOUT", "UART3_CTS_N", "UART3_DSR_N",
+			  "UART3_DCD_N", "UART3_RI_N", "PCI0_WAKEn", "PCI1_WAKEn";
+};
+
+&gpio0b {
+	gpio-line-names = "UART3_OUT1_N", "UART3_OUT2_N", "UART3_DE", "UART3_RE",
+			  "UART3_RS485_EN", "UART1_SIN", "UART1_SOUT", "UART2_SIN";
+};
+
+&gpio0c {
+	gpio-line-names = "SPI0_SCLK_OUT_FL", "SPI0_TXD_FL", "SPI0_RXD_FL",
+			  "SPI0_SS_IN", "SPI0_SS_0_FL", "SPI0_SS_1", "SPI0_SS_2",
+			  "SPI0_SS_3";
+};
+
+&gpio0d {
+	gpio-line-names = "UART2_SOUT", "UART2_SIR_IN18", "UART2_SIR_OUT_N18",
+			  "I2C0_SCL18", "I2C0_SDA18", "I2C0_SMBALERT18", "PCI1_PERSTn",
+			  "PCI0_PERSTn";
+};
+
+&gpio1a {
+	gpio-line-names = "I2C1_SCL", "I2C1_SDA", "I2C2_SCL", "I2C2_SDA",
+			  "I2C3_SCL", "I2C3_SDA", "USB0_H_D_switch", "USB1_H_D_switch";
+};
+
+&gpio1b {
+	gpio-line-names = "I2S0_SCLK_OUT", "I2S0_WS", "I2S0_SDO0", "I2S0_SDO1",
+			  "I2S0_SDI0", "I2S0_SCLK_IN", "UART0_SOUT", "UART0_SIN";
+};
+
+&gpio1c {
+	gpio-line-names = "SSI1_SCLK_OUT", "SSI1_TXD", "SSI1_RXD", "SSI1_SS_0_N",
+			  "SSI1_SS_1_N", "SSI1_SS_2_N", "SSI1_SS_3_N", "SSI1_SS_IN_N";
+};
+
+&gpio1d {
+	gpio-line-names = "TIMERS_TOGGLE_0", "TIMERS_TOGGLE_1", "AUO_PWM",
+			  "AUO_EN", "CAM1_nRST", "CAM1_nPWR", "CAM0_nRST", "CAM0_nPWR";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
+};
+
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	/* Adjust SDMMC XIN clock frequencies to get better performance
+	 * of SD and eMMC.
+	 */
+	assigned-clocks = <&hsperiph_clocks CLK_HSP_UCG1_SDMMC1_XIN>;
+	assigned-clock-rates = <93750000>;
+
+	sdhci,wp-inverted;
+};
+
+&sdhci0 {
+	status = "okay";
+	non-removable;
+	bus-width = <8>;
+	vqmmc-supply = <&sdhci0_supply>;
+
+	/* Adjust SDMMC XIN clock frequencies to get better performance
+	 * of eMMC in High-Speed mode (without 1.8V).
+	 */
+	assigned-clocks = <&hsperiph_clocks CLK_HSP_UCG1_SDMMC0_XIN>;
+	assigned-clock-rates = <93750000>;
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default>;
+};
+
+&emac0_default {
+	tx_data {
+		groups = "emac0_tx";
+		drive-strength = <12>;
+	};
+
+	txc {
+		pins = "EMAC0_RGMII_TXC";
+		drive-strength = <12>;
+	};
+};
+
+&emac1_default {
+	tx_data {
+		groups = "emac1_tx";
+		drive-strength = <12>;
+	};
+
+	txc {
+		pins = "EMAC1_RGMII_TXC";
+		drive-strength = <12>;
+	};
+};
+
+&emac0 {
+	status = "okay";
+	phy-handle = <&ethernet_phy0>;
+
+	ethernet_phy0: ethernet-phy@0 {
+		reg = <0x0>;
+		ti,op-mode = <DP83869_RGMII_COPPER_ETHERNET>;
+		tx-internal-delay-ps = <2000>;
+		/* Falling edge on RGMII TX is too slow for unknown reason.
+		* 100 Mbps may still be unstable.
+		*/
+		max-speed = <100>;
+	};
+};
+
+&emac1 {
+	status = "okay";
+	phy-handle = <&ethernet_phy1>;
+
+	ethernet_phy1: ethernet-phy@0 {
+		reg = <0x0>;
+		ti,op-mode = <DP83869_RGMII_COPPER_ETHERNET>;
+		tx-internal-delay-ps = <2000>;
+		/* Falling edge on RGMII TX is too slow for unknown reason.
+		* 100 Mbps may still be unstable.
+		*/
+		max-speed = <100>;
+	};
+};
+
+&usb0 {
+	status = "okay";
+
+	dwc3@10000000 {
+		dr_mode = "otg";
+	};
+};
+
+&usb1 {
+	status = "okay";
+
+	dwc3@10100000 {
+		dr_mode = "otg";
+	};
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		spi-max-frequency = <66000000>;
+	};
+};
+
+&qspi1 {
+	status = "okay";
+
+	flash1: s25fl128s@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		spi-max-frequency = <66000000>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	num-cs = <1>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>;
+
+	flash2: at45db041e@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,at45", "atmel,dataflash";
+		spi-max-frequency = <25000000>; // up to 85 MHz for Continuous Read
+		reg = <0x0>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+};
+
+&i2c0 {
+	clock-frequency = <100000>;
+	status = "okay";
+	pinctrl-0 = <&i2c0_mux_data>;
+	/* - Connector PLD XP89
+	 * - 0x50, 0x30 - EEPROM AT34C04 DD67 (up to 1 MHz)
+	 * - 0x51, 0x31 - EEPROM AT34C04 DD68 (up to 1 MHz)
+	 * - Level Shifter (3.3V)
+	 *     - Connector CAM0 (CSI0) XS15
+	 * - Level Shifter (3.3V)
+	 *     - 0x1b - FAN TC664 DA86 (100 kHz)
+	 */
+};
+
+// Required PullUp for I2C because extarnal PullUp on the board is missing.
+&i2c1_default_cfg {
+	scl-sda-pins {
+		input-enable;
+		bias-pull-up;
+	};
+};
+
+&i2c2_default_cfg {
+	scl-sda-pins {
+		input-enable;
+		bias-pull-up;
+	};
+};
+
+&i2c3_default_cfg {
+	scl-sda-pins {
+		input-enable;
+		bias-pull-up;
+	};
+};
+
+&i2c1 {
+	clock-frequency = <100000>;
+	status = "okay";
+	/* - Connector PLS XP99
+	 * - Level Shifter (1.8V)
+	 *     - Level Shifter (2.5V)
+	 *         - Si598 G5 (400 kHz)
+	 */
+	// This is not part of board, installed for testing purposes.
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&i2c2 {
+	clock-frequency = <100000>;
+	status = "okay";
+	/* - Connector PLS XP100
+	 * - Level Shifter (1.8V)
+	 *     - Level Shifter (2.5V)
+	 *         - Si598 G6 (400 kHz)
+	 */
+	// This is not part of board, installed for testing purposes.
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&i2c3 {
+	clock-frequency = <100000>;
+	status = "okay";
+	/* - Connector PLS XP101
+	 * - Level Shifter (1.8V)
+	 *     - Level Shifter (2.5V)
+	 *         - Si598 G8 (400 kHz)
+	 */
+	// This is not part of board, installed for testing purposes.
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&i2c4 {
+	clock-frequency = <100000>;
+	status = "okay";
+	/* - Connector PLS XP83
+	 * - Connector Disaplay (DSI) XS14
+	 * - Level Shifter (3.3V)
+	 *     - Connector CAM1 (CSI1) XS16
+	 */
+	// This is not part of board, installed for testing purposes.
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&dp {
+	status = "okay";
+};
+
+&de_dsi {
+	status = "okay";
+	dsi-min-clock-frequency = <500000000>;
+
+	dsi-panel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "auo,b101uan01";
+		reg = <0>;
+		backlight = <&dsi_backlight>;
+		enable-gpios = <&gpio1d 3 GPIO_ACTIVE_HIGH>;
+
+		ports {
+			port {
+				panel_in: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
+&pcie0 {
+	status = "okay";
+	reset-gpio = <&gpio0d 7 GPIO_ACTIVE_HIGH>;
+};
+
+&pcie1 {
+	status = "okay";
+	reset-gpio = <&gpio0d 6 GPIO_ACTIVE_HIGH>;
+};
+
+&isp {
+	status = "okay";
+};
+
+&mfbsp0_can {
+	status = "okay";
+};
+
+&mfbsp0_gpio {
+	status = "okay";
+	gpio-line-names = "MFBSP0_ACK", "MFBSP0_CLK", "MFBSP0_D0", "MFBSP0_D1",
+		"MFBSP0_D2", "MFBSP0_D3", "MFBSP0_D4", "MFBSP0_D5", "MFBSP0_D6",
+		"MFBSP0_D7";
+	gpio-reserved-ranges = <8 24>; // D6, D7 is used by CAN
+};
+
+&mfbsp1_can {
+	status = "okay";
+};
+
+&mfbsp1_gpio {
+	status = "okay";
+	gpio-line-names = "MFBSP1_ACK", "MFBSP1_CLK", "MFBSP1_D0", "MFBSP1_D1",
+		"MFBSP1_D2", "MFBSP1_D3", "MFBSP1_D4", "MFBSP1_D5", "MFBSP1_D6",
+		"MFBSP1_D7";
+	gpio-reserved-ranges = <8 24>; // D6, D7 is used by CAN
+};
+
+&qlic0 {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+	reset_gpio = <&gpio1d 6 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio1d 7 GPIO_ACTIVE_HIGH>;
+};
+
+&csi1 {
+	status = "okay";
+	reset_gpio = <&gpio1d 4 GPIO_ACTIVE_HIGH>;
+	pwdn_gpio = <&gpio1d 5 GPIO_ACTIVE_HIGH>;
+};
