@@ -17,3 +17,8 @@
 &sata {
 	/delete-property/ reset-gpio;
 };
+
+/* Connected to XP10 socket through CAN transceiver */
+&mfbsp1_can {
+	status = "okay";
+};
