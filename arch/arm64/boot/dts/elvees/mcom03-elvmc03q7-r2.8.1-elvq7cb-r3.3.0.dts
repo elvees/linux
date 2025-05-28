@@ -128,7 +128,7 @@
 };
 
 /* Connected to XP14 socket through CAN transceiver */
-&mfbsp0_can {
+&mfbsp1_can {
 	status = "okay";
 };
 
