@@ -76,7 +76,7 @@ struct delcore30m_private_data {
 
 	unsigned long sdmas;
 	unsigned long cores;
-	spinlock_t reslock;
+	struct mutex reslock;
 
 	struct delcore30m_stack {
 		dma_addr_t paddr;
@@ -1013,9 +1013,9 @@ static int delcore30m_spinlock_try(struct delcore30m_private_data *pdata,
 {
 	u8 spinlock_value;
 
-	if (readl_poll_timeout_atomic(pdata->spinlock + SPINLOCK_REG_OFFSET,
-				      spinlock_value, (spinlock_value == 0), 5,
-				      1000))
+	if (readl_poll_timeout(pdata->spinlock + SPINLOCK_REG_OFFSET,
+			       spinlock_value, (spinlock_value == 0), 5,
+			       1000))
 		return -EBUSY;
 	return 0;
 }
@@ -1031,7 +1031,7 @@ static int resource_release(struct delcore30m_resource_desc *res)
 	int i, j, ret = 0;
 	u32 qmaskr0_val, dbg_status, chn_status;
 
-	spin_lock(&pdata->reslock);
+	mutex_lock(&pdata->reslock);
 
 	switch (res->resource.type) {
 	case DELCORE30M_CORE:
@@ -1093,7 +1093,7 @@ static int resource_release(struct delcore30m_resource_desc *res)
 	}
 
 release_unlock:
-	spin_unlock(&pdata->reslock);
+	mutex_unlock(&pdata->reslock);
 	return ret;
 }
 
@@ -1196,13 +1196,13 @@ static int delcore30m_resource_request(struct delcore30m_private_data *pdata,
 
 	res->resource.fd = rc;
 
-	spin_lock(&pdata->reslock);
+	mutex_lock(&pdata->reslock);
 
 	res->resource.mask = 0;
 	for (i = 0; i < res->resource.num; ++i) {
 		idx = find_first_zero_bit(array, max);
 		if (idx == max) {
-			spin_unlock(&pdata->reslock);
+			mutex_unlock(&pdata->reslock);
 			rc = -EBUSY;
 			goto resource_release;
 		}
@@ -1211,7 +1211,7 @@ static int delcore30m_resource_request(struct delcore30m_private_data *pdata,
 		set_bit(idx, &res->resource.mask);
 	}
 
-	spin_unlock(&pdata->reslock);
+	mutex_unlock(&pdata->reslock);
 
 	rc = copy_to_user(arg, &res->resource,
 			  sizeof(struct delcore30m_resource));
@@ -1807,7 +1807,7 @@ static int delcore30m_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&pdata->enqueued);
 	INIT_LIST_HEAD(&pdata->running);
 	spin_lock_init(&pdata->lock);
-	spin_lock_init(&pdata->reslock);
+	mutex_init(&pdata->reslock);
 
 	irq = platform_get_irq(pdev, 0);
 	ret = devm_request_irq(&pdev->dev, irq, delcore30m_interrupt,
