@@ -1874,7 +1874,8 @@ static int delcore30m_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	pdata->spinlock = devm_ioremap_resource(&pdev->dev, res);
+	pdata->spinlock = devm_ioremap_nocache(&pdev->dev, res->start,
+					       resource_size(res));
 	if (IS_ERR(pdata->spinlock))
 		return PTR_ERR(pdata->spinlock);
 
