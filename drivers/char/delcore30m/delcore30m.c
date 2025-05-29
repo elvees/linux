@@ -187,6 +187,26 @@ struct timestamp {
 
 #define HW_ACCESS_TIMEOUT_USEC (5 * USEC_PER_SEC)
 
+#ifndef regmap_read_poll_timeout
+#define regmap_read_poll_timeout(map, addr, val, cond, sleep_us, timeout_us) \
+({ \
+	ktime_t timeout = ktime_add_us(ktime_get(), timeout_us); \
+	might_sleep_if(sleep_us); \
+	for (;;) { \
+		regmap_read(map, addr, &(val)); \
+		if (cond) \
+			break; \
+		if (timeout_us && ktime_compare(ktime_get(), timeout) > 0) { \
+			regmap_read(map, addr, &(val)); \
+			break; \
+		} \
+		if (sleep_us) \
+			usleep_range((sleep_us >> 2) + 1, sleep_us); \
+	} \
+	(cond) ? 0 : -ETIMEDOUT; \
+})
+#endif
+
 static const struct file_operations delcore30m_resource_fops;
 
 static inline u16 delcore30m_readw(struct delcore30m_private_data
@@ -1085,10 +1105,17 @@ static int resource_release(struct delcore30m_resource_desc *res)
 				}
 			}
 
-			do {
-				regmap_read(pdata->sdma, DBGSTATUS,
-					    &dbg_status);
-			} while (dbg_status & DBGSTATUS_BUSY);
+			ret = regmap_read_poll_timeout(
+				pdata->sdma, DBGSTATUS, dbg_status,
+				!(dbg_status & DBGSTATUS_BUSY), 5,
+				HW_ACCESS_TIMEOUT_USEC);
+			if (ret) {
+				dev_err(pdata->dev,
+					"Failed to release SDMA channel%d due to DBGCMD is locked\n",
+					i);
+				delcore30m_spinlock_unlock(pdata);
+				goto release_unlock;
+			}
 
 			regmap_write(pdata->sdma, DBGINST0,
 				     (SDMA_DMAKILL << 16) | (i << 8) | 1);
@@ -1504,9 +1531,15 @@ static int delcore30m_dmachain_setup(struct delcore30m_private_data *pdata,
 		return rc;
 	}
 
-	do {
-		regmap_read(pdata->sdma, DBGSTATUS, &dbg_status);
-	} while (dbg_status & DBGSTATUS_BUSY);
+	rc = regmap_read_poll_timeout(pdata->sdma, DBGSTATUS, dbg_status,
+				       !(dbg_status & DBGSTATUS_BUSY), 5,
+				       HW_ACCESS_TIMEOUT_USEC);
+	if (rc) {
+		dev_err(pdata->dev,
+			"Failed to setup dmachain due to DBGCMD is locked\n");
+		delcore30m_spinlock_unlock(pdata);
+		return rc;
+	}
 
 	regmap_write(pdata->sdma, DBGINST0,
 		     (0xA0 << 16) | (dmachain.channel.num << 8) |
