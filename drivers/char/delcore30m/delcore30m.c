@@ -543,8 +543,10 @@ static void job_cancel(struct delcore30m_job_desc *job_desc)
 		return;
 	}
 
-	if (job_desc->job.status == DELCORE30M_JOB_RUNNING)
+	if (job_desc->job.status == DELCORE30M_JOB_RUNNING) {
 		reset_cores(job_desc);
+		dev_info(pdata->dev, "Job is aborted\n");
+	}
 
 	job_desc->job.rc = DELCORE30M_JOB_CANCELLED;
 	job_desc->job.status = DELCORE30M_JOB_IDLE;
@@ -1054,12 +1056,18 @@ static int resource_release(struct delcore30m_resource_desc *res)
 			if ((chn_status & 0xF) == 0)
 				continue;
 
+			dev_warn(pdata->dev,
+				 "SDMA channel%d is still ran. Do forced stop\n",
+				 i);
+
 			ret = delcore30m_spinlock_try(pdata, 1000);
 			if (ret) {
 				/* We are doing a forced unlock of the spinlock
 				   to reset SDMA.
 				   We assume that only DSP kernel module and
 				   DSP programs use hardware spinlock#1. */
+				dev_warn(pdata->dev,
+					 "Spinlock is still locking. Do forced unlock\n");
 				delcore30m_spinlock_unlock(pdata);
 				ret = delcore30m_spinlock_try(pdata, 1000);
 				if (ret) {
@@ -1069,6 +1077,9 @@ static int resource_release(struct delcore30m_resource_desc *res)
 					   In this case SDMA channels are in
 					   unstable state!
 					*/
+					dev_err(pdata->dev,
+						"Failed to release SDMA channel%d due to locked spinlock\n",
+						i);
 					goto release_unlock;
 				}
 			}
@@ -1459,8 +1470,11 @@ static int delcore30m_dmachain_setup(struct delcore30m_private_data *pdata,
 
 	regmap_read(pdata->sdma, CHANNEL_STATUS(dmachain.channel.num),
 		    &channel_status);
-	if (channel_status & 0xF)
+	if (channel_status & 0xF) {
+		dev_err(pdata->dev, "Requested SDMA channel%d is busy\n",
+			dmachain.channel.num);
 		return -EBUSY;
+	}
 
 	rc = sdma_program(dmachain, &code_addr);
 	if (rc)
@@ -1484,8 +1498,10 @@ static int delcore30m_dmachain_setup(struct delcore30m_private_data *pdata,
 	delcore30m_writel(pdata, core_id, DELCORE30M_QMASKR0, qmaskr0_val);
 
 	rc = delcore30m_spinlock_try(pdata, 1000);
-	if (rc)
+	if (rc) {
+		dev_err(pdata->dev, "Failed to lock spinlock\n");
 		return rc;
+	}
 
 	do {
 		regmap_read(pdata->sdma, DBGSTATUS, &dbg_status);
@@ -1941,6 +1957,7 @@ static int delcore30m_probe(struct platform_device *pdev)
 		goto free_stack;
 	}
 
+	dev_info(pdata->dev, "Initialized\n");
 	return 0;
 
 free_stack:
