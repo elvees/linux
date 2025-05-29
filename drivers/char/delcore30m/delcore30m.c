@@ -1655,8 +1655,12 @@ static enum delcore30m_job_rc delcore30m_job_rc(struct delcore30m_private_data
 		u32 val = delcore30m_readw(pdata, i, DELCORE30M_DCSR);
 
 		if (val & (DELCORE30M_DCSR_PI | DELCORE30M_DCSR_SE |
-			   DELCORE30M_DCSR_BRK))
+			   DELCORE30M_DCSR_BRK)) {
+			dev_err(pdata->dev,
+				"Job at dsp%d finished with DCSR: %x\n", i,
+				val);
 			return DELCORE30M_JOB_ERROR;
+		}
 	}
 
 	return DELCORE30M_JOB_SUCCESS;
