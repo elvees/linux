@@ -185,6 +185,8 @@ struct timestamp {
 
 #define phys_to_xyram(x) ((x) & 0xFFFFF)
 
+#define HW_ACCESS_TIMEOUT_USEC (5 * USEC_PER_SEC)
+
 static const struct file_operations delcore30m_resource_fops;
 
 static inline u16 delcore30m_readw(struct delcore30m_private_data
@@ -1009,14 +1011,13 @@ err_free_buf_desc:
 	return ret;
 }
 
-static int delcore30m_spinlock_try(struct delcore30m_private_data *pdata,
-				   u32 timeout)
+static int delcore30m_spinlock_try(struct delcore30m_private_data *pdata)
 {
 	u8 spinlock_value;
 
 	if (readl_poll_timeout(pdata->spinlock + SPINLOCK_REG_OFFSET,
 			       spinlock_value, (spinlock_value == 0), 5,
-			       1000))
+			       HW_ACCESS_TIMEOUT_USEC))
 		return -EBUSY;
 	return 0;
 }
@@ -1060,7 +1061,7 @@ static int resource_release(struct delcore30m_resource_desc *res)
 				 "SDMA channel%d is still ran. Do forced stop\n",
 				 i);
 
-			ret = delcore30m_spinlock_try(pdata, 1000);
+			ret = delcore30m_spinlock_try(pdata);
 			if (ret) {
 				/* We are doing a forced unlock of the spinlock
 				   to reset SDMA.
@@ -1069,7 +1070,7 @@ static int resource_release(struct delcore30m_resource_desc *res)
 				dev_warn(pdata->dev,
 					 "Spinlock is still locking. Do forced unlock\n");
 				delcore30m_spinlock_unlock(pdata);
-				ret = delcore30m_spinlock_try(pdata, 1000);
+				ret = delcore30m_spinlock_try(pdata);
 				if (ret) {
 					/* If we still can not to lock spinlock
 					   then exit with error.
@@ -1497,7 +1498,7 @@ static int delcore30m_dmachain_setup(struct delcore30m_private_data *pdata,
 	qmaskr0_val |= 1 << (8 + dmachain.channel.num);
 	delcore30m_writel(pdata, core_id, DELCORE30M_QMASKR0, qmaskr0_val);
 
-	rc = delcore30m_spinlock_try(pdata, 1000);
+	rc = delcore30m_spinlock_try(pdata);
 	if (rc) {
 		dev_err(pdata->dev, "Failed to lock spinlock\n");
 		return rc;
