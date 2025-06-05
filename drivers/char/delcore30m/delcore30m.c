@@ -1836,6 +1836,20 @@ static int delcore30m_hwinfo_init(struct delcore30m_private_data *pdata,
 	return 0;
 }
 
+static unsigned long delcore30m_gen_pool_first_fit_order_align(
+	unsigned long *map, unsigned long size, unsigned long start,
+	unsigned int nr, void *data)
+{
+	struct gen_pool *pool = (struct gen_pool *) data;
+	unsigned long align_mask;
+	int alignment = PAGE_SIZE;
+	int order = pool->min_alloc_order;
+
+	align_mask = ((alignment + (1UL << order) - 1) >> order) - 1;
+
+	return bitmap_find_next_zero_area(map, size, start, nr, align_mask);
+}
+
 static int delcore30m_probe(struct platform_device *pdev)
 {
 	struct delcore30m_private_data *pdata;
@@ -1887,6 +1901,10 @@ static int delcore30m_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Failed to get XYRAM%d pool\n", i);
 			return -ENOENT;
 		}
+
+		gen_pool_set_algo(pdata->xyram_pool[i],
+				  delcore30m_gen_pool_first_fit_order_align,
+				  pdata->xyram_pool[i]);
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dsp0_regs");
@@ -2014,11 +2032,13 @@ static int delcore30m_remove(struct platform_device *pdev)
 	struct delcore30m_private_data *pdata = platform_get_drvdata(pdev);
 	int i;
 
-	for (i = 0; i < MAX_CORES; ++i)
+	for (i = 0; i < MAX_CORES; ++i) {
 		if (pdata->stack[i].vaddr)
 			gen_pool_free(pdata->xyram_pool[i],
 				      (unsigned long) pdata->stack[i].vaddr,
 				      STACK_SIZE);
+		gen_pool_set_algo(pdata->xyram_pool[i], NULL, NULL);
+	}
 
 	delcore30m_clock_destroy(pdata);
 	device_destroy(class, pdata->dev_num);
