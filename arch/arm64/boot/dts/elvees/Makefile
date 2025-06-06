@@ -88,3 +88,5 @@ dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0-b101uan01_hw_1a.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0-claa101fp05xg.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0-pm.dtb
+
+subdir-y += overlays
