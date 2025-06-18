@@ -101,6 +101,9 @@ dtb-$(CONFIG_ARCH_DIGICOLOR) += \
 	cx92755_equinox.dtb
 dtb-$(CONFIG_ARCH_EFM32) += \
 	efm32gg-dk3750.dtb
+
+subdir-y += elvees
+
 dtb-$(CONFIG_ARCH_EXYNOS3) += \
 	exynos3250-monk.dtb \
 	exynos3250-rinato.dtb

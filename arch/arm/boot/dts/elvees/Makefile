@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
+# Copyright 2024-2025 RnD Center "ELVEES", JSC
 dtb-$(CONFIG_ARCH_MCOM02) += \
         mcom02-ecam02dm-r1.1.dtb \
         mcom02-ecam02dm-r3.0.dtb \
@@ -15,3 +16,5 @@ dtb-$(CONFIG_ARCH_MCOM02) += \
         mcom02-salute-el24pm2-r1.0-1.1-ukf-r1.1.dtb \
         mcom02-ipku-r1.1.dtb \
         mcom02-ipku-r2.0.dtb
+
+always := $(dtb-y)
