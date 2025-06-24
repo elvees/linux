@@ -295,6 +295,14 @@
 		compatible = "microchip,24c32", "atmel,24c32";
 		reg = <0x50>;
 	};
+
+	si598_g5: clock-generator-g5@55 {
+		#clock-cells = <0>;
+		compatible = "silabs,si598";
+		temperature-stability = <20>;
+		reg = <0x55>;
+		factory-fout = <250000000>;
+	};
 };
 
 &i2c2 {
@@ -310,6 +318,14 @@
 		compatible = "microchip,24c32", "atmel,24c32";
 		reg = <0x50>;
 	};
+
+	si598_g6: clock-generator-g6@55 {
+		#clock-cells = <0>;
+		compatible = "silabs,si598";
+		temperature-stability = <20>;
+		reg = <0x55>;
+		factory-fout = <250000000>;
+	};
 };
 
 &i2c3 {
@@ -324,6 +340,14 @@
 	eeprom@50 {
 		compatible = "microchip,24c32", "atmel,24c32";
 		reg = <0x50>;
+	};
+
+	si598_g8: clock-generator-g8@55 {
+		#clock-cells = <0>;
+		compatible = "silabs,si598";
+		temperature-stability = <20>;
+		reg = <0x55>;
+		factory-fout = <250000000>;
 	};
 };
 
