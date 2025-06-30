@@ -7,3 +7,11 @@ config MCOM03_DMA32_BUS
 	help
 	  The driver allows to configure memory mapping of 32-bit DMA masters
 	  to DDR high address space for MCom-03/MCom-03R SoCs.
+
+config MCOM03_BOOTSTAGE
+	tristate "MCom-03/MCom-03R bootstage library"
+	depends on ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST
+	default m
+	help
+	  The library allows to get access to boot stage timestamps
+	  for MCom-03/MCom-03R SoCs.

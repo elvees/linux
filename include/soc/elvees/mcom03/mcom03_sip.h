@@ -29,6 +29,10 @@
 #define MCOM03_SIP_DDR_SUBS_SET_LSPERIPH1_BAR		0x03
 #define MCOM03_SIP_DDR_SUBS_SET_GPU_BAR			0x04
 
+#define MCOM03_SIP_BOOTSTAGE				0xC2000005
+#define MCOM03_SIP_BOOTSTAGE_SET_STAGE			0x01
+#define MCOM03_SIP_BOOTSTAGE_GET_TIMESTAMP		0x02
+
 static inline unsigned long mcom03_sip_smccc_smc(unsigned long a0, unsigned long a1,
 						 unsigned long a2, unsigned long a3,
 						 unsigned long a4, unsigned long a5,
