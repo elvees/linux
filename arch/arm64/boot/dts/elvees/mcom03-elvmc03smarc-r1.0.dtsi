@@ -149,7 +149,8 @@
 };
 
 &hsperiph_pinctrl {
-	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18 &qspi1_default_18
+		     &nand_voltage_18>;
 };
 
 /* Connected to USB 2.0 hub */

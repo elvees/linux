@@ -300,6 +300,10 @@ i2c_pm: &i2c0 { };
 	};
 };
 
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &qspi1_default_18>;
+};
+
 &i2c3 {
 	status = "okay";
 	/* On MCom-03 video sensors are handled by userspace drivers and are
