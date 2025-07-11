@@ -119,7 +119,7 @@
 &sdhci0 {
 	status = "okay";
 	non-removable;
-	bus-width = <4>;
+	bus-width = <8>;
 	vqmmc-supply = <&sdhci0_supply>;
 
 	/* Adjust SDMMC XIN clock frequencies to get better performance
