@@ -20,6 +20,18 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
+
+	pwm-leds {
+		compatible = "pwm-leds";
+
+		ir-leds {
+			label = "pwm:ir:user";
+			pwms = <&pwm 0 500000>;
+			max-brightness = <255>;
+			active-low;
+			default-state = "off";
+		};
+	};
 };
 
 &gpio0a {
@@ -65,4 +77,14 @@
 						YT85XX_LED_2_ON |
 						YT85XX_LED_0_FORCE_EN |
 						YT85XX_LED_0_OFF)>;
+};
+
+&pwm {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_oena0_mux>;
+
+	elvees,output-channel = <0 0 0 0>;
+	elvees,state-on-disable = <2 0 0 0>;
 };
