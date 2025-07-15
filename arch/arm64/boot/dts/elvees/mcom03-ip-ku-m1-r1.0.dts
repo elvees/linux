@@ -129,6 +129,16 @@
 	assigned-clock-rates = <93750000>;
 };
 
+&sdhci0_default {
+	/* The default clock pad drive strength of 6 mA is insufficient
+	 * for some IP-KUs resulting in unstable SDMMC performance
+	 */
+	clk {
+		pins = "SDMMC0_CLK";
+		drive-strength = <8>;
+	};
+};
+
 &hsperiph_pinctrl {
 	pinctrl-0 = <&hsperiph_misc_default>;
 };
