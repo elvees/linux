@@ -4731,6 +4731,34 @@ static const struct panel_desc_dsi boe_tv080wum_nl0 = {
 	.lanes = 4,
 };
 
+static const struct drm_display_mode chunghwa_claa101fp05xg_mode = {
+	.clock = 148500,
+	.hdisplay = 1920,
+	.hsync_start = 1920 + 2,
+	.hsync_end = 1920 + 2 + 110,
+	.htotal = 1920 + 2 + 110 + 8,
+	.vdisplay = 1200,
+	.vsync_start = 1200 + 2,
+	.vsync_end = 1200 + 2 + 2,
+	.vtotal = 1200 + 2 + 2 + 8,
+};
+
+static const struct panel_desc_dsi chunghwa_claa101fp05xg = {
+	.desc = {
+		.modes = &chunghwa_claa101fp05xg_mode,
+		.num_modes = 1,
+		.bpc = 8,
+		.size = {
+			.width = 216,
+			.height = 135,
+		},
+		.connector_type = DRM_MODE_CONNECTOR_DSI,
+	},
+	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST,
+	.format = MIPI_DSI_FMT_RGB888,
+	.lanes = 4,
+};
+
 static const struct drm_display_mode lg_ld070wx3_sl01_mode = {
 	.clock = 71000,
 	.hdisplay = 800,
@@ -4888,6 +4916,9 @@ static const struct of_device_id dsi_of_match[] = {
 	}, {
 		.compatible = "boe,tv080wum-nl0",
 		.data = &boe_tv080wum_nl0
+	}, {
+		.compatible = "chunghwa,claa101fp05xg",
+		.data = &chunghwa_claa101fp05xg
 	}, {
 		.compatible = "lg,ld070wx3-sl01",
 		.data = &lg_ld070wx3_sl01
