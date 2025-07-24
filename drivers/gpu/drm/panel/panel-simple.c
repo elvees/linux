@@ -4658,6 +4658,49 @@ static const struct panel_desc_dsi auo_b101uan01 = {
 	.lanes = 4,
 };
 
+static const struct drm_display_mode auo_b101uan01_hw0a_modes[2] = {
+	{
+		// Based on EDID
+		.clock = 157100,
+		.hdisplay = 1920,
+		.hsync_start = 1920 + 236,
+		.hsync_end = 1920 + 236 + 2,
+		.htotal = 1920 + 236 + 2 + 2,
+		.vdisplay = 1200,
+		.vsync_start = 1200 + 1,
+		.vsync_end = 1200 + 1 + 1,
+		.vtotal = 1200 + 1 + 1 + 10,
+	},
+	{
+		// Equal to previous timings but used more commonly used clock
+		.clock = 148500,
+		.hdisplay = 1920,
+		.hsync_start = 1920 + 236,
+		.hsync_end = 1920 + 236 + 2,
+		.htotal = 1920 + 236 + 2 + 2,
+		.vdisplay = 1200,
+		.vsync_start = 1200 + 1,
+		.vsync_end = 1200 + 1 + 1,
+		.vtotal = 1200 + 1 + 1 + 10,
+	}
+};
+
+static const struct panel_desc_dsi auo_b101uan01_hw0a = {
+	.desc = {
+		.modes = auo_b101uan01_hw0a_modes,
+		.num_modes = ARRAY_SIZE(auo_b101uan01_hw0a_modes),
+		.bpc = 8,
+		.size = {
+			.width = 216,
+			.height = 135,
+		},
+		.connector_type = DRM_MODE_CONNECTOR_DSI,
+	},
+	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST,
+	.format = MIPI_DSI_FMT_RGB888,
+	.lanes = 4,
+};
+
 static const struct drm_display_mode boe_tv080wum_nl0_mode = {
 	.clock = 160000,
 	.hdisplay = 1200,
@@ -4839,6 +4882,9 @@ static const struct of_device_id dsi_of_match[] = {
 	}, {
 		.compatible = "auo,b101uan01",
 		.data = &auo_b101uan01
+	}, {
+		.compatible = "auo,b101uan01_hw0a",
+		.data = &auo_b101uan01_hw0a
 	}, {
 		.compatible = "boe,tv080wum-nl0",
 		.data = &boe_tv080wum_nl0
