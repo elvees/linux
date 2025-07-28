@@ -370,9 +370,9 @@
 	 *     - Connector CAM1 (CSI1) XS16
 	 */
 	// This is not part of board, installed for testing purposes.
-	eeprom@50 {
+	eeprom@51 {
 		compatible = "microchip,24c32", "atmel,24c32";
-		reg = <0x50>;
+		reg = <0x51>;
 	};
 };
 
