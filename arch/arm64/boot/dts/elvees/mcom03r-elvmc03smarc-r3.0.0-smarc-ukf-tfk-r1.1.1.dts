@@ -1,0 +1,361 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03r-elvmc03smarc-r3.0.0.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "ELV-MC03-SMARC r3.0.0, SMARC-UKF-TFK r1.1.1";
+	compatible = "elvees,elvmc03smarc-r3.0.0-smarc-ukf-tfk-r1.1.1",
+		     "elvees,elvmc03smarc-smarc-ukf-tfk",
+		     "elvees,smarc-ukf-tfk-r1.1.1",
+		     "elvees,smarc-ukf-tfk",
+		     "elvees,elvmc03smarc-r3.0.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03r";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	// XS3 on UKF
+	hdmi_connector: hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
+
+	sdhci1_supply: regulator-sdhci1@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci1-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	lvds_panel: panel {
+		compatible = "panel-lvds";
+
+		width-mm = <527>;
+		height-mm = <296>;
+
+		data-mapping = "vesa-24";
+
+		panel-timing {
+			clock-frequency = <148500000>;
+			hactive = <1920>;
+			vactive = <1080>;
+			// VESA Display Monitor Timing Standard
+			hfront-porch = <88>;
+			hback-porch = <148>;
+			hsync-len = <44>;
+			vsync-len = <5>;
+			vfront-porch = <4>;
+			vback-porch = <36>;
+
+			de-active = <0>;
+			vsync-active = <0>;
+			hsync-active = <0>;
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				dual-lvds-odd-pixels;
+
+				panel_input_0: endpoint {
+					remote-endpoint = <&lt9211_lvds_out_0>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				dual-lvds-even-pixels;
+
+				panel_input_1: endpoint {
+					remote-endpoint = <&lt9211_lvds_out_1>;
+				};
+			};
+		};
+	};
+};
+
+// Connected to DD3 - 4-bit eMMC at 3.3V supply
+&sdhci1 {
+	status = "okay";
+	bus-width = <4>;
+	vqmmc-supply = <&sdhci1_supply>;
+};
+
+&emac0 {
+	status = "okay";
+};
+
+&emac1 {
+	status = "okay";
+};
+
+// Loopback
+&ser0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_mux_data &uart3_mux_rtscts>;
+};
+
+// SA2 switch select: XP16 or FPGA
+&ser1 {
+	status = "okay";
+};
+
+// Loopback
+&ser2 {
+	status = "okay";
+};
+
+// Loopback
+&ser3 {
+	status = "okay";
+};
+
+// Connected to XS4
+&sata {
+	status = "okay";
+};
+
+// Connected to XS5
+&pcie1 {
+	status = "okay";
+};
+
+// Connected to HUB on SMARC
+&usb0 {
+	status = "okay";
+};
+
+// Connected to XS3
+&usb1 {
+	status = "okay";
+};
+
+&i2c_pm {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+&i2c_gp {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+&i2c_lcd {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@50 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&i2c_cam0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+&i2c_cam1 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@57 {
+		compatible = "microchip,24c32", "atmel,24c32";
+		reg = <0x57>;
+	};
+};
+
+&lt9611uxc {
+	status = "okay";
+
+	ports {
+		port@2 {
+			reg = <2>;
+			lt9611_out: endpoint {
+				remote-endpoint = <&hdmi_connector_in>;
+			};
+		};
+	};
+};
+
+&hdmi_sound {
+	status = "okay";
+};
+
+&dp {
+	status = "okay";
+};
+
+&de_dsi {
+	status = "okay";
+};
+
+&qlic0 {
+	status = "okay";
+};
+
+&i2s0 {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+};
+
+&csi1 {
+	status = "okay";
+};
+
+&qspi1 {
+	status = "okay";
+
+	qspi_flash0: spi-nor@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q256", "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		// Max Clock frequency for Quad I/O is 133 MHz.
+		spi-max-frequency = <50000000>;
+		m25p,fast-read;
+
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <4>;
+	};
+
+	qspi_flash1: spi-nor@1 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q256", "jedec,spi-nor", "spi-flash";
+		reg = <0x1>;
+		// Max Clock frequency for Quad I/O is 133 MHz.
+		spi-max-frequency = <50000000>;
+		m25p,fast-read;
+
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <4>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <1>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>;
+
+	flash1: w25q128jw@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		// Max Clock frequency for Read Data instruction (03h) is 50 MHz
+		compatible = "winbond,w25q128fw", "jedec,spi-nor";
+		spi-max-frequency = <50000000>;
+		reg = <0x0>;
+	};
+};
+
+// Use GPIO instead of I2S and CAN for testing
+&mfbsp0_gpio {
+	status = "okay";
+	gpio-line-names = "", "I2S0_CK", "", "I2S0_LRCK", "I2S0_SDIN",
+		"I2S0_SDOUT", "", "", "CAN0_RX", "CAN0_TX";
+};
+
+// Use GPIO instead of I2S and CAN for testing
+&mfbsp1_gpio {
+	status = "okay";
+	gpio-line-names = "", "I2S2_CK", "", "I2S2_LRCK", "I2S2_SDIN",
+		"I2S2_SDOUT", "", "", "CAN1_RX", "CAN1_TX";
+};
+
+&lsperiph1_pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio1_testing_default>;
+
+	gpio1_testing_default: gpio1-pad-cfg {
+		pins = "GPIOA_6",
+		       "GPIOB_3",
+		       "GPIOB_4",
+		       "GPIOC_0",
+		       "GPIOC_1",
+		       "GPIOC_2",
+		       "GPIOC_3",
+		       "GPIOC_4",
+		       "GPIOC_5",
+		       "GPIOC_6",
+		       "GPIOD_0",
+		       "GPIOD_5";
+		input-enable;
+	};
+};
+
+&lt9211 {
+	status = "okay";
+
+	ports {
+		// lvds-out
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			lt9211_lvds_out_0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel_input_0>;
+			};
+		};
+
+		port@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+			lt9211_lvds_out_1: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&panel_input_1>;
+			};
+		};
+	};
+};
+
+&de_dpi {
+	status = "okay";
+};
