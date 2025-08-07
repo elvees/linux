@@ -179,11 +179,11 @@ config USB_DWC3_OCTEON
 	  Say 'Y' or 'M' here if you have one such device.
 
 config USB_DWC3_MCOM03
-	tristate "MCom-03 Platform"
-	depends on ARCH_MCOM03 || COMPILE_TEST
+	tristate "MCom-03/MCom-03R Platform"
+	depends on ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST
 	depends on OF && COMMON_CLK
 	default USB_DWC3
 	help
-	  Support USB2/3 functionality for ELVEES MCom-03 SoC.
+	  Support USB2/3 functionality for ELVEES MCom-03/MCom-03R SoCs.
 	  Say 'Y' or 'M' if you have one such device.
 endif

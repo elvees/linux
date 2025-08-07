@@ -997,12 +997,12 @@ config SPRD_WATCHDOG
 	  by Spreadtrum system.
 
 config MCOM03_WATCHDOG
-	tristate "ELVEES MCom-03 SoC watchdog support"
-	depends on ARCH_MCOM03 || COMPILE_TEST
+	tristate "ELVEES MCom-03/MCom-03R SoC watchdog support"
+	depends on ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST
 	select WATCHDOG_CORE
 	help
 	  Say Y here to include watchdog timer supported
-	  by ELVEES MCom-03 SoC.
+	  by ELVEES MCom-03/MCom-03R SoCs.
 
 config PM8916_WATCHDOG
 	tristate "QCOM PM8916 pmic watchdog"

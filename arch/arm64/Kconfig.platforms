@@ -161,6 +161,14 @@ config ARCH_MCOM03
 	help
 	  This enables support for ELVEES MCom-03 SoC
 
+config ARCH_MCOM03R
+	bool "ELVEES MCom-03R SoC"
+	select DW_APB_TIMER_OF
+	select PM
+	select PM_GENERIC_DOMAINS
+	help
+	  This enables support for ELVEES MCom-03R SoC
+
 config ARCH_MEDIATEK
 	bool "MediaTek SoC Family"
 	select ARM_GIC

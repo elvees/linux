@@ -217,7 +217,7 @@ config PWM_DWC_OF
 
 config PWM_ELVEES
 	tristate "ELVEES PWM support"
-	depends on ARCH_MCOM03
+	depends on ARCH_MCOM03 || ARCH_MCOM03R
 	help
 	  Generic PWM framework driver for the ELVEES PWM.
 

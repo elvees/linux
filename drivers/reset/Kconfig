@@ -123,10 +123,11 @@ config RESET_MCHP_SPARX5
 	  This driver supports switch core reset for the Microchip Sparx5 SoC.
 
 config RESET_MCOM03
-	bool "MCom-03 reset driver" if COMPILE_TEST
-	default ARCH_MCOM03
+	bool "MCom-03/MCom-03R reset driver"
+	depends on ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST
+	default y
 	help
-	  This enables the reset controller driver in MCom-03 SoC.
+	  This enables the reset controller driver in MCom-03/MCom-03R SoCs.
 
 config RESET_MESON
 	tristate "Meson Reset Driver"

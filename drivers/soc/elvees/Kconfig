@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MCOM03_DMA32_BUS
+	bool "MCom-03/MCom-03R DMA32 bus driver"
+	depends on ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST
+	default y
+	help
+	  The driver allows to configure memory mapping of 32-bit DMA masters
+	  to DDR high address space for MCom-03/MCom-03R SoCs.
