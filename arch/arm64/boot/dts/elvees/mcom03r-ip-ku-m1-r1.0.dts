@@ -6,13 +6,13 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/net/ti-dp83869.h>
 
-#include "mcom03.dtsi"
+#include "mcom03r.dtsi"
 
 / {
-	model = "MCom-03 IP-KU M1 r1.0";
-	compatible = "elvees,mcom03ipku-m1-r1.0",
-		     "elvees,mcom03ipku-m1",
-		     "elvees,mcom03";
+	model = "MCom-03R IP-KU M1 r1.0";
+	compatible = "elvees,mcom03r-ipku-m1-r1.0",
+		     "elvees,mcom03r-ipku-m1",
+		     "elvees,mcom03r";
 
 	aliases {
 		spi2 = &spi0;

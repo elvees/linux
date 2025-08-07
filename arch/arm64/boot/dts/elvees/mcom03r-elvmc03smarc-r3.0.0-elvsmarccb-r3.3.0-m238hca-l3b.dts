@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 // Copyright 2025 RnD Center "ELVEES", JSC
 
-#include "mcom03-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0.dts"
+#include "mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0.dts"
 
 / {
 	vdd_lcd: regulator_lcd@0 {

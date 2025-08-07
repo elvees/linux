@@ -3,10 +3,10 @@
 
 /dts-v1/;
 
-#include "mcom03-ip-ku-m1-r1.0.dts"
+#include "mcom03r-ip-ku-m1-r1.0.dts"
 
 &de_dsi {
 	dsi-panel@0 {
-		compatible = "auo,b101uan01_hw0a";
+		compatible = "chunghwa,claa101fp05xg";
 	};
 };
