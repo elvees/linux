@@ -153,10 +153,7 @@ static void avico_abort(void *priv)
 void avico_thread_configure(struct avico_ctx *ctx)
 {
 	union frmn frmn = {
-		.frmn = ctx->par.frame,
-		.gop = ctx->par.gop,
-		.idr = ctx->par.idr,
-		.ftype = ctx->par.frame_type != VE_FR_I
+		.frmn = ctx->par.frame
 	};
 
 	union cfg cfg = {
@@ -684,18 +681,12 @@ static void avico_thread_init(struct avico_ctx *ctx)
 		.m7eof = 1
 	};
 
-	union frmn frmn = {
-		.gop = par->gop
-	};
-
 	avico_write(mbpos.val, ctx, AVICO_THREAD_BASE(ctx->id) +
 		    AVICO_THREAD_MBPOS);
 	avico_write(adr.val, ctx, AVICO_THREAD_BASE(ctx->id) +
 		    AVICO_THREAD_ADR);
 	avico_write(task.val, ctx, AVICO_THREAD_BASE(ctx->id) +
 		    AVICO_THREAD_TASK);
-	avico_write(frmn.val, ctx, AVICO_THREAD_BASE(ctx->id) +
-		    AVICO_THREAD_FRMN);
 }
 
 static void avico_ec_init(struct avico_ctx *ctx)
@@ -1234,10 +1225,7 @@ static void avico_dec_thread_configure(struct avico_ctx *ctx)
 		.ares = ctx->id * 0x0080 + ctx->mbx
 	};
 	union frmn frmn = {
-		.frmn = ctx->par.frame,
-		.idr = ctx->par.idr,
-		.ftype = ctx->par.frame_type != VE_FR_I,
-		.gop = ctx->par.gop
+		.frmn = ctx->par.frame
 	};
 
 	union cfg cfg = {

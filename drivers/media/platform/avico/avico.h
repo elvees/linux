@@ -363,10 +363,8 @@ union mbpos {
 union frmn {
 	uint32_t val;
 	struct {
-		unsigned frmn  :24;
-		unsigned gop   :6;
-		unsigned idr   :1;
-		unsigned ftype :1;
+		unsigned frmn     :24;
+		unsigned reserved :8;
 	};
 };
 
