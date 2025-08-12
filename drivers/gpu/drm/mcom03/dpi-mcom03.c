@@ -53,6 +53,9 @@ struct mcom03_dpi_device {
 static struct clk *
 mcom03_get_clk(struct mcom03_dpi_device *de, enum MCOM03_DPI_CLK id)
 {
+	if (id >= de->num_clocks)
+		return NULL;
+
 	return de->clocks[id].clk;
 }
 
@@ -75,26 +78,33 @@ void mcom03_dpi_mode_set(struct drm_encoder *encoder,
 	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
 	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
 
-	pm_runtime_get_sync(de->dev);
-	clk_set_rate(cmos0_clk, mode->clock * 1000);
-	pm_runtime_put(de->dev);
+	if (cmos0_clk) {
+		pm_runtime_get_sync(de->dev);
+		clk_set_rate(cmos0_clk, mode->clock * 1000);
+		pm_runtime_put(de->dev);
+	}
 }
 
 void mcom03_dpi_enable(struct drm_encoder *encoder)
 {
 	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
+	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
 
 	pm_runtime_get_sync(de->dev);
 	clk_enable(mcom03_get_clk(de, MCOM03_DPI_CLK_PXL));
-	clk_enable(mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0));
+	if (cmos0_clk)
+		clk_enable(mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0));
 }
 
 void mcom03_dpi_disable(struct drm_encoder *encoder)
 {
 	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
+	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
 
 	clk_disable(mcom03_get_clk(de, MCOM03_DPI_CLK_PXL));
-	clk_disable(mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0));
+	if (cmos0_clk)
+		clk_disable(mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0));
+
 	pm_runtime_put(de->dev);
 }
 
@@ -179,6 +189,14 @@ static int mcom03_dpi_clocks_init(struct mcom03_dpi_device *de)
 
 	de->num_clocks = MCOM03_DPI_CLK_NUM;
 
+	ret = of_count_phandle_with_args(de->dev->of_node, "clocks",
+					 "#clock-cells");
+	if (ret < MCOM03_DPI_CLK_NUM - 1 || ret > MCOM03_DPI_CLK_NUM) {
+		dev_err(de->dev, "invalid clocks count: %d\n", ret);
+		return -EINVAL;
+	}
+
+	de->num_clocks = ret;
 	ret = devm_clk_bulk_get(de->dev, de->num_clocks, de->clocks);
 	if (ret) {
 		dev_err(de->dev, "failed to find clocks in DTB: %d!\n", ret);
