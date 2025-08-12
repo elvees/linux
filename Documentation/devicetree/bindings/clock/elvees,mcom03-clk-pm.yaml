@@ -59,6 +59,11 @@ properties:
     description: |
       List of clocks that must be enabled by clock and power management driver.
 
+  elvees,fixed-clocks:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description: |
+      List of UCG clocks for which dividers are fixed and cannot be changed by Linux.
+
 allOf:
   - if:
       properties:
