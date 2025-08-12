@@ -480,11 +480,29 @@ static void __init mcom03_init_refmuxes(struct device_node *np,
 static void __init mcom03_init_ucgs(struct device_node *np,
 				    struct mcom03_clk_provider *prov)
 {
+	struct property *prop;
+	const __be32 *p;
+	u32 clk_id;
 	int ret;
 	int i;
+	u64 fixed_clocks_mask = 0;
+
+	of_property_for_each_u32(np, "elvees,fixed-clocks", prop, p, clk_id) {
+		if (clk_id > prov->clk_data->num) {
+			pr_err("%pOFf: Unknown clock channel %d in elvees,fixed-clocks\n",
+			       np, clk_id);
+			continue;
+		}
+		fixed_clocks_mask |= BIT_ULL(clk_id);
+	};
 
 	for (i = 0; i < prov->sclk->nr_ucg_chans; i++) {
 		struct mcom03_ucg_chan *ucg_chan = &prov->sclk->ucg_chans[i];
+
+		if (fixed_clocks_mask & BIT_ULL(ucg_chan->clk_id)) {
+			ucg_chan->is_fixed = true;
+			fixed_clocks_mask &= ~BIT_ULL(ucg_chan->clk_id);
+		}
 
 		ucg_chan->pd = prov->genpd;
 		ret = mcom03_ucg_chan_register(ucg_chan);
@@ -495,6 +513,11 @@ static void __init mcom03_init_ucgs(struct device_node *np,
 		}
 
 		prov->clk_data->hws[ucg_chan->clk_id] = &ucg_chan->hw;
+	}
+
+	if (fixed_clocks_mask) {
+		pr_err("%pOFf: Only UCG clocks should be specified in 'elvees,fixed-clocks'\n",
+		       np);
 	}
 }
 
