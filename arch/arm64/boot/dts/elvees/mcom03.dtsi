@@ -783,7 +783,7 @@
 			pinctrl-0 = <&i2c0_mux_data>;
 		};
 
-		uart1: serial0@1640000 {
+		uart1: serial@1640000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1640000 0 0x1000>;
 			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_UART1
@@ -798,7 +798,7 @@
 			pinctrl-0 = <&uart1_mux_data>;
 		};
 
-		uart2: serial0@1650000 {
+		uart2: serial@1650000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1650000 0 0x1000>;
 			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_UART2
@@ -814,7 +814,7 @@
 				     &uart2_portb_mux_data>;
 		};
 
-		uart3: serial0@1660000 {
+		uart3: serial@1660000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1660000 0 0x1000>;
 			clocks = <&lsperiph0_clocks CLK_LSP0_UCG0_UART3
@@ -1938,7 +1938,7 @@
 				     &i2s0_mux_sdi0>;
 		};
 
-		uart0: serial0@1750000 {
+		uart0: serial@1750000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0 0x1750000 0 0x1000>;
 			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_UART0
