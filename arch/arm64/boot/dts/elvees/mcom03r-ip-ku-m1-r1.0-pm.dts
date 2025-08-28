@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03r-ip-ku-m1-r1.0.dts"
+
+/* Disable PCIe because it doesn't support runtime PM and can not be unbound or
+ * unloaded.
+ */
+&pcie0 {
+	status = "disabled";
+};
+
+&pcie1 {
+	status = "disabled";
+};
