@@ -258,8 +258,11 @@
 &spi0 {
 	status = "okay";
 
-	num-cs = <1>;
-	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>;
+	num-cs = <4>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>,
+		   <&gpio0c 5 GPIO_ACTIVE_LOW>,
+		   <&gpio0c 6 GPIO_ACTIVE_LOW>,
+		   <&gpio0c 7 GPIO_ACTIVE_LOW>;
 
 	flash2: at45db041e@0 {
 		#address-cells = <1>;
@@ -267,6 +270,30 @@
 		compatible = "atmel,at45", "atmel,dataflash";
 		spi-max-frequency = <25000000>; // up to 85 MHz for Continuous Read
 		reg = <0x0>;
+	};
+
+	spidev0: spidev@1 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spidev";
+		spi-max-frequency = <2500000>;
+		reg = <0x1>;
+	};
+
+	spidev1: spidev@2 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spidev";
+		spi-max-frequency = <25000000>;
+		reg = <0x2>;
+	};
+
+	spidev2: spidev@3 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spidev";
+		spi-max-frequency = <25000000>;
+		reg = <0x3>;
 	};
 };
 
