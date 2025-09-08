@@ -71,3 +71,29 @@
 		reg = <0x51>;
 	};
 };
+
+&sdr_clocks {
+	assigned-clocks = <&sdr_clocks CLK_SDR_PLL0>,
+			  <&sdr_clocks CLK_SDR_PLL1>,
+			  <&sdr_clocks CLK_SDR_PLL2>,
+			  <&sdr_clocks CLK_SDR_UCG0_CFG>,
+			  <&sdr_clocks CLK_SDR_UCG0_EXT>,
+			  <&sdr_clocks CLK_SDR_UCG0_INT>,
+			  <&sdr_clocks CLK_SDR_UCG0_PCI>,
+			  <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+	assigned-clock-rates = <1200000000
+				648000000
+	/* PLL2 clock rate must match to one of the values
+	 * described in dsp-opp-table.
+	 */
+				351000000
+				200000000
+				600000000
+				400000000
+				200000000
+				50000000>;
+};
+
+&dsp_opp_table {
+	/delete-node/ opp-405000000;
+};
