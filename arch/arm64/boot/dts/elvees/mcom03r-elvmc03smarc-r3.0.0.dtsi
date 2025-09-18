@@ -253,8 +253,8 @@ i2c_gp: &i2c1 { };
 i2c_pm: &i2c0 { };
 
 &gpio0a {
-	gpio-line-names = "", "nSMB_ALERT", "SER0_CTS", "GPIO0_CAM0_PWR#",
-		"GPIO1_CAM1_PWR#", "GPIO2_CAM0_RST#", "INT_LVDS_1V8", "SER0_RTS";
+	gpio-line-names = "GPIO6", "nSMB_ALERT", "SER0_CTS", "nSLEEP",
+		"nPOWER_BTN", "nLID", "INT_LVDS_1V8", "SER0_RTS";
 };
 
 &gpio0b {
@@ -268,8 +268,8 @@ i2c_pm: &i2c0 { };
 };
 
 &gpio0d {
-	gpio-line-names = "SER2_TX", "", "", "I2C_PM_CK",
-		"I2C_PM_DAT", "", "", "nUSER_LED1";
+	gpio-line-names = "SER2_TX", "", "nCARRIER_SHDWN", "I2C_PM_CK",
+		"I2C_PM_DAT", "GPIO1_CAM1_PWR#", "GPIO2_CAM0_RST#", "nUSER_LED1";
 };
 
 &gpio1a {
@@ -279,12 +279,12 @@ i2c_pm: &i2c0 { };
 
 &gpio1b {
 	gpio-line-names = "HDMI_I2S_SCLK", "HDMI_I2S_LRCLK", "HDMI_I2S_D",
-		"nSLEEP", "ESPI_RESET#", "USB_HUB_RST#", "SER1_TX", "SER1_RX";
+		"GPIO0_CAM0_PWR#", "ESPI_RESET#", "", "SER1_TX", "SER1_RX";
 };
 
 &gpio1c {
 	gpio-line-names = "GPIO12", "GPIO13", "nCHARGING", "nCHARGER_PRSNT",
-		"nTEST", "CARRIER_STBY#", "FORCE_RECOV#", "SATA_PERST";
+		"nTEST", "CARRIER_STBY#", "FORCE_RECOV#", "";
 };
 
 &gpio1d {
@@ -323,7 +323,7 @@ i2c_pm: &i2c0 { };
 		pinctrl-names = "default";
 		pinctrl-0 = <&xl9555_int>;
 
-		gpio-line-names = "GPIO4", "GPIO6", "GPIO7", "GPIO8", "GPIO9", "GPIO10",
+		gpio-line-names = "GPIO4", "USB_HUB_RST#", "GPIO7", "GPIO8", "GPIO9", "GPIO10",
 			"GPIO11", " PCIE_WAKE#", "nRST_ETH1", "nRST_ETH0", "nRST_HDMI", "",
 			"INT_HDMI", "nINT_RTC", "nINT_ETH0", "nINT_ETH1";
 	};
