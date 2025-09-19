@@ -387,7 +387,7 @@
 	dsi-panel@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "auo,b101uan01";
+		compatible = "auo,b101uan01_hw0a";
 		reg = <0>;
 		backlight = <&dsi_backlight>;
 		enable-gpios = <&gpio1d 3 GPIO_ACTIVE_HIGH>;
