@@ -480,14 +480,12 @@ static void __init mcom03_init_refmuxes(struct device_node *np,
 static void __init mcom03_init_ucgs(struct device_node *np,
 				    struct mcom03_clk_provider *prov)
 {
-	struct property *prop;
-	const __be32 *p;
 	u32 clk_id;
 	int ret;
 	int i;
 	u64 fixed_clocks_mask = 0;
 
-	of_property_for_each_u32(np, "elvees,fixed-clocks", prop, p, clk_id) {
+	of_property_for_each_u32(np, "elvees,fixed-clocks", clk_id) {
 		if (clk_id > prov->clk_data->num) {
 			pr_err("%pOFf: Unknown clock channel %d in elvees,fixed-clocks\n",
 			       np, clk_id);

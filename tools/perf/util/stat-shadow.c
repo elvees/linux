@@ -154,6 +154,7 @@ static double find_stat(const struct evsel *evsel, int aggr_idx, enum stat_type 
 {
 	const struct evsel *cur;
 	int evsel_ctx = evsel_context(evsel);
+	struct perf_pmu *evsel_pmu = evsel__find_pmu(evsel);
 
 	evlist__for_each_entry(evsel->evlist, cur) {
 		struct perf_stat_aggr *aggr;
@@ -174,6 +175,13 @@ static double find_stat(const struct evsel *evsel, int aggr_idx, enum stat_type 
 			continue;
 		/* Ignore if not the stat we're looking for. */
 		if (type != evsel__stat_type(cur))
+			continue;
+
+		/*
+		 * Except the SW CLOCK events,
+		 * ignore if not the PMU we're looking for.
+		 */
+		if ((type != STAT_NSECS) && (evsel_pmu != evsel__find_pmu(cur)))
 			continue;
 
 		aggr = &cur->stats->aggr[aggr_idx];

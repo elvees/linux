@@ -234,6 +234,7 @@ static int uncore_probe(struct auxiliary_device *auxdev, const struct auxiliary_
 {
 	struct intel_tpmi_plat_info *plat_info;
 	struct tpmi_uncore_struct *tpmi_uncore;
+	bool uncore_sysfs_added = false;
 	int ret, i, pkg = 0;
 	int num_resources;
 
@@ -268,10 +269,13 @@ static int uncore_probe(struct auxiliary_device *auxdev, const struct auxiliary_
 
 	/* Get the package ID from the TPMI core */
 	plat_info = tpmi_get_platform_data(auxdev);
-	if (plat_info)
-		pkg = plat_info->package_id;
-	else
+	if (unlikely(!plat_info)) {
 		dev_info(&auxdev->dev, "Platform information is NULL\n");
+		ret = -ENODEV;
+		goto err_rem_common;
+	}
+
+	pkg = plat_info->package_id;
 
 	for (i = 0; i < num_resources; ++i) {
 		struct tpmi_uncore_power_domain_info *pd_info;
@@ -359,7 +363,13 @@ static int uncore_probe(struct auxiliary_device *auxdev, const struct auxiliary_
 			}
 			/* Point to next cluster offset */
 			cluster_offset >>= UNCORE_MAX_CLUSTER_PER_DOMAIN;
+			uncore_sysfs_added = true;
 		}
+	}
+
+	if (!uncore_sysfs_added) {
+		ret = -ENODEV;
+		goto remove_clusters;
 	}
 
 	auxiliary_set_drvdata(auxdev, tpmi_uncore);

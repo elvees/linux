@@ -315,12 +315,10 @@ int mcom03_ucg_chan_register(struct mcom03_ucg_chan *ucg_chan)
 void mcom03_of_clks_enable(struct device_node *np,
 			   struct clk_hw_onecell_data *clk_data)
 {
-	struct property *prop;
-	const __be32 *p;
 	u32 clk_id;
 	int err;
 
-	of_property_for_each_u32(np, "enabled-clocks", prop, p, clk_id) {
+	of_property_for_each_u32(np, "enabled-clocks", clk_id) {
 		struct clk_hw *hw;
 
 		if (clk_id > clk_data->num) {

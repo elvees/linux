@@ -142,6 +142,8 @@ static struct damos *damon_reclaim_new_scheme(void)
 			&pattern,
 			/* page out those, as soon as found */
 			DAMOS_PAGEOUT,
+			/* for each aggregation interval */
+			0,
 			/* under the quota. */
 			&damon_reclaim_quota,
 			/* (De)activate this according to the watermarks. */
@@ -164,6 +166,9 @@ static int damon_reclaim_apply_parameters(void)
 	struct damos *scheme, *old_scheme;
 	struct damos_filter *filter;
 	int err = 0;
+
+	if (!damon_reclaim_mon_attrs.aggr_interval)
+		return -EINVAL;
 
 	err = damon_set_attrs(ctx, &damon_reclaim_mon_attrs);
 	if (err)

@@ -158,6 +158,8 @@ static struct damos *damon_lru_sort_new_scheme(
 			pattern,
 			/* (de)prioritize on LRU-lists */
 			action,
+			/* for each aggregation interval */
+			0,
 			/* under the quota. */
 			&quota,
 			/* (De)activate this according to the watermarks. */
@@ -200,6 +202,9 @@ static int damon_lru_sort_apply_parameters(void)
 	struct damos *old_hot_scheme = NULL, *old_cold_scheme = NULL;
 	unsigned int hot_thres, cold_thres;
 	int err = 0;
+
+	if (!damon_lru_sort_mon_attrs.sample_interval)
+		return -EINVAL;
 
 	err = damon_set_attrs(ctx, &damon_lru_sort_mon_attrs);
 	if (err)
