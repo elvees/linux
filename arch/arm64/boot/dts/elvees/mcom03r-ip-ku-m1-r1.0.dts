@@ -225,6 +225,24 @@
 	};
 };
 
+/* Default 4 mA drive strength value isn't sufficient for QSPI
+* signals with 3.3 V level at the frequencies which are higher
+* than 50 MHz.
+*/
+&qspi1_default {
+	data_and_ss {
+		groups = "qspi1_data",
+			 "qspi1_ss";
+		drive-strength = <6
+				  6>;
+	};
+
+	clk {
+		pins = "QSPI1_SCLK";
+		drive-strength = <6>;
+	};
+};
+
 &qspi1 {
 	status = "okay";
 
