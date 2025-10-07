@@ -174,6 +174,14 @@ static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 	return 0;
 }
 
+static void mcom03_pcie_host_deinit(struct dw_pcie_rp *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
+
+	reset_control_assert(pcie->reset);
+}
+
 static int mcom03_pcie_msi_host_init(struct dw_pcie_rp *pp)
 {
 	return 0;
@@ -181,11 +189,13 @@ static int mcom03_pcie_msi_host_init(struct dw_pcie_rp *pp)
 
 static const struct dw_pcie_host_ops mcom03_pcie_host_ops = {
 	.host_init = mcom03_pcie_host_init,
+	.host_deinit = mcom03_pcie_host_deinit,
 	.msi_host_init = mcom03_pcie_msi_host_init,
 };
 
 static const struct dw_pcie_host_ops mcom03_pcie_host_ops_embed = {
 	.host_init = mcom03_pcie_host_init,
+	.host_deinit = mcom03_pcie_host_deinit,
 };
 
 static void mcom03_pcie_set_dev_type(struct mcom03_pcie *pcie,
@@ -492,7 +502,6 @@ static int mcom03_pcie_remove(struct platform_device *pdev)
 	struct mcom03_pcie *pcie = platform_get_drvdata(pdev);
 
 	dw_pcie_host_deinit(&pcie->pci->pp);
-	reset_control_assert(pcie->reset);
 
 	return 0;
 }
