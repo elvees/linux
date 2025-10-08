@@ -234,7 +234,7 @@ static struct mcom03_ucg_chan mcom03_lsperiph1_ucg_chans[] = {
 	{CLK_LSP1_UCG0_GPIO1_DB, 0, 4, "gpio1_dbclk", "lsperiph1_pll"},
 	{CLK_LSP1_UCG0_SSI1, 0, 5, "ssi1_clk", "lsperiph1_pll"},
 	{CLK_LSP1_UCG0_UART0, 0, 6, "uart0_clk", "lsperiph1_pll", false, true},
-	{CLK_LSP1_UCG0_TIMERS0, 0, 7, "timers0_clk", "lsperiph1_pll"},
+	{CLK_LSP1_UCG0_TIMERS0, 0, 7, "timers0_clk", "lsperiph1_pll", true, false, true},
 	{CLK_LSP1_UCG0_PWM0, 0, 8, "pwm0_clk", "lsperiph1_pll"},
 	{CLK_LSP1_UCG0_WDT1, 0, 9, "wdt1_clk", "lsperiph1_pll"},
 	{CLK_LSP1_UCG_I2S_I2S0, 1, 0, "lsp1_i2s_clk", "lsperiph1_refmux_i2s"},
