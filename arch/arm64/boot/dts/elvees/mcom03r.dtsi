@@ -1851,19 +1851,21 @@
 			clocks = <&xti_clk>, <&i2s0_sclk_in_clk>;
 			elvees,urb = <&lsperiph1_urb>;
 			reg = <0 0x17C0000 0 0x80>, <0 0x17D0000 0 0x80>;
-			assigned-clocks = <&lsperiph1_clocks CLK_LSP1_PLL0>,
-					  <&lsperiph1_clocks CLK_LSP1_UCG0_SYS>,
+
+			/* The Timers0 clock is setup in SBL and has not to be changed here
+			 * to keep counter accurately. To achieve this the CLK_LSP1_PLL0 and
+			 * the CLK_LSP1_UCG0_TIMERS0 shall not be used in assigned-clocks list.
+			 */
+			assigned-clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_SYS>,
 					  <&lsperiph1_clocks CLK_LSP1_UCG0_I2C1>,
 					  <&lsperiph1_clocks CLK_LSP1_UCG0_I2C2>,
 					  <&lsperiph1_clocks CLK_LSP1_UCG0_I2C3>,
 					  <&lsperiph1_clocks CLK_LSP1_UCG0_GPIO1_DB>,
 					  <&lsperiph1_clocks CLK_LSP1_UCG0_SSI1>,
-					  <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>,
 					  <&lsperiph1_clocks CLK_LSP1_UCG0_PWM0>,
 					  <&lsperiph1_clocks CLK_LSP1_UCG0_WDT1>,
 					  <&lsperiph1_clocks CLK_LSP1_UCG_I2S_I2S0>;
-			assigned-clock-rates = <614250000
-						87750000
+			assigned-clock-rates = <87750000
 						102375000
 						102375000
 						102375000
@@ -2037,14 +2039,7 @@
 			status = "disabled";
 		};
 
-		timer7: timer@179008c {
-			compatible = "snps,dw-apb-timer";
-			reg = <0 0x179008C 0 0x14>;
-			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
-			clock-names = "timer";
-			clocks = <&lsperiph1_clocks CLK_LSP1_UCG0_TIMERS0>;
-			status = "disabled";
-		};
+		/* timer7 is reserved for SBL and shall not be used here */
 
 		gpio1: gpio@1780000 {
 			compatible = "snps,dw-apb-gpio";
