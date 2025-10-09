@@ -20,7 +20,7 @@
 #define WRITE_ENABLE_OFFSET	16
 
 static const unsigned int nr_resets[MCOM03_SUBSYSTEM_MAX] = {
-	[MCOM03_SUBSYSTEM_SDR] = 26,
+	[MCOM03_SUBSYSTEM_SDR] = 28,
 	[MCOM03_SUBSYSTEM_MEDIA] = 4,
 	[MCOM03_SUBSYSTEM_HSPERIPH] = 10
 };
@@ -29,6 +29,7 @@ enum rst_reg_type {
 	RST_PP,
 	RST_MONO,
 	RST_PCIE_BTN,
+	RST_PCIE_PERSTN_PAD,
 };
 
 struct sdr_reset {
@@ -73,6 +74,16 @@ static const struct sdr_reset sdr_reset_map[] = {
 		.offset = 0x48,
 		.type = RST_MONO,
 	},
+	{
+		.id = SDR_RST_PCI0_PERSTN_PAD,
+		.offset = 0x100,
+		.type = RST_PCIE_PERSTN_PAD,
+	},
+	{
+		.id = SDR_RST_PCI1_PERSTN_PAD,
+		.offset = 0x100,
+		.type = RST_PCIE_PERSTN_PAD,
+	},
 };
 
 #define PP_MASK		GENMASK(4, 0)
@@ -81,7 +92,11 @@ static const struct sdr_reset sdr_reset_map[] = {
 #define PP_OFF		BIT(0)
 #define PP_PCIE_BTN	BIT(1)
 
-#define RST_MONO_ON	BIT(0)
+#define RST_MONO_ON		BIT(0)
+#define SDR_PCI0_PERSTN_MODE	BIT(0)
+#define SDR_PCI0_PERSTN		BIT(1)
+#define SDR_PCI1_PERSTN_MODE	BIT(8)
+#define SDR_PCI1_PERSTN		BIT(9)
 
 struct mcom03_reset_private {
 	struct reset_controller_dev rcdev;
@@ -131,6 +146,17 @@ static int mcom03_reset_sdr_deassert(struct reset_controller_dev *rcdev,
 		return regmap_update_bits(priv->urb,
 					  priv->offset + desc->offset,
 					  PP_PCIE_BTN, PP_PCIE_BTN);
+	case RST_PCIE_PERSTN_PAD:
+		if (id == SDR_RST_PCI0_PERSTN_PAD)
+			return regmap_update_bits(priv->urb,
+						  priv->offset + desc->offset,
+						  SDR_PCI0_PERSTN_MODE | SDR_PCI0_PERSTN,
+						  SDR_PCI0_PERSTN);
+		if (id == SDR_RST_PCI1_PERSTN_PAD)
+			return regmap_update_bits(priv->urb,
+						  priv->offset + desc->offset,
+						  SDR_PCI1_PERSTN_MODE | SDR_PCI1_PERSTN,
+						  SDR_PCI1_PERSTN);
 	}
 	return 0;
 }
@@ -173,6 +199,15 @@ static int mcom03_reset_sdr_status(struct reset_controller_dev *rcdev,
 				  priv->offset + desc->offset,
 				  &reg);
 		reg = (reg & PP_PCIE_BTN) == PP_PCIE_BTN;
+		break;
+	case RST_PCIE_PERSTN_PAD:
+		ret = regmap_read(priv->urb,
+				  priv->offset + desc->offset,
+				  &reg);
+		if (id == SDR_RST_PCI0_PERSTN_PAD)
+			reg = (reg & SDR_PCI0_PERSTN) == SDR_PCI0_PERSTN;
+		if (id == SDR_RST_PCI1_PERSTN_PAD)
+			reg = (reg & SDR_PCI1_PERSTN) == SDR_PCI1_PERSTN;
 		break;
 	}
 	if (ret)
