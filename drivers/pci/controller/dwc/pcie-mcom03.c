@@ -156,43 +156,6 @@ static void mcom03_pcie_ltssm_toggle(struct mcom03_pcie *pcie, u32 val)
 	mcom03_pcie_writel(pcie, SYS_CTRL_OFF, reg);
 }
 
-static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
-{
-	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
-
-	// Set BAR0/BAR1 to 4 KiB to preserve space in ranges
-	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_0, 0xFFF);
-	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_1, 0xFFF);
-	// Disable DBI_RO_WR_EN, since setup_rc() expects it to be off
-	dw_pcie_dbi_ro_wr_dis(pci);
-
-	return 0;
-}
-
-static void mcom03_pcie_host_deinit(struct dw_pcie_rp *pp)
-{
-	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
-	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
-
-	reset_control_assert(pcie->reset);
-}
-
-static int mcom03_pcie_msi_host_init(struct dw_pcie_rp *pp)
-{
-	return 0;
-}
-
-static const struct dw_pcie_host_ops mcom03_pcie_host_ops = {
-	.host_init = mcom03_pcie_host_init,
-	.host_deinit = mcom03_pcie_host_deinit,
-	.msi_host_init = mcom03_pcie_msi_host_init,
-};
-
-static const struct dw_pcie_host_ops mcom03_pcie_host_ops_embed = {
-	.host_init = mcom03_pcie_host_init,
-	.host_deinit = mcom03_pcie_host_deinit,
-};
-
 static void mcom03_pcie_set_dev_type(struct mcom03_pcie *pcie,
 				     unsigned int device_type)
 {
@@ -229,6 +192,56 @@ static void mcom03_pcie_unset_perst(struct mcom03_pcie *pcie)
 				   SDR_PCI1_PERSTN_MODE | SDR_PCI1_PERSTN,
 				   SDR_PCI1_PERSTN);
 }
+
+static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct device *dev = pci->dev;
+	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
+	int ret;
+
+	ret = reset_control_deassert(pcie->reset);
+	if (ret) {
+		dev_err(dev, "Failed to deassert PCIe resets\n");
+		return ret;
+	}
+
+	mcom03_pcie_unset_perst(pcie);
+	mcom03_pcie_set_dev_type(pcie, DEVICE_TYPE_RC);
+	mcom03_pcie_set_jesd_en_zero(pcie);
+
+	// Set BAR0/BAR1 to 4 KiB to preserve space in ranges
+	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_0, 0xFFF);
+	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_1, 0xFFF);
+	// Disable DBI_RO_WR_EN, since setup_rc() expects it to be off
+	dw_pcie_dbi_ro_wr_dis(pci);
+
+	return 0;
+}
+
+static void mcom03_pcie_host_deinit(struct dw_pcie_rp *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
+
+	reset_control_assert(pcie->reset);
+}
+
+static int mcom03_pcie_msi_host_init(struct dw_pcie_rp *pp)
+{
+	return 0;
+}
+
+static const struct dw_pcie_host_ops mcom03_pcie_host_ops = {
+	.host_init = mcom03_pcie_host_init,
+	.host_deinit = mcom03_pcie_host_deinit,
+	.msi_host_init = mcom03_pcie_msi_host_init,
+};
+
+static const struct dw_pcie_host_ops mcom03_pcie_host_ops_embed = {
+	.host_init = mcom03_pcie_host_init,
+	.host_deinit = mcom03_pcie_host_deinit,
+};
 
 static void mcom03_pcie_legacy_irq_handler(struct irq_desc *desc)
 {
@@ -325,12 +338,6 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 		pp->ops = &mcom03_pcie_host_ops_embed;
 		dev_info(dev, "Using embedded MSI interrupt-controller\n");
 	}
-
-	mcom03_pcie_unset_perst(pcie);
-	mcom03_pcie_set_dev_type(pcie, DEVICE_TYPE_RC);
-	mcom03_pcie_set_jesd_en_zero(pcie);
-	mcom03_pcie_ltssm_toggle(pcie, 0);
-	// If we need to program PHY, app_hold_phy_rst is asserted here
 
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
@@ -454,19 +461,10 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 			dev_err(dev, "Failed to get PCIe resets\n");
 		return PTR_ERR(pcie->reset);
 	}
-	ret = reset_control_deassert(pcie->reset);
-	if (ret) {
-		dev_err(dev, "Failed to deassert PCIe resets\n");
-		return ret;
-	}
 
 	platform_set_drvdata(pdev, pcie);
 
-	ret = mcom03_add_dw_pcie_rp(pcie, pdev);
-	if (ret)
-		reset_control_assert(pcie->reset);
-
-	return ret;
+	return mcom03_add_dw_pcie_rp(pcie, pdev);
 }
 
 static int mcom03_pcie_remove(struct platform_device *pdev)
