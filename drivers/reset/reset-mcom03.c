@@ -108,10 +108,43 @@ struct mcom03_reset_private {
 static int mcom03_reset_sdr_assert(struct reset_controller_dev *rcdev,
 				   unsigned long id)
 {
-	/* Reset assertion of individual SDR subcomponents causes SDR subsystem
-	 * freeze (see MCOM03-1943). Skip asserts, allow only deasserts.
-	 */
-	dev_dbg(rcdev->dev, "Skip reset of SDR subcomponent: %ld", id);
+	int i;
+	struct mcom03_reset_private *priv =
+			(struct mcom03_reset_private *)rcdev;
+	const struct sdr_reset *desc = NULL;
+
+	for (i = 0; i < ARRAY_SIZE(sdr_reset_map); i++) {
+		if (sdr_reset_map[i].id == id) {
+			desc = &sdr_reset_map[i];
+			break;
+		}
+	}
+	if (!desc)
+		return -EOPNOTSUPP;
+
+	switch (desc->type) {
+	case RST_PCIE_BTN:
+		return regmap_update_bits(priv->urb,
+			priv->offset + desc->offset,
+			PP_PCIE_BTN, 0);
+	case RST_PCIE_PERSTN_PAD:
+		if (id == SDR_RST_PCI0_PERSTN_PAD)
+			return regmap_update_bits(priv->urb,
+						  priv->offset + desc->offset,
+						  SDR_PCI0_PERSTN | SDR_PCI0_PERSTN_MODE, 0);
+		if (id == SDR_RST_PCI1_PERSTN_PAD)
+			return regmap_update_bits(priv->urb,
+						  priv->offset + desc->offset,
+						  SDR_PCI1_PERSTN | SDR_PCI1_PERSTN_MODE, 0);
+		break;
+	case RST_PP:
+	case RST_MONO:
+	default:
+		/* Reset assertion of individual SDR subcomponents causes SDR subsystem
+		 * freeze (see MCOM03-1943). Skip asserts, allow only deasserts.
+		 */
+		dev_dbg(rcdev->dev, "Skip reset of SDR subcomponent: %ld", id);
+	}
 
 	return 0;
 }
