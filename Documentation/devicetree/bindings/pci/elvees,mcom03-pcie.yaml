@@ -41,15 +41,6 @@ properties:
 
   dma-ranges: true
 
-  elvees,urb:
-    description: A phandle of the SDR subsystem URB
-    $ref: /schemas/types.yaml#/definitions/phandle
-
-  elvees,ctrl-id:
-    description: PCIe controller ID number (0 or 1)
-    $ref: /schemas/types.yaml#/definitions/uint32
-    enum: [0, 1]
-
   interrupts:
     items:
       - description: builtin MSI controller.
@@ -156,8 +147,6 @@ examples:
         resets = <&sdr_reset SDR_RST_PCI_ICT>,
                  <&sdr_reset SDR_RST_PCI0_BTN>,
                  <&sdr_reset SDR_RST_PCI0_PERSTN_PAD>;
-        elvees,urb = <&sdr_urb>;
-        elvees,ctrl-id = <0>;
         bus-range = <0x00 0x7f>;
         msi-map = <0x0000 &its 0x0 0x8000>;
         msi-map-mask = <0xfff0>;
@@ -209,8 +198,6 @@ examples:
         resets = <&sdr_reset SDR_RST_PCI_ICT>,
                  <&sdr_reset SDR_RST_PCI1_BTN>,
                  <&sdr_reset SDR_RST_PCI1_PERSTN_PAD>;
-        elvees,urb = <&sdr_urb>;
-        elvees,ctrl-id = <1>;
         bus-range = <0x00 0xff>;
 
         // Legacy interrupts support
