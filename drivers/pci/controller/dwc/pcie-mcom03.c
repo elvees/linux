@@ -41,10 +41,6 @@
 #define DEVICE_TYPE_EP	0
 #define DEVICE_TYPE_RC	4
 
-#define SDR_PCI0_CTL		0x50
-#define SDR_PCI1_CTL		0x54
-#define PCIE_BTN_RSTN		BIT(1)
-
 #define SDR_PCIE_PERSTN		0x150
 #define SDR_PCI0_PERSTN_MODE	BIT(0)
 #define SDR_PCI0_PERSTN		BIT(1)
@@ -67,7 +63,6 @@ struct mcom03_pcie {
 	struct dw_pcie			*pci;
 	struct regmap			*sdr_base;
 	void __iomem			*apb_base;
-	u32				sdr_ctl_offset;
 	int				id;
 	struct reset_control		*reset;
 	struct irq_domain		*irq_domain;
@@ -213,14 +208,6 @@ static void mcom03_pcie_set_jesd_en_zero(struct mcom03_pcie *pcie)
 	mcom03_pcie_writel(pcie, SYS_JESD_EN_OFF, 0);
 }
 
-static void mcom03_pcie_btn_reset(struct mcom03_pcie *pcie)
-{
-	regmap_update_bits(pcie->sdr_base, pcie->sdr_ctl_offset,
-			   PCIE_BTN_RSTN, 0);
-	regmap_update_bits(pcie->sdr_base, pcie->sdr_ctl_offset,
-			   PCIE_BTN_RSTN, PCIE_BTN_RSTN);
-}
-
 static void mcom03_pcie_unset_perst(struct mcom03_pcie *pcie)
 {
 	if (pcie->reset_gpio) {
@@ -344,7 +331,6 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 	mcom03_pcie_set_jesd_en_zero(pcie);
 	mcom03_pcie_ltssm_toggle(pcie, 0);
 	// If we need to program PHY, app_hold_phy_rst is asserted here
-	mcom03_pcie_btn_reset(pcie);
 
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
@@ -447,14 +433,8 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 		dev_err(dev, "Not found elvees,ctrl-id property\n");
 		return ret;
 	}
-	switch (pcie->id) {
-	case 0:
-		pcie->sdr_ctl_offset = SDR_PCI0_CTL;
-		break;
-	case 1:
-		pcie->sdr_ctl_offset = SDR_PCI1_CTL;
-		break;
-	default:
+
+	if (pcie->id > 1 || pcie->id < 0) {
 		dev_err(dev, "Invalid elvees,ctrl-id %u\n", pcie->id);
 		return -EINVAL;
 	}
