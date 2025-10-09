@@ -41,12 +41,6 @@
 #define DEVICE_TYPE_EP	0
 #define DEVICE_TYPE_RC	4
 
-#define SDR_PCIE_PERSTN		0x150
-#define SDR_PCI0_PERSTN_MODE	BIT(0)
-#define SDR_PCI0_PERSTN		BIT(1)
-#define SDR_PCI1_PERSTN_MODE	BIT(8)
-#define SDR_PCI1_PERSTN		BIT(9)
-
 // PHY viewport access
 #define PHY_VIEWPORT_CTLSTS_OFF	0xb70
 #define PHY_VIEWPORT_CTLSTS_ADDR	GENMASK(15, 0)
@@ -61,9 +55,7 @@
 
 struct mcom03_pcie {
 	struct dw_pcie			*pci;
-	struct regmap			*sdr_base;
 	void __iomem			*apb_base;
-	int				id;
 	struct reset_control		*reset;
 	struct irq_domain		*irq_domain;
 	struct gpio_desc		*reset_gpio;
@@ -182,16 +174,8 @@ static void mcom03_pcie_unset_perst(struct mcom03_pcie *pcie)
 		gpiod_set_value_cansleep(pcie->reset_gpio, 1);
 		usleep_range(1000, 1500);
 	}
-
-	if (pcie->id == 0)
-		regmap_update_bits(pcie->sdr_base, SDR_PCIE_PERSTN,
-				   SDR_PCI0_PERSTN_MODE | SDR_PCI0_PERSTN,
-				   SDR_PCI0_PERSTN);
-	else
-		regmap_update_bits(pcie->sdr_base, SDR_PCIE_PERSTN,
-				   SDR_PCI1_PERSTN_MODE | SDR_PCI1_PERSTN,
-				   SDR_PCI1_PERSTN);
 }
+
 
 static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 {
@@ -405,7 +389,6 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 	struct mcom03_pcie *pcie;
 	struct dw_pcie *pci;
 	struct resource *res;
-	int ret;
 
 	pcie = devm_kzalloc(dev, sizeof(*pcie), GFP_KERNEL);
 	if (!pcie)
@@ -425,25 +408,6 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 	if (IS_ERR(pcie->apb_base)) {
 		dev_err(dev, "Failed to remap apb memory\n");
 		return PTR_ERR(pcie->apb_base);
-	}
-
-	pcie->sdr_base = syscon_regmap_lookup_by_phandle(dev->of_node,
-						   "elvees,urb");
-	if (IS_ERR(pcie->sdr_base)) {
-		if (PTR_ERR(pcie->sdr_base) != -EPROBE_DEFER)
-			dev_err(dev, "Failed to initialize property\n");
-		return PTR_ERR(pcie->sdr_base);
-	}
-
-	ret = of_property_read_u32(dev->of_node, "elvees,ctrl-id", &pcie->id);
-	if (ret) {
-		dev_err(dev, "Not found elvees,ctrl-id property\n");
-		return ret;
-	}
-
-	if (pcie->id > 1 || pcie->id < 0) {
-		dev_err(dev, "Invalid elvees,ctrl-id %u\n", pcie->id);
-		return -EINVAL;
 	}
 
 	pcie->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
