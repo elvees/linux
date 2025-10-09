@@ -28,6 +28,7 @@ static const unsigned int nr_resets[MCOM03_SUBSYSTEM_MAX] = {
 enum rst_reg_type {
 	RST_PP,
 	RST_MONO,
+	RST_PCIE_BTN,
 };
 
 struct sdr_reset {
@@ -38,28 +39,38 @@ struct sdr_reset {
 
 static const struct sdr_reset sdr_reset_map[] = {
 	{
-		.id = SDR_RST_DSP0,
+		.id = SDR_RST_PCI0_BTN,
 		.offset = 0x0,
+		.type = RST_PCIE_BTN,
+	},
+	{
+		.id = SDR_RST_PCI1_BTN,
+		.offset = 0x4,
+		.type = RST_PCIE_BTN,
+	},
+	{
+		.id = SDR_RST_DSP0,
+		.offset = 0x10,
 		.type = RST_PP,
 	},
 	{
 		.id = SDR_RST_DSP1,
-		.offset = 0x8,
+		.offset = 0x18,
 		.type = RST_PP,
 	},
 	{
 		.id = SDR_RST_EXT_ICT,
-		.offset = 0x30,
+		.offset = 0x40,
 		.type = RST_MONO,
 	},
 	{
 		.id = SDR_RST_BBD_ICT,
-		.offset = 0x34,
+		.offset = 0x44,
 		.type = RST_MONO,
 	},
 	{
 		.id = SDR_RST_PCI_ICT,
-		.offset = 0x38,
+		.offset = 0x48,
 		.type = RST_MONO,
 	},
 };
@@ -68,6 +79,7 @@ static const struct sdr_reset sdr_reset_map[] = {
 #define PP_ON		BIT(4)
 #define PP_WARM_RST	BIT(3)
 #define PP_OFF		BIT(0)
+#define PP_PCIE_BTN	BIT(1)
 
 #define RST_MONO_ON	BIT(0)
 
@@ -115,6 +127,10 @@ static int mcom03_reset_sdr_deassert(struct reset_controller_dev *rcdev,
 		return regmap_write(priv->urb,
 				    priv->offset + desc->offset,
 				    RST_MONO_ON);
+	case RST_PCIE_BTN:
+		return regmap_update_bits(priv->urb,
+					  priv->offset + desc->offset,
+					  PP_PCIE_BTN, PP_PCIE_BTN);
 	}
 	return 0;
 }
@@ -151,6 +167,12 @@ static int mcom03_reset_sdr_status(struct reset_controller_dev *rcdev,
 				  priv->offset + desc->offset,
 				  &reg);
 		reg = !!reg;
+		break;
+	case RST_PCIE_BTN:
+		ret = regmap_read(priv->urb,
+				  priv->offset + desc->offset,
+				  &reg);
+		reg = (reg & PP_PCIE_BTN) == PP_PCIE_BTN;
 		break;
 	}
 	if (ret)
