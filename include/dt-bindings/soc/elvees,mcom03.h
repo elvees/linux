@@ -43,6 +43,8 @@
 #define SDR_RST_EXT_ICT			23
 #define SDR_RST_BBD_ICT			24
 #define SDR_RST_PCI_ICT			25
+#define SDR_RST_PCI0_PERSTN_PAD		26
+#define SDR_RST_PCI1_PERSTN_PAD		27
 
 #define MEDIA_RST_ISP			0
 #define MEDIA_RST_GPU			1
