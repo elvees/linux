@@ -51,6 +51,10 @@
 #define PHY_VIEWPORT_CTLSTS_PENDING	BIT(31)
 #define PHY_VIEWPORT_DATA_OFF		0xb74
 
+// This defines from upstream pci.h and must be dropped after Linux v6.12.
+#define PCIE_T_PVPERL_MS		100
+#define PCIE_T_PERST_CLK_US		100
+
 #define to_mcom03_pcie(x)	dev_get_drvdata((x)->dev)
 
 struct mcom03_pcie {
@@ -58,7 +62,6 @@ struct mcom03_pcie {
 	void __iomem			*apb_base;
 	struct reset_control		*reset;
 	struct irq_domain		*irq_domain;
-	struct gpio_desc		*reset_gpio;
 	bool				embed_msi:1;
 };
 
@@ -163,19 +166,21 @@ static void mcom03_pcie_set_jesd_en_zero(struct mcom03_pcie *pcie)
 	mcom03_pcie_writel(pcie, SYS_JESD_EN_OFF, 0);
 }
 
-static void mcom03_pcie_unset_perst(struct mcom03_pcie *pcie)
+/*
+ * mcom03_pcie_gpio_perst_set - Control PERST# with GPIO
+ *
+ * @pcie: Controller pointer
+ * @val: 0 - deassert, 1 - assert
+ *
+ * Assert/deassert PERST# signal with active low GPIO.
+ */
+static void mcom03_pcie_gpio_perst_set(struct mcom03_pcie *pcie, int val)
 {
-	if (pcie->reset_gpio) {
-		/* "Power Sequencing and Reset Signal Timings" table in
-		 * PCI EXPRESS CARD ELECTROMECHANICAL SPECIFICATION, REV. 3.0
-		 * indicates PERST# should be deasserted after minimum of 100us
-		 * once REFCLK is stable. */
-		usleep_range(100, 200);
-		gpiod_set_value_cansleep(pcie->reset_gpio, 1);
-		usleep_range(1000, 1500);
-	}
-}
+	struct dw_pcie *pci = pcie->pci;
 
+	if (pci->pe_rst)
+		gpiod_set_value_cansleep(pci->pe_rst, val);
+}
 
 static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 {
@@ -190,9 +195,10 @@ static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 		return ret;
 	}
 
-	mcom03_pcie_unset_perst(pcie);
 	mcom03_pcie_set_dev_type(pcie, DEVICE_TYPE_RC);
 	mcom03_pcie_set_jesd_en_zero(pcie);
+	mcom03_pcie_gpio_perst_set(pcie, 0);
+	msleep(PCIE_T_PVPERL_MS);
 
 	// Set BAR0/BAR1 to 4 KiB to preserve space in ranges
 	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_0, 0xFFF);
@@ -208,6 +214,7 @@ static void mcom03_pcie_host_deinit(struct dw_pcie_rp *pp)
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
 
+	mcom03_pcie_gpio_perst_set(pcie, 1);
 	reset_control_assert(pcie->reset);
 }
 
@@ -323,10 +330,17 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 		dev_info(dev, "Using embedded MSI interrupt-controller\n");
 	}
 
+	dw_pcie_cap_set(pci, REQ_RES);
+
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
 		dev_err(dev, "Failed to initialize PCIe host\n");
 		return ret;
+	}
+
+	if (!pci->pe_rst) {
+		dev_warn(dev, "'reset-gpio' isn't specified in PCIe node\n");
+		dev_warn(dev, "Assume untested PCIx_PERSTN pad is in use\n");
 	}
 
 	/* MCom-03 does not have available memory for DMA allocation below 4 Gbytes
@@ -408,15 +422,6 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 	if (IS_ERR(pcie->apb_base)) {
 		dev_err(dev, "Failed to remap apb memory\n");
 		return PTR_ERR(pcie->apb_base);
-	}
-
-	pcie->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(pcie->reset_gpio)) {
-		dev_err(dev, "Can't get 'reset-gpio'\n");
-		return PTR_ERR(pcie->reset_gpio);
-	} else if (!pcie->reset_gpio) {
-		dev_warn(dev, "'reset-gpio' isn't specified in PCIe node\n");
-		dev_info(dev, "PERST must be set with other means\n");
 	}
 
 	pcie->reset = devm_reset_control_array_get_shared(dev);
