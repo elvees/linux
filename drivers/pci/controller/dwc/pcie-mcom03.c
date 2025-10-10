@@ -55,6 +55,12 @@
 #define PCIE_T_PVPERL_MS		100
 #define PCIE_T_PERST_CLK_US		100
 
+#define MCOM03_PCIE_NUM_CORE_CLKS	ARRAY_SIZE(mcom03_pcie_core_clks)
+
+static const enum dw_pcie_core_clk mcom03_pcie_core_clks[] = {
+	DW_PCIE_CORE_CLK, DW_PCIE_AUX_CLK,
+};
+
 #define to_mcom03_pcie(x)	dev_get_drvdata((x)->dev)
 
 struct mcom03_pcie {
@@ -187,12 +193,27 @@ static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct device *dev = pci->dev;
 	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
-	int ret;
+	int ret, i;
+
+	/* Check for clocks, which we get earlier in dw_pcie_get_resources()
+	 * which is called in dw_pcie_host_init() */
+	for (i = 0; i < MCOM03_PCIE_NUM_CORE_CLKS; i++) {
+		if (!pci->core_clks[mcom03_pcie_core_clks[i]].clk) {
+			dev_err(dev, "Core clocks set is incomplete\n");
+			return -ENOENT;
+		}
+	}
+
+	ret = clk_bulk_prepare_enable(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
+	if (ret) {
+		dev_err(dev, "Failed to enable core clocks\n");
+		return ret;
+	}
 
 	ret = reset_control_deassert(pcie->reset);
 	if (ret) {
 		dev_err(dev, "Failed to deassert PCIe resets\n");
-		return ret;
+		goto fail_reset;
 	}
 
 	mcom03_pcie_set_dev_type(pcie, DEVICE_TYPE_RC);
@@ -207,6 +228,11 @@ static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
 	dw_pcie_dbi_ro_wr_dis(pci);
 
 	return 0;
+
+fail_reset:
+	clk_bulk_disable_unprepare(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
+
+	return ret;
 }
 
 static void mcom03_pcie_host_deinit(struct dw_pcie_rp *pp)
@@ -216,6 +242,7 @@ static void mcom03_pcie_host_deinit(struct dw_pcie_rp *pp)
 
 	mcom03_pcie_gpio_perst_set(pcie, 1);
 	reset_control_assert(pcie->reset);
+	clk_bulk_disable_unprepare(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
 }
 
 static int mcom03_pcie_msi_host_init(struct dw_pcie_rp *pp)
