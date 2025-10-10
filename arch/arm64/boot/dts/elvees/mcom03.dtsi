@@ -1590,10 +1590,7 @@
 			enabled-clocks = <CLK_SDR_UCG0_CFG>,
 					 <CLK_SDR_UCG0_EXT>,
 					 <CLK_SDR_UCG0_INT>,
-					 <CLK_SDR_UCG0_PCI>,
-					 <CLK_SDR_UCG0_AUX_PCI>,
-					 <CLK_SDR_GATE_PCIE0>,
-					 <CLK_SDR_GATE_PCIE1>;
+					 <CLK_SDR_UCG0_PCI>;
 		};
 
 		/* This node isn't real PCIe bus, but if it's name equals to "pcie", kernel will
@@ -1635,6 +1632,9 @@
 				resets = <&sdr_reset SDR_RST_PCI_ICT>,
 					 <&sdr_reset SDR_RST_PCI0_BTN>,
 					 <&sdr_reset SDR_RST_PCI0_PERSTN_PAD>;
+				clocks = <&sdr_clocks CLK_SDR_GATE_PCIE0>,
+					 <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+				clock-names = "core", "aux";
 				status = "disabled";
 				power-domains = <&sdr_clocks>;
 
@@ -1683,6 +1683,9 @@
 				resets = <&sdr_reset SDR_RST_PCI_ICT>,
 					 <&sdr_reset SDR_RST_PCI1_BTN>,
 					 <&sdr_reset SDR_RST_PCI1_PERSTN_PAD>;
+				clocks = <&sdr_clocks CLK_SDR_GATE_PCIE1>,
+					 <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+				clock-names = "core", "aux";
 				status = "disabled";
 				power-domains = <&sdr_clocks>;
 
