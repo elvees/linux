@@ -427,14 +427,6 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 
 	pcie->pci = pci;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
-	pci->dbi_base = devm_ioremap_resource(dev, res);
-	pci->dbi_base2 = pci->dbi_base + 0x100000;
-	if (IS_ERR(pci->dbi_base)) {
-		dev_err(dev, "Failed to remap dbi memory\n");
-		return PTR_ERR(pci->dbi_base);
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apb");
 	pcie->apb_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pcie->apb_base)) {
