@@ -1552,7 +1552,7 @@
 
 			sdr_reset: reset-controller@50 {
 				compatible = "elvees,mcom03-reset";
-				reg = <0x60 0x38>;
+				reg = <0x50 0x100>;
 				elvees,subsystem = <MCOM03_SUBSYSTEM_SDR>;
 				#reset-cells = <1>;
 			};
@@ -1632,7 +1632,9 @@
 					     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-names = "msi", "legacy", "pme", "aer", "dma";
-				resets = <&sdr_reset SDR_RST_PCI_ICT>;
+				resets = <&sdr_reset SDR_RST_PCI_ICT>,
+					 <&sdr_reset SDR_RST_PCI0_BTN>,
+					 <&sdr_reset SDR_RST_PCI0_PERSTN_PAD>;
 				elvees,urb = <&sdr_urb>;
 				elvees,ctrl-id = <0>;
 				status = "disabled";
@@ -1680,7 +1682,9 @@
 					     <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-names = "msi", "legacy", "pme", "aer", "dma";
-				resets = <&sdr_reset SDR_RST_PCI_ICT>;
+				resets = <&sdr_reset SDR_RST_PCI_ICT>,
+					 <&sdr_reset SDR_RST_PCI1_BTN>,
+					 <&sdr_reset SDR_RST_PCI1_PERSTN_PAD>;
 				elvees,urb = <&sdr_urb>;
 				elvees,ctrl-id = <1>;
 				status = "disabled";
