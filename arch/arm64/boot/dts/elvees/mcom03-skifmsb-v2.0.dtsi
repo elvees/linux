@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+#include "mcom03.dtsi"
+
+/ {
+	model = "Skif-MSB v2.0";
+	compatible = "elvees,skifmsb-v2.0",
+		     "elvees,skifmsb",
+		     "elvees,mcom03";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+/* DSP is unstable on higher frequency */
+&dsp_opp_table {
+	/delete-node/ opp-405000000;
+};
+
+/* For DSP set CLK_SDR_PLL2 to 351 MHz */
+&sdr_clocks {
+	assigned-clock-rates = <1200000000
+				648000000
+				351000000
+				200000000
+				600000000
+				400000000
+				200000000
+				50000000>;
+};
+
+&lsperiph1_pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpios_in_mode_cfg>;
+
+	gpios_in_mode_cfg: gpios-in-mode-cfg {
+		pins = "GPIOA_0", "GPIOA_1", "GPIOA_6", "GPIOA_7", "GPIOB_0",
+		"GPIOB_1", "GPIOB_2", "GPIOB_3", "GPIOB_4", "GPIOB_5", "GPIOB_6",
+		"GPIOB_7", "GPIOC_0", "GPIOC_1", "GPIOC_2", "GPIOC_3", "GPIOC_4",
+		"GPIOC_5", "GPIOC_6", "GPIOC_7", "GPIOD_0", "GPIOD_1", "GPIOD_2",
+		"GPIOD_3", "GPIOD_4", "GPIOD_5", "GPIOD_6", "GPIOD_7";
+		input-enable;
+	};
+};
+
+&qspi0 {
+	status = "okay";
+
+	flash0: w25q16@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor", "spi-flash";
+		reg = <0x0>;
+		/* This is the highest frequency at which all commands are
+		 * supported by the flash device.
+		 */
+		spi-max-frequency = <66000000>;
+		m25p,fast-read;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};

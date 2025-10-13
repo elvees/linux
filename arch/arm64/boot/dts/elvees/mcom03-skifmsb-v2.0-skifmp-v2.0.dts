@@ -1,0 +1,327 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03-skifmsb-v2.0.dtsi"
+
+/ {
+	model = "Skif-MSB v2.0, Skif-MP v2.0";
+	compatible = "elvees,skifmsb-v2.0-skifmp-v2.0",
+		     "elvees,skifmsb-skifmp",
+		     "elvees,skifmp-v2.0",
+		     "elvees,skifmp",
+		     "elvees,skifmsb-v2.0",
+		     "elvees,skifmsb",
+		     "elvees,mcom03";
+
+	leds {
+		compatible = "gpio-leds";
+
+		green {
+			gpios = <&gpio0b 1 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	sdhci0_supply: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "sdhci0-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	hdmi_1v2_vdd_supply: regulator@01 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vdd-1.2v";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	hdmi_3v3_vcc_supply: regulator@02 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi-vcc-3.3v";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	hdmi_connector: hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&lt9611_out>;
+			};
+		};
+	};
+
+	hdmi_sound: hdmi-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "hdmi-audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		simple-audio-card,continuous-clock;
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&mfbsp0_i2s>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&lt9611uxc>;
+		};
+	};
+
+	analog_sound: analog-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "analog-audio";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink1_master>;
+		simple-audio-card,frame-master = <&dailink1_master>;
+		simple-audio-card,continuous-clock;
+		simple-audio-card,widgets =
+			"Microphone", "Microphone Jack",
+			"Headphone", "Headphone Jack";
+		simple-audio-card,routing =
+			"MIC1", "Microphone Jack",
+			"Microphone Jack", "micbias1",
+			"Headphone Jack", "HPOL",
+			"Headphone Jack", "HPOR";
+
+		dailink1_master: simple-audio-card,cpu {
+			sound-dai = <&mfbsp1_i2s>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&rt5616>;
+		};
+	};
+};
+
+/* Enable CLKOUT for audio codec RT5616 */
+&service_clocks {
+	assigned-clocks = <&service_clocks CLK_SERVICE_UCG0_CLKOUT_EXT>;
+	assigned-clock-rates = <12288000>;
+
+	enabled-clocks = <CLK_SERVICE_UCG0_APB
+			  CLK_SERVICE_UCG0_CORE
+			  CLK_SERVICE_UCG0_QSPI0
+			  CLK_SERVICE_UCG0_RISC0
+			  CLK_SERVICE_UCG0_MAILBOX0
+			  CLK_SERVICE_UCG0_PVTCTR
+			  CLK_SERVICE_UCG0_TRNG
+			  CLK_SERVICE_UCG0_QSPI0_EXT
+			  CLK_SERVICE_UCG0_CLKOUT_EXT>;
+};
+
+/* Pin for voltage supply for SDR subsystem. */
+&gpio0b {
+	sdr-hog {
+		gpio-hog;
+		gpios = <3 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+/* Pin for voltage supply of 5V
+ * on USB-hub, HDMI and green led.
+ */
+&gpio0a {
+	on5v-out-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&gpio0d {
+	usb-hub-reset-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&lsperiph0_pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpios_bias_disable_cfg>;
+
+	/* Pin B4 for device power management.
+	 * For stable work need to disable bias.
+	 */
+	gpios_bias_disable_cfg: gpios-bias-disable-cfg {
+		pins = "GPIOB_4";
+		bias-disable;
+	};
+
+	hdmi_int: hdmi-int {
+		pins = "GPIOA_5";
+		bias-pull-up;
+	};
+};
+
+&hsperiph_pinctrl {
+	pinctrl-0 = <&hsperiph_misc_default &emac_v18>;
+};
+
+/* I2C for CSI */
+&i2c2 {
+	status = "okay";
+	clock-frequency = <100000>;
+};
+
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	lt9611uxc: hdmi-bridge@2b {
+		status = "okay";
+
+		lontium,dsi-mode-video-burst;
+		lontium,dsi-clock-non-continuous;
+
+		compatible = "lontium,lt9611uxc";
+		reg = <0x2b>;
+
+		vdd-supply = <&hdmi_1v2_vdd_supply>;
+		vcc-supply = <&hdmi_3v3_vcc_supply>;
+		#sound-dai-cells = <0>;
+
+		reset-gpios = <&gpio0a 4 GPIO_ACTIVE_HIGH>;
+		interrupts-extended = <&gpio0a 5 IRQ_TYPE_EDGE_FALLING>;
+
+		pinctrl-0 = <&hdmi_int>;
+		pinctrl-names = "default";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				lt9611_in_p0: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				lt9611_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
+};
+
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	rt5616: rt5616@1b {
+		#sound-dai-cells = <0>;
+		compatible = "realtek,rt5616";
+		reg = <0x1b>;
+		rt,pll-src-bclk;
+	};
+};
+
+&emac0 {
+	status = "okay";
+	phy-handle = <&ethernet_phy0>;
+	reset-gpios = <&gpio0d 6 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy0: ethernet-phy@1 {
+		compatible = "ethernet-phy-id0000.011a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x1>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1800>;
+		tx-internal-delay-ps = <1200>;
+	};
+};
+
+&de_dsi {
+	status = "okay";
+	dsi-min-clock-frequency = <275000000>;
+
+	ports {
+		port@1 {
+			reg = <1>;
+			dsi_out: endpoint {
+				remote-endpoint = <&lt9611_in_p0>;
+			};
+		};
+	};
+};
+
+/* Connected to USB 3.0 Type-A */
+&usb0 {
+	status = "okay";
+};
+
+/* Connected to USB 2.0 hub */
+&usb1 {
+	status = "okay";
+};
+
+/* Connected to eMMC */
+&sdhci0 {
+	status = "okay";
+
+	non-removable;
+	bus-width = <8>;
+
+	vqmmc-supply = <&sdhci0_supply>;
+
+	/* eMMC is unstable on higher speeds */
+	assigned-clocks = <&hsperiph_clocks CLK_HSP_UCG1_SDMMC0_XIN>;
+	assigned-clock-rates = <93750000>;
+};
+
+/* Connected to MicroSD card */
+&sdhci1 {
+	status = "okay";
+
+	/* Disable 1.8V support
+	 * Disable SDR50, SDR104 and DDR50 support
+	 */
+	sdhci-caps-mask = <0x7 0x4000000>;
+	sdhci-caps = <0x0 0x0>;
+
+	disable-wp;
+};
+
+/* Board have video output interface */
+&dp {
+	status = "okay";
+};
+
+/* mfbsp interrupt controller */
+&qlic0 {
+	status = "okay";
+};
+
+&mfbsp0_i2s {
+	status = "okay";
+};
+
+&mfbsp1_i2s {
+	status = "okay";
+};
+
+&isp {
+	status = "okay";
+};
+
+&csi0 {
+	status = "okay";
+	reset_gpio = <&gpio0a 3 GPIO_ACTIVE_HIGH>;
+};

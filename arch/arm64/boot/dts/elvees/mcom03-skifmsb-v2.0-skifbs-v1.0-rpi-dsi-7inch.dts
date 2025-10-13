@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "mcom03-skifmsb-v2.0-skifbs-v1.0.dts"
+
+/ {
+	panel {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "raspberrypi,7inch-dsi";
+		backlight = <&panel_reg>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port {
+				panel_in: endpoint {
+					remote-endpoint = <&bridge_rgb_out>;
+				};
+			};
+		};
+	};
+};
+
+&gpio0a {
+	dsi-mux-hog {
+		gpio-hog;
+		gpios = <4 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
+&i2c3 {
+	panel_reg: regulator@45 {
+		compatible = "raspberrypi,7inch-touchscreen-panel-regulator";
+		reg = <0x45>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&de_dsi {
+	status = "okay";
+
+	bridge@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "toshiba,tc358762";
+		reg = <0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				bridge_in: endpoint {
+					remote-endpoint = <&de_dsi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				bridge_rgb_out: endpoint {
+					remote-endpoint = <&panel_in>;
+				};
+			};
+		};
+	};
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			de_dsi_out: endpoint {
+				remote-endpoint = <&bridge_in>;
+			};
+		};
+	};
+};

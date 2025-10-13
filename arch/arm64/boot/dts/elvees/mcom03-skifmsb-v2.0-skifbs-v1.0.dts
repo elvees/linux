@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03-skifmsb-v2.0-skifmp-v2.0.dts"
+
+/ {
+	model = "Skif-MSB v2.0, Skif-BS v1.0";
+	compatible = "elvees,skifmsb-v2.0-skifbs-v1.0",
+		     "elvees,skifmsb-skifbs",
+		     "elvees,skifbs-v1.0",
+		     "elvees,skifbs",
+		     "elvees,skifmsb-v2.0",
+		     "elvees,skifmsb",
+		     "elvees,mcom03";
+};
+
+/* TODO: Add reset-gpios to pcie1 node */
+&gpio1d {
+	pci1-reset-hog {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+/* I2C for M.2 slot PCI-E */
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
+/* Connected to M.2 slot PCI-E */
+&pcie1 {
+	status = "okay";
+	num-lanes = <1>;
+};
+
+&emac1 {
+	status = "okay";
+	phy-handle = <&ethernet_phy1>;
+	reset-gpios = <&gpio0d 7 GPIO_ACTIVE_LOW>;
+
+	ethernet_phy1: ethernet-phy@1 {
+		compatible = "ethernet-phy-id0000.011a", "ethernet-phy-ieee802.3-c22";
+		reg = <0x1>;
+
+		motorcomm,clk-out-frequency-hz = <0>;
+		rx-internal-delay-ps = <1900>;
+		tx-internal-delay-ps = <1650>;
+	};
+};
