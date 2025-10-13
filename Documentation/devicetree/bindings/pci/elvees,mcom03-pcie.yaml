@@ -88,6 +88,15 @@ properties:
       For cases when more than 1 controller are using GIC ITS
       "bus numbers" should be separeted for these controllers.
 
+  clocks:
+    items:
+      - description: Controller Primary clock.
+      - description: Auxiliary clock for the controller PMC domain.
+
+  clock-names:
+    items:
+      - const: core
+      - const: aux
 
 required:
   - compatible
@@ -109,6 +118,7 @@ unevaluatedProperties: false
 
 examples:
   - |
+    #include <dt-bindings/clock/mcom03-clock.h>
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/soc/elvees,mcom03.h>
 
@@ -150,6 +160,9 @@ examples:
         bus-range = <0x00 0x7f>;
         msi-map = <0x0000 &its 0x0 0x8000>;
         msi-map-mask = <0xfff0>;
+        clocks = <&sdr_clocks CLK_SDR_GATE_PCIE0>,
+                 <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+        clock-names = "core", "aux";
 
         // Legacy interrupts support
         #interrupt-cells = <1>;
@@ -199,6 +212,9 @@ examples:
                  <&sdr_reset SDR_RST_PCI1_BTN>,
                  <&sdr_reset SDR_RST_PCI1_PERSTN_PAD>;
         bus-range = <0x00 0xff>;
+        clocks = <&sdr_clocks CLK_SDR_GATE_PCIE1>,
+                 <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+        clock-names = "core", "aux";
 
         // Legacy interrupts support
         #interrupt-cells = <1>;
