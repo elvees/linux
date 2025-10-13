@@ -394,3 +394,16 @@ i2c_pm: &i2c0 { };
 	pinctrl-names = "default";
 	pinctrl-0 = <&timer1_toggle_mux>;
 };
+
+// Increase pad current for higer speed - from 400-600 to 900+ Mbit/s.
+&emac1_default {
+	tx_data {
+		groups = "emac1_tx";
+		drive-strength = <6>;
+	};
+
+	txc {
+		pins = "EMAC1_RGMII_TXC";
+		drive-strength = <6>;
+	};
+};
