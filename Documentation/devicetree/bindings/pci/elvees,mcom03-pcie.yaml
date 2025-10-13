@@ -24,6 +24,7 @@ properties:
   reg:
     items:
       - description: Data Bus Interface (DBI) registers.
+      - description: Data Bus Interface 2 (DBI2) for accessing shadow registers.
       - description: iATU memory IO region.
       - description: ELVEES specific application registers.
       - description: PCIe configuration space region.
@@ -31,6 +32,7 @@ properties:
   reg-names:
     items:
       - const: dbi
+      - const: dbi2
       - const: atu
       - const: apb
       - const: config
@@ -126,11 +128,12 @@ examples:
       // Use GIC ITS as MSI controller.
       pcie0: pcie@2000000 {
         compatible = "elvees,mcom03-pcie";
-        reg = <0x0 0x2000000 0x0 0x300000>,
+        reg = <0x0 0x2000000 0x0 0x100000>,
+              <0x0 0x2100000 0x0 0x100000>,
               <0x0 0x2300000 0x0 0x80000>,
               <0x0 0x1a00000 0x0 0x800>,
               <0x0 0x60000000 0x0 0x10000000>;
-        reg-names = "dbi", "atu", "apb", "config";
+        reg-names = "dbi", "dbi2", "atu", "apb", "config";
         #address-cells = <3>;
         #size-cells = <2>;
         device_type = "pci";
@@ -175,11 +178,12 @@ examples:
       // Use embedded MSI controller.
       pcie1: pcie@2400000 {
         compatible = "elvees,mcom03-pcie";
-        reg = <0x0 0x2400000 0x0 0x300000>,
+        reg = <0x0 0x2400000 0x0 0x100000>,
+              <0x0 0x2500000 0x0 0x100000>,
               <0x0 0x2700000 0x0 0x80000>,
               <0x0 0x1d00000 0x0 0x800>,
               <0x0 0x70000000 0x0 0x10000000>;
-        reg-names = "dbi", "atu", "apb", "config";
+        reg-names = "dbi", "dbi2", "atu", "apb", "config";
         #address-cells = <3>;
         #size-cells = <2>;
         device_type = "pci";
