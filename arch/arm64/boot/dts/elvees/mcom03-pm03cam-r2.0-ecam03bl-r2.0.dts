@@ -25,6 +25,11 @@
 		intrusion-gpios = <&gpio0a 1 GPIO_ACTIVE_HIGH>;
 	};
 
+	heater-gpio {
+		compatible = "heater-gpio";
+		gpios = <&gpio1d 4 GPIO_ACTIVE_HIGH>;
+	};
+
 	pwm-leds {
 		compatible = "pwm-leds";
 
