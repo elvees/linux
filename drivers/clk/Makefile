@@ -126,6 +126,7 @@ obj-y					+= imgtec/
 obj-y					+= imx/
 obj-y					+= ingenic/
 obj-y					+= keystone/
+obj-y					+= mcom03/
 obj-y					+= mediatek/
 obj-$(CONFIG_ARCH_MESON)		+= meson/
 obj-y					+= microchip/
