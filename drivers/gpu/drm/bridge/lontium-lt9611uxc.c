@@ -367,6 +367,7 @@ lt9611uxc_bridge_detect(struct drm_bridge *bridge, struct drm_connector *connect
 	unsigned int reg_val = 0;
 	int ret;
 	bool connected = true;
+	bool edid = false;
 
 	lt9611uxc_lock(lt9611uxc);
 
@@ -375,8 +376,17 @@ lt9611uxc_bridge_detect(struct drm_bridge *bridge, struct drm_connector *connect
 
 		if (ret)
 			dev_err(lt9611uxc->dev, "failed to read hpd status: %d\n", ret);
-		else
+		else {
+			edid  = reg_val & BIT(0);
 			connected  = reg_val & BIT(1);
+		}
+	}
+	/* Due to the short interrupt signal duration, interrupt loss is
+	 * possible. Therefore, we'll add a EDID status check to this callback.
+	 */
+	if (!ret) {
+		lt9611uxc->edid_read = edid;
+		wake_up_all(&lt9611uxc->wq);
 	}
 	lt9611uxc->hdmi_connected = connected;
 
