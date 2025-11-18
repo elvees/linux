@@ -150,6 +150,13 @@
 		"FAN_PWMOUT", "nLED-R", "nLED-G", "nLED-B";
 };
 
+&lsperiph1_pinctrl {
+	hdmi_int: hdmi-int {
+		pins = "GPIOA_5";
+		input-enable;
+	};
+};
+
 /* Connected to eMMC */
 &sdhci0 {
 	status = "okay";
@@ -225,6 +232,9 @@
 
 		reset-gpios = <&gpio1b 4 GPIO_ACTIVE_HIGH>;
 		interrupts-extended = <&gpio1a 5 IRQ_TYPE_LEVEL_LOW>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdmi_int>;
 
 		ports {
 			#address-cells = <1>;
