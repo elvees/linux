@@ -1500,7 +1500,7 @@
 			elvees,ctrl-id = <0>;
 			status = "disabled";
 
-			dwc3@10000000 {
+			usb0_dwc3: dwc3@10000000 {
 				compatible = "snps,dwc3";
 				reg = <0 0x10000000 0 0x100000>;
 				interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
@@ -1524,7 +1524,7 @@
 			elvees,ctrl-id = <1>;
 			status = "disabled";
 
-			dwc3@10100000 {
+			usb1_dwc3: dwc3@10100000 {
 				compatible = "snps,dwc3";
 				reg = <0 0x10100000 0 0x100000>;
 				interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
