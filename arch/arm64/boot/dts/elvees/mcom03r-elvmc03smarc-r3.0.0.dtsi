@@ -151,6 +151,7 @@ ser3: &uart1 { };
 		motorcomm,clk-out-frequency-hz = <0>;
 		rx-internal-delay-ps = <1800>;
 		tx-internal-delay-ps = <1200>;
+		motorcomm,leds-cfg-override = <0x670 0x020 0x040>;
 
 		// LEDs behavior controlled by netdev trigger from userspace.
 		leds {
@@ -192,6 +193,7 @@ ser3: &uart1 { };
 		motorcomm,clk-out-frequency-hz = <0>;
 		rx-internal-delay-ps = <1900>;
 		tx-internal-delay-ps = <1650>;
+		motorcomm,leds-cfg-override = <0x670 0x020 0x040>;
 
 		// LEDs behavior controlled by netdev trigger from userspace.
 		leds {
