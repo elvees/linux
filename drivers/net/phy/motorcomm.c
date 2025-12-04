@@ -261,9 +261,6 @@
 #define YT8531_RGMII_RX_DS_DEFAULT		0x3
 
 #define YT8521_LED_CONFIG_REG			0xA00B
-#define YT8521_LED0_CONFIG_REG			0xA00C
-#define YT8521_LED1_CONFIG_REG			0xA00D
-#define YT8521_LED2_CONFIG_REG			0xA00E
 #define YT8521_LCR_FORCE_MODE_MASK		GENMASK(8, 0)
 
 #define YTPHY_SYNCE_CFG_REG			0xA012
@@ -1596,7 +1593,7 @@ static int yt8521_config_init(struct phy_device *phydev)
 	int ret = 0;
 	int i;
 	u16 mask;
-	u32 led_cfg, leds_cfg[3];
+	u32 led_cfg, leds_cfg[YT8521_MAX_LEDS];
 
 	old_page = phy_select_page(phydev, YT8521_RSSR_UTP_SPACE);
 	if (old_page < 0)
@@ -1622,7 +1619,7 @@ static int yt8521_config_init(struct phy_device *phydev)
 					leds_cfg,  ARRAY_SIZE(leds_cfg))) {
 		/* set LED status function */
 		for (i = 0; i < ARRAY_SIZE(leds_cfg); i++) {
-			ret = ytphy_write_ext(phydev, YT8521_LED0_CONFIG_REG + i,
+			ret = ytphy_write_ext(phydev, YT8521_LED0_CFG_REG + i,
 					      leds_cfg[i]);
 
 			if (ret < 0)
