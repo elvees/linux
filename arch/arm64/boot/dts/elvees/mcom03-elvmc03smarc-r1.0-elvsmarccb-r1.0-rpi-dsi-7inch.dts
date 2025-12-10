@@ -8,6 +8,15 @@
 #include "mcom03-elvmc03smarc-r1.0-elvsmarccb-r1.0.dts"
 
 / {
+	compatible = "elvees,elvmc03smarc-r1.0-elvsmarccb-r1.0-rpi-dsi-7inch",
+		     "elvees,elvmc03smarc-r1.0-elvsmarccb-r1.0",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r1.0",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
 	panel {
 		#address-cells = <1>;
 		#size-cells = <0>;

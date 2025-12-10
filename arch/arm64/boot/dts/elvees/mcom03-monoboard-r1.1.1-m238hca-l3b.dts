@@ -4,6 +4,11 @@
 #include "mcom03-monoboard-r1.1.1.dts"
 
 / {
+	compatible = "elvees,monoboard-r1.1.1-m238hca-l3b",
+		     "elvees,monoboard-r1.1.1",
+		     "elvees,monoboard",
+		     "elvees,mcom03";
+
 	vdd_lvds: regulator_lvds@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "lvds-panel-supply";

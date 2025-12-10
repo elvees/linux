@@ -8,6 +8,13 @@
 #include "mcom03-pm-media-enable.dtsi"
 #include "mcom03-pm-sdr-enable.dtsi"
 
+/ {
+	compatible = "elvees,mcom03bub-r1.3.0-pm",
+		     "elvees,mcom03bub-r1.3.0",
+		     "elvees,mcom03bub",
+		     "elvees,mcom03";
+};
+
 /* Disable PCIe because it doesn't support runtime PM and can not be unbound or
  * unloaded.
  */

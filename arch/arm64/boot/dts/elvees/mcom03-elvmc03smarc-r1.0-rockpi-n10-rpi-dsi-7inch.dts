@@ -8,6 +8,14 @@
 #include "mcom03-elvmc03smarc-r1.0-rockpi-n10.dts"
 
 / {
+	compatible = "elvees,elvmc03smarc-r1.0-rockpi-n10-rpi-dsi-7inch",
+		     "elvees,elvmc03smarc-r1.0-rockpi-n10",
+		     "elvees,elvmc03smarc-rockpi-n10",
+		     "radxa,rockpi-n10",
+		     "elvees,elvmc03smarc-r1.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
 	panel {
 		#address-cells = <1>;
 		#size-cells = <0>;

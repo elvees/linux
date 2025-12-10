@@ -5,6 +5,14 @@
 
 #include "mcom03-mcom03bub-r1.3.0-b101uan01.dts"
 
+/ {
+	compatible = "elvees,mcom03bub-r1.3.0-fct",
+		     "elvees,mcom03bub-r1.3.0-b101uan01",
+		     "elvees,mcom03bub-r1.3.0",
+		     "elvees,mcom03bub",
+		     "elvees,mcom03";
+};
+
 &i2c0 {
 	eeprom0: eeprom0@50 {
 		#address-cells = <1>;

@@ -5,6 +5,15 @@
 #include <dt-bindings/pwm/pwm.h>
 
 / {
+	compatible = "elvees,elvmc03ce-r2.8.1-elvcecb-r3.3.0-m238hca-l3b",
+		     "elvees,elvmc03ce-r2.8.1-elvcecb-r3.3.0",
+		     "elvees,elvmc03ce-elvcecb",
+		     "elvees,elvcecb-r3.3.0",
+		     "elvees,elvcecb",
+		     "elvees,elvmc03ce-r2.8.1",
+		     "elvees,elvmc03ce",
+		     "elvees,mcom03";
+
 	vdd_lcd: regulator_lcd@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "lcd-panel-supply";

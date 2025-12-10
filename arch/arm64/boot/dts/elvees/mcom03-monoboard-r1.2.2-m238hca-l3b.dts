@@ -5,6 +5,11 @@
 #include <dt-bindings/pwm/pwm.h>
 
 / {
+	compatible = "elvees,monoboard-r1.2.2-m238hca-l3b",
+		     "elvees,monoboard-r1.2.2",
+		     "elvees,monoboard",
+		     "elvees,mcom03";
+
 	vdd_lvds: regulator_lvds@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "lvds-panel-supply";

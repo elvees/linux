@@ -5,7 +5,8 @@
 
 / {
 	model = "ELV-MC03-CE r2.11.0, ELV-CE-CB r3.3.0";
-	compatible = "elvees,elvmc03ce-r2.11.0-elvcecb-r3.3.0",
+	compatible = "elvees,elvmc03ce-r2.11.0-elvcecb-r3.3.0-m238hca-l3b",
+		     "elvees,elvmc03ce-r2.11.0-elvcecb-r3.3.0",
 		     "elvees,elvmc03ce-elvcecb",
 		     "elvees,elvcecb-r3.3.0",
 		     "elvees,elvcecb",

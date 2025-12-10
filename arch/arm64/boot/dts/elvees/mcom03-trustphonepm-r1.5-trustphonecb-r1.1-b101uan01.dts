@@ -6,6 +6,15 @@
 #include "mcom03-trustphonepm-r1.5-trustphonecb-r1.1.dts"
 
 / {
+	compatible = "elvees,trustphonepm-r1.5-trustphonecb-r1.1-b101uan01",
+		     "elvees,trustphonepm-r1.5-trustphonecb-r1.1",
+		     "elvees,trustphonepm-trustphonecb",
+		     "elvees,trustphonecb-r1.1",
+		     "elvees,trustphonecb",
+		     "elvees,trustphonepm-r1.5",
+		     "elvees,trustphonepm",
+		     "elvees,mcom03";
+
 	dsi_backlight: dsi-backlight {
 		compatible = "gpio-backlight";
 		gpios = <&gpio0c 3 GPIO_ACTIVE_HIGH>;

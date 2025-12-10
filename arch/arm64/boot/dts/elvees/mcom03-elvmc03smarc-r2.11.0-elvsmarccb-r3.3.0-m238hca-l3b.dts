@@ -4,6 +4,15 @@
 #include "mcom03-elvmc03smarc-r2.11.0-elvsmarccb-r3.3.0.dts"
 
 / {
+	compatible = "elvees,elvmc03smarc-r2.11.0-elvsmarccb-r3.3.0-m238hca-l3b",
+		     "elvees,elvmc03smarc-r2.11.0-elvsmarccb-r3.3.0",
+		     "elvees,elvmc03smarc-elvsmarccb",
+		     "elvees,elvsmarccb-r3.3.0",
+		     "elvees,elvsmarccb",
+		     "elvees,elvmc03smarc-r2.11.0",
+		     "elvees,elvmc03smarc",
+		     "elvees,mcom03";
+
 	vdd_lcd: regulator_lcd@0 {
 		compatible = "regulator-fixed";
 		regulator-name = "lcd-panel-supply";

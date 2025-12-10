@@ -8,6 +8,11 @@
 #include "mcom03-skifmp-v1.0.dts"
 
 / {
+	compatible = "elvees,skifmp-v1.0-rpi-dsi-7inch",
+		     "elvees,skifmp-v1.0",
+		     "elvees,skifmp",
+		     "elvees,mcom03";
+
 	panel {
 		#address-cells = <1>;
 		#size-cells = <0>;
