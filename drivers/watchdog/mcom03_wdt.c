@@ -11,7 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/watchdog.h>
 
-#include <soc/elvees/mcom03/mcom03_sip.h>
+#include <soc/elvees/mcom03/mcom03-sip.h>
 
 #define to_mcom03_wdt(x)	container_of((x), struct mcom03_wdt, wdd)
 #define mcom03_wdt_sip(id) \

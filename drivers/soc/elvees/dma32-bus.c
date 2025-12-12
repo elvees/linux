@@ -7,7 +7,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <soc/elvees/mcom03/mcom03_sip.h>
+#include <soc/elvees/mcom03/mcom03-sip.h>
 
 #define mcom03_ddr_subs_sip(id, param) \
 	mcom03_sip_smccc_smc(MCOM03_SIP_DDR_SUBS, (id), (param), 0, 0, 0, 0, 0)

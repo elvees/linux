@@ -5,7 +5,7 @@
 #include <dt-bindings/soc/elvees,mcom03.h>
 #include <linux/mfd/syscon.h>
 #include <linux/slab.h>
-#include <soc/elvees/mcom03/mcom03_sip.h>
+#include <soc/elvees/mcom03/mcom03-sip.h>
 
 #include "mcom03-clk.h"
 

@@ -10,7 +10,7 @@
 #include <linux/sysfs.h>
 
 #include <soc/elvees/mcom03/bootstage.h>
-#include <soc/elvees/mcom03/mcom03_sip.h>
+#include <soc/elvees/mcom03/mcom03-sip.h>
 
 #define NAME "ELVEES MCom-03 SoC bootstage module" /* Module name */
 
