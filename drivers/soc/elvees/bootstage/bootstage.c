@@ -10,6 +10,7 @@
 #include <linux/sysfs.h>
 
 #include <soc/elvees/mcom03/bootstage.h>
+#include <soc/elvees/mcom03/mcom03-helper.h>
 #include <soc/elvees/mcom03/mcom03-sip.h>
 
 #define NAME "ELVEES MCom-03 SoC bootstage module" /* Module name */
@@ -38,33 +39,6 @@ static struct bootstage bootstages[] = {
 
 static struct kobject *bootstage_kobj;
 
-static int mcom03_bootstage_sprintf(char *buf, size_t *size, int *pos, const char *fmt, ...)
-{
-	va_list args;
-	int n;
-
-	if (*pos >= *size)
-		return -ENOMEM;
-
-	va_start(args, fmt);
-	n = vsnprintf(NULL, 0, fmt, args);
-	va_end(args);
-
-	if (n < 0)
-		return -EINVAL;
-	if (n >= *size)
-		return -ENOMEM;
-
-	va_start(args, fmt);
-	n = vsnprintf(&buf[*pos], *size, fmt, args);
-	va_end(args);
-
-	*pos += n;
-	*size -= n;
-
-	return 0;
-}
-
 static void mcom03_bootstage_get_timestamps(void)
 {
 	long timestamp;
@@ -77,30 +51,9 @@ static void mcom03_bootstage_get_timestamps(void)
 		id = bootstages[i].id;
 
 		timestamp = mcom03_bootstage_sip(MCOM03_SIP_BOOTSTAGE_GET_TIMESTAMP, id);
-		if (timestamp >= 0)
-			bootstages[i].timestamp = timestamp;
-		else
-			pr_debug("Failed to get bootstage #%d (%s), ret=%ld\n", i, desc, timestamp);
+		bootstages[i].timestamp = timestamp;
+		pr_debug("Bootstage #%d (%s) timestamp=%ld\n", i, desc, timestamp);
 	}
-}
-
-static int mcom03_bootstage_show_one(struct bootstage *bs, char *buf, size_t *size, int *pos)
-{
-	int ret;
-
-	ret = mcom03_bootstage_sprintf(buf, size, pos, "\"%d\":{", bs->id);
-	if (ret)
-		return ret;
-
-	ret = mcom03_bootstage_sprintf(buf, size, pos, "\"desc\":\"%s\",", bs->desc);
-	if (ret)
-		return ret;
-
-	ret = mcom03_bootstage_sprintf(buf, size, pos, "\"timestamp\":\"%ld\"}", bs->timestamp);
-	if (ret)
-		return ret;
-
-	return 0;
 }
 
 static ssize_t mcom03_bootstage_show(struct kobject *kobj, struct kobj_attribute *attr,
@@ -109,30 +62,31 @@ static ssize_t mcom03_bootstage_show(struct kobject *kobj, struct kobj_attribute
 	int len = 0, ret, i;
 	size_t size = PAGE_SIZE;
 
-	ret = mcom03_bootstage_sprintf(buf, &size, &len, "{");
-	if (ret)
-		return ret;
-
 	for (i = 0; i < ARRAY_SIZE(bootstages) - 1; ++i) {
-		if (bootstages[i].timestamp < 0)
-			continue;
+		if (!i) {
+			ret = mcom03_sprintf(buf, &size, &len, "{");
+			if (ret)
+				return ret;
+		} else {
+			ret = mcom03_sprintf(buf, &size, &len, ",");
+			if (ret)
+				return ret;
+		}
 
-		ret = mcom03_bootstage_show_one(&bootstages[i], buf, &size, &len);
-		if (ret)
-			return ret;
-
-		ret = mcom03_bootstage_sprintf(buf, &size, &len, ",");
+		ret = mcom03_sprintf(buf, &size, &len,
+				     "\"%d\":{\"desc\":\"%s\",\"timestamp\":\"%ld\"}",
+				     bootstages[i].id,
+				     bootstages[i].desc,
+				     bootstages[i].timestamp);
 		if (ret)
 			return ret;
 	}
 
-	if (bootstages[i].timestamp >= 0) {
-		ret = mcom03_bootstage_show_one(&bootstages[i], buf, &size, &len);
-		if (ret)
-			return ret;
-	}
-
-	ret = mcom03_bootstage_sprintf(buf, &size, &len, "}\n");
+	ret = mcom03_sprintf(buf, &size, &len,
+			     ",\"%d\":{\"desc\":\"%s\",\"timestamp\":\"%ld\"}}\n",
+			     bootstages[i].id,
+			     bootstages[i].desc,
+			     bootstages[i].timestamp);
 	if (ret)
 		return ret;
 
@@ -142,18 +96,18 @@ static ssize_t mcom03_bootstage_show(struct kobject *kobj, struct kobj_attribute
 static struct kobj_attribute mcom03_bootstage_show_attribute =
 	__ATTR(timestamps, 0444, mcom03_bootstage_show, NULL);
 
-static struct attribute *attrs[] = {
+static struct attribute *bootstage_attrs[] = {
 	&mcom03_bootstage_show_attribute.attr,
 	NULL,
 };
 
-static struct attribute_group attr_group = {
-	.attrs = attrs,
+static struct attribute_group bootstage_attr_group = {
+	.attrs = bootstage_attrs,
 };
 
 static int __init bootstage_init(void)
 {
-	int retval;
+	int ret;
 
 	mcom03_bootstage_get_timestamps();
 
@@ -161,10 +115,10 @@ static int __init bootstage_init(void)
 	if (!bootstage_kobj)
 		return -ENOMEM;
 
-	retval = sysfs_create_group(bootstage_kobj, &attr_group);
-	if (retval) {
+	ret = sysfs_create_group(bootstage_kobj, &bootstage_attr_group);
+	if (ret) {
 		kobject_put(bootstage_kobj);
-		return retval;
+		return ret;
 	}
 
 	pr_info("%s: loaded successfully\n", NAME);
@@ -175,6 +129,7 @@ module_init(bootstage_init);
 
 static void __exit bootstage_exit(void)
 {
+	sysfs_remove_group(bootstage_kobj, &bootstage_attr_group);
 	kobject_put(bootstage_kobj);
 	pr_info("%s: unloaded successfully\n", NAME);
 }

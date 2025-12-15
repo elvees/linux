@@ -4,8 +4,8 @@
  *
  */
 
-#ifndef _BOOTSTAGE_H
-#define _BOOTSTAGE_H
+#ifndef __SOC_BOOTSTAGE_H
+#define __SOC_BOOTSTAGE_H
 
 /*
  * A list of boot stages that we know about. Each of these indicates the
