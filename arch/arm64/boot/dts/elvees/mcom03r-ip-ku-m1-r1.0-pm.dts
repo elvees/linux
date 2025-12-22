@@ -5,6 +5,13 @@
 
 #include "mcom03r-ip-ku-m1-r1.0.dts"
 
+/ {
+	compatible = "elvees,mcom03r-ipku-m1-r1.0-pm",
+		     "elvees,mcom03r-ipku-m1-r1.0",
+		     "elvees,mcom03r-ipku-m1",
+		     "elvees,mcom03r";
+};
+
 /* Disable PCIe because it doesn't support runtime PM and can not be unbound or
  * unloaded.
  */

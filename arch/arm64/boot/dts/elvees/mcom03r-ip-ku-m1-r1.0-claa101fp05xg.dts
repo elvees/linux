@@ -5,6 +5,13 @@
 
 #include "mcom03r-ip-ku-m1-r1.0.dts"
 
+/ {
+	compatible = "elvees,mcom03r-ipku-m1-r1.0-claa101fp05xg",
+		     "elvees,mcom03r-ipku-m1-r1.0",
+		     "elvees,mcom03r-ipku-m1",
+		     "elvees,mcom03r";
+};
+
 &de_dsi {
 	dsi-panel@0 {
 		compatible = "chunghwa,claa101fp05xg";
