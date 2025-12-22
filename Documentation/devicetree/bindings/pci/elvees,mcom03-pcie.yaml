@@ -150,9 +150,7 @@ examples:
                      <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
                      <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "msi", "legacy", "pme", "aer", "dma";
-        resets = <&sdr_reset SDR_RST_EXT_ICT>,
-                 <&sdr_reset SDR_RST_BBD_ICT>,
-                 <&sdr_reset SDR_RST_PCI_ICT>;
+        resets = <&sdr_reset SDR_RST_PCI_ICT>;
         elvees,urb = <&sdr_urb>;
         elvees,ctrl-id = <0>;
         bus-range = <0x00 0x7f>;
@@ -202,9 +200,7 @@ examples:
                      <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>,
                      <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "msi", "legacy", "pme", "aer", "dma";
-        resets = <&sdr_reset SDR_RST_EXT_ICT>,
-                 <&sdr_reset SDR_RST_BBD_ICT>,
-                 <&sdr_reset SDR_RST_PCI_ICT>;
+        resets = <&sdr_reset SDR_RST_PCI_ICT>;
         elvees,urb = <&sdr_urb>;
         elvees,ctrl-id = <1>;
         bus-range = <0x00 0xff>;
