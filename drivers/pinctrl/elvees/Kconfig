@@ -1,0 +1,30 @@
+menuconfig MCOM03_PINCTRL
+	bool "MCom-03/MCom-03R pin controller drivers"
+	depends on PINCTRL && (ARCH_MCOM03 || ARCH_MCOM03R)
+
+if MCOM03_PINCTRL
+
+config PINCTRL_MCOM03_HSPERIPH
+	bool "Pin controller driver for HSPERIPH subsystem"
+	default y
+	select GENERIC_PINCONF
+	help
+	  This selects the pinctrl driver for HSPERIPH subsystem to configure
+	  EMAC0/1, SDMMC0/1, NAND, QSPI1, USB0/1 controllers.
+
+config PINCTRL_MCOM03_LSPERIPH
+	bool "Pin controller driver for LSPERIPH0/1 subsystem"
+	select GENERIC_PINCONF
+	default y
+	help
+	  This selects the pinctrl drivers for both LSPERIPH0 and LSPERIPH1
+	  subsystems to configure GPIO0 and GPIO1 pins.
+
+config PINCTRL_MCOM03_MEDIA
+	bool "Pin controller driver for MEDIA subsystem"
+	select GENERIC_PINMUX_FUNCTIONS
+	default y
+	help
+	  This selects the pinctrl driver for MEDIA subsystem.
+
+endif
