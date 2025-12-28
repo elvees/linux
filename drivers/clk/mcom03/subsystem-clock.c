@@ -9,6 +9,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/mfd/syscon.h>
+#include <linux/platform_device.h>
 
 #include <dt-bindings/soc/elvees,mcom03.h>
 #include <dt-bindings/clock/mcom03-clock.h>
@@ -26,6 +27,7 @@
 #define LSP1_URB_I2S_UCG_RSTN_PSTATUS	0xc
 
 struct mcom03_clk_provider {
+	struct device *dev;
 	struct clk_hw_onecell_data *clk_data;
 	struct regmap *urb;
 	struct mcom03_subsystem_clk *sclk;
@@ -375,15 +377,18 @@ struct mcom03_subsystem_clk mcom03_subsystems[] = {
 	},
 };
 
-static void __init mcom03_clk_provider_init(struct device_node *np,
-					    struct mcom03_clk_provider *prov)
+static int __init mcom03_clk_provider_init(struct mcom03_clk_provider *prov)
 {
 	u32 nr_clks = prov->sclk->nr_clocks;
 
-	prov->clk_data = kzalloc(struct_size(prov->clk_data, hws, nr_clks),
-				 GFP_KERNEL);
+	prov->clk_data = devm_kzalloc(prov->dev, struct_size(prov->clk_data, hws, nr_clks),
+				      GFP_KERNEL);
+	if (!prov->clk_data)
+		return -ENOMEM;
 
 	prov->clk_data->num = nr_clks;
+
+	return 0;
 }
 
 static void __init mcom03_init_plls(struct device_node *np,
@@ -704,15 +709,13 @@ static int mcom03_of_parse(struct device_node *np,
 		if (!pll->ucg_count)
 			continue;
 
-		pll->ucg_ids = kcalloc(pll->ucg_count,
-				       sizeof(*pll->ucg_ids),
-				       GFP_KERNEL);
-		pll->ucg_bypass = kcalloc(pll->ucg_count,
-					  sizeof(*pll->ucg_bypass),
-					  GFP_KERNEL);
+		pll->ucg_ids = devm_kcalloc(prov->dev, pll->ucg_count,
+					    sizeof(*pll->ucg_ids),
+					    GFP_KERNEL);
+		pll->ucg_bypass = devm_kcalloc(prov->dev, pll->ucg_count,
+					       sizeof(*pll->ucg_bypass),
+					       GFP_KERNEL);
 		if (!pll->ucg_ids || !pll->ucg_bypass) {
-			kfree(pll->ucg_ids);
-			kfree(pll->ucg_bypass);
 			pr_err("%pOFf: No memory\n", np);
 			ret = -ENOMEM;
 			goto free_urb;
@@ -734,37 +737,60 @@ free_urb:
 	return ret;
 }
 
-static void __init mcom03_clk_init(struct device_node *np)
+static int mcom03_clk_probe(struct platform_device *pdev)
 {
 	struct mcom03_clk_provider *prov;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	int ret;
 
-	prov = kzalloc(sizeof(*prov), GFP_KERNEL);
+	prov = devm_kzalloc(dev, sizeof(*prov), GFP_KERNEL);
 	if (!prov)
-		return;
+		return -ENOMEM;
+
+	prov->dev = dev;
 
 	ret = mcom03_of_parse(np, prov);
 	if (ret)
-		goto free_memory;
+		return ret;
 
 	if (prov->sclk->init)
 		prov->sclk->init(prov);
 
-	mcom03_clk_provider_init(np, prov);
+	ret = mcom03_clk_provider_init(prov);
+	if (ret)
+		return ret;
 
 	mcom03_init_plls(np, prov);
 	mcom03_init_refmuxes(np, prov);
 	mcom03_init_ucgs(np, prov);
 	mcom03_init_gates(np, prov);
 
-	of_clk_add_hw_provider(np, of_clk_hw_onecell_get, prov->clk_data);
+	ret = of_clk_add_hw_provider(np, of_clk_hw_onecell_get, prov->clk_data);
+	if (ret)
+		return ret;
 
 	mcom03_of_clks_enable(np, prov->clk_data);
 
-	return;
-
-free_memory:
-	kfree(prov);
+	return 0;
 }
 
-CLK_OF_DECLARE(mcom03_clk, "elvees,mcom03-clk-pm", mcom03_clk_init);
+static const struct of_device_id mcom03_clk_pm_match_table[] = {
+	{ .compatible = "elvees,mcom03-clk-pm" },
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, mcom03_clk_pm_match_table);
+
+static struct platform_driver mcom03_clk_pm_driver = {
+	.probe = mcom03_clk_probe,
+	.driver = {
+		.name = "mcom03-clk-pm",
+		.of_match_table = mcom03_clk_pm_match_table,
+	},
+};
+
+static int __init mcom03_clk_init(void)
+{
+	return platform_driver_register(&mcom03_clk_pm_driver);
+}
+postcore_initcall(mcom03_clk_init);
