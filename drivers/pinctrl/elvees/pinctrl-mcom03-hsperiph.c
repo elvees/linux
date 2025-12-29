@@ -880,21 +880,21 @@ static int mcom03_hsperiph_pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-int mcom03_hsperiph_get_functions_count(struct pinctrl_dev *pctldev)
+static int mcom03_hsperiph_get_functions_count(struct pinctrl_dev *pctldev)
 {
 	return ARRAY_SIZE(mcom03_hsperiph_pinmux_functions);
 }
 
-const char *mcom03_hsperiph_get_function_name(struct pinctrl_dev *pctldev,
-					      unsigned int selector)
+static const char *mcom03_hsperiph_get_function_name(struct pinctrl_dev *pctldev,
+						     unsigned int selector)
 {
 	return mcom03_hsperiph_pinmux_functions[selector];
 }
 
-int mcom03_hsperiph_get_function_groups(struct pinctrl_dev *pctldev,
-					unsigned int selector,
-					const char * const **groups,
-					unsigned int *num_groups)
+static int mcom03_hsperiph_get_function_groups(struct pinctrl_dev *pctldev,
+					       unsigned int selector,
+					       const char * const **groups,
+					       unsigned int *num_groups)
 {
 	/* All HSPERIPH mux functions have the same group */
 	*groups = mcom03_hsperiph_mux_groups;
@@ -903,9 +903,9 @@ int mcom03_hsperiph_get_function_groups(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-int mcom03_hsperiph_mcom03_hsperiph_set_mux(struct pinctrl_dev *pctldev,
-					    unsigned int func_selector,
-					    unsigned int group_selector)
+static int mcom03_hsperiph_mcom03_hsperiph_set_mux(struct pinctrl_dev *pctldev,
+						   unsigned int func_selector,
+						   unsigned int group_selector)
 {
 	struct mcom03_hsperiph_pinctrl *pctrl =
 					pinctrl_dev_get_drvdata(pctldev);

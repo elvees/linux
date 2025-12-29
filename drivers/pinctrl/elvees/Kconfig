@@ -1,6 +1,8 @@
 menuconfig MCOM03_PINCTRL
 	bool "MCom-03/MCom-03R pin controller drivers"
 	depends on PINCTRL && (ARCH_MCOM03 || ARCH_MCOM03R)
+	help
+	  Say Y here to enable support for MCom-03/MCom-03R pinconf drivers.
 
 if MCOM03_PINCTRL
 

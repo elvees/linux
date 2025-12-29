@@ -4,6 +4,7 @@
  * Copyright 2022 RnD Center "ELVEES", JSC
  */
 
+#include <linux/of.h>
 #include <linux/mfd/syscon.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/pinconf-generic.h>
@@ -53,21 +54,21 @@ static const char *const mcom03_media_pinmux_functions[] = {
 	"ISP", "DP"
 };
 
-int mcom03_media_get_functions_count(struct pinctrl_dev *pctldev)
+static int mcom03_media_get_functions_count(struct pinctrl_dev *pctldev)
 {
 	return ARRAY_SIZE(mcom03_media_pinmux_functions);
 }
 
-const char *mcom03_media_get_function_name(struct pinctrl_dev *pctldev,
-					   unsigned int selector)
+static const char *mcom03_media_get_function_name(struct pinctrl_dev *pctldev,
+						  unsigned int selector)
 {
 	return mcom03_media_pinmux_functions[selector];
 }
 
-int mcom03_media_get_function_groups(struct pinctrl_dev *pctldev,
-				     unsigned int selector,
-				     const char * const **groups,
-				     unsigned int *num_groups)
+static int mcom03_media_get_function_groups(struct pinctrl_dev *pctldev,
+					    unsigned int selector,
+					    const char * const **groups,
+					    unsigned int *num_groups)
 {
 	*groups = mcom03_media_groups;
 	*num_groups = ARRAY_SIZE(mcom03_media_groups);
@@ -75,9 +76,9 @@ int mcom03_media_get_function_groups(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-int mcom03_media_set_mux(struct pinctrl_dev *pctldev,
-			 unsigned int func_selector,
-			 unsigned int group_selector)
+static int mcom03_media_set_mux(struct pinctrl_dev *pctldev,
+				unsigned int func_selector,
+				unsigned int group_selector)
 {
 	struct mcom03_media_pinctrl *pctrl = pinctrl_dev_get_drvdata(pctldev);
 	int ret;
@@ -107,21 +108,21 @@ static const struct pinmux_ops mcom03_media_pinmux_ops = {
 	.set_mux		= mcom03_media_set_mux,
 };
 
-int mcom03_media_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
+static int mcom03_media_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
 {
 	return ARRAY_SIZE(mcom03_media_groups);
 }
 
-const char *mcom03_media_pinctrl_get_group_name(struct pinctrl_dev *pctldev,
-						unsigned int selector)
+static const char *mcom03_media_pinctrl_get_group_name(struct pinctrl_dev *pctldev,
+						       unsigned int selector)
 {
 	return mcom03_media_groups[selector];
 }
 
-int mcom03_media_pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
-					unsigned int selector,
-					const unsigned int **pins,
-					unsigned int *num_pins)
+static int mcom03_media_pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
+					       unsigned int selector,
+					       const unsigned int **pins,
+					       unsigned int *num_pins)
 {
 	*pins = media_mux_grp;
 	*num_pins = ARRAY_SIZE(media_mux_grp);
