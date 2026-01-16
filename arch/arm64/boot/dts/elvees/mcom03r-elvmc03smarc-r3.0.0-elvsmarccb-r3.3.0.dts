@@ -63,7 +63,10 @@
 		#cooling-cells = <2>;
 		cooling-levels = <0 102 180 230>;
 		interrupt-parent = <&gpio0a>;
-		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+		/* TODO: Change back to falling edge after adding
+		 * debounce support in MCOM03SW-2160
+		 */
+		interrupts = <0 IRQ_TYPE_EDGE_RISING>;
 		pulses-per-revolution = <2>;
 	};
 
