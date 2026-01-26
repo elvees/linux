@@ -191,7 +191,11 @@ config OMPIC
 
 config ELVEES_QLIC
 	tristate "ELVEES QLIC controller support"
+	depends on ARCH_MCOM03 || ARCH_MCOM03R
 	select IRQ_DOMAIN
+	default y if CAN_MFBSP_CAN=y || SND_SOC_ELVEES_MFBSP=y || \
+		     I2C_DESIGNWARE_PLATFORM=y
+	default m
 	help
 	  This enables the ELVEES QLIC controller driver.
 
