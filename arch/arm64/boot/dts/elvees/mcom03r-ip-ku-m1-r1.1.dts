@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2026 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03r-ip-ku-m1-r1.0.dts"
+
+/ {
+	model = "MCom-03R IP-KU M1 r1.1";
+	compatible = "elvees,mcom03r-ipku-m1-r1.1",
+		     "elvees,mcom03r-ipku-m1",
+		     "elvees,mcom03r";
+};
+
+&i2c1_default_cfg {
+	/delete-node/ scl-sda-pins;
+	scl-sda-pins {
+		input-enable;
+	};
+};
+
+&i2c2_default_cfg {
+	/delete-node/ scl-sda-pins;
+	scl-sda-pins {
+		input-enable;
+	};
+};
+
+&i2c3_default_cfg {
+	/delete-node/ scl-sda-pins;
+	scl-sda-pins {
+		input-enable;
+	};
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+};
+
+&i2c4 {
+	clock-frequency = <400000>;
+};
+
+&emac0 {
+	/delete-node/ ethernet-phy@0;
+	ethernet_phy0: ethernet-phy@0 {
+		reg = <0x0>;
+		tx-internal-delay-ps = <2000>;
+		/* The same as for mcom03r-ip-ku-m1-r1.0.dts */
+		max-speed = <100>;
+	};
+};
+
+&emac1 {
+	/delete-node/ ethernet-phy@0;
+	ethernet_phy1: ethernet-phy@0 {
+		reg = <0x0>;
+		tx-internal-delay-ps = <2000>;
+		/* The same as for mcom03r-ip-ku-m1-r1.0.dts */
+		max-speed = <100>;
+	};
+};

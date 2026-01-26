@@ -89,6 +89,7 @@ dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0-b156
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0-m238hca-l3b.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-smarc-ukf-tfk-r1.1.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0.dtb
+dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0-b101uan01_hw_1a.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0-claa101fp05xg.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0-pm.dtb
