@@ -717,6 +717,7 @@ static const struct spi_device_id spidev_spi_ids[] = {
 	{ .name = "em3581" },
 	{ .name = "si3210" },
 	{ .name = "ms41929" },
+	{ .name = "mcom03-spidev" },
 	{},
 };
 MODULE_DEVICE_TABLE(spi, spidev_spi_ids);
@@ -748,6 +749,7 @@ static const struct of_device_id spidev_dt_ids[] = {
 	{ .compatible = "semtech,sx1301", .data = &spidev_of_check },
 	{ .compatible = "silabs,em3581", .data = &spidev_of_check },
 	{ .compatible = "silabs,si3210", .data = &spidev_of_check },
+	{ .compatible = "elvees,mcom03-spidev", .data = &spidev_of_check },
 	{},
 };
 MODULE_DEVICE_TABLE(of, spidev_dt_ids);
