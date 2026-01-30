@@ -51,3 +51,32 @@
 		tx-internal-delay-ps = <1650>;
 	};
 };
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	cs-gpios = <&gpio0c 4 GPIO_ACTIVE_LOW>,
+		   <&gpio0c 5 GPIO_ACTIVE_LOW>,
+		   <&gpio0c 6 GPIO_ACTIVE_LOW>,
+		   <&gpio0c 7 GPIO_ACTIVE_LOW>;
+
+	spidev0@0 {
+		compatible = "elvees,mcom03-spidev";
+		reg = <0x0>;
+	};
+
+	spidev1@1 {
+		compatible = "elvees,mcom03-spidev";
+		reg = <0x1>;
+	};
+
+	spidev2@2 {
+		compatible = "elvees,mcom03-spidev";
+		reg = <0x2>;
+	};
+
+	spidev3@3 {
+		compatible = "elvees,mcom03-spidev";
+		reg = <0x3>;
+	};
+};
