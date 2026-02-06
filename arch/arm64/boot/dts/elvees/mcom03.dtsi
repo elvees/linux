@@ -647,7 +647,8 @@
 				 <&media_clocks CLK_MEDIA_UCG1_DISP_M>,
 				 <&media_clocks CLK_MEDIA_UCG1_DISP_PXL>;
 			clock-names = "pclk", "aclk", "mclk", "pxlclk";
-			arm,malidp-output-port-lines = /bits/ 8 <8 8 8>;
+			// Using 12-bit output disables dithering in Mali-DP
+			arm,malidp-output-port-lines = /bits/ 8 <12 12 12>;
 			status = "disabled";
 			power-domains = <&media_clocks>;
 
