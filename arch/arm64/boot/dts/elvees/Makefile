@@ -80,8 +80,6 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-skifmsb-v2.0-skifbs-v1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-skifmsb-v2.0-skifbs-v1.0-rpi-dsi-7inch.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-skifmsb-v2.0-skifmp-v2.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03) += mcom03-skifmsb-v2.0-skifmp-v2.0-rpi-dsi-7inch.dtb
-dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r1.5-trustphonecb-r1.1.dtb
-dtb-$(CONFIG_ARCH_MCOM03) += mcom03-trustphonepm-r1.5-trustphonecb-r1.1-b101uan01.dtb
 
 # MCom-03R
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0.dtb
