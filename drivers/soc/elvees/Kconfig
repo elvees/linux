@@ -15,3 +15,11 @@ config MCOM03_BOOTSTAGE
 	help
 	  The library allows to get access to boot stage timestamps
 	  for MCom-03/MCom-03R SoCs.
+
+config MCOM03R_OTP
+	tristate "MCom-03R OTP driver"
+	depends on ARCH_MCOM03R || COMPILE_TEST
+	depends on OF
+	default m
+	help
+	  The driver allows to read public data from OTP memory of MCom-03R SoCs.

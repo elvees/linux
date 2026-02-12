@@ -370,6 +370,10 @@
 			i2c-sda-hold-time-ns = <300>;
 			status = "disabled";
 		};
+
+		otp: otp@1f030000 {
+			compatible = "elvees,mcom03r-otp";
+		};
 	};
 
 	ddr-bus {
