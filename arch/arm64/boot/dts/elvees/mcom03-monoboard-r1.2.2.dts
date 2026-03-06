@@ -298,7 +298,7 @@ sata: &pcie0 {
 &pcie1 {
 	status = "okay";
 
-	reset-gpio = <&gpio0c 6 GPIO_ACTIVE_HIGH>;
+	reset-gpio = <&gpio0c 6 GPIO_ACTIVE_LOW>;
 };
 
 &i2c3 {

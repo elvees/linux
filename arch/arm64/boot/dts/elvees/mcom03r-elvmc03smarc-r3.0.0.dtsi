@@ -443,7 +443,7 @@ i2c_pm: &i2c0 { };
 };
 
 &pcie1 {
-	reset-gpio = <&gpio0b 4 GPIO_ACTIVE_HIGH>;
+	reset-gpio = <&gpio0b 4 GPIO_ACTIVE_LOW>;
 };
 
 &timers_pwm {

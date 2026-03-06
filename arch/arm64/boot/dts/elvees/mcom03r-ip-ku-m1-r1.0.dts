@@ -459,12 +459,12 @@
 
 &pcie0 {
 	status = "okay";
-	reset-gpio = <&gpio0d 7 GPIO_ACTIVE_HIGH>;
+	reset-gpio = <&gpio0d 7 GPIO_ACTIVE_LOW>;
 };
 
 &pcie1 {
 	status = "okay";
-	reset-gpio = <&gpio0d 6 GPIO_ACTIVE_HIGH>;
+	reset-gpio = <&gpio0d 6 GPIO_ACTIVE_LOW>;
 };
 
 &isp {
