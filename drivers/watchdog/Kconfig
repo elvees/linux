@@ -291,6 +291,14 @@ config LENOVO_SE30_WDT
 	  This driver can also be built as a module. If so, the module
 	  will be called lenovo-se30-wdt.
 
+config MCOM03_WATCHDOG
+	tristate "ELVEES MCom-03/MCom-03R SoC watchdog support"
+	depends on ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST
+	select WATCHDOG_CORE
+	help
+	  Say Y here to include watchdog timer supported
+	  by ELVEES MCom-03/MCom-03R SoCs.
+
 config MENF21BMC_WATCHDOG
 	tristate "MEN 14F021P00 BMC Watchdog"
 	depends on MFD_MENF21BMC || COMPILE_TEST
