@@ -107,14 +107,13 @@ exit:
 	return ret;
 }
 
-static int mcom03_wdt_drv_remove(struct platform_device *pdev)
+static void mcom03_wdt_drv_remove(struct platform_device *pdev)
 {
 	struct mcom03_wdt *mcom03_wdt = platform_get_drvdata(pdev);
 
 	watchdog_unregister_device(&mcom03_wdt->wdd);
 
 	dev_dbg(&pdev->dev, "Watchdog unregistered\n");
-	return 0;
 }
 
 #ifdef CONFIG_OF
