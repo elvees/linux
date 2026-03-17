@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03r-ip-ku-m1-r1.0.dts"
+
+/ {
+	compatible = "elvees,mcom03r-ipku-m1-r1.0-b101uan01_hw_1a",
+		     "elvees,mcom03r-ipku-m1-r1.0",
+		     "elvees,mcom03r-ipku-m1",
+		     "elvees,mcom03r";
+};
+
+&de_dsi {
+	dsi-panel@0 {
+		compatible = "auo,b101uan01";
+	};
+};

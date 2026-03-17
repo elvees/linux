@@ -1,0 +1,350 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2025 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/mcom03-clock.h>
+
+&csi0 {
+	status = "disabled";
+};
+
+&csi1 {
+	status = "disabled";
+};
+
+&cpu_opp_table {
+	compatible = "operating-points-v2";
+	opp-shared;
+
+	opp-378000000 {
+		opp-hz = /bits/ 64 <378000000>;
+	};
+
+	opp-540000000 {
+		opp-hz = /bits/ 64 <540000000>;
+	};
+
+	opp-756000000 {
+		opp-hz = /bits/ 64 <756000000>;
+	};
+
+	opp-945000000 {
+		opp-hz = /bits/ 64 <945000000>;
+	};
+
+	opp-999000000 {
+		opp-hz = /bits/ 64 <999000000>;
+	};
+
+	opp-1053000000 {
+		opp-hz = /bits/ 64 <1053000000>;
+	};
+
+	opp-1080000000 {
+		opp-hz = /bits/ 64 <1080000000>;
+	};
+
+	opp-1107000000 {
+		opp-hz = /bits/ 64 <1107000000>;
+	};
+
+	opp-1134000000 {
+		opp-hz = /bits/ 64 <1134000000>;
+	};
+
+	opp-1161000000 {
+		opp-hz = /bits/ 64 <1161000000>;
+	};
+
+	opp-1188000000 {
+		opp-hz = /bits/ 64 <1188000000>;
+	};
+
+	opp-1215000000 {
+		opp-hz = /bits/ 64 <1215000000>;
+	};
+
+	opp-1242000000 {
+		opp-hz = /bits/ 64 <1242000000>;
+	};
+
+	opp-1269000000 {
+		opp-hz = /bits/ 64 <1269000000>;
+	};
+
+	opp-1296000000 {
+		opp-hz = /bits/ 64 <1296000000>;
+	};
+
+	opp-1323000000 {
+		opp-hz = /bits/ 64 <1323000000>;
+	};
+
+	opp-1350000000 {
+		opp-hz = /bits/ 64 <1350000000>;
+	};
+
+	opp-1377000000 {
+		opp-hz = /bits/ 64 <1377000000>;
+	};
+
+	opp-1404000000 {
+		opp-hz = /bits/ 64 <1404000000>;
+	};
+
+	opp-1431000000 {
+		opp-hz = /bits/ 64 <1431000000>;
+	};
+
+	opp-1458000000 {
+		opp-hz = /bits/ 64 <1458000000>;
+	};
+
+	opp-1485000000 {
+		opp-hz = /bits/ 64 <1485000000>;
+	};
+
+	opp-1512000000 {
+		opp-hz = /bits/ 64 <1512000000>;
+	};
+
+	opp-1539000000 {
+		opp-hz = /bits/ 64 <1539000000>;
+	};
+
+	opp-1566000000 {
+		opp-hz = /bits/ 64 <1566000000>;
+	};
+
+	opp-1593000000 {
+		opp-hz = /bits/ 64 <1593000000>;
+	};
+
+	opp-1620000000 {
+		opp-hz = /bits/ 64 <1620000000>;
+	};
+
+	opp-1647000000 {
+		opp-hz = /bits/ 64 <1647000000>;
+	};
+};
+
+&dsp_opp_table {
+	compatible = "operating-points-v2";
+	opp-shared;
+	opp-27000000 {
+		opp-hz = /bits/ 64 <27000000>;
+	};
+	opp-54000000 {
+		opp-hz = /bits/ 64 <54000000>;
+	};
+	opp-81000000 {
+		opp-hz = /bits/ 64 <81000000>;
+	};
+	opp-108000000 {
+		opp-hz = /bits/ 64 <108000000>;
+	};
+	opp-135000000 {
+		opp-hz = /bits/ 64 <135000000>;
+	};
+	opp-162000000 {
+		opp-hz = /bits/ 64 <162000000>;
+	};
+	opp-189000000 {
+		opp-hz = /bits/ 64 <189000000>;
+	};
+	opp-216000000 {
+		opp-hz = /bits/ 64 <216000000>;
+	};
+	opp-243000000 {
+		opp-hz = /bits/ 64 <243000000>;
+	};
+	opp-297000000 {
+		opp-hz = /bits/ 64 <297000000>;
+	};
+	opp-324000000 {
+		opp-hz = /bits/ 64 <324000000>;
+	};
+	opp-351000000 {
+		opp-hz = /bits/ 64 <351000000>;
+	};
+	opp-378000000 {
+		opp-hz = /bits/ 64 <378000000>;
+	};
+	opp-405000000 {
+		opp-hz = /bits/ 64 <405000000>;
+	};
+	opp-432000000 {
+		opp-hz = /bits/ 64 <432000000>;
+	};
+	opp-459000000 {
+		opp-hz = /bits/ 64 <459000000>;
+	};
+	opp-486000000 {
+		opp-hz = /bits/ 64 <486000000>;
+	};
+	opp-513000000 {
+		opp-hz = /bits/ 64 <513000000>;
+	};
+	opp-540000000 {
+		opp-hz = /bits/ 64 <540000000>;
+	};
+	opp-567000000 {
+		opp-hz = /bits/ 64 <567000000>;
+	};
+	opp-594000000 {
+		opp-hz = /bits/ 64 <594000000>;
+	};
+	opp-621000000 {
+		opp-hz = /bits/ 64 <621000000>;
+	};
+};
+
+&media_clocks {
+	assigned-clocks = <&media_clocks CLK_MEDIA_PLL0>,
+			  <&media_clocks CLK_MEDIA_PLL1>,
+			  <&media_clocks CLK_MEDIA_PLL2>,
+			  <&media_clocks CLK_MEDIA_PLL3>,
+			  <&media_clocks CLK_MEDIA_UCG0_SYSA>,
+			  <&media_clocks CLK_MEDIA_UCG0_ISP_SYS>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_A>,
+			  <&media_clocks CLK_MEDIA_UCG1_DISP_M>;
+	assigned-clock-rates = <1998000000
+				594000000
+				513000000
+				594000000
+				124875000
+				399600000
+				297000000
+				148500000>;
+	enabled-clocks = <CLK_MEDIA_UCG0_SYSA
+			  CLK_MEDIA_UCG2_GPU_SYS
+			  CLK_MEDIA_UCG2_GPU_MEM>;
+	elvees,fixed-clocks = <CLK_MEDIA_UCG2_GPU_SYS
+			       CLK_MEDIA_UCG2_GPU_MEM
+			       CLK_MEDIA_UCG2_GPU_CORE
+			       CLK_MEDIA_UCG3_VPU>;
+};
+
+&vpu {
+	operating-points-v2 = <&vpu_opp_table_extended>;
+
+	vpu_opp_table_extended: vpu_opp_table_extended {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp-108000000 {
+			opp-hz = /bits/ 64 <108000000>;
+		};
+		opp-216000000 {
+			opp-hz = /bits/ 64 <216000000>;
+		};
+		opp-243000000 {
+			opp-hz = /bits/ 64 <243000000>;
+		};
+		opp-270000000 {
+			opp-hz = /bits/ 64 <270000000>;
+		};
+		opp-297000000 {
+			opp-hz = /bits/ 64 <297000000>;
+		};
+		opp-324000000 {
+			opp-hz = /bits/ 64 <324000000>;
+		};
+		opp-378000000 {
+			opp-hz = /bits/ 64 <378000000>;
+		};
+		opp-405000000 {
+			opp-hz = /bits/ 64 <405000000>;
+		};
+		opp-432000000 {
+			opp-hz = /bits/ 64 <432000000>;
+		};
+		opp-486000000 {
+			opp-hz = /bits/ 64 <486000000>;
+		};
+		opp-513000000 {
+			opp-hz = /bits/ 64 <513000000>;
+		};
+		opp-540000000 {
+			opp-hz = /bits/ 64 <540000000>;
+		};
+		opp-567000000 {
+			opp-hz = /bits/ 64 <567000000>;
+		};
+		opp-594000000 {
+			opp-hz = /bits/ 64 <594000000>;
+		};
+		opp-621000000 {
+			opp-hz = /bits/ 64 <621000000>;
+		};
+		opp-648000000 {
+			opp-hz = /bits/ 64 <648000000>;
+		};
+		opp-675000000 {
+			opp-hz = /bits/ 64 <675000000>;
+		};
+		opp-729000000 {
+			opp-hz = /bits/ 64 <729000000>;
+		};
+		opp-783000000 {
+			opp-hz = /bits/ 64 <783000000>;
+		};
+	};
+};
+
+&gpu {
+	operating-points-v2 = <&gpu_opp_table_extended>;
+
+	gpu_opp_table_extended: gpu_opp_table_extended {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp-108000000 {
+			opp-hz = /bits/ 64 <108000000>;
+		};
+		opp-216000000 {
+			opp-hz = /bits/ 64 <216000000>;
+		};
+		opp-324000000 {
+			opp-hz = /bits/ 64 <324000000>;
+		};
+		opp-378000000 {
+			opp-hz = /bits/ 64 <378000000>;
+		};
+		opp-432000000 {
+			opp-hz = /bits/ 64 <432000000>;
+		};
+		opp-486000000 {
+			opp-hz = /bits/ 64 <486000000>;
+		};
+		opp-513000000 {
+			opp-hz = /bits/ 64 <513000000>;
+		};
+		opp-540000000 {
+			opp-hz = /bits/ 64 <540000000>;
+		};
+		opp-567000000 {
+			opp-hz = /bits/ 64 <567000000>;
+		};
+		opp-594000000 {
+			opp-hz = /bits/ 64 <594000000>;
+		};
+		opp-621000000 {
+			opp-hz = /bits/ 64 <621000000>;
+		};
+		opp-648000000 {
+			opp-hz = /bits/ 64 <648000000>;
+		};
+		opp-675000000 {
+			opp-hz = /bits/ 64 <675000000>;
+		};
+		opp-729000000 {
+			opp-hz = /bits/ 64 <729000000>;
+		};
+		opp-783000000 {
+			opp-hz = /bits/ 64 <783000000>;
+		};
+	};
+};
+
