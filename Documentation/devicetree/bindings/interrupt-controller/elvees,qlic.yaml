@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/interrupt-controller/elvees,qlic.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+title: ELVEES QLIC Interrupt Controller
+
+maintainers:
+  - Georgy Macharadze <gmacharadze@elvees.com>
+
+description: Bindings for the ELVEES QLIC Interrupt controller.
+
+properties:
+  compatible:
+    const: elvees,qlic
+
+  interrupt-controller: true
+
+  targets:
+    description: |
+      Specifies QLIC targets to parent interrupt controller. Each
+      target corresponds to an interrupt in "interrupt" property.
+
+  "#interrupt-cells":
+    const: 1
+
+  interrupts:
+    items:
+      - description: specifies the interrupts to parent interrupt controller
+
+  reset-targets-mask:
+    description: |
+      It's 32-bit number, which masks interrupt targets that should be
+      reseted by QLIC driver. If bit N is set in mask, then target N will be reseted by driver
+      during initialization.
+
+  reg:
+    items:
+      - description: specifies the base physical address for hardware
+
+required:
+  - compatible
+  - interrupt-controller
+  - targets
+  - "#interrupt-cells"
+  - interrupt-parent
+  - interrupts
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    gic: interrupt-controller@1100000 {
+      compatible = "arm,gic-v3";
+      #interrupt-cells = <3>;
+      interrupt-controller;
+      reg = <0x1100000 0x10000>, /* GICD */
+            <0x1180000 0x80000>; /* GICR */
+      interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+    };
+
+    service-bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      qlic0: interrupt-controller@1fe00000 {
+        compatible = "elvees,qlic";
+        interrupt-controller;
+        targets = <4>;
+        #interrupt-cells = <1>;
+        interrupt-parent = <&gic>;
+        reset-targets-mask = <0xF0>;
+        interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+        reg = <0 0x1fe00000 0 0x40000>;
+      };
+    };

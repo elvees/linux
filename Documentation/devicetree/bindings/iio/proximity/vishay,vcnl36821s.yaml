@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/proximity/vishay,vcnl36821s.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Integrated proximity sensor with infrared emitter
+
+maintainers:
+  - Timur Prokopenko <tprokopenko@elvees.com>
+
+description: |
+  The VCNL36821S is a fully integrated proximity sensor. It combines
+  an infrared emitter and photodiode for proximity measurement and
+  signal processing IC in a single package with a 12-bit ADC.
+
+  Through its standard I2C bus serial digital interface, it allows
+  easy access to a “proximity signal”. The programmable
+  interrupt function offers wake-up functionality for the
+  microcontroller when a proximity change occurs, which
+  reduces processing overhead by eliminating the need for
+  continuous polling.
+
+  Specifications about the devices can be found at:
+  https://www.vishay.com/docs/80178/designingvcnl36821s.pdf
+
+properties:
+  compatible:
+    enum:
+      - vishay,vcnl36821s
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  vishay,led-current:
+    description:
+      The driver current for the LED used in proximity sensing in mA.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [50, 66, 82, 98, 114, 130, 144, 156]
+
+  vishay,sunlight-cancellation:
+    description: Enable sunlight cancellation
+    type: boolean
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        proximity-sensor@60 {
+              compatible = "vishay,vcnl36821s";
+              reg = <0x60>;
+              vishay,led-current = <156>;
+              vishay,sunlight-cancellation;
+        };
+    };
