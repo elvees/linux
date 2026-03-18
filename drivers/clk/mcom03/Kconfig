@@ -3,6 +3,7 @@ config COMMON_CLK_MCOM03
 	bool "MCom03/MCom-03R clock driver"
 	depends on ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST
 	default y
+	select REGMAP
 	help
 	  Enable this to support clock and power domain management
 	  for ELVEES MCom-03/MCom-03R SoCs.

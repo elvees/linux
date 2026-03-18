@@ -240,7 +240,7 @@ static struct mcom03_ucg_chan mcom03_lsperiph1_ucg_chans[] = {
 	{CLK_LSP1_UCG_I2S_I2S0, 1, 0, "lsp1_i2s_clk", "lsperiph1_refmux_i2s"},
 };
 
-void mcom03_sdr_clk_init(struct mcom03_clk_provider *prov)
+static void mcom03_sdr_clk_init(struct mcom03_clk_provider *prov)
 {
 	/* Enable PCIe external gates */
 	regmap_update_bits(prov->urb, SDR_URB_PCI0_CTL, SDR_URB_PCIE_CTL_PAD_EN,
@@ -250,7 +250,7 @@ void mcom03_sdr_clk_init(struct mcom03_clk_provider *prov)
 			   SDR_URB_PCIE_CTL_PAD_EN);
 }
 
-void mcom03_media_clk_init(struct mcom03_clk_provider *prov)
+static void mcom03_media_clk_init(struct mcom03_clk_provider *prov)
 {
 	/* TODO: Need to restore previous condition of DPI_EN */
 	regmap_update_bits(prov->urb,
@@ -259,7 +259,7 @@ void mcom03_media_clk_init(struct mcom03_clk_provider *prov)
 			   MEDIA_URB_SUBSYSTEM_CFG_PARALLEL_PORT_EN);
 }
 
-void mcom03_lsp1_clk_init(struct mcom03_clk_provider *prov)
+static void mcom03_lsp1_clk_init(struct mcom03_clk_provider *prov)
 {
 	unsigned int val;
 

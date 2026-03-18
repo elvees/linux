@@ -53,7 +53,7 @@ static void mcom03_clk_gate_disable(struct clk_hw *hw)
 	mcom03_clk_gate_set(g, false);
 }
 
-int mcom03_clk_gate_is_enabled(struct clk_hw *hw)
+static int mcom03_clk_gate_is_enabled(struct clk_hw *hw)
 {
 	u32 value;
 	struct mcom03_clk_gate *g = to_mcom03_gate(hw);

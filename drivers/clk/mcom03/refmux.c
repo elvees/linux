@@ -53,7 +53,7 @@ static int mcom03_clk_mux_set_parent(struct clk_hw *hw, u8 index)
 	return ret;
 }
 
-u8 mcom03_clk_mux_get_parent(struct clk_hw *hw)
+static u8 mcom03_clk_mux_get_parent(struct clk_hw *hw)
 {
 	struct mcom03_clk_refmux *refmux = to_mcom03_refmux(hw);
 	u32 val;
