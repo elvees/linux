@@ -530,7 +530,7 @@ mcom03_dsi_phy_get_timing(void *de_data, unsigned int lane_mbps,
 	return 0;
 }
 
-void mcom03_dsi_power_off(void *de_data)
+static void mcom03_dsi_power_off(void *de_data)
 {
 	struct mcom03_dsi_device *de = de_data;
 
@@ -540,7 +540,7 @@ void mcom03_dsi_power_off(void *de_data)
 	}
 }
 
-void mcom03_dsi_power_on(void *de_data)
+static void mcom03_dsi_power_on(void *de_data)
 {
 	struct mcom03_dsi_device *de = de_data;
 
@@ -780,13 +780,12 @@ ret_err:
 	return dev_err_probe(dev, ret, "Failed to probe MCom-03 DSI (%d)\n", ret);
 }
 
-static int mcom03_dsi_remove(struct platform_device *pdev)
+static void mcom03_dsi_remove(struct platform_device *pdev)
 {
 	struct mcom03_dsi_device *de = dev_get_drvdata(&pdev->dev);
 
 	pm_runtime_disable(&pdev->dev);
 	dw_mipi_dsi_remove(de->dsi);
-	return 0;
 }
 
 static int mcom03_dsi_runtime_pm_suspend(struct device *dev)

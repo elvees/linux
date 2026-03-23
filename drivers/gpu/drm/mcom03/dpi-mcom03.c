@@ -71,9 +71,9 @@ mcom03_dpi_mode_valid(struct drm_encoder *encoder,
 	return (requested_rate == real_rate) ? MODE_OK : MODE_NOCLOCK;
 }
 
-void mcom03_dpi_mode_set(struct drm_encoder *encoder,
-			 struct drm_display_mode *mode,
-			 struct drm_display_mode *adjusted_mode)
+static void mcom03_dpi_mode_set(struct drm_encoder *encoder,
+				struct drm_display_mode *mode,
+				struct drm_display_mode *adjusted_mode)
 {
 	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
 	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
@@ -85,7 +85,7 @@ void mcom03_dpi_mode_set(struct drm_encoder *encoder,
 	}
 }
 
-void mcom03_dpi_enable(struct drm_encoder *encoder)
+static void mcom03_dpi_enable(struct drm_encoder *encoder)
 {
 	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
 	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
@@ -96,7 +96,7 @@ void mcom03_dpi_enable(struct drm_encoder *encoder)
 		clk_enable(mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0));
 }
 
-void mcom03_dpi_disable(struct drm_encoder *encoder)
+static void mcom03_dpi_disable(struct drm_encoder *encoder)
 {
 	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
 	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
@@ -271,11 +271,10 @@ static int mcom03_dpi_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int mcom03_dpi_remove(struct platform_device *pdev)
+static void mcom03_dpi_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 	component_del(&pdev->dev, &mcom03_dpi_ops);
-	return 0;
 }
 
 static const struct of_device_id mcom03_dpi_dt_ids[] = {
