@@ -10,6 +10,7 @@
 #include <drm/drm_of.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_simple_kms_helper.h>
+#include <drm/drm_bridge_connector.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/module.h>
@@ -82,6 +83,7 @@ static const char * const mcom03_dsi_clks_names[] = {
 struct mcom03_dsi_device {
 	struct device *dev;
 	struct drm_encoder encoder;
+	struct drm_connector *connector;
 
 	struct clk_bulk_data clocks[MCOM03_DSI_CLK_NUM];
 	size_t num_clocks;
@@ -586,20 +588,48 @@ static int mcom03_dsi_bind(struct device *dev, struct device *master,
 	ret = clk_bulk_enable(de->num_clocks, de->clocks);
 	if (ret) {
 		dev_err(de->dev, "failed to enable clocks (%d)\n", ret);
-		pm_runtime_put(dev);
-		return ret;
+		goto err_pm_runtime_put;
 	}
 	de->is_clk_enabled = true;
 
-	drm_simple_encoder_init(drm, encoder, DRM_MODE_ENCODER_DSI);
-
-	ret = dw_mipi_dsi_bind(de->dsi, encoder);
+	ret = drm_simple_encoder_init(drm, encoder, DRM_MODE_ENCODER_DSI);
 	if (ret) {
-		dev_err(de->dev, "failed to bind DSI encoder (%d)\n", ret);
-		drm_encoder_cleanup(encoder);
+		dev_err(de->dev, "failed to init encoder (%d)\n", ret);
+		goto err_clk_disable;
 	}
-	pm_runtime_put(dev);
 
+	ret = drm_bridge_attach(encoder, dw_mipi_dsi_get_bridge(de->dsi),
+				NULL, DRM_BRIDGE_ATTACH_NO_CONNECTOR);
+	if (ret) {
+		dev_err(de->dev, "failed to attach DW DSI bridge (%d)\n", ret);
+		goto err_encoder_cleanup;
+	}
+
+	de->connector = drm_bridge_connector_init(drm, encoder);
+	if (IS_ERR(de->connector)) {
+		dev_err(de->dev, "failed to init bridge connector\n");
+		ret = PTR_ERR(de->connector);
+		goto err_dw_dsi_unbind;
+	}
+
+	ret = drm_connector_attach_encoder(de->connector, encoder);
+	if (ret) {
+		dev_err(de->dev, "failed to attach encoder\n");
+		goto err_dw_dsi_unbind;
+	}
+
+	pm_runtime_put(dev);
+	return 0;
+
+err_dw_dsi_unbind:
+	dw_mipi_dsi_unbind(de->dsi);
+err_encoder_cleanup:
+	drm_encoder_cleanup(encoder);
+err_clk_disable:
+	clk_bulk_disable(de->num_clocks, de->clocks);
+	de->is_clk_enabled = false;
+err_pm_runtime_put:
+	pm_runtime_put(dev);
 	return ret;
 }
 
