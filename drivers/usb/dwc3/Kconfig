@@ -200,4 +200,12 @@ config USB_DWC3_GENERIC_PLAT
 	  the dwc3 child node in the device tree.
 	  Say 'Y' or 'M' here if your platform integrates DWC3 in a similar way.
 
+config USB_DWC3_MCOM03
+        tristate "MCom-03/MCom-03R Platform"
+        depends on ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST
+        depends on OF && COMMON_CLK
+        default USB_DWC3
+        help
+          Support USB2/3 functionality for ELVEES MCom-03/MCom-03R SoCs.
+          Say 'Y' or 'M' if you have one such device.
 endif
