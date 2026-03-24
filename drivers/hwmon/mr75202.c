@@ -636,7 +636,7 @@ err_clk_disable:
 	return ret;
 }
 
-static int mr75202_remove(struct platform_device *pdev)
+static void mr75202_remove(struct platform_device *pdev)
 {
 	struct device *hdev = dev_get_drvdata(&pdev->dev);
 	struct mr75202_priv *priv = dev_get_drvdata(hdev);
@@ -644,8 +644,6 @@ static int mr75202_remove(struct platform_device *pdev)
 	mutex_destroy(&priv->mutex);
 	reset_control_assert(priv->rst);
 	clk_disable_unprepare(priv->clk);
-
-	return 0;
 }
 
 #ifdef CONFIG_OF
