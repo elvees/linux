@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
@@ -185,7 +186,7 @@ err_clk_disable:
 	return ret;
 }
 
-static int dwc3_mcom03_remove(struct platform_device *pdev)
+static void dwc3_mcom03_remove(struct platform_device *pdev)
 {
 	struct dwc3_mcom03_priv *priv = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
@@ -197,8 +198,6 @@ static int dwc3_mcom03_remove(struct platform_device *pdev)
 
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
-
-	return 0;
 }
 
 static int __maybe_unused dwc3_mcom03_runtime_suspend(struct device *dev)
