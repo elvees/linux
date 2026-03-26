@@ -63,7 +63,7 @@ static u64 arasan_gemac_ptp_timer_read(struct arasan_gemac_pdata *pd,
 	return cycle;
 }
 
-static u64 arasan_gemac_ptp_cc_read(const struct cyclecounter *cc)
+static u64 arasan_gemac_ptp_cc_read(struct cyclecounter *cc)
 {
 	struct arasan_gemac_ptp *ptp =
 		container_of(cc, struct arasan_gemac_ptp, cycle_counter);
@@ -426,14 +426,3 @@ int arasan_gemac_ptp_init(struct arasan_gemac_pdata *pd)
 	return 0;
 }
 EXPORT_SYMBOL(arasan_gemac_ptp_init);
-
-int arasan_gemac_ptp_deinit(struct arasan_gemac_pdata *pd)
-{
-	if (pd->ptp.clock)
-		ptp_clock_unregister(pd->ptp.clock);
-
-	arasan_gemac_writel(pd, MODULE_1588_CR,
-			    ~MODULE_1588_CR_RX_TSTAMP_EN &
-			    ~MODULE_1588_CR_TX_TSTAMP_EN);
-	return 0;
-}

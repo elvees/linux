@@ -48,8 +48,8 @@ static void arasan_gemac_get_drvinfo(struct net_device *dev,
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 
-	strlcpy(info->driver, pd->pdev->dev.driver->name, sizeof(info->driver));
-	strlcpy(info->version, UTS_RELEASE, sizeof(info->version));
+	strscpy(info->driver, pd->pdev->dev.driver->name, sizeof(info->driver));
+	strscpy(info->version, UTS_RELEASE, sizeof(info->version));
 }
 
 static u32 arasan_gemac_get_msglevel(struct net_device *dev)
@@ -76,8 +76,8 @@ static int arasan_gemac_nway_reset(struct net_device *dev)
 	return genphy_restart_aneg(pd->phy_dev);
 }
 
-u32 arasan_gemac_get_stat(struct arasan_gemac_pdata *pd, u32 ctrl_reg,
-			  u32 data_h_reg, u32 data_l_reg, int offset)
+static u32 arasan_gemac_get_stat(struct arasan_gemac_pdata *pd, u32 ctrl_reg,
+				 u32 data_h_reg, u32 data_l_reg, int offset)
 {
 	int timeout = 1000;
 	u32 reg;
@@ -154,7 +154,7 @@ static int arasan_gemac_get_sset_count(struct net_device *dev, int sset)
 }
 
 static int arasan_gemac_get_ts_info(struct net_device *netdev,
-				    struct ethtool_ts_info *info)
+				    struct kernel_ethtool_ts_info *info)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(netdev);
 
@@ -793,7 +793,7 @@ static void arasan_gemac_set_threshold(struct arasan_gemac_pdata *pd)
 			    MAC_INTERRUPT_ENABLE_UNDERRUN);
 }
 
-void arasan_gemac_mac_interrupt(struct arasan_gemac_pdata *pd)
+static void arasan_gemac_mac_interrupt(struct arasan_gemac_pdata *pd)
 {
 	u32 sts, irq, clr = 0;
 
@@ -1269,7 +1269,7 @@ err_out:
 	return err;
 }
 
-int arasan_gemac_start_mac(struct net_device *dev)
+static int arasan_gemac_start_mac(struct net_device *dev)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 	int result;
@@ -1401,8 +1401,8 @@ static int arasan_gemac_change_mtu(struct net_device *dev, int new_mtu)
 }
 
 #if IS_REACHABLE(CONFIG_PTP_1588_CLOCK)
-int arasan_gemac_hwstamp_get(struct net_device *dev,
-			     struct kernel_hwtstamp_config *cfg)
+static int arasan_gemac_hwstamp_get(struct net_device *dev,
+				    struct kernel_hwtstamp_config *cfg)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 
@@ -1410,9 +1410,9 @@ int arasan_gemac_hwstamp_get(struct net_device *dev,
 	return 0;
 }
 
-int arasan_gemac_hwstamp_set(struct net_device *dev,
-			     struct kernel_hwtstamp_config *cfg,
-			     struct netlink_ext_ack *extack)
+static int arasan_gemac_hwstamp_set(struct net_device *dev,
+				    struct kernel_hwtstamp_config *cfg,
+				    struct netlink_ext_ack *extack)
 {
 	struct arasan_gemac_pdata *pd = netdev_priv(dev);
 
@@ -1643,14 +1643,14 @@ err_free_dev:
 	return res;
 }
 
-static int arasan_gemac_remove(struct platform_device *pdev)
+static void arasan_gemac_remove(struct platform_device *pdev)
 {
 	struct net_device *dev;
 	struct arasan_gemac_pdata *pd;
 
 	dev = platform_get_drvdata(pdev);
 	if (!dev)
-		return 0;
+		return;
 
 	pd = netdev_priv(dev);
 
@@ -1658,8 +1658,6 @@ static int arasan_gemac_remove(struct platform_device *pdev)
 	reset_control_assert(pd->rst);
 	clk_bulk_disable_unprepare(ARRAY_SIZE(pd->clks), pd->clks);
 	free_netdev(dev);
-
-	return 0;
 }
 
 static struct platform_driver arasan_gemac_driver = {
