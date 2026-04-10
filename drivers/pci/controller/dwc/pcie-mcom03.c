@@ -314,8 +314,9 @@ static int mcom03_pcie_config_legacy_irq(struct dw_pcie_rp *pp)
 		return -ENODEV;
 	}
 
-	mcom03->irq_domain = irq_domain_add_linear(intc, PCI_NUM_INTX,
-						   &intx_domain_ops, pp);
+	mcom03->irq_domain = irq_domain_create_linear(of_fwnode_handle(intc),
+						      PCI_NUM_INTX,
+						      &intx_domain_ops, pp);
 	of_node_put(intc);
 	if (!mcom03->irq_domain) {
 		dev_err(dev, "Failed to create INTx IRQ domain\n");
