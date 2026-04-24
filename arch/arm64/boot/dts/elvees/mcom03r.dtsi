@@ -1618,7 +1618,6 @@
 					      0x8 0x40000000 0x2 0x80000000>,
 					     <0x42000000 0x4 0x0
 					      0xc 0x0 0x1 0x80000000>;
-				num-viewport = <32>;
 				num-lanes = <4>;
 				linux,pci-domain = <0>;
 				interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>,
@@ -1669,7 +1668,6 @@
 					      0x8 0x40000000 0x2 0x80000000>,
 					     <0x42000000 0x4 0x0
 					      0xc 0x0 0x1 0x80000000>;
-				num-viewport = <32>;
 				num-lanes = <4>;
 				linux,pci-domain = <1>;
 				interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
