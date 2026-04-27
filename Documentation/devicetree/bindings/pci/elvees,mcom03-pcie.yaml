@@ -145,7 +145,6 @@ examples:
                       0x8 0x40000000 0x2 0x80000000>,
                      <0x42000000 0x4 0x0
                       0xc 0x0 0x1 0x80000000>;
-        num-viewport = <32>;
         num-lanes = <4>;
 
         interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>,
@@ -198,7 +197,6 @@ examples:
                       0x8 0x40000000 0x2 0x80000000>,
                      <0x42000000 0x4 0x0
                       0xc 0x0 0x1 0x80000000>;
-        num-viewport = <32>;
         num-lanes = <4>;
         linux,pci-domain = <1>;
 
