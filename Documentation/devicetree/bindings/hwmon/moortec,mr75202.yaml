@@ -4,7 +4,7 @@
 $id: http://devicetree.org/schemas/hwmon/moortec,mr75202.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Moortec Semiconductor MR75202 PVT Controller bindings
+title: Moortec Semiconductor MR75202 PVT Controller
 
 maintainers:
   - Anton Leontiev <aleontiev@elvees.com>

@@ -11,7 +11,7 @@ maintainers:
 
 properties:
   compatible:
-    const: "elvees,mcom03-media-pinctrl"
+    const: elvees,mcom03-media-pinctrl
   elvees,urb:
     $ref: /schemas/types.yaml#/definitions/phandle
     description:

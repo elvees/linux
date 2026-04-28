@@ -56,6 +56,7 @@ properties:
       Reference to current subsystem URB node.
 
   enabled-clocks:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
     description: |
       List of clocks that must be enabled by clock and power management driver.
 
