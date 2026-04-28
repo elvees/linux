@@ -28,7 +28,7 @@ properties:
   clocks:
     description:
       Must reference the clocks supplied on AXI clock and RGMII TXC.
-      Optionally could refererence the PTP timer clock. PTP timer clock must be set to 125 MHz.
+      Optionally could reference the PTP timer clock. PTP timer clock must be set to 125 MHz.
     minItems: 2
     maxItems: 3
 

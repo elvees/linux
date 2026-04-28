@@ -64,6 +64,7 @@ properties:
     description: Handle to URB of Media subsystem
 
   dsi-clock-frequency:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       Custom DSI output frequency in hertz. Sometimes it is required to set
       DSI frequency higher than automatically calculated from pixel clock.
@@ -72,6 +73,7 @@ properties:
     default: 0
 
   dsi-min-clock-frequency:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       Minimal DSI output frequency in hertz. Sometimes low pixel clock modes
       could be unstable with some dsi devices. This option overrides calculated

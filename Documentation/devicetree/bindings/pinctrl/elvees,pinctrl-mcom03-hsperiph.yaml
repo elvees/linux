@@ -11,7 +11,7 @@ maintainers:
 
 properties:
   compatible:
-    const: "elvees,mcom03-hsperiph-pinctrl"
+    const: elvees,mcom03-hsperiph-pinctrl
 
   elvees,urb:
     description:

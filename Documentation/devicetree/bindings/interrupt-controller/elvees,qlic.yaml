@@ -17,6 +17,7 @@ properties:
   interrupt-controller: true
 
   targets:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
     description: |
       Specifies QLIC targets to parent interrupt controller. Each
       target corresponds to an interrupt in "interrupt" property.
@@ -29,6 +30,7 @@ properties:
       - description: specifies the interrupts to parent interrupt controller
 
   reset-targets-mask:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description: |
       It's 32-bit number, which masks interrupt targets that should be
       reseted by QLIC driver. If bit N is set in mask, then target N will be reseted by driver
