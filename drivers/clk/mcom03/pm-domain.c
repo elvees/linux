@@ -36,10 +36,10 @@ static int _mcom03_power_domain_on(struct mcom03_pm_domain *pd,
 	}
 
 	pr_info("Try to power on %s\n", name);
-	mutex_lock(&pd->lock);
+	mutex_lock(&pd->mutex_lock);
 	ret = mcom03_pm_sip(MCOM03_SIP_POWER_DOMAIN_ENABLE, pd->id);
 	if (ret) {
-		mutex_unlock(&pd->lock);
+		mutex_unlock(&pd->mutex_lock);
 		pr_err("Failed to enable %s, SIP call returns %d\n", name, ret);
 		return ret;
 	}
@@ -48,7 +48,7 @@ static int _mcom03_power_domain_on(struct mcom03_pm_domain *pd,
 	if (restore_clocks)
 		mcom03_clk_restore(pd->clk_provider);
 
-	mutex_unlock(&pd->lock);
+	mutex_unlock(&pd->mutex_lock);
 
 	return 0;
 }
@@ -102,10 +102,10 @@ static int mcom03_power_domain_off(struct generic_pm_domain *domain)
 		return -ENODEV;
 
 	pr_info("Try to power off %s\n", domain->name);
-	mutex_lock(&pd->lock);
+	mutex_lock(&pd->mutex_lock);
 	pd->is_enabled = false;
 	ret = mcom03_pm_sip(MCOM03_SIP_POWER_DOMAIN_DISABLE, pd->id);
-	mutex_unlock(&pd->lock);
+	mutex_unlock(&pd->mutex_lock);
 	if (ret)
 		pr_err("Failed to disable %s, SIP call returns %d\n",
 		       domain->name, ret);
@@ -161,7 +161,8 @@ struct mcom03_pm_domain *mcom03_power_domain_init(struct device_node *node,
 	pd->id = id;
 	pd->genpd.power_on = mcom03_power_domain_on;
 	pd->genpd.power_off = mcom03_power_domain_off;
-	mutex_init(&pd->lock);
+	spin_lock_init(&pd->lock);
+	mutex_init(&pd->mutex_lock);
 	pd->service_subs_urb =
 		syscon_regmap_lookup_by_phandle(node, "elvees,service-urb");
 	if (!pd->service_subs_urb) {

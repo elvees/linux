@@ -6,6 +6,7 @@
 #ifndef __MCOM03_CLK_H
 #define __MCOM03_CLK_H
 
+#include <linux/spinlock_types.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/pm_domain.h>
@@ -15,13 +16,13 @@
 #define mcom03_clk_pd_lock(pd) \
 	do { \
 		if (pd) \
-			mutex_lock(&pd->lock); \
+			spin_lock(&pd->lock); \
 	} while (0)
 
 #define mcom03_clk_pd_unlock(pd) \
 	do { \
 		if (pd) \
-			mutex_unlock(&pd->lock); \
+			spin_unlock(&pd->lock); \
 	} while (0)
 
 enum mcom03_pd_state {
@@ -60,7 +61,8 @@ struct mcom03_pm_domain {
 
 	/* lock is used to prevent changing is_enabled while functions are
 	 * accessing to registers */
-	struct mutex lock;
+	spinlock_t lock;
+	struct mutex mutex_lock;
 
 	/* offset in URB mmio to target PPOLICY register */
 	u16 offset;
