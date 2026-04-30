@@ -23,7 +23,7 @@ struct qlic_priv {
 	u32 ntargets;
 	u32 reset_targets_mask;
 	u32 current_target;
-	spinlock_t lock;
+	raw_spinlock_t lock;
 	struct platform_device *pdev;
 	struct irq_handler_data *irq_handler;
 	int base_irq;
@@ -89,6 +89,21 @@ static u32 qlic_get_next_target(struct qlic_priv *priv)
 	return target;
 }
 
+static void qlic_irq_bus_lock(struct irq_data *data)
+{
+	struct qlic_priv *priv = data->chip_data;
+
+	/* Wake up the device and hold it active for the duration of IRQ configuration. */
+	pm_runtime_get_sync(&priv->pdev->dev);
+}
+
+static void qlic_irq_bus_sync_unlock(struct irq_data *data)
+{
+	struct qlic_priv *priv = data->chip_data;
+
+	pm_runtime_put(&priv->pdev->dev);
+}
+
 static void qlic_irq_enable(struct irq_data *data)
 {
 	struct qlic_priv *priv = data->chip_data;
@@ -97,20 +112,23 @@ static void qlic_irq_enable(struct irq_data *data)
 	int temp;
 	unsigned long flags;
 
-	pm_runtime_get_sync(&priv->pdev->dev);
+	/* Keep the device active for the lifetime of the enabled IRQ,
+	 * paired with pm_runtime_put() in qlic_irq_disable().
+	 */
+	pm_runtime_get_noresume(&priv->pdev->dev);
 
 	priv->target_map[hwirq] = target;
 
 	qlic_write(QLIC_PRIO, priv, QLIC_PRI0 + hwirq * QLIC_PRI_NEXT);
 
-	spin_lock_irqsave(&priv->lock, flags);
+	raw_spin_lock_irqsave(&priv->lock, flags);
 	// Enable target for hwirq
 	temp = qlic_read(priv, QLIC_ENS0 + QLIC_ENSNEXT * target +
 			 hwirq / 32 * 4);
 	temp |= BIT(hwirq % 32);
 	qlic_write(temp, priv, QLIC_ENS0 + QLIC_ENSNEXT * target +
 					hwirq / 32 * 4);
-	spin_unlock_irqrestore(&priv->lock, flags);
+	raw_spin_unlock_irqrestore(&priv->lock, flags);
 }
 
 static void qlic_irq_disable(struct irq_data *data)
@@ -123,16 +141,16 @@ static void qlic_irq_disable(struct irq_data *data)
 
 	qlic_write(0, priv, QLIC_PRI0 + hwirq * QLIC_PRI_NEXT);
 
-	spin_lock_irqsave(&priv->lock, flags);
+	raw_spin_lock_irqsave(&priv->lock, flags);
 	//Disable target for hwirq
 	temp = qlic_read(priv, QLIC_ENS0 + QLIC_ENSNEXT * target +
 			 hwirq / 32 * 4);
 	temp &= ~BIT(hwirq % 32);
 	qlic_write(temp, priv, QLIC_ENS0 + QLIC_ENSNEXT * target +
 					hwirq / 32 * 4);
-	spin_unlock_irqrestore(&priv->lock, flags);
+	raw_spin_unlock_irqrestore(&priv->lock, flags);
 
-	pm_runtime_put_sync(&priv->pdev->dev);
+	pm_runtime_put(&priv->pdev->dev);
 }
 
 static void qlic_irq_mask(struct irq_data *data)
@@ -151,6 +169,8 @@ static struct irq_chip qlic_irq_chip = {
 	.irq_disable = qlic_irq_disable,
 	.irq_mask = qlic_irq_mask,
 	.irq_unmask = qlic_irq_unmask,
+	.irq_bus_lock = qlic_irq_bus_lock,
+	.irq_bus_sync_unlock = qlic_irq_bus_sync_unlock,
 };
 
 static int qlic_domain_translate(struct irq_domain *domain,
@@ -171,8 +191,8 @@ static int qlic_domain_translate(struct irq_domain *domain,
 static int qlic_irq_map(struct irq_domain *domain, unsigned int irq,
 			irq_hw_number_t hwirq)
 {
-	irq_set_chip_and_handler(irq, &qlic_irq_chip, handle_level_irq);
 	irq_set_chip_data(irq, domain->host_data);
+	irq_set_chip_and_handler(irq, &qlic_irq_chip, handle_level_irq);
 	irq_set_noprobe(irq);
 	return 0;
 }
@@ -354,7 +374,7 @@ static int qlic_probe(struct platform_device *pdev)
 
 	priv->current_target = 0;
 
-	spin_lock_init(&priv->lock);
+	raw_spin_lock_init(&priv->lock);
 
 	priv->domain = irq_domain_create_linear(pdev->dev.fwnode, QLIC_NR_IRQS,
 						&qlic_domain_ops, priv);
