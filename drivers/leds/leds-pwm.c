@@ -63,6 +63,59 @@ static int led_pwm_set(struct led_classdev *led_cdev,
 	return pwm_apply_might_sleep(led_dat->pwm, &led_dat->pwmstate);
 }
 
+static ssize_t pwm_period_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_pwm_data *led_dat =
+		container_of(led_cdev, struct led_pwm_data, cdev);
+	u64 period;
+
+	mutex_lock(&led_cdev->led_access);
+	period = led_dat->pwmstate.period;
+	mutex_unlock(&led_cdev->led_access);
+
+	return sprintf(buf, "%llu\n", period);
+}
+
+static ssize_t pwm_period_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_pwm_data *led_dat =
+		container_of(led_cdev, struct led_pwm_data, cdev);
+	u64 period;
+	ssize_t ret;
+
+	mutex_lock(&led_cdev->led_access);
+
+	if (led_sysfs_is_disabled(led_cdev)) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	ret = kstrtoull(buf, 10, &period);
+	if (ret)
+		goto unlock;
+
+	led_update_brightness(led_cdev);
+	led_dat->pwmstate.period = period;
+	led_pwm_set(led_cdev, led_cdev->brightness);
+
+	ret = size;
+unlock:
+	mutex_unlock(&led_cdev->led_access);
+	return ret;
+}
+static DEVICE_ATTR_RW(pwm_period);
+
+static struct attribute *pwm_period_attrs[] = {
+	&dev_attr_pwm_period.attr,
+	NULL
+};
+ATTRIBUTE_GROUPS(pwm_period);
+
 __attribute__((nonnull))
 static int led_pwm_add(struct device *dev, struct led_pwm_priv *priv,
 		       struct led_pwm *led, struct fwnode_handle *fwnode)
@@ -76,6 +129,7 @@ static int led_pwm_add(struct device *dev, struct led_pwm_priv *priv,
 	led_data->cdev.brightness = LED_OFF;
 	led_data->cdev.max_brightness = led->max_brightness;
 	led_data->cdev.flags = LED_CORE_SUSPENDRESUME;
+	led_data->cdev.groups = pwm_period_groups;
 
 	led_data->pwm = devm_fwnode_pwm_get(dev, fwnode, NULL);
 	if (IS_ERR(led_data->pwm))
