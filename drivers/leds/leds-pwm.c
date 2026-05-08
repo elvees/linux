@@ -59,6 +59,9 @@ static int led_pwm_set(struct led_classdev *led_cdev,
 	 * LED might stay (or even go) on.
 	 */
 	led_dat->pwmstate.enabled = !(led_cdev->flags & LED_SUSPENDED);
+#ifdef CONFIG_LEDS_BRIGHTNESS_HW_CHANGED
+	led_classdev_notify_brightness_hw_changed(led_cdev, brightness);
+#endif
 	return pwm_apply_might_sleep(led_dat->pwm, &led_dat->pwmstate);
 }
 
@@ -143,6 +146,9 @@ static int led_pwm_add(struct device *dev, struct led_pwm_priv *priv,
 	led_data->cdev.max_brightness = led->max_brightness;
 	led_data->cdev.flags = LED_CORE_SUSPENDRESUME;
 	led_data->cdev.groups = pwm_period_groups;
+#ifdef CONFIG_LEDS_BRIGHTNESS_HW_CHANGED
+	led_data->cdev.flags |= LED_BRIGHT_HW_CHANGED;
+#endif
 
 	led_data->pwm = devm_fwnode_pwm_get(dev, fwnode, NULL);
 	if (IS_ERR(led_data->pwm))
