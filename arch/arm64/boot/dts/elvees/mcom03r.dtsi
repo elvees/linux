@@ -1651,6 +1651,30 @@
 				};
 			};
 
+			pcie0_ep: pcie-ep@2000000 {
+				compatible = "elvees,mcom03-pcie-ep";
+				reg = <0x0 0x2000000 0x0 0x100000>,
+				      <0x0 0x2100000 0x0 0x100000>,
+				      <0x0 0x2300000 0x0 0x80000>,
+				      <0x0 0x1a00000 0x0 0x800>,
+				      <0x0 0x60000000 0x0 0x10000000>;
+				reg-names = "dbi", "dbi2", "atu", "apb", "addr_space";
+				num-lanes = <4>;
+				interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "msi", "legacy", "pme", "aer", "dma";
+				resets = <&sdr_reset SDR_RST_PCI_ICT>,
+					 <&sdr_reset SDR_RST_PCI0_BTN>;
+				clocks = <&sdr_clocks CLK_SDR_GATE_PCIE0>,
+					 <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+				clock-names = "core", "aux";
+				status = "disabled";
+				power-domains = <&sdr_clocks>;
+			};
+
 			pcie1: pcie@2400000 {
 				compatible = "elvees,mcom03-pcie";
 				reg = <0x0 0x2400000 0x0 0x100000>,
@@ -1699,6 +1723,30 @@
 					#address-cells = <0>;
 					#interrupt-cells = <1>;
 				};
+			};
+
+			pcie1_ep: pcie-ep@2400000 {
+				compatible = "elvees,mcom03-pcie-ep";
+				reg = <0x0 0x2400000 0x0 0x100000>,
+				      <0x0 0x2500000 0x0 0x100000>,
+				      <0x0 0x2700000 0x0 0x80000>,
+				      <0x0 0x1d00000 0x0 0x800>,
+				      <0x0 0x70000000 0x0 0x10000000>;
+				reg-names = "dbi", "dbi2", "atu", "apb", "addr_space";
+				num-lanes = <4>;
+				interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "msi", "legacy", "pme", "aer", "dma";
+				resets = <&sdr_reset SDR_RST_PCI_ICT>,
+					 <&sdr_reset SDR_RST_PCI1_BTN>;
+				clocks = <&sdr_clocks CLK_SDR_GATE_PCIE1>,
+					 <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+				clock-names = "core", "aux";
+				status = "disabled";
+				power-domains = <&sdr_clocks>;
 			};
 		};
 
