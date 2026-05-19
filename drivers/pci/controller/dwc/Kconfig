@@ -416,12 +416,27 @@ config PCIE_VISCONTI_HOST
 	  This driver supports TMPV7708 SoC.
 
 config PCIE_MCOM03
-	tristate "ELVEES MCom-03/MCom-03R SoC PCIe controller"
+	bool
+
+config PCIE_MCOM03_HOST
+	tristate "ELVEES MCom-03/MCom-03R SoC PCIe controller, Host mode"
 	depends on OF && (ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST)
 	depends on PCI_MSI
+	select PCIE_MCOM03
 	select PCIE_DW_HOST
 	help
-          Say Y here if you want PCIe controller support on ELVEES MCom-03/MCom-03R SoC
+	  Say Y here if you want PCIe controller support on ELVEES MCom-03/MCom-03R SoC
+	  in host mode.
+
+config PCIE_MCOM03_EP
+	tristate "ELVEES MCom-03/MCom-03R SoC PCIe controller, EP mode"
+	depends on OF && (ARCH_MCOM03 || ARCH_MCOM03R || COMPILE_TEST)
+	depends on PCI_ENDPOINT
+	select PCIE_MCOM03
+	select PCIE_DW_EP
+	help
+	  Say Y here if you want PCIe controller support on ELVEES MCom-03/MCom-03R SoC
+	  in endpoint mode.
 
 config PCIE_MCOM03_DEBUG
 	bool "MCom-03 PCIe PHY debug"

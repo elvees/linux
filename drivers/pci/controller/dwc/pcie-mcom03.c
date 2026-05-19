@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * PCIe RC driver for MCom-03
- *
- * Copyright 2021-2024 RnD Center "ELVEES", JSC
- */
+//
+// PCIe RC/EP driver for MCom-03/R
+//
+// Copyright 2021-2026 RnD Center "ELVEES", JSC
+
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -37,6 +37,7 @@
 #define DEBUG_ST_SMLH_LINK_UP		BIT(31)
 
 #define SYS_JESD_EN_OFF			0x300
+#define RST_STATUS_OFF			0x3F8
 
 #define DEVICE_TYPE_EP	0
 #define DEVICE_TYPE_RC	4
@@ -50,6 +51,9 @@
 #define PHY_VIEWPORT_CTLSTS_STATUS	BIT(30)
 #define PHY_VIEWPORT_CTLSTS_PENDING	BIT(31)
 #define PHY_VIEWPORT_DATA_OFF		0xb74
+
+#define TRGT_MAP_CTRL_OFF		0x81c
+#define ALL_BARS_TRGT1			0x7f
 
 // This defines from upstream pci.h and must be dropped after Linux v6.12.
 #define PCIE_T_PVPERL_MS		100
@@ -65,11 +69,16 @@ static const enum dw_pcie_core_clk mcom03_pcie_core_clks[] = {
 
 #define to_mcom03_pcie(x)	dev_get_drvdata((x)->dev)
 
+struct mcom03_pcie_of_data {
+	enum dw_pcie_device_mode mode;
+};
+
 struct mcom03_pcie {
-	struct dw_pcie			*pci;
-	void __iomem			*apb_base;
-	struct reset_control		*reset;
-	struct irq_domain		*irq_domain;
+	struct dw_pcie				*pci;
+	void __iomem				*apb_base;
+	struct reset_control			*reset;
+	struct irq_domain			*irq_domain;
+	const struct mcom03_pcie_of_data	*of_data;
 };
 
 #if defined(CONFIG_PCIE_MCOM03_DEBUG)
@@ -209,6 +218,126 @@ static int mcom03_pcie_check_clocks_presence(struct dw_pcie *pci)
 	}
 
 	return 0;
+}
+
+static int mcom03_pcie_set_bars_trgt1(struct dw_pcie *pci)
+{
+	// we don't need to cycle through PF/VF because we don't have
+	// more than one PF, and VFs are turned off
+	dw_pcie_writel_dbi(pci, TRGT_MAP_CTRL_OFF, ALL_BARS_TRGT1);
+	return 0;
+}
+
+static int mcom03_pcie_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
+				 enum pci_epc_irq_type type,
+				 u16 interrupt_num)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+
+	switch (type) {
+	/* TODO: INTx could be shot with INT_ST register */
+	case PCI_EPC_IRQ_LEGACY:
+		return dw_pcie_ep_raise_legacy_irq(ep, func_no);
+	case PCI_EPC_IRQ_MSI:
+		return dw_pcie_ep_raise_msi_irq(ep, func_no, interrupt_num);
+	case PCI_EPC_IRQ_MSIX:
+		return dw_pcie_ep_raise_msix_irq(ep, func_no, interrupt_num);
+	default:
+		dev_err(pci->dev, "UNKNOWN IRQ type\n");
+		return -EINVAL;
+	}
+}
+
+static void mcom03_pcie_ep_init(struct dw_pcie_ep *ep)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+	enum pci_barno bar;
+
+	for (bar = BAR_0; bar <= BAR_5; bar++)
+		dw_pcie_ep_reset_bar(pci, bar);
+
+	mcom03_pcie_set_bars_trgt1(pci);
+}
+
+static const struct pci_epc_features mcom03_pcie_epc_features = {
+	.linkup_notifier = false,
+	.msi_capable = true,
+	.msix_capable = true,
+	.align = SZ_4K,
+};
+
+static const struct pci_epc_features *
+mcom03_pcie_get_features(struct dw_pcie_ep *ep)
+{
+	return &mcom03_pcie_epc_features;
+}
+
+static const struct dw_pcie_ep_ops pcie_ep_ops = {
+	.ep_init = mcom03_pcie_ep_init,
+	.raise_irq = mcom03_pcie_raise_irq,
+	.get_features = mcom03_pcie_get_features,
+};
+
+static int mcom03_add_pcie_ep(struct mcom03_pcie *pcie,
+			      struct platform_device *pdev)
+{
+	struct dw_pcie *pci = pcie->pci;
+	struct dw_pcie_ep *ep = &pci->ep;
+	struct device *dev = &pdev->dev;
+	int ret;
+
+	ep->ops = &pcie_ep_ops;
+	/* Respect iATU alignment */
+	ep->page_size = SZ_4K;
+
+	// Set for resource allocation
+	dw_pcie_cap_set(pci, REQ_RES);
+
+	ret = dw_pcie_get_resources(pci);
+	if (ret)
+		return ret;
+
+	ret = mcom03_pcie_check_clocks_presence(pci);
+	if (ret)
+		return ret;
+
+	ret = clk_bulk_prepare_enable(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
+	if (ret) {
+		dev_err(dev, "Failed to enable core clocks\n");
+		return ret;
+	}
+
+	ret = reset_control_deassert(pcie->reset);
+	if (ret) {
+		dev_err(dev, "Failed to deassert PCIe resets\n");
+		goto fail_reset;
+	}
+
+	mcom03_pcie_set_dev_type(pcie, DEVICE_TYPE_EP);
+	mcom03_pcie_set_jesd_en_zero(pcie);
+	// Do not rely on PCIx_APP_LTSSM_EN pads, override and disable LTSSM
+	mcom03_pcie_ltssm_toggle(pcie, 0);
+	// If we need to program PHY, app_hold_phy_rst is asserted here
+
+	// Assume PCIx_PERSTN_PAD is deasserted so lets peek at resets if false.
+	dev_info(dev, "RST_STATUS: %#x\n",
+		 mcom03_pcie_readl(pcie, RST_STATUS_OFF));
+
+	ret = dw_pcie_ep_init(ep);
+	if (ret) {
+		dev_err(dev, "Failed to initialize endpoint\n");
+		goto fail_init;
+	}
+
+	return 0;
+
+fail_init:
+	reset_control_assert(pcie->reset);
+
+fail_reset:
+	clk_bulk_disable_unprepare(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
+
+	return ret;
 }
 
 static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
@@ -458,10 +587,18 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 	struct mcom03_pcie *pcie;
 	struct dw_pcie *pci;
 	struct resource *res;
+	const struct mcom03_pcie_of_data *data;
+	int ret;
+
+	data = of_device_get_match_data(dev);
+	if (!data)
+		return -EINVAL;
 
 	pcie = devm_kzalloc(dev, sizeof(*pcie), GFP_KERNEL);
 	if (!pcie)
 		return -ENOMEM;
+
+	pcie->of_data = data;
 
 	pci = devm_kzalloc(dev, sizeof(*pci), GFP_KERNEL);
 	if (!pci)
@@ -488,20 +625,57 @@ static int mcom03_pcie_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pcie);
 
-	return mcom03_add_dw_pcie_rp(pcie, pdev);
+	switch (pcie->of_data->mode) {
+	case DW_PCIE_RC_TYPE:
+		return mcom03_add_dw_pcie_rp(pcie, pdev);
+	case DW_PCIE_EP_TYPE:
+		return mcom03_add_pcie_ep(pcie, pdev);
+	default:
+		dev_err(dev, "INVALID device type %d\n", pcie->of_data->mode);
+		ret = -ENODEV;
+	}
+
+	return ret;
 }
 
 static int mcom03_pcie_remove(struct platform_device *pdev)
 {
 	struct mcom03_pcie *pcie = platform_get_drvdata(pdev);
+	struct dw_pcie *pci = pcie->pci;
 
-	dw_pcie_host_deinit(&pcie->pci->pp);
+	switch (pcie->of_data->mode) {
+	case DW_PCIE_RC_TYPE:
+		dw_pcie_host_deinit(&pci->pp);
+		break;
+	case DW_PCIE_EP_TYPE:
+		// Same disable as in .host_deinit
+		dw_pcie_ep_exit(&pci->ep);
+		reset_control_assert(pcie->reset);
+		clk_bulk_disable_unprepare(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
+		break;
+	default:
+	}
 
 	return 0;
 }
 
+static const struct mcom03_pcie_of_data mcom03_pcie_rc_of_data = {
+	.mode = DW_PCIE_RC_TYPE,
+};
+
+static const struct mcom03_pcie_of_data mcom03_pcie_ep_of_data = {
+	.mode = DW_PCIE_EP_TYPE,
+};
+
 static const struct of_device_id mcom03_pcie_of_match[] = {
-	{ .compatible = "elvees,mcom03-pcie", },
+	{
+		.compatible = "elvees,mcom03-pcie",
+		.data = &mcom03_pcie_rc_of_data,
+	},
+	{
+		.compatible = "elvees,mcom03-pcie-ep",
+		.data = &mcom03_pcie_ep_of_data,
+	},
 	{ /* sentinel */ },
 };
 
