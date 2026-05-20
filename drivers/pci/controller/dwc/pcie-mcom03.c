@@ -188,21 +188,38 @@ static void mcom03_pcie_gpio_perst_set(struct mcom03_pcie *pcie, int val)
 		gpiod_set_value_cansleep(pci->pe_rst, val);
 }
 
-static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
+/*
+ * mcom03_pcie_check_clocks_presence - Check for clocks presence
+ *
+ * @pci: DWC Controller pointer
+ *
+ * Check for clocks set after dw_pcie_get_resources()
+ */
+static int mcom03_pcie_check_clocks_presence(struct dw_pcie *pci)
 {
-	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct device *dev = pci->dev;
-	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
-	int ret, i;
+	int i;
 
-	/* Check for clocks, which we get earlier in dw_pcie_get_resources()
-	 * which is called in dw_pcie_host_init() */
 	for (i = 0; i < MCOM03_PCIE_NUM_CORE_CLKS; i++) {
 		if (!pci->core_clks[mcom03_pcie_core_clks[i]].clk) {
 			dev_err(dev, "Core clocks set is incomplete\n");
 			return -ENOENT;
 		}
 	}
+
+	return 0;
+}
+
+static int mcom03_pcie_host_init(struct dw_pcie_rp *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct device *dev = pci->dev;
+	struct mcom03_pcie *pcie = to_mcom03_pcie(pci);
+	int ret;
+
+	ret = mcom03_pcie_check_clocks_presence(pci);
+	if (ret)
+		return ret;
 
 	ret = clk_bulk_prepare_enable(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
 	if (ret) {
