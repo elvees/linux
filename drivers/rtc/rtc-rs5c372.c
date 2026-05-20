@@ -256,12 +256,73 @@ static int rs5c372_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	return 0;
 }
 
+static int rs5c_oscillator_setup(struct rs5c372 *rs5c372)
+{
+	unsigned char buf[2];
+	int addr, i, ret = 0;
+
+	addr   = RS5C_ADDR(RS5C_REG_CTRL1);
+	buf[0] = rs5c372->regs[RS5C_REG_CTRL1];
+	buf[1] = rs5c372->regs[RS5C_REG_CTRL2];
+
+	/* check and clear if needed rtc warning bits */
+	switch (rs5c372->type) {
+	case rtc_r2025sd:
+		if (buf[1] & R2x2x_CTRL2_XSTP)
+			return ret;
+		buf[1] &= ~(R2x2x_CTRL2_VDET | R2x2x_CTRL2_PON);
+		buf[1] |= R2x2x_CTRL2_XSTP;
+		break;
+	case rtc_r2221tl:
+		if (!(buf[1] & R2x2x_CTRL2_XSTP))
+			return ret;
+		buf[1] &= ~(R2x2x_CTRL2_VDET | R2x2x_CTRL2_PON);
+		buf[1] &= ~R2x2x_CTRL2_XSTP;
+		break;
+	default:
+		if (!(buf[1] & RS5C_CTRL2_XSTP))
+			return ret;
+		buf[1] &= ~RS5C_CTRL2_XSTP;
+		break;
+	}
+
+	/* use 24hr mode */
+	switch (rs5c372->type) {
+	case rtc_rs5c372a:
+	case rtc_rs5c372b:
+		buf[1] |= RS5C372_CTRL2_24;
+		rs5c372->time24 = 1;
+		break;
+	case rtc_r2025sd:
+	case rtc_r2221tl:
+	case rtc_rv5c386:
+	case rtc_rv5c387a:
+		buf[0] |= RV5C387_CTRL1_24;
+		rs5c372->time24 = 1;
+		break;
+	default:
+		/* impossible */
+		break;
+	}
+
+	for (i = 0; i < sizeof(buf); i++) {
+		addr = RS5C_ADDR(RS5C_REG_CTRL1 + i);
+		ret = i2c_smbus_write_byte_data(rs5c372->client, addr, buf[i]);
+		if (unlikely(ret < 0))
+			return ret;
+	}
+
+	rs5c372->regs[RS5C_REG_CTRL1] = buf[0];
+	rs5c372->regs[RS5C_REG_CTRL2] = buf[1];
+
+	return 0;
+}
+
 static int rs5c372_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct rs5c372	*rs5c = i2c_get_clientdata(client);
 	unsigned char	buf[7];
-	unsigned char	ctrl2;
 	int		addr;
 
 	dev_dbg(&client->dev, "%s: tm is secs=%d, mins=%d, hours=%d "
@@ -269,6 +330,14 @@ static int rs5c372_rtc_set_time(struct device *dev, struct rtc_time *tm)
 		__func__,
 		tm->tm_sec, tm->tm_min, tm->tm_hour,
 		tm->tm_mday, tm->tm_mon, tm->tm_year, tm->tm_wday);
+
+	/* if the oscillator lost power and no other software (like
+	 * the bootloader) set it up, do it here.
+	 */
+	if (rs5c_oscillator_setup(rs5c) < 0) {
+		dev_err(&client->dev, "setup error\n");
+		return -EIO;
+	}
 
 	addr   = RS5C_ADDR(RS5C372_REG_SECS);
 	buf[0] = bin2bcd(tm->tm_sec);
@@ -280,30 +349,6 @@ static int rs5c372_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	buf[6] = bin2bcd(tm->tm_year - 100);
 
 	if (i2c_smbus_write_i2c_block_data(client, addr, sizeof(buf), buf) < 0) {
-		dev_dbg(&client->dev, "%s: write error in line %i\n",
-			__func__, __LINE__);
-		return -EIO;
-	}
-
-	addr = RS5C_ADDR(RS5C_REG_CTRL2);
-	ctrl2 = i2c_smbus_read_byte_data(client, addr);
-
-	/* clear rtc warning bits */
-	switch (rs5c->type) {
-	case rtc_r2025sd:
-	case rtc_r2221tl:
-		ctrl2 &= ~(R2x2x_CTRL2_VDET | R2x2x_CTRL2_PON);
-		if (rs5c->type == rtc_r2025sd)
-			ctrl2 |= R2x2x_CTRL2_XSTP;
-		else
-			ctrl2 &= ~R2x2x_CTRL2_XSTP;
-		break;
-	default:
-		ctrl2 &= ~RS5C_CTRL2_XSTP;
-		break;
-	}
-
-	if (i2c_smbus_write_byte_data(client, addr, ctrl2) < 0) {
 		dev_dbg(&client->dev, "%s: write error in line %i\n",
 			__func__, __LINE__);
 		return -EIO;
@@ -735,62 +780,6 @@ static void rs5c_sysfs_unregister(struct device *dev)
 
 static struct i2c_driver rs5c372_driver;
 
-static int rs5c_oscillator_setup(struct rs5c372 *rs5c372)
-{
-	unsigned char buf[2];
-	int addr, i, ret = 0;
-
-	addr   = RS5C_ADDR(RS5C_REG_CTRL1);
-	buf[0] = rs5c372->regs[RS5C_REG_CTRL1];
-	buf[1] = rs5c372->regs[RS5C_REG_CTRL2];
-
-	switch (rs5c372->type) {
-	case rtc_r2025sd:
-		if (buf[1] & R2x2x_CTRL2_XSTP)
-			return ret;
-		break;
-	case rtc_r2221tl:
-		if (!(buf[1] & R2x2x_CTRL2_XSTP))
-			return ret;
-		break;
-	default:
-		if (!(buf[1] & RS5C_CTRL2_XSTP))
-			return ret;
-		break;
-	}
-
-	/* use 24hr mode */
-	switch (rs5c372->type) {
-	case rtc_rs5c372a:
-	case rtc_rs5c372b:
-		buf[1] |= RS5C372_CTRL2_24;
-		rs5c372->time24 = 1;
-		break;
-	case rtc_r2025sd:
-	case rtc_r2221tl:
-	case rtc_rv5c386:
-	case rtc_rv5c387a:
-		buf[0] |= RV5C387_CTRL1_24;
-		rs5c372->time24 = 1;
-		break;
-	default:
-		/* impossible */
-		break;
-	}
-
-	for (i = 0; i < sizeof(buf); i++) {
-		addr = RS5C_ADDR(RS5C_REG_CTRL1 + i);
-		ret = i2c_smbus_write_byte_data(rs5c372->client, addr, buf[i]);
-		if (unlikely(ret < 0))
-			return ret;
-	}
-
-	rs5c372->regs[RS5C_REG_CTRL1] = buf[0];
-	rs5c372->regs[RS5C_REG_CTRL2] = buf[1];
-
-	return 0;
-}
-
 static int rs5c372_probe(struct i2c_client *client)
 {
 	int err = 0;
@@ -862,18 +851,6 @@ static int rs5c372_probe(struct i2c_client *client)
 		break;
 	default:
 		dev_err(&client->dev, "unknown RTC type\n");
-		goto exit;
-	}
-
-	/* if the oscillator lost power and no other software (like
-	 * the bootloader) set it up, do it here.
-	 *
-	 * The R2025S/D does this a little differently than the other
-	 * parts, so we special case that..
-	 */
-	err = rs5c_oscillator_setup(rs5c372);
-	if (unlikely(err < 0)) {
-		dev_err(&client->dev, "setup error\n");
 		goto exit;
 	}
 
