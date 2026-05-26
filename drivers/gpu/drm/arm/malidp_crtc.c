@@ -553,9 +553,10 @@ int malidp_crtc_init(struct drm_device *drm)
 		return ret;
 
 	drm_crtc_helper_add(&malidp->crtc, &malidp_crtc_helper_funcs);
-	drm_mode_crtc_set_gamma_size(&malidp->crtc, MALIDP_GAMMA_LUT_SIZE);
+	drm_mode_crtc_set_gamma_size(&malidp->crtc, malidp->gamma_lut_size);
 	/* No inverse-gamma: it is per-plane. */
-	drm_crtc_enable_color_mgmt(&malidp->crtc, 0, true, MALIDP_GAMMA_LUT_SIZE);
+	drm_crtc_enable_color_mgmt(&malidp->crtc, 0, malidp->has_ctm,
+				   malidp->gamma_lut_size);
 
 	malidp_se_set_enh_coeffs(malidp->dev);
 

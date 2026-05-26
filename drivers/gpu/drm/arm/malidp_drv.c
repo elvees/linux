@@ -839,6 +839,14 @@ static int malidp_bind(struct device *dev)
 	if (ret)
 		goto query_hw_fail;
 
+	if (of_property_read_bool(dev->of_node, "arm,no-color-mgmt")) {
+		malidp->has_ctm = false;
+		malidp->gamma_lut_size = 0;
+	} else {
+		malidp->has_ctm = true;
+		malidp->gamma_lut_size = MALIDP_GAMMA_LUT_SIZE;
+	}
+
 	for (i = 0; i < MAX_OUTPUT_CHANNELS; i++)
 		out_depth = (out_depth << 8) | (output_width[i] & 0xf);
 	malidp_hw_write(hwdev, out_depth, hwdev->hw->map.out_depth_base);
