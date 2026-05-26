@@ -37,6 +37,8 @@ struct malidp_drm {
 	struct drm_pending_vblank_event *event;
 	atomic_t config_valid;
 	u32 core_id;
+	bool has_ctm;
+	u32 gamma_lut_size;
 #ifdef CONFIG_DEBUG_FS
 	struct malidp_error_stats de_errors;
 	struct malidp_error_stats se_errors;
