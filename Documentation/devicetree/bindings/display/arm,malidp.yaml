@@ -79,6 +79,11 @@ properties:
       See the ARM Mali-DP500 TRM for details on the encoding.
       If omitted, the RQOS register will not be changed.
 
+  arm,no-color-mgmt:
+    description:
+      The flag to disable color management on a CRTC.
+    type: boolean
+
   port:
     $ref: /schemas/graph.yaml#/properties/port
     unevaluatedProperties: false
