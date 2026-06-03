@@ -288,6 +288,7 @@ static int mcom03_add_pcie_ep(struct mcom03_pcie *pcie,
 	struct dw_pcie *pci = pcie->pci;
 	struct dw_pcie_ep *ep = &pci->ep;
 	struct device *dev = &pdev->dev;
+	u32 reg;
 	int ret;
 
 	ep->ops = &pcie_ep_ops;
@@ -317,15 +318,24 @@ static int mcom03_add_pcie_ep(struct mcom03_pcie *pcie,
 		goto fail_reset;
 	}
 
+	/*
+	 * FIXME: Rely on external PERST# on PCIx_PERSTN_PAD to be deasserted to
+	 * continue with driver loading. It is not good in general but seems to be
+	 * ok for loopback testing.
+	 */
+	reg = mcom03_pcie_readl(pcie, RST_STATUS_OFF);
+	if (reg != 0x3ff) {
+		dev_dbg(dev, "PERST# not deasserted, deferring, RST_STATUS:%#x\n",
+			reg);
+		ret = -EPROBE_DEFER;
+		goto fail_init;
+	}
+
 	mcom03_pcie_set_dev_type(pcie, DEVICE_TYPE_EP);
 	mcom03_pcie_set_jesd_en_zero(pcie);
 	// Do not rely on PCIx_APP_LTSSM_EN pads, override and disable LTSSM
 	mcom03_pcie_ltssm_toggle(pcie, 0);
 	// If we need to program PHY, app_hold_phy_rst is asserted here
-
-	// Assume PCIx_PERSTN_PAD is deasserted so lets peek at resets if false.
-	dev_info(dev, "RST_STATUS: %#x\n",
-		 mcom03_pcie_readl(pcie, RST_STATUS_OFF));
 
 	ret = dw_pcie_ep_init(ep);
 	if (ret) {
