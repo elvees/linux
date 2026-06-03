@@ -251,12 +251,16 @@ static int mcom03_pcie_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 static void mcom03_pcie_ep_init(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+	struct device *dev = pci->dev;
 	enum pci_barno bar;
 
 	for (bar = BAR_0; bar <= BAR_5; bar++)
 		dw_pcie_ep_reset_bar(pci, bar);
 
 	mcom03_pcie_set_bars_trgt1(pci);
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64)))
+		dev_warn(dev, "Failed to set 64-bit DMA mask, falling back\n");
 }
 
 static const struct pci_epc_features mcom03_pcie_epc_features = {
