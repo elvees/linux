@@ -392,6 +392,16 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 
 	pp->ops = &mcom03_pcie_host_ops;
 
+	pp->num_vectors = MAX_MSI_IRQS_PER_CTRL;
+	if (!of_property_read_u32(np, "num-interrupts", &pp->num_vectors)) {
+		if (pp->num_vectors == 0 || pp->num_vectors > MAX_MSI_IRQS ||
+			pp->num_vectors % MAX_MSI_IRQS_PER_CTRL) {
+			dev_warn(dev, "Invalid 'num-interrupts' %u, using default %u\n",
+				 pp->num_vectors, MAX_MSI_IRQS_PER_CTRL);
+			pp->num_vectors = MAX_MSI_IRQS_PER_CTRL;
+		}
+	}
+
 	dw_pcie_cap_set(pci, REQ_RES);
 
 	ret = dw_pcie_host_init(pp);
