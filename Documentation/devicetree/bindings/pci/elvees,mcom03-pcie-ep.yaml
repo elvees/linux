@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pci/elvees,mcom03-pcie-ep.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ELVEES MCom-03 PCIe Endpoint controller
+
+maintainers:
+  - Ilya Popov <ipopov@elvees.com>
+
+description: |+
+  ELVEES MCom-03 PCIe controller is based on the Synopsys DesignWare PCIe
+  dual mode controller IP. This is the Endpoint part and thus inherits common
+  properties defined in snps,dw-pcie-ep.yaml.
+
+allOf:
+  - $ref: /schemas/pci/snps,dw-pcie-ep.yaml#
+
+properties:
+  compatible:
+    const: elvees,mcom03-pcie-ep
+
+  reg:
+    items:
+      - description: Data Bus Interface (DBI) registers.
+      - description: Data Bus Interface 2 (DBI2) for accessing shadow registers.
+      - description: iATU memory IO region.
+      - description: ELVEES specific application registers.
+      - description:
+          Outbound iATU-capable memory-region which will be used to
+          generate various application-specific traffic on the PCIe bus
+          hierarchy.
+
+  reg-names:
+    items:
+      - const: dbi
+      - const: dbi2
+      - const: atu
+      - const: apb
+      - const: addr_space
+
+  resets:
+    description: Should contain platform-specific resets (see the example)
+
+  clocks:
+    items:
+      - description: Controller Primary clock.
+      - description: Auxiliary clock for the controller PMC domain.
+
+  clock-names:
+    items:
+      - const: core
+      - const: aux
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - num-lanes
+  - resets
+  - clocks
+  - clock-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/mcom03-clock.h>
+    #include <dt-bindings/soc/elvees,mcom03.h>
+
+    mcom03-pcie-bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      pcie0_ep: pcie-ep@2000000 {
+        compatible = "elvees,mcom03-pcie-ep";
+        reg = <0x0 0x2000000 0x0 0x100000>,
+              <0x0 0x2100000 0x0 0x100000>,
+              <0x0 0x2300000 0x0 0x80000>,
+              <0x0 0x1a00000 0x0 0x800>,
+              <0x0 0x60000000 0x0 0x10000000>;
+        reg-names = "dbi", "dbi2", "atu", "apb", "addr_space";
+        num-lanes = <4>;
+        resets = <&sdr_reset SDR_RST_PCI_ICT>,
+                 <&sdr_reset SDR_RST_PCI0_BTN>;
+        clocks = <&sdr_clocks CLK_SDR_GATE_PCIE0>,
+                 <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
+        clock-names = "core", "aux";
+      };
+    };
