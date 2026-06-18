@@ -404,15 +404,13 @@ static int qlic_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int qlic_remove(struct platform_device *pdev)
+static void qlic_remove(struct platform_device *pdev)
 {
 	struct qlic_priv *priv = platform_get_drvdata(pdev);
 
 	qlic_irq_handler_unset(priv);
 	irq_domain_remove(priv->domain);
 	pm_runtime_disable(&priv->pdev->dev);
-
-	return 0;
 }
 
 #ifdef CONFIG_OF
