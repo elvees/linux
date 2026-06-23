@@ -229,18 +229,17 @@ static int mcom03_pcie_set_bars_trgt1(struct dw_pcie *pci)
 }
 
 static int mcom03_pcie_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
-				 enum pci_epc_irq_type type,
-				 u16 interrupt_num)
+				 unsigned int type, u16 interrupt_num)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 
 	switch (type) {
 	/* TODO: INTx could be shot with INT_ST register */
-	case PCI_EPC_IRQ_LEGACY:
-		return dw_pcie_ep_raise_legacy_irq(ep, func_no);
-	case PCI_EPC_IRQ_MSI:
+	case PCI_IRQ_INTX:
+		return dw_pcie_ep_raise_intx_irq(ep, func_no);
+	case PCI_IRQ_MSI:
 		return dw_pcie_ep_raise_msi_irq(ep, func_no, interrupt_num);
-	case PCI_EPC_IRQ_MSIX:
+	case PCI_IRQ_MSIX:
 		return dw_pcie_ep_raise_msix_irq(ep, func_no, interrupt_num);
 	default:
 		dev_err(pci->dev, "UNKNOWN IRQ type\n");
@@ -273,7 +272,7 @@ mcom03_pcie_get_features(struct dw_pcie_ep *ep)
 }
 
 static const struct dw_pcie_ep_ops pcie_ep_ops = {
-	.ep_init = mcom03_pcie_ep_init,
+	.init = mcom03_pcie_ep_init,
 	.raise_irq = mcom03_pcie_raise_irq,
 	.get_features = mcom03_pcie_get_features,
 };
@@ -328,6 +327,15 @@ static int mcom03_add_pcie_ep(struct mcom03_pcie *pcie,
 		dev_err(dev, "Failed to initialize endpoint\n");
 		goto fail_init;
 	}
+
+	ret = dw_pcie_ep_init_registers(ep);
+	if (ret) {
+		dev_err(dev, "Failed to initialize DWC endpoint registers\n");
+		dw_pcie_ep_deinit(ep);
+		goto fail_init;
+	}
+
+	pci_epc_init_notify(ep->epc);
 
 	return 0;
 
@@ -650,14 +658,12 @@ static void mcom03_pcie_remove(struct platform_device *pdev)
 		break;
 	case DW_PCIE_EP_TYPE:
 		// Same disable as in .host_deinit
-		dw_pcie_ep_exit(&pci->ep);
+		dw_pcie_ep_deinit(&pci->ep);
 		reset_control_assert(pcie->reset);
 		clk_bulk_disable_unprepare(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
 		break;
 	default:
 	}
-
-	return 0;
 }
 
 static const struct mcom03_pcie_of_data mcom03_pcie_rc_of_data = {
