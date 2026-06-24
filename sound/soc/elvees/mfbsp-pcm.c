@@ -64,9 +64,9 @@ static void start_dma(struct mfbsp_dma_data *dma)
 
 static struct snd_soc_dai *mfbsp_get_cpu_dai(struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *soc_runtime = asoc_substream_to_rtd(substream);
+	struct snd_soc_pcm_runtime *soc_runtime = snd_soc_substream_to_rtd(substream);
 
-	return asoc_rtd_to_cpu(soc_runtime, 0);
+	return snd_soc_rtd_to_cpu(soc_runtime, 0);
 }
 
 static struct mfbsp_dma_data *mfbsp_get_dma_data(
@@ -193,7 +193,7 @@ static snd_pcm_uframes_t mfbsp_pcm_pointer(struct snd_soc_component *component,
 static int mfbsp_pcm_new(struct snd_soc_component *component,
 	struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_dai *dai = asoc_rtd_to_cpu(rtd, 0);
+	struct snd_soc_dai *dai = snd_soc_rtd_to_cpu(rtd, 0);
 	struct mfbsp_data *mfbsp = snd_soc_dai_get_drvdata(dai);
 	struct device *dev = dai->dev;
 	struct dma_pool *desc_pool;

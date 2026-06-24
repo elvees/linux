@@ -412,13 +412,12 @@ static int mfbsp_i2s_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int mfbsp_i2s_remove(struct platform_device *pdev)
+static void mfbsp_i2s_remove(struct platform_device *pdev)
 {
 	struct mfbsp_data *mfbsp = dev_get_drvdata(&pdev->dev);
 
 	clk_disable_unprepare(mfbsp->clk);
 
-	return 0;
 }
 
 static const struct of_device_id mfbsp_i2s_match_table[] = {
