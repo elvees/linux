@@ -910,7 +910,7 @@ static struct net_device *mfbsp_can_alloc_dev(struct platform_device *pdev,
 
 	/* Set properties depending on CAN */
 	priv->can.bittiming_const = &mfbsp_can_bittiming_const;
-	priv->can.data_bittiming_const = &mfbsp_can_bittiming_const;
+	priv->can.fd.data_bittiming_const = &mfbsp_can_bittiming_const;
 
 	return dev;
 }
@@ -1280,7 +1280,7 @@ static __maybe_unused int mfbsp_can_resume(struct device *dev)
 	return 0;
 }
 
-static int mfbsp_can_plat_remove(struct platform_device *pdev)
+static void mfbsp_can_plat_remove(struct platform_device *pdev)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
 	struct mfbsp_can_priv *priv = netdev_priv(dev);
@@ -1293,7 +1293,6 @@ static int mfbsp_can_plat_remove(struct platform_device *pdev)
 
 	free_mfbsp_can_dev(dev);
 
-	return 0;
 }
 
 static const struct dev_pm_ops mfbsp_can_pmops = {
