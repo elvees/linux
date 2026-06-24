@@ -302,34 +302,34 @@ silvaco_end_pio:
 int silvaco_qspi_setup(struct spi_device *spi)
 {
 	dev_dbg(&spi->controller->dev, "%s reg %d\n", __func__,
-		spi->chip_select);
+		spi->chip_select[0]);
 
 	return 0;
 }
 
 void silvaco_qspi_set_cs(struct spi_device *spi, bool enable)
 {
-	struct silvaco_qspi *silvaco = spi_master_get_devdata(spi->master);
+	struct silvaco_qspi *silvaco = spi_controller_get_devdata(spi->controller);
 
 	/* Chip select logic is inverted from spi_set_cs */
 	dev_dbg(silvaco->dev, "%s chip select %d\n",
-		enable ? "Disable" : "Enable", spi->chip_select);
+		enable ? "Disable" : "Enable", spi->chip_select[0]);
 
-	writel(enable ? 0 : BIT(spi->chip_select), &silvaco->regs->ss);
+	writel(enable ? 0 : BIT(spi->chip_select[0]), &silvaco->regs->ss);
 }
 
 static int silvaco_qspi_transfer_one(struct spi_controller *master,
 				     struct spi_device *spi,
 				     struct spi_transfer *xfer)
 {
-	struct silvaco_qspi *hw = spi_master_get_devdata(master);
+	struct silvaco_qspi *hw = spi_controller_get_devdata(master);
 	int ret = 0;
 
 	if (xfer->speed_hz != hw->speed_hz) {
 		hw->speed_hz = xfer->speed_hz;
 		clk_set_rate(hw->clk_ext, xfer->speed_hz);
 		dev_dbg(hw->dev, "Switch to new speed (%d HZ) for cs %d\n",
-			hw->speed_hz, spi->chip_select);
+			hw->speed_hz, spi->chip_select[0]);
 	}
 
 	hw->xfer = xfer;
@@ -416,11 +416,11 @@ int silvaco_qspi_probe(struct platform_device *pdev)
 {
 	struct silvaco_qspi *silvaco;
 	struct resource *res;
-	struct spi_master *master;
+	struct spi_controller *master;
 	struct device *dev = &pdev->dev;
 	int ret, num_cs = 0;
 
-	master = devm_spi_alloc_master(dev, sizeof(struct silvaco_qspi));
+	master = devm_spi_alloc_host(dev, sizeof(struct silvaco_qspi));
 	if (!master) {
 		dev_err(dev, "master allocation failed\n");
 		return -ENOMEM;
@@ -437,7 +437,7 @@ int silvaco_qspi_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	silvaco = spi_master_get_devdata(master);
+	silvaco = spi_controller_get_devdata(master);
 	silvaco->dev = dev;
 
 	silvaco_qspi_set_platform_registers(silvaco);
@@ -514,7 +514,7 @@ int silvaco_qspi_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, master);
-	ret = devm_spi_register_master(&pdev->dev, master);
+	ret = devm_spi_register_controller(&pdev->dev, master);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to register spi master.\n");
 		goto assert_reset;
@@ -534,17 +534,16 @@ disable_clk_axi:
 	return ret;
 }
 
-int silvaco_qspi_remove(struct platform_device *pdev)
+void silvaco_qspi_remove(struct platform_device *pdev)
 {
-	struct spi_master *master = platform_get_drvdata(pdev);
-	struct silvaco_qspi *silvaco = spi_master_get_devdata(master);
+	struct spi_controller *master = platform_get_drvdata(pdev);
+	struct silvaco_qspi *silvaco = spi_controller_get_devdata(master);
 
 	clk_disable_unprepare(silvaco->clk_ext);
 	clk_disable_unprepare(silvaco->clk_axi);
 
 	dev_dbg(&pdev->dev, "Unregister Silvaco QSPI driver.\n");
 
-	return 0;
 }
 
 #if defined(CONFIG_OF)
