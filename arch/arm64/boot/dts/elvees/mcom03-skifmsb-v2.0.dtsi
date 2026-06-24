@@ -19,23 +19,6 @@
 	};
 };
 
-/* DSP is unstable on higher frequency */
-&dsp_opp_table {
-	/delete-node/ opp-405000000;
-};
-
-/* For DSP set CLK_SDR_PLL2 to 351 MHz */
-&sdr_clocks {
-	assigned-clock-rates = <1200000000
-				648000000
-				351000000
-				200000000
-				600000000
-				400000000
-				200000000
-				50000000>;
-};
-
 &lsperiph1_pinctrl {
 	pinctrl-names = "default";
 	pinctrl-0 = <&gpios_in_mode_cfg>;

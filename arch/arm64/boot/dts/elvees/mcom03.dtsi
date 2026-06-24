@@ -1582,7 +1582,7 @@
 			/* PLL2 clock rate must match to one of the values
 			 * described in dsp-opp-table.
 			 */
-						405000000
+						342000000
 						200000000
 						600000000
 						400000000
@@ -1769,26 +1769,23 @@
 		dsp_opp_table: dsp-opp-table {
 			compatible = "operating-points-v2";
 			opp-shared;
-			opp-81000000 {
-				opp-hz = /bits/ 64 <81000000>;
+			opp-72000000 {
+				opp-hz = /bits/ 64 <72000000>;
 			};
-			opp-135000000 {
-				opp-hz = /bits/ 64 <135000000>;
+			opp-126000000 {
+				opp-hz = /bits/ 64 <126000000>;
 			};
-			opp-189000000 {
-				opp-hz = /bits/ 64 <189000000>;
+			opp-180000000 {
+				opp-hz = /bits/ 64 <180000000>;
 			};
-			opp-243000000 {
-				opp-hz = /bits/ 64 <243000000>;
+			opp-234000000 {
+				opp-hz = /bits/ 64 <234000000>;
 			};
-			opp-297000000 {
-				opp-hz = /bits/ 64 <297000000>;
+			opp-288000000 {
+				opp-hz = /bits/ 64 <288000000>;
 			};
-			opp-351000000 {
-				opp-hz = /bits/ 64 <351000000>;
-			};
-			opp-405000000 {
-				opp-hz = /bits/ 64 <405000000>;
+			opp-342000000 {
+				opp-hz = /bits/ 64 <342000000>;
 			};
 		};
 	};
