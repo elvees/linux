@@ -299,7 +299,7 @@ silvaco_end_pio:
 	return ret;
 }
 
-int silvaco_qspi_setup(struct spi_device *spi)
+static int silvaco_qspi_setup(struct spi_device *spi)
 {
 	dev_dbg(&spi->controller->dev, "%s reg %d\n", __func__,
 		spi->chip_select[0]);
@@ -307,7 +307,7 @@ int silvaco_qspi_setup(struct spi_device *spi)
 	return 0;
 }
 
-void silvaco_qspi_set_cs(struct spi_device *spi, bool enable)
+static void silvaco_qspi_set_cs(struct spi_device *spi, bool enable)
 {
 	struct silvaco_qspi *silvaco = spi_controller_get_devdata(spi->controller);
 
@@ -412,7 +412,7 @@ static int silvaco_qspi_set_operation_mode(struct silvaco_qspi *silvaco)
 	return ret;
 }
 
-int silvaco_qspi_probe(struct platform_device *pdev)
+static int silvaco_qspi_probe(struct platform_device *pdev)
 {
 	struct silvaco_qspi *silvaco;
 	struct resource *res;
@@ -534,7 +534,7 @@ disable_clk_axi:
 	return ret;
 }
 
-void silvaco_qspi_remove(struct platform_device *pdev)
+static void silvaco_qspi_remove(struct platform_device *pdev)
 {
 	struct spi_controller *master = platform_get_drvdata(pdev);
 	struct silvaco_qspi *silvaco = spi_controller_get_devdata(master);
