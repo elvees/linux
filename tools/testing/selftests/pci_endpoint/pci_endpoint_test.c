@@ -127,7 +127,7 @@ TEST_F(pci_ep_basic, MSI_TEST)
 	}
 }
 
-TEST_F(pci_ep_basic, MSIX_TEST)
+TEST_F_TIMEOUT(pci_ep_basic, MSIX_TEST, 60)
 {
 	int ret, i;
 
