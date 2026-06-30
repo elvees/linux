@@ -1498,7 +1498,7 @@ static int loop_set_block_size(struct loop_device *lo, blk_mode_t mode,
 
 	err = blk_validate_block_size(arg);
 	if (err)
-		return err;
+		goto unlock;
 
 	if (lo->lo_queue->limits.logical_block_size == arg)
 		goto unlock;

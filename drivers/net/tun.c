@@ -2459,8 +2459,10 @@ static int tun_xdp_one(struct tun_struct *tun,
 	bool skb_xdp = false;
 	struct page *page;
 
-	if (unlikely(datasize < ETH_HLEN))
+	if (unlikely(datasize < ETH_HLEN)) {
+		put_page(virt_to_head_page(xdp->data));
 		return -EINVAL;
+	}
 
 	xdp_prog = rcu_dereference(tun->xdp_prog);
 	if (xdp_prog) {
@@ -2503,6 +2505,7 @@ static int tun_xdp_one(struct tun_struct *tun,
 build:
 	skb = build_skb(xdp->data_hard_start, buflen);
 	if (!skb) {
+		put_page(virt_to_head_page(xdp->data));
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -3682,9 +3685,9 @@ static int tun_queue_resize(struct tun_struct *tun)
 	list_for_each_entry(tfile, &tun->disabled, next)
 		rings[i++] = &tfile->tx_ring;
 
-	ret = ptr_ring_resize_multiple(rings, n,
-				       dev->tx_queue_len, GFP_KERNEL,
-				       tun_ptr_free);
+	ret = ptr_ring_resize_multiple_bh(rings, n,
+					  dev->tx_queue_len, GFP_KERNEL,
+					  tun_ptr_free);
 
 	kfree(rings);
 	return ret;

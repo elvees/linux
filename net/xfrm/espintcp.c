@@ -169,8 +169,10 @@ int espintcp_queue_out(struct sock *sk, struct sk_buff *skb)
 {
 	struct espintcp_ctx *ctx = espintcp_getctx(sk);
 
-	if (skb_queue_len(&ctx->out_queue) >= READ_ONCE(netdev_max_backlog))
+	if (skb_queue_len(&ctx->out_queue) >= READ_ONCE(netdev_max_backlog)) {
+		kfree_skb(skb);
 		return -ENOBUFS;
+	}
 
 	__skb_queue_tail(&ctx->out_queue, skb);
 
@@ -343,6 +345,10 @@ static int espintcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 	if (err < 0) {
 		if (err != -EAGAIN || !(msg->msg_flags & MSG_DONTWAIT))
 			err = -ENOBUFS;
+		goto unlock;
+	}
+	if (emsg->len) {
+		err = -ENOBUFS;
 		goto unlock;
 	}
 
