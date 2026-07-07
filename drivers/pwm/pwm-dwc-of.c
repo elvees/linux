@@ -23,20 +23,23 @@ static int dwc_pwm_plat_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct dwc_pwm *dwc;
+	struct pwm_chip *chip;
 	struct clk *bus;
 	u32 nr_pwm;
 	int ret;
 
-	dwc = dwc_pwm_alloc(dev);
-	if (!dwc)
-		return -ENOMEM;
+	chip = dwc_pwm_alloc(dev);
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
+
+	dwc = to_dwc_pwm(chip);
 
 	if (!device_property_read_u32(dev, "snps,pwm-number", &nr_pwm)) {
 		if (nr_pwm > DWC_TIMERS_TOTAL)
 			dev_err(dev, "too many PWMs (%d) specified, capping at %d\n",
-				nr_pwm, dwc->chip.npwm);
+				nr_pwm, chip->npwm);
 		else
-			dwc->chip.npwm = nr_pwm;
+			chip->npwm = nr_pwm;
 	}
 
 	dwc->base = devm_platform_ioremap_resource(pdev, 0);
@@ -59,15 +62,14 @@ static int dwc_pwm_plat_probe(struct platform_device *pdev)
 				     "clk_rate_exclusive_get() failed\n");
 
 	dwc->clk_rate = clk_get_rate(dwc->clk);
-	return devm_pwmchip_add(dev, &dwc->chip);
+	return devm_pwmchip_add(dev, chip);
 }
 
-static int dwc_pwm_plat_remove(struct platform_device *pdev)
+static void dwc_pwm_plat_remove(struct platform_device *pdev)
 {
 	struct dwc_pwm *dwc = dev_get_drvdata(&pdev->dev);
 
 	clk_rate_exclusive_put(dwc->clk);
-	return 0;
 }
 
 static const struct of_device_id dwc_pwm_dt_ids[] = {
