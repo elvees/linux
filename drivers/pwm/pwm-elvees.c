@@ -79,17 +79,11 @@ enum {
 };
 
 struct elvees_pwm_chip {
-	struct pwm_chip chip;
 	struct clk *clk;
 	void __iomem *mmio_base;
 	u32 out_channel[NUM_PWM_CHANNEL]; /* 0 == OUTA, >0 == OUTB */
 	u32 state_on_disable[NUM_PWM_CHANNEL];
 };
-
-static inline struct elvees_pwm_chip *to_elvees_pwm_chip(struct pwm_chip *chip)
-{
-	return container_of(chip, struct elvees_pwm_chip, chip);
-}
 
 static inline void elvees_pwm_writel(struct elvees_pwm_chip *chip,
 				   u32 reg, u32 val, u32 port)
@@ -104,7 +98,7 @@ static inline u32 elvees_pwm_readl(struct elvees_pwm_chip *chip, u32 reg, u32 po
 
 static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct elvees_pwm_chip *pwm_chip = to_elvees_pwm_chip(chip);
+	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
 	u32 val;
 
 	elvees_pwm_writel(pwm_chip, pwm_chip->out_channel[pwm->hwpwm] ?
@@ -131,7 +125,7 @@ static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 static int elvees_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			    int duty_ns, int period_ns)
 {
-	struct elvees_pwm_chip *pwm_chip = to_elvees_pwm_chip(chip);
+	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
 	u64 div, clk_rate = clk_get_rate(pwm_chip->clk);
 	u32 period, duty;
 
@@ -150,7 +144,7 @@ static int elvees_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 static int elvees_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm,
 				  enum pwm_polarity polarity)
 {
-	struct elvees_pwm_chip *pwm_chip = to_elvees_pwm_chip(chip);
+	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
 	u32 val;
 
 	if (polarity == PWM_POLARITY_NORMAL) {
@@ -169,7 +163,7 @@ static int elvees_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm
 
 static int elvees_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct elvees_pwm_chip *pwm_chip = to_elvees_pwm_chip(chip);
+	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
 	u32 val;
 
 	val = elvees_pwm_readl(pwm_chip, PWM_CTRRUN, pwm->hwpwm);
@@ -183,7 +177,7 @@ static int elvees_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 static void elvees_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct elvees_pwm_chip *pwm_chip = to_elvees_pwm_chip(chip);
+	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
 	u32 val, disable_state, outport;
 
 	disable_state = pwm_chip->state_on_disable[pwm->hwpwm];
@@ -241,82 +235,59 @@ static int elvees_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 static const struct pwm_ops elvees_pwm_ops = {
 	.request	= elvees_pwm_request,
 	.apply		= elvees_pwm_apply,
-	.owner		= THIS_MODULE,
 };
 
-static int elvees_pwm_parse_dt(struct elvees_pwm_chip *elvees_pwm_chip)
+static int elvees_pwm_parse_dt(struct pwm_chip *pwm_chip)
 {
-	struct device *dev = elvees_pwm_chip->chip.dev;
-	struct device_node *node = dev_of_node(dev);
+	struct device_node *node = dev_of_node(&pwm_chip->dev);
 	int ret;
+	struct elvees_pwm_chip *elvees_pwm_chip = pwmchip_get_drvdata(pwm_chip);
 
 	ret = of_property_read_u32_array(node, "elvees,output-channel",
 				   elvees_pwm_chip->out_channel, NUM_PWM_CHANNEL);
 	if (ret < 0)
-		dev_warn(dev, "elvees,output-channel DT property missing\n");
+		dev_warn(&pwm_chip->dev, "elvees,output-channel DT property missing\n");
 
 	ret = of_property_read_u32_array(node, "elvees,state-on-disable",
 				   elvees_pwm_chip->state_on_disable, NUM_PWM_CHANNEL);
 	if (ret < 0)
-		dev_warn(dev, "elvees,state-on-disable DT property missing\n");
+		dev_warn(&pwm_chip->dev, "elvees,state-on-disable DT property missing\n");
 
 	return 0;
 }
 
 static int elvees_pwm_probe(struct platform_device *pdev)
 {
-	struct elvees_pwm_chip *pwm_chip;
-	struct resource *r;
+	struct elvees_pwm_chip *elvees_pwm_chip;
+	struct pwm_chip *chip;
 	int ret;
 
-	pwm_chip = devm_kzalloc(&pdev->dev, sizeof(*pwm_chip), GFP_KERNEL);
-	if (!pwm_chip)
-		return -ENOMEM;
+	chip = devm_pwmchip_alloc(&pdev->dev, NUM_PWM_CHANNEL, sizeof(*elvees_pwm_chip));
 
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
+	elvees_pwm_chip = pwmchip_get_drvdata(chip);
 
-	pwm_chip->mmio_base = devm_ioremap_resource(&pdev->dev, r);
-	if (IS_ERR(pwm_chip->mmio_base))
-		return PTR_ERR(pwm_chip->mmio_base);
 
-	platform_set_drvdata(pdev, pwm_chip);
+	elvees_pwm_chip->mmio_base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(elvees_pwm_chip->mmio_base))
+		return PTR_ERR(elvees_pwm_chip->mmio_base);
 
-	pwm_chip->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(pwm_chip->clk)) {
-		dev_err(&pdev->dev, "failed to get clock: %ld\n",
-			PTR_ERR(pwm_chip->clk));
-		return PTR_ERR(pwm_chip->clk);
-	}
 
-	ret = clk_prepare_enable(pwm_chip->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable PWM clock\n");
-		return ret;
-	}
+	elvees_pwm_chip->clk = devm_clk_get_enabled(&pdev->dev, NULL);
+	if (IS_ERR(elvees_pwm_chip->clk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(elvees_pwm_chip->clk),
+				     "failed to init clock\n");
 
-	pwm_chip->chip.dev = &pdev->dev;
-	pwm_chip->chip.ops = &elvees_pwm_ops;
-	pwm_chip->chip.base = -1;
-	pwm_chip->chip.npwm = NUM_PWM_CHANNEL;
+	chip->ops = &elvees_pwm_ops;
 
-	ret = elvees_pwm_parse_dt(pwm_chip);
+	ret = elvees_pwm_parse_dt(chip);
 
-	ret = pwmchip_add(&pwm_chip->chip);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "pwmchip_add() failed: %d\n", ret);
-		clk_disable_unprepare(pwm_chip->clk);
-		return ret;
-	}
+	platform_set_drvdata(pdev, elvees_pwm_chip);
 
-	return 0;
-}
-
-static int elvees_pwm_remove(struct platform_device *pdev)
-{
-	struct elvees_pwm_chip *pwm_chip = platform_get_drvdata(pdev);
-
-	pwmchip_remove(&pwm_chip->chip);
-	clk_disable_unprepare(pwm_chip->clk);
+	ret = devm_pwmchip_add(&pdev->dev, chip);
+	if (ret < 0)
+		return dev_err_probe(&pdev->dev, ret, "failed to add pwmchip\n");
 
 	return 0;
 }
@@ -333,7 +304,6 @@ static struct platform_driver elvees_pwm_driver = {
 		.of_match_table	= elvees_pwm_of_match,
 	},
 	.probe	= elvees_pwm_probe,
-	.remove	= elvees_pwm_remove,
 };
 module_platform_driver(elvees_pwm_driver);
 
