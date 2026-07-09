@@ -66,9 +66,6 @@ heater_gpio_write(struct file *file, const char __user *buf, size_t count,
 static int
 heater_gpio_open(struct inode *inode, struct file *file)
 {
-	struct miscdevice *mdev = file->private_data;
-	struct heater_gpio *heater = to_heater(mdev);
-
 	return 0;
 }
 
