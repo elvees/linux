@@ -244,7 +244,7 @@ static int mcom03r_otp_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int mcom03r_otp_remove(struct platform_device *pdev)
+static void mcom03r_otp_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mcom03r_otp_priv *priv = platform_get_drvdata(pdev);
@@ -257,7 +257,6 @@ static int mcom03r_otp_remove(struct platform_device *pdev)
 
 	dev_info(dev, "Remove successfully\n");
 
-	return 0;
 }
 
 static const struct of_device_id mcom03r_otp_of_match[] = {
