@@ -7,3 +7,11 @@ config MCOM03_DMA32_BUS
 	help
 	  The driver allows to configure memory mapping of 32-bit DMA masters
 	  to DDR high address space for MCom-03/MCom-03R SoCs.
+
+config MCOM03R_OTP
+	tristate "MCom-03R OTP driver"
+	depends on ARCH_MCOM03R || COMPILE_TEST
+	depends on OF
+	default m
+	help
+	  The driver allows to read public data from OTP memory of MCom-03R SoCs.
