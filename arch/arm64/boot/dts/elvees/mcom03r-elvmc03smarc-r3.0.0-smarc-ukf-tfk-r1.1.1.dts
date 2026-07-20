@@ -359,3 +359,22 @@
 &de_dpi {
 	status = "okay";
 };
+
+&sdhci1_default {
+	/* The default SDHCI1 pads drive strength of 6 mA is insufficient
+	 * for SMARC-UKF-TFK resulting in unstable SDMMC performance at
+	 * low temperatures(MCOM03SW-4269).
+	 */
+	clk {
+		pins = "SDMMC1_CLK";
+		drive-strength = <10>;
+	};
+
+	data {
+		drive-strength = <8>;
+	};
+
+	cmd {
+		drive-strength = <8>;
+	};
+};
