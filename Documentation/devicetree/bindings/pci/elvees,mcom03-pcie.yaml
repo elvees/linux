@@ -98,6 +98,14 @@ properties:
       - const: core
       - const: aux
 
+  num-interrupts:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      Size of iMSI-RX irq domain. The iMSI-RX embedded MSI controller
+      consist of 8 groups of control registers, each group can handle
+      up to 32 MSI/MSI-X interrupts. If omitted, defaults to 32.
+    enum: [32, 64, 96, 128, 160, 192, 224, 256]
+
 required:
   - compatible
   - reg
@@ -213,6 +221,7 @@ examples:
         clocks = <&sdr_clocks CLK_SDR_GATE_PCIE1>,
                  <&sdr_clocks CLK_SDR_UCG0_AUX_PCI>;
         clock-names = "core", "aux";
+        num-interrupts = <128>;
 
         // Legacy interrupts support
         #interrupt-cells = <1>;
