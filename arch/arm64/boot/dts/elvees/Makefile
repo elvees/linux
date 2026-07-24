@@ -85,6 +85,7 @@ dtb-$(CONFIG_ARCH_MCOM03) += mcom03-skifmsb-v2.0-skifmp-v2.0-rpi-dsi-7inch.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0-b156xw02-v0r.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0-m238hca-l3b.dtb
+dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-salute-pm-ett-ssmarc-r2.0.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-smarc-ukf-tfk-r1.1.1.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-ip-ku-m1-r1.1.dtb
