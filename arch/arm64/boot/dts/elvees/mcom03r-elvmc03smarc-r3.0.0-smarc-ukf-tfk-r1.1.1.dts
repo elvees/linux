@@ -378,3 +378,12 @@
 		drive-strength = <8>;
 	};
 };
+
+/* Set temperature values for high-temperature testing (#MCOM03SW-4317) */
+&cpu_alert1 {
+	temperature = <100000>;
+};
+
+&cpu_alert2 {
+	temperature = <110000>;
+};
