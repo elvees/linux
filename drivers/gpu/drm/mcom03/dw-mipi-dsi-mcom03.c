@@ -799,8 +799,6 @@ static int mcom03_dsi_probe(struct platform_device *pdev)
 	if (ret)
 		goto dw_cleanup;
 
-	pm_runtime_enable(&pdev->dev);
-
 	return 0;
 
 dw_cleanup:
@@ -814,7 +812,6 @@ static void mcom03_dsi_remove(struct platform_device *pdev)
 {
 	struct mcom03_dsi_device *de = dev_get_drvdata(&pdev->dev);
 
-	pm_runtime_disable(&pdev->dev);
 	dw_mipi_dsi_remove(de->dsi);
 }
 
