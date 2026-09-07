@@ -1520,6 +1520,18 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 	spin_lock_init(&pd->lock);
 	spin_lock_init(&pd->tx_freelock);
 
+	if (of_find_property(pdev->dev.of_node, "arasan,desc-pool", NULL)) {
+		pd->desc_pool = of_gen_pool_get(pdev->dev.of_node,
+						"arasan,desc-pool", 0);
+		if (pd->desc_pool) {
+			dev_info(&pdev->dev, "Using gen_pool %s for DMA descriptors",
+				 pd->desc_pool->name);
+		} else {
+			dev_info(&pdev->dev, "Could not get gen_pool. Deferred probe pending");
+			res = -EPROBE_DEFER;
+			goto err_free_dev;
+		}
+	}
 	res = arasan_gemac_probe_clocks(pd);
 	if (res)
 		goto err_free_dev;
@@ -1565,12 +1577,6 @@ static int arasan_gemac_probe(struct platform_device *pdev)
 				       &pd->tx_threshold);
 	if (res < 0)
 		pd->tx_threshold = 0;
-
-	pd->desc_pool = of_gen_pool_get(pdev->dev.of_node,
-					"arasan,desc-pool", 0);
-	if (pd->desc_pool)
-		netdev_info(dev, "Using gen_pool %s for DMA descriptors",
-			    pd->desc_pool->name);
 
 	dev->netdev_ops = &arasan_gemac_netdev_ops;
 	dev->ethtool_ops = &arasan_gemac_ethtool_ops;
