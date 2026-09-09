@@ -57,6 +57,8 @@
 
 #define MCOM03_PCIE_NUM_CORE_CLKS	ARRAY_SIZE(mcom03_pcie_core_clks)
 
+#define MCOM03_GITS_TRANSLATER		0x1130040
+
 static const enum dw_pcie_core_clk mcom03_pcie_core_clks[] = {
 	DW_PCIE_CORE_CLK, DW_PCIE_AUX_CLK,
 };
@@ -68,7 +70,6 @@ struct mcom03_pcie {
 	void __iomem			*apb_base;
 	struct reset_control		*reset;
 	struct irq_domain		*irq_domain;
-	bool				embed_msi:1;
 };
 
 #if defined(CONFIG_PCIE_MCOM03_DEBUG)
@@ -264,6 +265,35 @@ static void mcom03_pcie_host_deinit(struct dw_pcie_rp *pp)
 
 static int mcom03_pcie_msi_host_init(struct dw_pcie_rp *pp)
 {
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct device *dev = pci->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	if (of_property_read_bool(np, "msi-parent") ||
+	    of_property_read_bool(np, "msi-map")) {
+		pp->has_msi_ctrl = false;
+		dev_info(dev, "Using external MSI interrupt-controller\n");
+		return 0;
+	}
+
+	ret = dw_pcie_msi_host_init(pp);
+	if (ret)
+		return ret;
+
+	/* MCom-03 does not have available memory for DMA allocation below 4 Gbytes
+	* so 32-bit MSI devices will not work with current embedded MSI controller
+	* implementation. As mentioned in PCI Express DM Controller Databook v5.30
+	* $3.8.2.2 inbound MWr request detected as MSI interrupt "is dropped and
+	* never appears on the AXI bus." we can actually use almost any address
+	* for MSI interrupt messages. So as a workaround we do the following -
+	* redefine address for MSI interrupts with same address as GITS_TRANSLATER
+	* register in GIC ITS during embedded MSI controller initialization*/
+	pp->msi_data = MCOM03_GITS_TRANSLATER;
+	pp->has_msi_ctrl = true;
+	dev_info(dev, "Using iMSI-RX interrupt-controller\n");
+	dev_info(dev, "Redirecting MSI to %#llx\n", pp->msi_data);
+
 	return 0;
 }
 
@@ -271,11 +301,6 @@ static const struct dw_pcie_host_ops mcom03_pcie_host_ops = {
 	.host_init = mcom03_pcie_host_init,
 	.host_deinit = mcom03_pcie_host_deinit,
 	.msi_host_init = mcom03_pcie_msi_host_init,
-};
-
-static const struct dw_pcie_host_ops mcom03_pcie_host_ops_embed = {
-	.host_init = mcom03_pcie_host_init,
-	.host_deinit = mcom03_pcie_host_deinit,
 };
 
 static void mcom03_pcie_legacy_irq_handler(struct irq_desc *desc)
@@ -364,15 +389,7 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 			return ret;
 	}
 
-	if (of_property_read_bool(np, "msi-parent") ||
-	    of_property_read_bool(np, "msi-map")) {
-		pp->ops = &mcom03_pcie_host_ops;
-		dev_info(dev, "Using external MSI interrupt-controller\n");
-	} else {
-		pcie->embed_msi = true;
-		pp->ops = &mcom03_pcie_host_ops_embed;
-		dev_info(dev, "Using embedded MSI interrupt-controller\n");
-	}
+	pp->ops = &mcom03_pcie_host_ops;
 
 	pp->num_vectors = MAX_MSI_IRQS_PER_CTRL;
 	if (!of_property_read_u32(np, "num-interrupts", &pp->num_vectors)) {
@@ -395,22 +412,6 @@ static int mcom03_add_dw_pcie_rp(struct mcom03_pcie *pcie,
 	if (!pci->pe_rst) {
 		dev_warn(dev, "'reset-gpio' isn't specified in PCIe node\n");
 		dev_warn(dev, "Assume untested PCIx_PERSTN pad is in use\n");
-	}
-
-	/* MCom-03 does not have available memory for DMA allocation below 4 Gbytes
-	 * so 32-bit MSI devices will not work with current embedded MSI controller
-	 * implementation. As mentioned in PCI Express DM Controller Databook v5.30
-	 * $3.8.2.2 inbound MWr request detected as MSI interrupt "is dropped and
-	 * never appears on the AXI bus." we can actually use almost any address
-	 * for MSI interrupt messages. So as a workaround we do the following -
-	 * redefine address for MSI interrupts with same address as GITS_TRANSLATER
-	 * register in GIC ITS after embedded MSI controller is initialized in
-	 * dw_pcie_host_init(). */
-	if (pcie->embed_msi) {
-		pp->msi_data = 0x1130040;
-		dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_LO, lower_32_bits(pp->msi_data));
-		dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_HI, upper_32_bits(pp->msi_data));
-		dev_info(dev, "Redirecting MSI to %#llx\n", pp->msi_data);
 	}
 
 	mcom03_pcie_dump_phy_regs(pci);
