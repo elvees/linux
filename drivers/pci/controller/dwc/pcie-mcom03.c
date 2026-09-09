@@ -25,6 +25,7 @@
 
 #define SYS_CTRL_OFF			0x0
 #define SYS_CTRL_APP_LTSSM_EN		BIT(4)
+#define SYS_CTRL_APP_CLK_PM_EN		BIT(7)
 #define SYS_CTRL_OVRD_LTSSM_EN		BIT(31)
 #define SYS_CTRL_DEVICE_TYPE_MASK	GENMASK(3, 0)
 
@@ -167,6 +168,16 @@ static void mcom03_pcie_ltssm_toggle(struct mcom03_pcie *pcie, u32 val)
 	mcom03_pcie_writel(pcie, SYS_CTRL_OFF, reg);
 }
 
+static void mcom03_pcie_clockpm_toggle(struct mcom03_pcie *pcie, u32 val)
+{
+	u32 reg;
+
+	reg = mcom03_pcie_readl(pcie, SYS_CTRL_OFF);
+	reg &= ~SYS_CTRL_APP_CLK_PM_EN;
+	reg |= val ? SYS_CTRL_APP_CLK_PM_EN : 0;
+	mcom03_pcie_writel(pcie, SYS_CTRL_OFF, reg);
+}
+
 static void mcom03_pcie_set_dev_type(struct mcom03_pcie *pcie,
 				     unsigned int device_type)
 {
@@ -253,6 +264,17 @@ static void mcom03_pcie_ep_init(struct dw_pcie_ep *ep)
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 	struct device *dev = pci->dev;
 	enum pci_barno bar;
+	u32 lnkcap;
+	u8 offset;
+
+	// Set CLOCK PM link capability bit for function 0.
+	offset = dw_pcie_find_capability(pci, PCI_CAP_ID_EXP);
+	lnkcap = dw_pcie_readl_dbi(pci, offset + PCI_EXP_LNKCAP);
+
+	dw_pcie_dbi_ro_wr_en(pci);
+	dw_pcie_writel_dbi(pci, offset + PCI_EXP_LNKCAP,
+			   lnkcap | PCI_EXP_LNKCAP_CLKPM);
+	dw_pcie_dbi_ro_wr_dis(pci);
 
 	for (bar = BAR_0; bar <= BAR_5; bar++)
 		dw_pcie_ep_reset_bar(pci, bar);
@@ -338,6 +360,8 @@ static int mcom03_add_pcie_ep(struct mcom03_pcie *pcie,
 	// Do not rely on PCIx_APP_LTSSM_EN pads, override and disable LTSSM
 	mcom03_pcie_ltssm_toggle(pcie, 0);
 	// If we need to program PHY, app_hold_phy_rst is asserted here
+	// Enable CLOCK PM
+	mcom03_pcie_clockpm_toggle(pcie, 1);
 
 	ret = dw_pcie_ep_init(ep);
 	if (ret) {
