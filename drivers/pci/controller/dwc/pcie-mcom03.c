@@ -267,7 +267,9 @@ static const struct pci_epc_features mcom03_pcie_epc_features = {
 	.linkup_notifier = false,
 	.msi_capable = true,
 	.msix_capable = true,
-	.align = SZ_4K,
+	/* Revisit: Set to 64K to have BARs large enough to fit MSI-X data
+	 * for MSI-X interrupts to work with current EPF test driver. */
+	.align = SZ_64K,
 };
 
 static const struct pci_epc_features *
