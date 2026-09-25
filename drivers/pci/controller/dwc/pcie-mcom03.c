@@ -694,6 +694,7 @@ static int mcom03_pcie_remove(struct platform_device *pdev)
 		clk_bulk_disable_unprepare(DW_PCIE_NUM_CORE_CLKS, pci->core_clks);
 		break;
 	default:
+		break;
 	}
 
 	return 0;
