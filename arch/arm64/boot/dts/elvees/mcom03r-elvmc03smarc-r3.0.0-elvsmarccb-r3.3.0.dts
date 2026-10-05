@@ -131,7 +131,7 @@
 	 */
 	clk {
 		pins = "SDMMC1_CLK";
-		drive-strength = <8>;
+		drive-strength = <6>;
 	};
 };
 
