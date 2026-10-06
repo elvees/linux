@@ -214,8 +214,9 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd,
 
 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
-		regval = MODULE_1588_CR_RX_PACKET_TYPE(regval,
-						       RX_PTP_PACKET_V1_L4) |
+		regval = (regval & ~MODULE_1588_CR_RX_PACKET_TYPE) |
+			 FIELD_PREP(MODULE_1588_CR_RX_PACKET_TYPE,
+				    RX_PTP_PACKET_V1_L4) |
 			 MODULE_1588_CR_RX_TSTAMP_EN;
 		arasan_gemac_writel(pd, MODULE_1588_CR, regval);
 
@@ -223,8 +224,9 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd,
 		break;
 	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
-		regval = MODULE_1588_CR_RX_PACKET_TYPE(regval,
-						       RX_PTP_PACKET_V2_L2) |
+		regval = (regval & ~MODULE_1588_CR_RX_PACKET_TYPE) |
+			 FIELD_PREP(MODULE_1588_CR_RX_PACKET_TYPE,
+				    RX_PTP_PACKET_V2_L2) |
 			 MODULE_1588_CR_RX_TSTAMP_EN;
 		arasan_gemac_writel(pd, MODULE_1588_CR, regval);
 
@@ -233,8 +235,9 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd,
 	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
-		regval = MODULE_1588_CR_RX_PACKET_TYPE(regval,
-						       RX_PTP_PACKET_V2_L2_L4) |
+		regval = (regval & ~MODULE_1588_CR_RX_PACKET_TYPE) |
+			 FIELD_PREP(MODULE_1588_CR_RX_PACKET_TYPE,
+				    RX_PTP_PACKET_V2_L2_L4) |
 			 MODULE_1588_CR_RX_TSTAMP_EN;
 		arasan_gemac_writel(pd, MODULE_1588_CR, regval);
 
@@ -243,8 +246,9 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd,
 
 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
-		regval = MODULE_1588_CR_RX_PACKET_TYPE(regval,
-						       RX_PTP_PACKET_V1_L4) |
+		regval = (regval & ~MODULE_1588_CR_RX_PACKET_TYPE) |
+			 FIELD_PREP(MODULE_1588_CR_RX_PACKET_TYPE,
+				    RX_PTP_PACKET_V1_L4) |
 			 MODULE_1588_CR_RX_TSTAMP_EN;
 		arasan_gemac_writel(pd, MODULE_1588_CR, regval);
 		arasan_gemac_writel(pd, PTP_MESSAGE_ID,
@@ -252,8 +256,9 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd,
 		break;
 	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
-		regval = MODULE_1588_CR_RX_PACKET_TYPE(regval,
-						       RX_PTP_PACKET_V2_L2) |
+		regval = (regval & ~MODULE_1588_CR_RX_PACKET_TYPE) |
+			 FIELD_PREP(MODULE_1588_CR_RX_PACKET_TYPE,
+				    RX_PTP_PACKET_V2_L2) |
 			 MODULE_1588_CR_RX_TSTAMP_EN;
 		arasan_gemac_writel(pd, MODULE_1588_CR, regval);
 		arasan_gemac_writel(pd, PTP_MESSAGE_ID,
@@ -262,8 +267,9 @@ int arasan_gemac_ptp_hwstamp_set(struct arasan_gemac_pdata *pd,
 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
 		regval = arasan_gemac_readl(pd, MODULE_1588_CR);
-		regval = MODULE_1588_CR_RX_PACKET_TYPE(regval,
-						       RX_PTP_PACKET_V2_L2_L4) |
+		regval = (regval & ~MODULE_1588_CR_RX_PACKET_TYPE) |
+			 FIELD_PREP(MODULE_1588_CR_RX_PACKET_TYPE,
+				    RX_PTP_PACKET_V2_L2_L4) |
 			 MODULE_1588_CR_RX_TSTAMP_EN;
 		arasan_gemac_writel(pd, MODULE_1588_CR, regval);
 		arasan_gemac_writel(pd, PTP_MESSAGE_ID,
@@ -418,8 +424,9 @@ int arasan_gemac_ptp_init(struct arasan_gemac_pdata *pd)
 	timecounter_init(&pd->ptp.time_counter, &pd->ptp.cycle_counter,
 			 ktime_to_ns(ktime_get_real()));
 	arasan_gemac_writel(pd, INC_ATTRIBUTES,
-			    INC_ATTRIBUTES_VAL(CLOCK_INC_VALUE) |
-			    INC_ATTRIBUTES_PERIOD(CLOCK_INC_PERIOD));
+			    FIELD_PREP(INC_ATTRIBUTES_VAL, CLOCK_INC_VALUE) |
+			    FIELD_PREP(INC_ATTRIBUTES_PERIOD,
+				       CLOCK_INC_PERIOD));
 
 	pd->ptp.sw_mul = SW_DIV;
 

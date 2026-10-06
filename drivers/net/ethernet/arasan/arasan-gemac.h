@@ -10,6 +10,7 @@
 #ifndef _ARASAN_GEMAC_H
 #define _ARASAN_GEMAC_H
 
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/ethtool.h>
 #include <linux/genalloc.h>
@@ -125,7 +126,7 @@
 /* Arasan GEMAC register fields */
 
 #define DMA_CONFIGURATION_SOFT_RESET                  BIT(0)
-#define DMA_CONFIGURATION_BURST_LENGTH(VAL)           ((VAL) << 1)
+#define DMA_CONFIGURATION_BURST_LENGTH                GENMASK(7, 1)
 #define DMA_CONFIGURATION_WAIT_FOR_DONE               BIT(16)
 #define DMA_CONFIGURATION_64BIT_MODE                  BIT(18)
 
@@ -138,16 +139,16 @@
 #define DMA_STATUS_AND_IRQ_RECEIVE_DONE               BIT(4)
 #define DMA_STATUS_AND_IRQ_RX_DMA_STOPPED             BIT(6)
 #define DMA_STATUS_AND_IRQ_MAC_INTERRUPT              BIT(8)
-#define DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE(VAL)    (((VAL) & 0x70000) >> 16)
-#define DMA_STATUS_AND_IRQ_RECEIVE_DMA_STATE(VAL)     (((VAL) & 0xf00000) >> 20)
+#define DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE         GENMASK(18, 16)
+#define DMA_STATUS_AND_IRQ_RECEIVE_DMA_STATE          GENMASK(23, 20)
 
 #define DMA_INTERRUPT_ENABLE_TRANSMIT_DONE            BIT(0)
 #define DMA_INTERRUPT_ENABLE_TRANS_DESC_UNAVAIL       BIT(1)
 #define DMA_INTERRUPT_ENABLE_RECEIVE_DONE             BIT(4)
 #define DMA_INTERRUPT_ENABLE_MAC                      BIT(8)
 
-#define MAC_GLOBAL_CONTROL_SPEED(VAL)                 ((VAL) << 0)
-#define MAC_GLOBAL_CONTROL_DUPLEX_MODE(VAL)           ((VAL) << 2)
+#define MAC_GLOBAL_CONTROL_SPEED                      GENMASK(1, 0)
+#define MAC_GLOBAL_CONTROL_DUPLEX_MODE                BIT(2)
 
 #define MAC_TRANSMIT_CONTROL_TRANSMIT_ENABLE          BIT(0)
 #define MAC_TRANSMIT_CONTROL_TRANSMIT_AUTO_RETRY      BIT(3)
@@ -158,21 +159,20 @@
 #define MAC_ADDRESS_CONTROL_ADDRESS_ENABLE(NUM)       BIT((NUM) - 1)
 #define MAC_ADDRESS_CONTROL_PROMISCUOUS_MODE          BIT(8)
 
-#define MAC_ADDRESS1_LOW_SIXTH_BYTE(VAL)              ((VAL) << 8)
-#define MAC_ADDRESS1_LOW_FIFTH_BYTE(VAL)              ((VAL) << 0)
-#define MAC_ADDRESS1_MED_FOURTH_BYTE(VAL)             ((VAL) << 8)
-#define MAC_ADDRESS1_MED_THIRD_BYTE(VAL)              ((VAL) << 0)
-#define MAC_ADDRESS1_HIGH_SECOND_BYTE(VAL)            ((VAL) << 8)
-#define MAC_ADDRESS1_HIGH_FIRST_BYTE(VAL)             ((VAL) << 0)
+#define MAC_ADDRESS1_LOW_SIXTH_BYTE                   GENMASK(15, 8)
+#define MAC_ADDRESS1_LOW_FIFTH_BYTE                   GENMASK(7, 0)
+#define MAC_ADDRESS1_MED_FOURTH_BYTE                  GENMASK(15, 8)
+#define MAC_ADDRESS1_MED_THIRD_BYTE                   GENMASK(7, 0)
+#define MAC_ADDRESS1_HIGH_SECOND_BYTE                 GENMASK(15, 8)
+#define MAC_ADDRESS1_HIGH_FIRST_BYTE                  GENMASK(7, 0)
 
-#define MAC_MDIO_CONTROL_READ_WRITE(VAL)              ((VAL) << 10)
-#define MAC_MDIO_CONTROL_REG_ADDR(VAL)                ((VAL) << 5)
-#define MAC_MDIO_CONTROL_PHY_ADDR(VAL)                ((VAL) << 0)
-#define MAC_MDIO_CONTROL_START_FRAME(VAL)             ((VAL) << 15)
+#define MAC_MDIO_CONTROL_READ_WRITE                   BIT(10)
+#define MAC_MDIO_CONTROL_REG_ADDR                     GENMASK(9, 5)
+#define MAC_MDIO_CONTROL_PHY_ADDR                     GENMASK(4, 0)
+#define MAC_MDIO_CONTROL_START_FRAME                  BIT(15)
 
 #define MAC_STATCTR_CONTROL_START_READ                BIT(15)
-#define MAC_STATCTR_DATA_HIGH(VAL)                    (((VAL) & 0xffff) << 16)
-#define MAC_STATCTR_DATA_LOW(VAL)                     ((VAL) & 0xffff)
+#define MAC_STATCTR_DATA                              GENMASK(15, 0)
 
 #define MAC_INTERRUPT_ENABLE_UNDERRUN                 BIT(0)
 #define MAC_IRQ_STATUS_UNDERRUN                       BIT(0)
@@ -183,11 +183,10 @@
 
 #define MODULE_1588_CR_TX_TSTAMP_EN                   BIT(1)
 #define MODULE_1588_CR_RX_TSTAMP_EN                   BIT(2)
-#define MODULE_1588_CR_RX_PACKET_TYPE(VAL, TYPE)   \
-	(((VAL) & 0xffffffc7) | ((TYPE) << 3))
+#define MODULE_1588_CR_RX_PACKET_TYPE                 GENMASK(5, 3)
 
-#define INC_ATTRIBUTES_VAL(VAL)                       ((VAL) & 0xffffff)
-#define INC_ATTRIBUTES_PERIOD(VAL)                    ((VAL) << 24)
+#define INC_ATTRIBUTES_VAL                            GENMASK(23, 0)
+#define INC_ATTRIBUTES_PERIOD                         GENMASK(31, 24)
 
 #define PTP_ETHERTYPE                                 0x88f7
 
@@ -207,16 +206,19 @@
 #define DMA_RDES0_OWN_BIT      BIT(31)
 #define DMA_RDES0_FD           BIT(30)
 #define DMA_RDES0_LD           BIT(29)
+#define DMA_RDES0_FRAME_LEN    GENMASK(13, 0)
 #define DMA_RDES1_PTP_PACKET   BIT(31)
 #define DMA_RDES1_PTP_TSTMP    BIT(30)
 #define DMA_RDES1_EOR          BIT(26)
 
 #define DMA_TDES0_OWN_BIT      BIT(31)
 #define DMA_TDES0_TSTAMP       BIT(30)
+#define DMA_TDES0_ERR_BITS     GENMASK(29, 0)
 #define DMA_TDES1_IOC          BIT(31)
 #define DMA_TDES1_LS           BIT(30)
 #define DMA_TDES1_FS           BIT(29)
 #define DMA_TDES1_EOR          BIT(26)
+#define DMA_TDES1_BUF_SIZE     GENMASK(11, 0)
 
 /* Tx stats counter numbers */
 

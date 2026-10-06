@@ -102,8 +102,8 @@ static u32 arasan_gemac_get_stat(struct arasan_gemac_pdata *pd, u32 ctrl_reg,
 	data_high = arasan_gemac_readl(pd, data_h_reg);
 	data_low = arasan_gemac_readl(pd, data_l_reg);
 
-	return MAC_STATCTR_DATA_HIGH(data_high) |
-	       MAC_STATCTR_DATA_LOW(data_low);
+	return FIELD_GET(MAC_STATCTR_DATA, data_high) << 16 |
+	       FIELD_GET(MAC_STATCTR_DATA, data_low);
 }
 
 static void arasan_gemac_get_ethtool_stats(struct net_device *dev,
@@ -210,16 +210,22 @@ static void arasan_gemac_set_hwaddr(struct net_device *dev)
 	const u8 *dev_addr = dev->dev_addr;
 
 	arasan_gemac_writel(pd, MAC_ADDRESS1_LOW,
-			    MAC_ADDRESS1_LOW_SIXTH_BYTE(dev_addr[5]) |
-			    MAC_ADDRESS1_LOW_FIFTH_BYTE(dev_addr[4]));
+			    FIELD_PREP(MAC_ADDRESS1_LOW_SIXTH_BYTE,
+				       dev_addr[5]) |
+			    FIELD_PREP(MAC_ADDRESS1_LOW_FIFTH_BYTE,
+				       dev_addr[4]));
 
 	arasan_gemac_writel(pd, MAC_ADDRESS1_MED,
-			    MAC_ADDRESS1_MED_FOURTH_BYTE(dev_addr[3]) |
-			    MAC_ADDRESS1_MED_THIRD_BYTE(dev_addr[2]));
+			    FIELD_PREP(MAC_ADDRESS1_MED_FOURTH_BYTE,
+				       dev_addr[3]) |
+			    FIELD_PREP(MAC_ADDRESS1_MED_THIRD_BYTE,
+				       dev_addr[2]));
 
 	arasan_gemac_writel(pd, MAC_ADDRESS1_HIGH,
-			    MAC_ADDRESS1_HIGH_SECOND_BYTE(dev_addr[1]) |
-			    MAC_ADDRESS1_HIGH_FIRST_BYTE(dev_addr[0]));
+			    FIELD_PREP(MAC_ADDRESS1_HIGH_SECOND_BYTE,
+				       dev_addr[1]) |
+			    FIELD_PREP(MAC_ADDRESS1_HIGH_FIRST_BYTE,
+				       dev_addr[0]));
 }
 
 static void arasan_gemac_get_hwaddr(struct arasan_gemac_pdata *pd)
@@ -240,7 +246,7 @@ static void arasan_gemac_dma_soft_reset(struct arasan_gemac_pdata *pd)
 	mdelay(10);
 
 	arasan_gemac_writel(pd, DMA_CONFIGURATION,
-			    DMA_CONFIGURATION_BURST_LENGTH(4) |
+			    FIELD_PREP(DMA_CONFIGURATION_BURST_LENGTH, 4) |
 			    ((pd->axi_width64) ?
 				    DMA_CONFIGURATION_64BIT_MODE : 0));
 }
@@ -506,11 +512,11 @@ static int arasan_gemac_alloc_rx_ring(struct arasan_gemac_pdata *pd)
 static inline void arasan_gemac_tx_update_stats(struct net_device *dev,
 						u32 status, u32 length)
 {
-	if (unlikely(status & 0x3fffffff)) {
+	if (unlikely(status & DMA_TDES0_ERR_BITS)) {
 		dev->stats.tx_errors++;
 	} else {
 		dev->stats.tx_packets++;
-		dev->stats.tx_bytes += (length & 0xFFF);
+		dev->stats.tx_bytes += FIELD_GET(DMA_TDES1_BUF_SIZE, length);
 	}
 }
 
@@ -610,7 +616,8 @@ static int arasan_gemac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (unlikely(((head + 2) % TX_RING_SIZE) == tail))
 		netif_stop_queue(pd->dev);
 
-	tmp_desc1 = (DMA_TDES1_LS | DMA_TDES1_FS | ((u32)skb->len & 0xFFF));
+	tmp_desc1 = DMA_TDES1_LS | DMA_TDES1_FS |
+		    FIELD_PREP(DMA_TDES1_BUF_SIZE, skb->len);
 
 	/* check if we are at the last descriptor and need to set EOR */
 	if (unlikely(head == (TX_RING_SIZE - 1)))
@@ -653,7 +660,7 @@ static void arasan_gemac_rx_handoff(struct arasan_gemac_pdata *pd,
 {
 	struct net_device *dev = pd->dev;
 	struct sk_buff *skb;
-	u16 packet_length = (status & 0x3fff);
+	u16 packet_length = FIELD_GET(DMA_RDES0_FRAME_LEN, status);
 
 	/* Packet length can not be less than 4 bytes, because all packets
 	 * contain 4 byte of CRC at end. If somehow length of packet will be
@@ -867,7 +874,7 @@ static void arasan_gemac_stop_tx_dma(struct arasan_gemac_pdata *pd)
 	/* Wait max 20 ms for transmit process to stop */
 	while (--timeout) {
 		reg = arasan_gemac_readl(pd, DMA_STATUS_AND_IRQ);
-		if (!DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE(reg))
+		if (!FIELD_GET(DMA_STATUS_AND_IRQ_TRANSMIT_DMA_STATE, reg))
 			break;
 		usleep_range(10, 20);
 	}
@@ -935,7 +942,7 @@ static void arasan_gemac_stop_rx_dma(struct arasan_gemac_pdata *pd)
 	/* Wait max 20 ms for receive process to stop */
 	while (--timeout) {
 		reg = arasan_gemac_readl(pd, DMA_STATUS_AND_IRQ);
-		if (!DMA_STATUS_AND_IRQ_RECEIVE_DMA_STATE(reg))
+		if (!FIELD_GET(DMA_STATUS_AND_IRQ_RECEIVE_DMA_STATE, reg))
 			break;
 		usleep_range(10, 20);
 	}
@@ -1040,13 +1047,14 @@ static int arasan_gemac_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 	int value;
 
 	arasan_gemac_writel(pd, MAC_MDIO_CONTROL,
-			    MAC_MDIO_CONTROL_READ_WRITE(1) |
-			    MAC_MDIO_CONTROL_REG_ADDR(regnum) |
-			    MAC_MDIO_CONTROL_PHY_ADDR(mii_id) |
-			    MAC_MDIO_CONTROL_START_FRAME(1));
+			    FIELD_PREP(MAC_MDIO_CONTROL_READ_WRITE, 1) |
+			    FIELD_PREP(MAC_MDIO_CONTROL_REG_ADDR, regnum) |
+			    FIELD_PREP(MAC_MDIO_CONTROL_PHY_ADDR, mii_id) |
+			    FIELD_PREP(MAC_MDIO_CONTROL_START_FRAME, 1));
 
 	/* wait for end of transfer */
-	while ((arasan_gemac_readl(pd, MAC_MDIO_CONTROL) >> 15))
+	while (FIELD_GET(MAC_MDIO_CONTROL_START_FRAME,
+			 arasan_gemac_readl(pd, MAC_MDIO_CONTROL)))
 		cpu_relax();
 
 	value = arasan_gemac_readl(pd, MAC_MDIO_DATA);
@@ -1062,13 +1070,14 @@ static int arasan_gemac_mdio_write(struct mii_bus *bus, int mii_id,
 	arasan_gemac_writel(pd, MAC_MDIO_DATA, value);
 
 	arasan_gemac_writel(pd, MAC_MDIO_CONTROL,
-			    MAC_MDIO_CONTROL_START_FRAME(1) |
-			    MAC_MDIO_CONTROL_PHY_ADDR(mii_id) |
-			    MAC_MDIO_CONTROL_REG_ADDR(regnum) |
-			    MAC_MDIO_CONTROL_READ_WRITE(0));
+			    FIELD_PREP(MAC_MDIO_CONTROL_START_FRAME, 1) |
+			    FIELD_PREP(MAC_MDIO_CONTROL_PHY_ADDR, mii_id) |
+			    FIELD_PREP(MAC_MDIO_CONTROL_REG_ADDR, regnum) |
+			    FIELD_PREP(MAC_MDIO_CONTROL_READ_WRITE, 0));
 
 	/* wait for end of transfer */
-	while ((arasan_gemac_readl(pd, MAC_MDIO_CONTROL) >> 15))
+	while (FIELD_GET(MAC_MDIO_CONTROL_START_FRAME,
+			 arasan_gemac_readl(pd, MAC_MDIO_CONTROL)))
 		cpu_relax();
 
 	return 0;
@@ -1083,8 +1092,7 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 	u32 reg, tcreg;
 
 	reg = arasan_gemac_readl(pd, MAC_GLOBAL_CONTROL);
-	reg &= ~(MAC_GLOBAL_CONTROL_SPEED(3) |
-		 MAC_GLOBAL_CONTROL_DUPLEX_MODE(1));
+	reg &= ~(MAC_GLOBAL_CONTROL_SPEED | MAC_GLOBAL_CONTROL_DUPLEX_MODE);
 	tcreg = arasan_gemac_readl(pd, MAC_TRANSMIT_CONTROL);
 	tcreg &= ~MAC_TRANSMIT_CONTROL_TRANSMIT_AUTO_RETRY;
 
@@ -1093,7 +1101,7 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 		tcreg |= MAC_TRANSMIT_CONTROL_TRANSMIT_AUTO_RETRY;
 		break;
 	case DUPLEX_FULL:
-		reg |= MAC_GLOBAL_CONTROL_DUPLEX_MODE(DUPLEX_FULL);
+		reg |= FIELD_PREP(MAC_GLOBAL_CONTROL_DUPLEX_MODE, DUPLEX_FULL);
 		break;
 	default:
 		netdev_err(dev, "Unknown duplex (%d)\n", phydev->duplex);
@@ -1102,15 +1110,15 @@ static void arasan_gemac_reconfigure(struct net_device *dev)
 
 	switch (phydev->speed) {
 	case SPEED_10:
-		reg |= MAC_GLOBAL_CONTROL_SPEED(0);
+		reg |= FIELD_PREP(MAC_GLOBAL_CONTROL_SPEED, 0);
 		rate = 2500000;
 		break;
 	case SPEED_100:
-		reg |= MAC_GLOBAL_CONTROL_SPEED(1);
+		reg |= FIELD_PREP(MAC_GLOBAL_CONTROL_SPEED, 1);
 		rate = 25000000;
 		break;
 	case SPEED_1000:
-		reg |= MAC_GLOBAL_CONTROL_SPEED(2);
+		reg |= FIELD_PREP(MAC_GLOBAL_CONTROL_SPEED, 2);
 		rate = 125000000;
 		break;
 	default:
