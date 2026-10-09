@@ -652,27 +652,6 @@ static const struct component_ops mcom03_dsi_ops = {
 	.unbind	= mcom03_dsi_unbind,
 };
 
-static int mcom03_dsi_host_attach(void *priv_data, struct mipi_dsi_device *device)
-{
-	struct mcom03_dsi_device *dsi = priv_data;
-
-	return component_add(dsi->dev, &mcom03_dsi_ops);
-}
-
-static int mcom03_dsi_host_detach(void *priv_data, struct mipi_dsi_device *device)
-{
-	struct mcom03_dsi_device *dsi = priv_data;
-
-	component_del(dsi->dev, &mcom03_dsi_ops);
-
-	return 0;
-}
-
-static const struct dw_mipi_dsi_host_ops mcom03_dsi_host_ops = {
-	.attach = mcom03_dsi_host_attach,
-	.detach = mcom03_dsi_host_detach,
-};
-
 static int mcom03_dsi_setup(struct platform_device *pdev)
 {
 	struct mcom03_dsi_device *de = dev_get_drvdata(&pdev->dev);
@@ -687,7 +666,6 @@ static int mcom03_dsi_setup(struct platform_device *pdev)
 	de->dsi_plat_data.mode_valid = &mcom03_dsi_mode_valid;
 	de->dsi_plat_data.phy_ops = &mcom03_dsi_phy_ops;
 	de->dsi_plat_data.base = devm_ioremap_resource(&pdev->dev, res);
-	de->dsi_plat_data.host_ops = &mcom03_dsi_host_ops;
 	de->dsi_plat_data.priv_data = de;
 	if (IS_ERR(de->dsi_plat_data.base))
 		return -ENODEV;
@@ -803,6 +781,12 @@ static int mcom03_dsi_probe(struct platform_device *pdev)
 	if (ret)
 		goto dw_cleanup;
 
+	ret = component_add(dev, &mcom03_dsi_ops);
+	if (ret) {
+		dev_err(dev, "Failed to register component\n");
+		goto clock_unprepare;
+	}
+
 	return 0;
 
 clock_unprepare:
@@ -819,6 +803,7 @@ static void mcom03_dsi_remove(struct platform_device *pdev)
 {
 	struct mcom03_dsi_device *de = dev_get_drvdata(&pdev->dev);
 
+	component_del(&pdev->dev, &mcom03_dsi_ops);
 	dw_mipi_dsi_remove(de->dsi);
 	clk_bulk_unprepare(de->num_clocks, de->clocks);
 }
