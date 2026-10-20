@@ -9,41 +9,41 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
-#include <linux/of.h>
 
-#define NUM_PWM_CHANNEL			4
+#define NUM_PWM_CHANNEL 4
 
-#define PWM_DEVICE_OFFSET		0x100
+#define PWM_DEVICE_OFFSET 0x100
 
 /* PWM registers */
-#define PWM_CLKCTL			0x08
-#define PWM_CTRPRD			0x10
-#define PWM_CTRCNT			0x14
-#define PWM_CMPA			0x24
-#define PWM_EMCTLA			0x2C
-#define PWM_EMCTLB			0x30
-#define PWM_EMSWFR			0x34
-#define PWM_CTRRUN			0x80
+#define PWM_CLKCTL 0x08
+#define PWM_CTRPRD 0x10
+#define PWM_CTRCNT 0x14
+#define PWM_CMPA 0x24
+#define PWM_EMCTLA 0x2C
+#define PWM_EMCTLB 0x30
+#define PWM_EMSWFR 0x34
+#define PWM_CTRRUN 0x80
 
-#define PWM_CLKCTL_CNTMODE(v)		((v) << 0)
-#define PWM_CLKCTL_LOADPRD(v)		((v) << 3)
-#define PWM_CLKCTL_SYNCOSEL(v)		((v) << 4)
+#define PWM_CLKCTL_CNTMODE(v) ((v) << 0)
+#define PWM_CLKCTL_LOADPRD(v) ((v) << 3)
+#define PWM_CLKCTL_SYNCOSEL(v) ((v) << 4)
 
-#define PWM_EMCTLA_EZRO(v)		((v) << 0)
-#define PWM_EMCTLA_EPRD(v)		((v) << 2)
-#define PWM_EMCTLA_ECMPAI(v)		((v) << 4)
-#define PWM_EMCTLA_ECMPAD(v)		((v) << 6)
-#define PWM_EMCTLA_ECMPBI(v)		((v) << 8)
-#define PWM_EMCTLA_ECMPBD(v)		((v) << 10)
+#define PWM_EMCTLA_EZRO(v) ((v) << 0)
+#define PWM_EMCTLA_EPRD(v) ((v) << 2)
+#define PWM_EMCTLA_ECMPAI(v) ((v) << 4)
+#define PWM_EMCTLA_ECMPAD(v) ((v) << 6)
+#define PWM_EMCTLA_ECMPBI(v) ((v) << 8)
+#define PWM_EMCTLA_ECMPBD(v) ((v) << 10)
 
-#define PWM_EMSWFR_ACTSFA(v)		((v) << 0)
-#define PWM_EMSWFR_ONESFA(v)		((v) << 2)
-#define PWM_EMSWFR_ACTSFB(v)		((v) << 3)
-#define PWM_EMSWFR_ONESFB(v)		((v) << 5)
+#define PWM_EMSWFR_ACTSFA(v) ((v) << 0)
+#define PWM_EMSWFR_ONESFA(v) ((v) << 2)
+#define PWM_EMSWFR_ACTSFB(v) ((v) << 3)
+#define PWM_EMSWFR_ONESFB(v) ((v) << 5)
 
-#define PWM_CTRRUN_RUN(port, v)		((v) << (port) * 8)
+#define PWM_CTRRUN_RUN(port, v) ((v) << ((port) * 8))
 
 enum {
 	PWM_CNTMODE_UP,
@@ -86,8 +86,9 @@ struct elvees_pwm_chip {
 	spinlock_t ctrrun_lock;
 };
 
-static inline void elvees_pwm_writel(struct elvees_pwm_chip *chip,
-				   u32 reg, u32 val, u32 port)
+/* Per-port register access: base + port * 0x100 + reg_offset */
+static inline void elvees_pwm_writel(struct elvees_pwm_chip *chip, u32 reg,
+				     u32 val, u32 port)
 {
 	writel(val, chip->mmio_base + reg + port * PWM_DEVICE_OFFSET);
 }
@@ -193,8 +194,8 @@ static void elvees_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 static int elvees_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			    const struct pwm_state *state)
 {
-	int err;
 	bool enabled = pwm->state.enabled;
+	int err;
 
 	if (state->polarity != pwm->state.polarity) {
 		if (enabled) {
@@ -212,7 +213,7 @@ static int elvees_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		return 0;
 	}
 
-	err = elvees_pwm_config(pwm->chip, pwm, state->duty_cycle, state->period);
+	err = elvees_pwm_config(chip, pwm, state->duty_cycle, state->period);
 	if (err)
 		return err;
 
@@ -223,20 +224,20 @@ static int elvees_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 }
 
 static const struct pwm_ops elvees_pwm_ops = {
-	.request	= elvees_pwm_request,
-	.apply		= elvees_pwm_apply,
+	.request = elvees_pwm_request,
+	.apply = elvees_pwm_apply,
 };
 
-static int elvees_pwm_parse_dt(struct pwm_chip *pwm_chip)
+static int elvees_pwm_parse_dt(struct pwm_chip *chip)
 {
 	/*
 	 * Since v6.9 pwm_chip->dev is the pwmchipN class device, which has no
 	 * of_node. DT properties live on the parent platform device.
 	 */
-	struct device *dev = pwmchip_parent(pwm_chip);
+	struct device *dev = pwmchip_parent(chip);
 	struct device_node *node = dev_of_node(dev);
+	struct elvees_pwm_chip *elvees_pwm_chip = pwmchip_get_drvdata(chip);
 	int ret;
-	struct elvees_pwm_chip *elvees_pwm_chip = pwmchip_get_drvdata(pwm_chip);
 
 	ret = of_property_read_u32_array(node, "elvees,output-channel",
 				   elvees_pwm_chip->out_channel, NUM_PWM_CHANNEL);
@@ -253,12 +254,12 @@ static int elvees_pwm_parse_dt(struct pwm_chip *pwm_chip)
 
 static int elvees_pwm_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct elvees_pwm_chip *elvees_pwm_chip;
 	struct pwm_chip *chip;
 	int ret;
 
-	chip = devm_pwmchip_alloc(&pdev->dev, NUM_PWM_CHANNEL, sizeof(*elvees_pwm_chip));
-
+	chip = devm_pwmchip_alloc(dev, NUM_PWM_CHANNEL, sizeof(*elvees_pwm_chip));
 	if (IS_ERR(chip))
 		return PTR_ERR(chip);
 	elvees_pwm_chip = pwmchip_get_drvdata(chip);
@@ -268,10 +269,9 @@ static int elvees_pwm_probe(struct platform_device *pdev)
 	if (IS_ERR(elvees_pwm_chip->mmio_base))
 		return PTR_ERR(elvees_pwm_chip->mmio_base);
 
-
-	elvees_pwm_chip->clk = devm_clk_get_enabled(&pdev->dev, NULL);
+	elvees_pwm_chip->clk = devm_clk_get_enabled(dev, NULL);
 	if (IS_ERR(elvees_pwm_chip->clk))
-		return dev_err_probe(&pdev->dev, PTR_ERR(elvees_pwm_chip->clk),
+		return dev_err_probe(dev, PTR_ERR(elvees_pwm_chip->clk),
 				     "failed to init clock\n");
 
 	chip->ops = &elvees_pwm_ops;
@@ -280,18 +280,16 @@ static int elvees_pwm_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	platform_set_drvdata(pdev, elvees_pwm_chip);
-
-	ret = devm_pwmchip_add(&pdev->dev, chip);
+	ret = devm_pwmchip_add(dev, chip);
 	if (ret < 0)
-		return dev_err_probe(&pdev->dev, ret, "failed to add pwmchip\n");
+		return dev_err_probe(dev, ret, "failed to add pwmchip\n");
 
 	return 0;
 }
 
 static const struct of_device_id elvees_pwm_of_match[] = {
-	{ .compatible	= "elvees,elvees-pwm" },
-	{},
+	{ .compatible = "elvees,elvees-pwm" },
+	{}
 };
 MODULE_DEVICE_TABLE(of, elvees_pwm_of_match);
 
