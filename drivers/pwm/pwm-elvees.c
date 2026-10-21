@@ -83,6 +83,7 @@ struct elvees_pwm_chip {
 	void __iomem *mmio_base;
 	u32 out_channel[NUM_PWM_CHANNEL]; /* 0 == OUTA, >0 == OUTB */
 	u32 state_on_disable[NUM_PWM_CHANNEL];
+	spinlock_t ctrrun_lock;
 };
 
 static inline void elvees_pwm_writel(struct elvees_pwm_chip *chip,
@@ -96,16 +97,42 @@ static inline u32 elvees_pwm_readl(struct elvees_pwm_chip *chip, u32 reg, u32 po
 	return readl(chip->mmio_base + reg + port * PWM_DEVICE_OFFSET);
 }
 
-static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
+static void elvees_pwm_set_run(struct elvees_pwm_chip *pwm_chip, u32 port, u32 run)
+{
+	u32 val;
+
+	guard(spinlock_irqsave)(&pwm_chip->ctrrun_lock);
+	val = elvees_pwm_readl(pwm_chip, PWM_CTRRUN, port);
+	val &= ~PWM_CTRRUN_RUN(port, PWM_RUN_MASK);
+	if (run == PWM_RUN_START)
+		val |= PWM_CTRRUN_RUN(port, PWM_RUN_START);
+
+	elvees_pwm_writel(pwm_chip, PWM_CTRRUN, val, port);
+}
+
+static void
+elvees_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm, enum pwm_polarity polarity)
 {
 	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
 	u32 val;
 
-	elvees_pwm_writel(pwm_chip, pwm_chip->out_channel[pwm->hwpwm] ?
-			PWM_EMCTLB : PWM_EMCTLA,
-			PWM_EMCTLA_ECMPAD(PWM_EMCTL_ACTION_SET) |
-			PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_CLEAR),
-			pwm->hwpwm);
+	if (polarity == PWM_POLARITY_NORMAL)
+		val = PWM_EMCTLA_ECMPAD(PWM_EMCTL_ACTION_SET) |
+		      PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_CLEAR);
+	else
+		val = PWM_EMCTLA_ECMPAD(PWM_EMCTL_ACTION_CLEAR) |
+		      PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_SET);
+
+	elvees_pwm_writel(pwm_chip,
+			  pwm_chip->out_channel[pwm->hwpwm] ? PWM_EMCTLB : PWM_EMCTLA,
+			  val, pwm->hwpwm);
+}
+
+static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
+
+	elvees_pwm_set_polarity(chip, pwm, PWM_POLARITY_NORMAL);
 
 	elvees_pwm_writel(pwm_chip, PWM_CLKCTL,
 			PWM_CLKCTL_CNTMODE(PWM_CNTMODE_DOWN) |
@@ -113,11 +140,7 @@ static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 			PWM_CLKCTL_SYNCOSEL(PWM_SYNCOSEL_DISABLE),
 			pwm->hwpwm);
 
-	val = elvees_pwm_readl(pwm_chip, PWM_CTRRUN, pwm->hwpwm);
-
-	val &= ~PWM_CTRRUN_RUN(pwm->hwpwm, PWM_RUN_MASK);
-
-	elvees_pwm_writel(pwm_chip, PWM_CTRRUN, val, pwm->hwpwm);
+	elvees_pwm_set_run(pwm_chip, pwm->hwpwm, PWM_RUN_STOP_CNT);
 
 	return 0;
 }
@@ -141,38 +164,11 @@ static int elvees_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	return 0;
 }
 
-static int elvees_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm,
-				  enum pwm_polarity polarity)
+static void elvees_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
-	u32 val;
 
-	if (polarity == PWM_POLARITY_NORMAL) {
-		val = PWM_EMCTLA_ECMPAD(PWM_EMCTL_ACTION_SET) |
-		      PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_CLEAR);
-	} else {
-		val = PWM_EMCTLA_ECMPAD(PWM_EMCTL_ACTION_CLEAR) |
-		      PWM_EMCTLA_EPRD(PWM_EMCTL_ACTION_SET);
-	}
-
-	elvees_pwm_writel(pwm_chip, pwm_chip->out_channel[pwm->hwpwm] ?
-			PWM_EMCTLB : PWM_EMCTLA, val, pwm->hwpwm);
-
-	return 0;
-}
-
-static int elvees_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
-	u32 val;
-
-	val = elvees_pwm_readl(pwm_chip, PWM_CTRRUN, pwm->hwpwm);
-
-	val |= PWM_CTRRUN_RUN(pwm->hwpwm, PWM_RUN_START);
-
-	elvees_pwm_writel(pwm_chip, PWM_CTRRUN, val, pwm->hwpwm);
-
-	return 0;
+	elvees_pwm_set_run(pwm_chip, pwm->hwpwm, PWM_RUN_START);
 }
 
 static void elvees_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
@@ -183,11 +179,7 @@ static void elvees_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	disable_state = pwm_chip->state_on_disable[pwm->hwpwm];
 	outport = pwm_chip->out_channel[pwm->hwpwm];
 
-	val = elvees_pwm_readl(pwm_chip, PWM_CTRRUN, pwm->hwpwm);
-
-	val &= ~PWM_CTRRUN_RUN(pwm->hwpwm, PWM_RUN_MASK);
-
-	elvees_pwm_writel(pwm_chip, PWM_CTRRUN, val, pwm->hwpwm);
+	elvees_pwm_set_run(pwm_chip, pwm->hwpwm, PWM_RUN_STOP_CNT);
 
 	if (disable_state != PWM_EMCTL_ACTION_NONE) {
 		val = outport ?
@@ -210,9 +202,7 @@ static int elvees_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			enabled = false;
 		}
 
-		err = elvees_pwm_set_polarity(chip, pwm, state->polarity);
-		if (err)
-			return err;
+		elvees_pwm_set_polarity(chip, pwm, state->polarity);
 	}
 
 	if (!state->enabled) {
@@ -227,9 +217,9 @@ static int elvees_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		return err;
 
 	if (!enabled)
-		err = elvees_pwm_enable(chip, pwm);
+		elvees_pwm_enable(chip, pwm);
 
-	return err;
+	return 0;
 }
 
 static const struct pwm_ops elvees_pwm_ops = {
@@ -272,7 +262,7 @@ static int elvees_pwm_probe(struct platform_device *pdev)
 	if (IS_ERR(chip))
 		return PTR_ERR(chip);
 	elvees_pwm_chip = pwmchip_get_drvdata(chip);
-
+	spin_lock_init(&elvees_pwm_chip->ctrrun_lock);
 
 	elvees_pwm_chip->mmio_base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(elvees_pwm_chip->mmio_base))
@@ -287,6 +277,8 @@ static int elvees_pwm_probe(struct platform_device *pdev)
 	chip->ops = &elvees_pwm_ops;
 
 	ret = elvees_pwm_parse_dt(chip);
+	if (ret)
+		return ret;
 
 	platform_set_drvdata(pdev, elvees_pwm_chip);
 
