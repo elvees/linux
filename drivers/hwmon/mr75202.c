@@ -160,6 +160,8 @@
 #define MR75202_DELAY_US 500
 #define MR75202_TIMEOUT_US 50000
 
+#define MR75202_CHANNELS_ALL ((u32)-1)
+
 struct mr75202_priv {
 	void __iomem *base;
 	struct clk *clk;
@@ -204,7 +206,25 @@ static umode_t mr75202_is_visible(const void *data,
 	return 0;
 }
 
-static int mr75202_write_ts(struct mr75202_priv *priv, u32 address, u32 data)
+static void mr75202_ts_channel_select(struct mr75202_priv *priv, u32 channel)
+{
+	u32 channels_mask = channel == MR75202_CHANNELS_ALL ?
+				       channel = ((1 << priv->nts) - 1) :
+				       BIT(channel);
+
+	writel((channels_mask ^ 0xff) & 0xff, priv->base + MR75202_TS_SDIF_CTRL);
+}
+
+static void mr75202_vm_channel_select(struct mr75202_priv *priv, u32 channel)
+{
+	u32 channels_mask = channel == MR75202_CHANNELS_ALL ?
+				       channel = ((1 << priv->nvm) - 1) :
+				       BIT(channel);
+
+	writel((channels_mask ^ 0xff) & 0xff, priv->base + MR75202_VM_SDIF_CTRL);
+}
+
+static int mr75202_write_ts(struct mr75202_priv *priv, u32 channel, u32 address, u32 data)
 {
 	u32 val;
 	int ret;
@@ -215,6 +235,7 @@ static int mr75202_write_ts(struct mr75202_priv *priv, u32 address, u32 data)
 	if (ret)
 		return ret;
 
+	mr75202_ts_channel_select(priv, channel);
 	data = FIELD_PREP(MR75202_TS_SDIF_WDATA, data) |
 	       FIELD_PREP(MR75202_TS_SDIF_ADDR, address) |
 	       MR75202_TS_SDIF_WRN | MR75202_TS_SDIF_PROG;
@@ -223,7 +244,7 @@ static int mr75202_write_ts(struct mr75202_priv *priv, u32 address, u32 data)
 	return 0;
 }
 
-static int mr75202_write_vm(struct mr75202_priv *priv, u32 address, u32 data)
+static int mr75202_write_vm(struct mr75202_priv *priv, u32 channel, u32 address, u32 data)
 {
 	u32 val;
 	int ret;
@@ -234,6 +255,7 @@ static int mr75202_write_vm(struct mr75202_priv *priv, u32 address, u32 data)
 	if (ret)
 		return ret;
 
+	mr75202_vm_channel_select(priv, channel);
 	data = FIELD_PREP(MR75202_VM_SDIF_WDATA, data) |
 	       FIELD_PREP(MR75202_VM_SDIF_ADDR, address) |
 	       MR75202_VM_SDIF_WRN | MR75202_VM_SDIF_PROG;
@@ -242,7 +264,7 @@ static int mr75202_write_vm(struct mr75202_priv *priv, u32 address, u32 data)
 	return 0;
 }
 
-static int mr75202_read_vm(struct mr75202_priv *priv, u32 address, u32 channel)
+static int mr75202_read_vm(struct mr75202_priv *priv, u32 channel, u32 address)
 {
 	u32 val;
 	int ret;
@@ -253,6 +275,7 @@ static int mr75202_read_vm(struct mr75202_priv *priv, u32 address, u32 channel)
 	if (ret)
 		return ret;
 
+	mr75202_vm_channel_select(priv, channel);
 	val = FIELD_PREP(MR75202_VM_SDIF_ADDR, address) | MR75202_VM_SDIF_PROG;
 	writel(val, priv->base + MR75202_VM_SDIF);
 	ret = readl_poll_timeout(priv->base + MR75202_VM_SDIF_STATUS, val,
@@ -278,7 +301,7 @@ static int mr75202_read_temp(struct device *dev, u32 attr, int channel,
 		/* Deassert sample done bit in TS_SMPL_STATUS by reading old
 		 * data. */
 		readl(priv->base + MR75202_TS_DATA(channel));
-		mr75202_write_ts(priv, MR75202_SDA_IP_CTRL,
+		mr75202_write_ts(priv, channel, MR75202_SDA_IP_CTRL,
 				 MR75202_SDA_IP_CTRL_RUN_ONCE |
 				 MR75202_SDA_IP_CTRL_AUTO);
 
@@ -321,16 +344,16 @@ static int mr75202_read_in(struct device *dev, u32 attr, int channel, long *val)
 		/* By unknown reason single run and auto mode are not working.
 		 * Here we start continuous run without auto mode and stop it
 		 * after first data received. */
-		mr75202_write_vm(priv, MR75202_SDA_IP_CTRL,
+		mr75202_write_vm(priv, channel, MR75202_SDA_IP_CTRL,
 				 MR75202_SDA_IP_CTRL_RESETN |
 				 MR75202_SDA_IP_CTRL_RUN_CONT);
 
 		ret = read_poll_timeout(mr75202_read_vm, regval,
 					regval & MR75202_SDA_IP_DATA_DONE,
 					MR75202_DELAY_US, MR75202_TIMEOUT_US, 0,
-					priv, MR75202_SDA_IP_DATA, channel);
+					priv, channel, MR75202_SDA_IP_DATA);
 
-		mr75202_write_vm(priv, MR75202_SDA_IP_CTRL,
+		mr75202_write_vm(priv, channel, MR75202_SDA_IP_CTRL,
 				 MR75202_SDA_IP_CTRL_RESETN |
 				 MR75202_SDA_IP_CTRL_STOP);
 
@@ -436,7 +459,7 @@ static int mr75202_init_temp(struct device *dev, struct mr75202_priv *priv)
 	 * data readout in auto-mode. */
 
 	/* TS4 sensor power-up time should be >= 50 us */
-	return mr75202_write_ts(priv, MR75202_SDA_IP_TMR,
+	return mr75202_write_ts(priv, MR75202_CHANNELS_ALL, MR75202_SDA_IP_TMR,
 				DIV_ROUND_UP(50 * rate, 1000000));
 
 	/* TODO: Reset samples counter */
@@ -480,7 +503,7 @@ static int mr75202_init_in(struct device *dev, struct mr75202_priv *priv)
 	 * data readout in auto-mode. */
 
 	/* VM sensor power-up time should be <= 10 us*/
-	return mr75202_write_vm(priv, MR75202_SDA_IP_TMR,
+	return mr75202_write_vm(priv, MR75202_CHANNELS_ALL, MR75202_SDA_IP_TMR,
 				DIV_ROUND_UP(5 * rate, 1000000));
 
 	/* TODO: Reset samples counter */
