@@ -26,6 +26,15 @@
 #define PWM_EMCTLA 0x2C
 #define PWM_EMCTLB 0x30
 #define PWM_EMSWFR 0x34
+
+/*
+ * CTRRUN is a single shared register at offset 0x80 from the
+ * PWM controller base. Each port occupies a 2-bit field:
+ *   port 0: bits [1:0]
+ *   port 1: bits [9:8]
+ *   port 2: bits [17:16]
+ *   port 3: bits [25:24]
+ */
 #define PWM_CTRRUN 0x80
 
 #define PWM_CLKCTL_CNTMODE(v) ((v) << 0)
@@ -44,6 +53,7 @@
 #define PWM_EMSWFR_ACTSFB(v) ((v) << 3)
 #define PWM_EMSWFR_ONESFB(v) ((v) << 5)
 
+/* CTRRUN is shared: port field is at bits [port*8+1 : port*8+0] */
 #define PWM_CTRRUN_RUN(port, v) ((v) << ((port) * 8))
 
 enum {
@@ -99,17 +109,22 @@ static inline u32 elvees_pwm_readl(struct elvees_pwm_chip *chip, u32 reg, u32 po
 	return readl(chip->mmio_base + reg + port * PWM_DEVICE_OFFSET);
 }
 
+/*
+ * CTRRUN is a single shared register (always at base + 0x80, i.e. port 0
+ * in the per-port addressing scheme). The port is selected by the bit
+ * field position (port * 8 shift).
+ */
 static void elvees_pwm_set_run(struct elvees_pwm_chip *pwm_chip, u32 port, u32 run)
 {
 	u32 val;
 
 	guard(spinlock_irqsave)(&pwm_chip->ctrrun_lock);
-	val = elvees_pwm_readl(pwm_chip, PWM_CTRRUN, port);
+	val = readl(pwm_chip->mmio_base + PWM_CTRRUN);
 	val &= ~PWM_CTRRUN_RUN(port, PWM_RUN_MASK);
 	if (run == PWM_RUN_START)
 		val |= PWM_CTRRUN_RUN(port, PWM_RUN_START);
 
-	elvees_pwm_writel(pwm_chip, PWM_CTRRUN, val, port);
+	writel(val, pwm_chip->mmio_base + PWM_CTRRUN);
 }
 
 static void
@@ -134,7 +149,7 @@ static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
 
-	elvees_pwm_set_polarity(chip, pwm, PWM_POLARITY_NORMAL);
+	elvees_pwm_set_polarity(chip, pwm, pwm->state.polarity);
 
 	elvees_pwm_writel(pwm_chip, PWM_CLKCTL,
 			PWM_CLKCTL_CNTMODE(PWM_CNTMODE_DOWN) |
@@ -251,7 +266,7 @@ static const struct pwm_ops elvees_pwm_ops = {
 static int elvees_pwm_parse_dt(struct pwm_chip *chip)
 {
 	/*
-	 * Since v6.9 pwm_chip->dev is the pwmchipN class device, which has no
+	 * Since v6.9 chip->dev is the pwmchipN class device, which has no
 	 * of_node. DT properties live on the parent platform device.
 	 */
 	struct device *dev = pwmchip_parent(chip);
@@ -259,15 +274,23 @@ static int elvees_pwm_parse_dt(struct pwm_chip *chip)
 	struct elvees_pwm_chip *elvees_pwm_chip = pwmchip_get_drvdata(chip);
 	int ret;
 
+	/*
+	 * Both properties are optional. of_property_read_u32_array() returns
+	 * -EINVAL if a property is absent and leaves the array untouched, so
+	 * the zero-initialised defaults are kept: OUTA for output-channel and
+	 * ACTION_NONE (no forced state on disable) for state-on-disable.
+	 */
 	ret = of_property_read_u32_array(node, "elvees,output-channel",
 				   elvees_pwm_chip->out_channel, NUM_PWM_CHANNEL);
-	if (ret < 0)
-		dev_warn(dev, "elvees,output-channel DT property missing\n");
+	if (ret < 0 && ret != -EINVAL)
+		dev_warn(dev, "invalid 'elvees,output-channel' property (%d)\n",
+			 ret);
 
 	ret = of_property_read_u32_array(node, "elvees,state-on-disable",
 				   elvees_pwm_chip->state_on_disable, NUM_PWM_CHANNEL);
-	if (ret < 0)
-		dev_warn(dev, "elvees,state-on-disable DT property missing\n");
+	if (ret < 0 && ret != -EINVAL)
+		dev_warn(dev, "invalid 'elvees,state-on-disable' property (%d)\n",
+			 ret);
 
 	return 0;
 }
