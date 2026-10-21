@@ -137,7 +137,7 @@ static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	elvees_pwm_writel(pwm_chip, PWM_CLKCTL,
 			PWM_CLKCTL_CNTMODE(PWM_CNTMODE_DOWN) |
-			PWM_CLKCTL_LOADPRD(PWM_LOADPRD_DISABLE) |
+			PWM_CLKCTL_LOADPRD(PWM_LOADPRD_ENABLE) |
 			PWM_CLKCTL_SYNCOSEL(PWM_SYNCOSEL_DISABLE),
 			pwm->hwpwm);
 
@@ -159,6 +159,11 @@ static int elvees_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	div = clk_rate * duty_ns;
 	duty = DIV_ROUND_CLOSEST_ULL(div, NSEC_PER_SEC);
 
+	/*
+	 * Both CTRPRD (CLKCTL[LOADPRD] = 0) and CMPA (CMPCTL reset value)
+	 * are written to their shadow registers and take effect at the next
+	 * period boundary, so a running counter can be updated in place.
+	 */
 	elvees_pwm_writel(pwm_chip, PWM_CTRPRD, period, pwm->hwpwm);
 	elvees_pwm_writel(pwm_chip, PWM_CMPA, duty, pwm->hwpwm);
 
@@ -169,6 +174,12 @@ static void elvees_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
 
+	/*
+	 * Start from CTRCNT = 0, so the first count reloads the active
+	 * CTRPRD/CMPA from the shadow registers instead of finishing a
+	 * period left over from the last disable.
+	 */
+	elvees_pwm_writel(pwm_chip, PWM_CTRCNT, 0, pwm->hwpwm);
 	elvees_pwm_set_run(pwm_chip, pwm->hwpwm, PWM_RUN_START);
 }
 
