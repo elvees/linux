@@ -8,6 +8,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -147,25 +148,33 @@ static int elvees_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 }
 
 static int elvees_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
-			    int duty_ns, int period_ns)
+			     u64 duty_ns, u64 period_ns)
 {
 	struct elvees_pwm_chip *pwm_chip = pwmchip_get_drvdata(chip);
-	u64 div, clk_rate = clk_get_rate(pwm_chip->clk);
-	u32 period, duty;
+	u64 clk_rate = clk_get_rate(pwm_chip->clk);
+	u64 period, duty;
 
-	div = clk_rate * period_ns;
-	period = DIV_ROUND_CLOSEST_ULL(div, NSEC_PER_SEC);
+	if (!clk_rate)
+		return -EINVAL;
 
-	div = clk_rate * duty_ns;
-	duty = DIV_ROUND_CLOSEST_ULL(div, NSEC_PER_SEC);
+	period = mul_u64_u64_div_u64(clk_rate, period_ns, NSEC_PER_SEC);
+	duty = mul_u64_u64_div_u64(clk_rate, duty_ns, NSEC_PER_SEC);
+
+	if (!period)
+		return -EINVAL;
+
+	if (period > U32_MAX)
+		period = U32_MAX;
+	if (duty > period)
+		duty = period;
 
 	/*
 	 * Both CTRPRD (CLKCTL[LOADPRD] = 0) and CMPA (CMPCTL reset value)
 	 * are written to their shadow registers and take effect at the next
 	 * period boundary, so a running counter can be updated in place.
 	 */
-	elvees_pwm_writel(pwm_chip, PWM_CTRPRD, period, pwm->hwpwm);
-	elvees_pwm_writel(pwm_chip, PWM_CMPA, duty, pwm->hwpwm);
+	elvees_pwm_writel(pwm_chip, PWM_CTRPRD, (u32)period, pwm->hwpwm);
+	elvees_pwm_writel(pwm_chip, PWM_CMPA, (u32)duty, pwm->hwpwm);
 
 	return 0;
 }
