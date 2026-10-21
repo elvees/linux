@@ -40,6 +40,7 @@ properties:
     items:
       minimum: 0
       maximum: 1
+    default: [0, 0, 0, 0]
 
   elvees,state-on-disable:
     description: |+
@@ -54,6 +55,7 @@ properties:
     items:
       minimum: 0
       maximum: 3
+    default: [0, 0, 0, 0]
 
 required:
   - compatible
