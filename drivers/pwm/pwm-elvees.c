@@ -239,19 +239,24 @@ static const struct pwm_ops elvees_pwm_ops = {
 
 static int elvees_pwm_parse_dt(struct pwm_chip *pwm_chip)
 {
-	struct device_node *node = dev_of_node(&pwm_chip->dev);
+	/*
+	 * Since v6.9 pwm_chip->dev is the pwmchipN class device, which has no
+	 * of_node. DT properties live on the parent platform device.
+	 */
+	struct device *dev = pwmchip_parent(pwm_chip);
+	struct device_node *node = dev_of_node(dev);
 	int ret;
 	struct elvees_pwm_chip *elvees_pwm_chip = pwmchip_get_drvdata(pwm_chip);
 
 	ret = of_property_read_u32_array(node, "elvees,output-channel",
 				   elvees_pwm_chip->out_channel, NUM_PWM_CHANNEL);
 	if (ret < 0)
-		dev_warn(&pwm_chip->dev, "elvees,output-channel DT property missing\n");
+		dev_warn(dev, "elvees,output-channel DT property missing\n");
 
 	ret = of_property_read_u32_array(node, "elvees,state-on-disable",
 				   elvees_pwm_chip->state_on_disable, NUM_PWM_CHANNEL);
 	if (ret < 0)
-		dev_warn(&pwm_chip->dev, "elvees,state-on-disable DT property missing\n");
+		dev_warn(dev, "elvees,state-on-disable DT property missing\n");
 
 	return 0;
 }
