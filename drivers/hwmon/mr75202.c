@@ -5,6 +5,23 @@
  * This is a hardware monitoring driver for Moortec MR75202 PVT controller
  * which is used to configure & control Moortec embedded analog IPs like
  * temperature sensors (TS), voltage monitors (VM) and process detectors (PD).
+ *
+ * +---------------------+
+ * |   PVT Controller    |   serial          parallel
+ * |                     | interface +-----+ interface +------------+
+ * |             TS SDIF0|-----------| SDA |-----------| TS sensor0 |
+ * |             ....... |......     +-----+           +------------+
+ * |             ....... |......     +-----+           +------------+
+ * |             TS SDIFn|-----------| SDA |-----------| TS sensorN |
+ * |                     |           +-----+           +------------+
+ * |                     |
+ * |                     |           +-----+           +------------+
+ * |             VM SDIF0|-----------| SDA |-----------| VM sensor0 |
+ * |             ....... |......     +-----+           +------------+
+ * |             ....... |......     +-----+           +------------+
+ * |             VM SDIFn|-----------| SDA |-----------| VM sensorN |
+ * |                     |           +-----+           +------------+
+ * +---------------------+
  */
 #include <linux/kernel.h>
 #include <linux/clk.h>
