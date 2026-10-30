@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2026 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03r-mcom03bub-r1.3.0-b101uan01.dts"
+
+/ {
+	compatible = "elvees,mcom03bub-r1.3.0-fct",
+		     "elvees,mcom03bub-r1.3.0-b101uan01",
+		     "elvees,mcom03bub-r1.3.0",
+		     "elvees,mcom03bub",
+		     "elvees,mcom03r";
+};
+
+&i2c0 {
+	eeprom0: eeprom0@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+&i2c1 {
+	eeprom1: eeprom1@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+&i2c2 {
+	eeprom2: eeprom2@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+&i2c3 {
+	eeprom3: eeprom3@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "atmel,24c01";
+		reg = <0x50>;
+	};
+};
+
+/* Disable DPI (with connected HDMI transmitter) because HDMI transmitter is
+ * disconnected when used EEPROMs (#MCOM03SW-2909).
+ */
+&de_dpi {
+	status = "disabled";
+};
+
+&csi0 {
+	assigned-clocks = <&media_clocks CLK_MEDIA_UCG3_CMOS0>;
+	assigned-clock-rates = <27000000>;
+};
