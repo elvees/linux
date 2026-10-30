@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright 2026 RnD Center "ELVEES", JSC
+
+/dts-v1/;
+
+#include "mcom03r-mcom03bub-r1.3.0.dts"
+
+/ {
+	compatible = "elvees,mcom03bub-r1.3.0-b101uan01",
+		     "elvees,mcom03bub-r1.3.0",
+		     "elvees,mcom03bub",
+		     "elvees,mcom03r";
+
+	dsi_backlight: dsi-backlight {
+		compatible = "gpio-backlight";
+		gpios = <&gpio1d 2 GPIO_ACTIVE_HIGH>;
+		default-on;
+	};
+};
+
+&de_dsi {
+	status = "okay";
+	dsi-min-clock-frequency = <500000000>;
+
+	dsi-panel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "auo,b101uan01";
+		reg = <0>;
+		backlight = <&dsi_backlight>;
+		enable-gpios = <&gpio1c 1 GPIO_ACTIVE_HIGH>;
+
+		ports {
+			port {
+				panel_in: endpoint {
+					remote-endpoint = <&dsi_out>;
+				};
+			};
+		};
+	};
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
