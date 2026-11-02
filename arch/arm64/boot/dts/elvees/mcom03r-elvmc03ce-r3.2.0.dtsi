@@ -318,3 +318,17 @@
 		tx-internal-delay-ps = <1350>;
 	};
 };
+
+&spi1_default_cfg {
+	rxd-pin {
+		pins = "GPIOC_2";
+		input-enable;
+	};
+
+	/* SSI1_SS_IN_N pin is unbound on ELV-MC03-CE r3.2.0 */
+	ss-in-pin {
+		pins = "GPIOC_7";
+		input-enable;
+		bias-pull-up;
+	};
+};
