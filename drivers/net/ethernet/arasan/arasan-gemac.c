@@ -1046,6 +1046,8 @@ static int arasan_gemac_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 {
 	struct arasan_gemac_pdata *pd = bus->priv;
 	int value;
+	u8 val;
+	int ret;
 
 	arasan_gemac_writel(pd, MAC_MDIO_CONTROL,
 			    FIELD_PREP(MAC_MDIO_CONTROL_READ_WRITE, 1) |
@@ -1054,9 +1056,12 @@ static int arasan_gemac_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 			    FIELD_PREP(MAC_MDIO_CONTROL_START_FRAME, 1));
 
 	/* wait for end of transfer */
-	while (FIELD_GET(MAC_MDIO_CONTROL_START_FRAME,
-			 arasan_gemac_readl(pd, MAC_MDIO_CONTROL)))
-		cpu_relax();
+	ret = read_poll_timeout(FIELD_GET, val, !val, 0, 100000, 0, MAC_MDIO_CONTROL_START_FRAME,
+				arasan_gemac_readl(pd, MAC_MDIO_CONTROL));
+	if (ret) {
+		netdev_err(pd->dev, "Failed to wait for the end of the transfer");
+		return ret;
+	}
 
 	value = arasan_gemac_readl(pd, MAC_MDIO_DATA);
 
@@ -1067,6 +1072,8 @@ static int arasan_gemac_mdio_write(struct mii_bus *bus, int mii_id,
 				   int regnum, u16 value)
 {
 	struct arasan_gemac_pdata *pd = bus->priv;
+	u8 val;
+	int ret;
 
 	arasan_gemac_writel(pd, MAC_MDIO_DATA, value);
 
@@ -1077,11 +1084,12 @@ static int arasan_gemac_mdio_write(struct mii_bus *bus, int mii_id,
 			    FIELD_PREP(MAC_MDIO_CONTROL_READ_WRITE, 0));
 
 	/* wait for end of transfer */
-	while (FIELD_GET(MAC_MDIO_CONTROL_START_FRAME,
-			 arasan_gemac_readl(pd, MAC_MDIO_CONTROL)))
-		cpu_relax();
+	ret = read_poll_timeout(FIELD_GET, val, !val, 0, 100000, 0, MAC_MDIO_CONTROL_START_FRAME,
+				arasan_gemac_readl(pd, MAC_MDIO_CONTROL));
+	if (ret)
+		netdev_err(pd->dev, "Failed to wait for the end of the transfer");
 
-	return 0;
+	return ret;
 }
 
 /* Reconfigure Arasan GEMAC according to speed and duplex value */
