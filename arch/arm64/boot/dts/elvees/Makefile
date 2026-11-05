@@ -89,6 +89,7 @@ dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03ce-r3.2.0-salute-pm-ett-sce-r2.0.0.
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03q7-r3.3.0-elvq7cb-r3.3.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03q7-r3.3.0-elvq7cb-r3.3.0-m238hca-l3b.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03q7-r3.3.0-elvq7cb-r3.3.0-b156xw02-v0r.dtb
+dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03q7-r3.3.0-salute-pm-ett-sq7-r2.0.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0-b156xw02-v0r.dtb
 dtb-$(CONFIG_ARCH_MCOM03R) += mcom03r-elvmc03smarc-r3.0.0-elvsmarccb-r3.3.0-m238hca-l3b.dtb
