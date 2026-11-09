@@ -53,6 +53,10 @@
 	};
 };
 
+&display_pipeline {
+	status = "okay";
+};
+
 &de_dsi {
 	status = "okay";
 

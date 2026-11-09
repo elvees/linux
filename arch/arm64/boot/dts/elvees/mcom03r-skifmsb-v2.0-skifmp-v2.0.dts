@@ -248,6 +248,10 @@
 	};
 };
 
+&display_pipeline {
+	status = "okay";
+};
+
 &de_dsi {
 	status = "okay";
 	dsi-min-clock-frequency = <275000000>;

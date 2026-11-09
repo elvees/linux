@@ -663,6 +663,11 @@
 					remote-endpoint =
 						<&de_dsi_in>;
 				};
+
+				dp_out_display_pipeline: endpoint@2 {
+					remote-endpoint =
+						<&display_pipeline_in>;
+				};
 			};
 		};
 
@@ -727,6 +732,25 @@
 					};
 				};
 			};
+		};
+
+		display_pipeline: display_pipeline@0 {
+			compatible = "elvees,mcom03-drm";
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					display_pipeline_in: endpoint@0 {
+						remote-endpoint = <&dp_out_display_pipeline>;
+					};
+				};
+			};
+
 		};
 
 		csi0: dphy@1323000 {
