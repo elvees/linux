@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/elvees,mcom03-display-pipeline.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ELVEES MCom-03 Display Pipeline
+
+maintainers:
+  - Dmitriy Salnikov, <dasalnikov@elvees.com>
+
+description:
+  ELVEES MCom-03 display engine is composed of several distinct hardware blocks (Display Processor (DP),
+  MIPI DSI host, DSI/DPI encoders, bridges and panels) that work together to output a video signal.
+  This node represents the display pipeline binding these components together.
+
+properties:
+  compatible:
+    const: elvees,mcom03-drm
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: Input port from CRTC device
+
+    required:
+      - port@0
+
+required:
+  - compatible
+  - ports
+
+additionalProperties: false
+
+examples:
+  - |
+    display_pipeline: display_pipeline {
+        compatible = "elvees,mcom03-drm";
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                reg = <0>;
+                display_pipeline_in: endpoint {
+                    remote-endpoint = <&crtc_out>;
+                };
+            };
+        };
+    };
+
+...
