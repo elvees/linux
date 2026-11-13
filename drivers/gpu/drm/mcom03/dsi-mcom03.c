@@ -580,7 +580,7 @@ static int mcom03_dsi_bind(struct device *dev, struct device *master,
 
 	encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, dev->of_node);
 	if (encoder->possible_crtcs == 0)
-		return -EPROBE_DEFER;
+		return -EINVAL;
 
 	DRM_DEBUG_KMS("possible_crtcs = 0x%x\n", encoder->possible_crtcs);
 
