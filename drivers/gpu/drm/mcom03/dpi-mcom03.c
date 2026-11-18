@@ -39,7 +39,8 @@ enum {
 struct mcom03_dpi_device {
 	struct device *dev;
 
-	struct drm_bridge *bridge;
+	struct drm_bridge *next_bridge;
+	struct drm_bridge dpi_bridge;
 	struct drm_panel *panel;
 	struct drm_encoder encoder;
 
@@ -49,6 +50,9 @@ struct mcom03_dpi_device {
 
 #define encoder_to_mcom03(ptr) \
 	container_of(ptr, struct mcom03_dpi_device, encoder)
+
+#define bridge_to_mcom03(ptr) \
+	container_of(ptr, struct mcom03_dpi_device, dpi_bridge)
 
 static struct clk *
 mcom03_get_clk(struct mcom03_dpi_device *de, enum MCOM03_DPI_CLK id)
@@ -60,10 +64,11 @@ mcom03_get_clk(struct mcom03_dpi_device *de, enum MCOM03_DPI_CLK id)
 }
 
 static enum drm_mode_status
-mcom03_dpi_mode_valid(struct drm_encoder *encoder,
+mcom03_dpi_mode_valid(struct drm_bridge *bridge,
+		      const struct drm_display_info *info,
 		      const struct drm_display_mode *mode)
 {
-	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
+	struct mcom03_dpi_device *de = bridge_to_mcom03(bridge);
 	struct clk *pxl_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_PXL);
 	long requested_rate = mode->clock * 1000;
 	long real_rate = clk_round_rate(pxl_clk, requested_rate);
@@ -71,11 +76,11 @@ mcom03_dpi_mode_valid(struct drm_encoder *encoder,
 	return (requested_rate == real_rate) ? MODE_OK : MODE_NOCLOCK;
 }
 
-static void mcom03_dpi_mode_set(struct drm_encoder *encoder,
-				struct drm_display_mode *mode,
-				struct drm_display_mode *adjusted_mode)
+static void mcom03_dpi_mode_set(struct drm_bridge *bridge,
+				const struct drm_display_mode *mode,
+				const struct drm_display_mode *adjusted_mode)
 {
-	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
+	struct mcom03_dpi_device *de = bridge_to_mcom03(bridge);
 	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
 
 	if (cmos0_clk) {
@@ -85,9 +90,9 @@ static void mcom03_dpi_mode_set(struct drm_encoder *encoder,
 	}
 }
 
-static void mcom03_dpi_enable(struct drm_encoder *encoder)
+static void mcom03_dpi_enable(struct drm_bridge *bridge)
 {
-	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
+	struct mcom03_dpi_device *de = bridge_to_mcom03(bridge);
 	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
 
 	pm_runtime_get_sync(de->dev);
@@ -96,9 +101,9 @@ static void mcom03_dpi_enable(struct drm_encoder *encoder)
 		clk_enable(mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0));
 }
 
-static void mcom03_dpi_disable(struct drm_encoder *encoder)
+static void mcom03_dpi_disable(struct drm_bridge *bridge)
 {
-	struct mcom03_dpi_device *de = encoder_to_mcom03(encoder);
+	struct mcom03_dpi_device *de = bridge_to_mcom03(bridge);
 	struct clk *cmos0_clk = mcom03_get_clk(de, MCOM03_DPI_CLK_CMOS0);
 
 	clk_disable(mcom03_get_clk(de, MCOM03_DPI_CLK_PXL));
@@ -108,11 +113,21 @@ static void mcom03_dpi_disable(struct drm_encoder *encoder)
 	pm_runtime_put(de->dev);
 }
 
-static const struct drm_encoder_helper_funcs mcom03_dpi_encoder_helper_funcs = {
+static int mcom03_dpi_bridge_attach(struct drm_bridge *bridge,
+				    struct drm_encoder *encoder,
+				    enum drm_bridge_attach_flags flags)
+{
+	struct mcom03_dpi_device *de = bridge_to_mcom03(bridge);
+
+	return drm_bridge_attach(encoder, de->next_bridge, bridge, flags);
+}
+
+static const struct drm_bridge_funcs mcom03_dpi_bridge_funcs = {
 	.mode_valid = mcom03_dpi_mode_valid,
 	.mode_set = mcom03_dpi_mode_set,
 	.enable = mcom03_dpi_enable,
 	.disable = mcom03_dpi_disable,
+	.attach = mcom03_dpi_bridge_attach,
 };
 
 static int mcom03_dpi_bind(struct device *dev, struct device *master,
@@ -148,10 +163,9 @@ static int mcom03_dpi_bind(struct device *dev, struct device *master,
 	}
 
 	drm_simple_encoder_init(drm, encoder, DRM_MODE_ENCODER_DPI);
-	drm_encoder_helper_add(encoder, &mcom03_dpi_encoder_helper_funcs);
 
-	if (de->bridge) {
-		ret = drm_bridge_attach(encoder, de->bridge, NULL, 0);
+	if (de->next_bridge) {
+		ret = drm_bridge_attach(encoder, &de->dpi_bridge, NULL, 0);
 		if (ret) {
 			DRM_DEV_ERROR(dev, "failed to attach bridge\n");
 			drm_encoder_cleanup(encoder);
@@ -223,34 +237,38 @@ static int mcom03_dpi_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	de = devm_kzalloc(dev, sizeof(*de), GFP_KERNEL);
+	de = devm_drm_bridge_alloc(dev, struct mcom03_dpi_device, dpi_bridge,
+				   &mcom03_dpi_bridge_funcs);
 	if (!de)
 		return -ENOMEM;
 
 	de->dev = dev;
 	platform_set_drvdata(pdev, de);
 
+	de->dpi_bridge.of_node = dev->of_node;
+	devm_drm_bridge_add(dev, &de->dpi_bridge);
+
 	ret = drm_of_find_panel_or_bridge(dev->of_node,
-		PORT_OUT, 0, &de->panel, &de->bridge);
+		PORT_OUT, 0, &de->panel, &de->next_bridge);
 
 	if (ret) {
 		DRM_DEV_INFO(dev, "failed to find endpoints, errno %d\n", ret);
 		return ret;
 	}
 
-	if (!de->panel && !de->bridge) {
+	if (!de->panel && !de->next_bridge) {
 		DRM_DEV_ERROR(dev, "failed to find panel or bridge endpoints");
 		return -ENODEV;
 	}
 
 	if (de->panel) {
-		de->bridge = drm_panel_bridge_add_typed(de->panel,
+		de->next_bridge = drm_panel_bridge_add_typed(de->panel,
 			DRM_MODE_CONNECTOR_DPI);
-		if (IS_ERR(de->bridge)) {
-			ret = PTR_ERR(de->bridge);
+		if (IS_ERR(de->next_bridge)) {
+			ret = PTR_ERR(de->next_bridge);
 			return ret;
 		}
-	} else if (de->bridge) {
+	} else if (de->next_bridge) {
 		dev_info(dev, "Using non-panel bridge\n");
 	} else {
 		dev_err(dev, "failed to find bridge!\n");
