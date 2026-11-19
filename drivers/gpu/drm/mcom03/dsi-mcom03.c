@@ -738,6 +738,7 @@ static int mcom03_dsi_clocks_init(struct mcom03_dsi_device *de)
 	if (ret) {
 		dev_err(de->dev, "failed to set rate for mipi_tx_cfg %d\n",
 			de->mipi_tx_cfg_freq);
+		clk_bulk_unprepare(de->num_clocks, de->clocks);
 		return ret;
 	}
 
@@ -747,6 +748,7 @@ static int mcom03_dsi_clocks_init(struct mcom03_dsi_device *de)
 	if (ret) {
 		dev_err(de->dev, "failed to set rate for mipi_tx_ref %d\n",
 			de->mipi_tx_ref_freq);
+		clk_bulk_unprepare(de->num_clocks, de->clocks);
 		return ret;
 	}
 
@@ -756,6 +758,7 @@ static int mcom03_dsi_clocks_init(struct mcom03_dsi_device *de)
 		if (ret) {
 			dev_err(de->dev,
 				"failed to get dsi-clock-frequency");
+			clk_bulk_unprepare(de->num_clocks, de->clocks);
 			return ret;
 		}
 	}
@@ -766,6 +769,7 @@ static int mcom03_dsi_clocks_init(struct mcom03_dsi_device *de)
 		if (ret) {
 			dev_err(de->dev,
 				"failed to get dsi-min-clock-frequency");
+			clk_bulk_unprepare(de->num_clocks, de->clocks);
 			return ret;
 		}
 	}
@@ -801,6 +805,9 @@ static int mcom03_dsi_probe(struct platform_device *pdev)
 
 	return 0;
 
+clock_unprepare:
+	clk_bulk_unprepare(de->num_clocks, de->clocks);
+
 dw_cleanup:
 	dw_mipi_dsi_remove(de->dsi);
 
@@ -813,6 +820,7 @@ static void mcom03_dsi_remove(struct platform_device *pdev)
 	struct mcom03_dsi_device *de = dev_get_drvdata(&pdev->dev);
 
 	dw_mipi_dsi_remove(de->dsi);
+	clk_bulk_unprepare(de->num_clocks, de->clocks);
 }
 
 static int mcom03_dsi_runtime_pm_suspend(struct device *dev)
